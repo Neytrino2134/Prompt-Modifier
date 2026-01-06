@@ -210,15 +210,28 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                             const newImages = [...(parsed.inputImages || []), thumbnailUrl];
                             setFullSizeImage(nodeId, newImages.length, dataUrl); 
                             newValue = JSON.stringify({ ...parsed, inputImages: newImages });
-                        } else if (node.type === NodeType.IMAGE_INPUT || node.type === NodeType.IMAGE_ANALYZER || node.type === NodeType.CHARACTER_CARD) {
-                            setFullSizeImage(nodeId, 0, dataUrl);
+                        } else if (node.type === NodeType.IMAGE_INPUT || node.type === NodeType.IMAGE_ANALYZER || node.type === NodeType.CHARACTER_CARD || node.type === NodeType.TRANSLATOR) {
+                            
+                            // Specific handling for Translator Node
+                            if (node.type === NodeType.TRANSLATOR) {
+                                // Store image in JSON, but also update text if prompt found
+                                newValue = JSON.stringify({ 
+                                    ...parsed, 
+                                    image: thumbnailUrl,
+                                    // Optionally append found prompt to input text?
+                                    // For now just update image. User can clear text if needed.
+                                });
+                                // We store full res in cache slot 0 for translator too if we want better OCR,
+                                // but for now thumbnails (512px) might be enough for OCR or we can use cache.
+                                // Let's use cache slot 0 for translator full res image.
+                                setFullSizeImage(nodeId, 0, dataUrl);
+
+                            } else {
+                                setFullSizeImage(nodeId, 0, dataUrl);
+                            }
                             
                             if (node.type === NodeType.CHARACTER_CARD) {
                                 let chars = Array.isArray(parsed) ? [...parsed] : [parsed];
-                                
-                                // Logic: If pasting image to card node, append a NEW character with this image
-                                // instead of overwriting the first one.
-                                
                                 const nextIndex = chars.length;
                                 const ratio = '1:1';
                                 const thumbs = { '1:1': thumbnailUrl, '16:9': null, '9:16': null };
@@ -233,32 +246,35 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                                     prompt: prompt || '',
                                     fullDescription: '',
                                     targetLanguage: 'en',
-                                    isOutput: chars.length === 0 // Output if first
+                                    isOutput: chars.length === 0
                                 };
                                 
                                 chars.push(newChar);
-                                
                                 const ratioIndex = RATIO_INDICES[ratio];
                                 if (ratioIndex) setFullSizeImage(nodeId, (nextIndex * 10) + ratioIndex, dataUrl);
-                                setFullSizeImage(nodeId, nextIndex * 10, dataUrl); // Active full res
+                                setFullSizeImage(nodeId, nextIndex * 10, dataUrl);
                                 
                                 const CARD_WIDTH_STEP = 410;
                                 const CARD_BASE_WIDTH = 110;
                                 newWidth = (chars.length * CARD_WIDTH_STEP) + CARD_BASE_WIDTH;
                                 
                                 newValue = JSON.stringify(chars);
-                            } else {
+                            } else if (node.type !== NodeType.TRANSLATOR) {
+                                // Image Input / Analyzer
                                 newValue = JSON.stringify({ ...parsed, image: thumbnailUrl, prompt: prompt || parsed.prompt || '' });
                             }
                         } else {
                             return currentNodes;
                         }
                     } catch {
+                         // Fallback for new/empty nodes
                          if (node.type === NodeType.IMAGE_INPUT || node.type === NodeType.IMAGE_ANALYZER) {
                             setFullSizeImage(nodeId, 0, dataUrl);
                             newValue = JSON.stringify({ image: thumbnailUrl, prompt: prompt || '' });
+                         } else if (node.type === NodeType.TRANSLATOR) {
+                            setFullSizeImage(nodeId, 0, dataUrl);
+                            newValue = JSON.stringify({ image: thumbnailUrl });
                          } else if (node.type === NodeType.CHARACTER_CARD) {
-                            // If empty/invalid, create first card
                             setFullSizeImage(nodeId, 0, dataUrl);
                             const thumbs = { '1:1': thumbnailUrl, '16:9': null, '9:16': null };
                             newValue = JSON.stringify([{ 
@@ -271,8 +287,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                                 prompt: prompt || '',
                                 isOutput: true
                             }]);
-                            setFullSizeImage(nodeId, 1, dataUrl); // 1:1 slot
-                            
+                            setFullSizeImage(nodeId, 1, dataUrl);
                             const CARD_WIDTH_STEP = 410;
                             const CARD_BASE_WIDTH = 110;
                             newWidth = CARD_WIDTH_STEP + CARD_BASE_WIDTH;
@@ -339,19 +354,15 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                     case NodeType.CHARACTER_CARD:
                         {
                             const charArr = Array.isArray(parsed) ? parsed : [parsed];
-                            
-                            // Map over ALL characters to export them
                             const exportData = charArr.map((char: any, i: number) => {
                                 const fullSources: Record<string, string | null> = { ...char.thumbnails };
                                 Object.entries(RATIO_INDICES).forEach(([ratio, index]) => {
                                     const fullRes = getFullSizeImage(node.id, (i * 10) + index);
                                     if (fullRes) fullSources[ratio] = fullRes;
                                 });
-                                
                                 const activeRatio = char.selectedRatio || '1:1';
                                 const activeHighRes = getFullSizeImage(node.id, i * 10);
                                 const imageToSave = activeHighRes || fullSources[activeRatio] || char.image;
-                                
                                 const exportChar = {
                                     type: 'character-card',
                                     nodeTitle: node.title,
@@ -359,14 +370,10 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                                     image: imageToSave,
                                     imageSources: fullSources
                                 };
-                                
-                                // Cleanup internal UI props
                                 delete exportChar.thumbnails;
-                                delete exportChar.id; // Optional: Remove internal ID to generate new ones on paste
-                                
+                                delete exportChar.id; 
                                 return exportChar;
                             });
-
                             textToCopy = JSON.stringify(exportData, null, 2);
                             imageUrl = null;
                         }
@@ -378,6 +385,9 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                     case NodeType.IMAGE_OUTPUT:
                         imageUrl = getFullSizeImage(node.id, 0) || node.value;
                         textToCopy = '';
+                        break;
+                    case NodeType.TRANSLATOR:
+                        textToCopy = parsed.translatedText || parsed.inputText || '';
                         break;
                     case NodeType.PROMPT_PROCESSOR:
                         textToCopy = parsed.prompt || '';

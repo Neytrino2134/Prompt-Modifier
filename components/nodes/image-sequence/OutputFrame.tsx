@@ -23,7 +23,6 @@ const AspectRatioIcon: React.FC<{ width: number; height: number }> = ({ width, h
     return (
         <div className="flex items-center justify-center w-6 h-6" title={title}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                 <path d="MiconPath" />
                  <path d={iconPath} />
             </svg>
         </div>
@@ -195,11 +194,11 @@ export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, fram
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative group aspect-video border-2 transition-colors h-[160px] w-full ${isDragOver ? 'border-cyan-400 bg-gray-700/50' : (isSelected ? 'border-cyan-400' : 'border-transparent')} ${statusClasses[status]}`}
+            className={`relative group border-2 transition-colors h-full w-full ${isDragOver ? 'border-cyan-400 bg-gray-700/50' : (isSelected ? 'border-cyan-400' : 'border-transparent')} ${statusClasses[status]}`}
         >
              <div className="absolute top-1 left-1 z-20 pointer-events-auto" title="Select frame for batch generation">
                 <CustomCheckbox
-                    checked={isChecked}
+                    checked={!!isChecked}
                     onChange={(_, e) => onCheck(frameNumber, e.shiftKey)}
                 />
             </div>
@@ -339,7 +338,7 @@ export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, fram
                         <div className="absolute bottom-8 right-1 flex flex-col items-end space-y-0.5 z-10 pointer-events-none opacity-75 group-hover:opacity-100 transition-opacity">
                             {characterIndices.map((idx, i) => (
                                 <div key={i} className="bg-black/60 text-white text-[9px] font-bold px-1 rounded backdrop-blur-sm">
-                                    CH-{idx}
+                                    ENT-{idx}
                                 </div>
                             ))}
                         </div>

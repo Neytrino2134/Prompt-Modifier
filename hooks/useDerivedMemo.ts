@@ -114,7 +114,15 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                      if (node.type === NodeType.CHARACTER_CARD && fromHandleId !== 'image') break;
                      
                      const charArr = Array.isArray(parsed) ? parsed : [parsed];
+                     // Only consider active characters for direct image output, or just the primary one
+                     // Usually image output from card is primary.
                      const outputChar = charArr.find((c: any) => c.isOutput) || charArr[0];
+                     
+                     // If primary is inactive, do we return null? 
+                     // The requirement specifically mentioned "All character data" output point.
+                     // For 'image' output, it's safer to respect it too if it's the primary one.
+                     if (outputChar && outputChar.isActive === false) return null;
+
                      const charIdx = charArr.indexOf(outputChar);
                      const ratioIdx = RATIO_INDICES[outputChar.selectedRatio] || 1;
                      const cachedFull = getFullSizeImage(node.id, (charIdx * 10) + ratioIdx);
@@ -131,61 +139,47 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
     }, [nodes, connections, getFullSizeImage]);
   
     const connectedImageSources = useMemo(() => {
-        // 1. Calculate a lightweight signature to detect changes in connections or node *content* (not position)
-        // We only care about connections to Image Receivers
         const relevantConnections = connections.filter(conn => {
             const toNode = nodes.find(n => n.id === conn.toNodeId);
             if (!toNode) return false;
             return (toNode.type === NodeType.IMAGE_EDITOR && conn.toHandleId === 'image') || toNode.type === NodeType.IMAGE_ANALYZER;
         });
 
-        // Build signature string
         const signatureParts = relevantConnections.map(c => {
              const fromNode = nodes.find(n => n.id === c.fromNodeId);
-             // Use hash for image source detection as well
              return `${c.id}:${fromNode?.id}:${generateSignature(fromNode?.value || '')}`;
         });
         const currentSignature = signatureParts.join('|');
 
-        // 2. Check Cache
         if (currentSignature === imageSourcesCache.current.signature) {
             return imageSourcesCache.current.data;
         }
 
-        // 3. Recalculate if changed
         const map = new Map<string, (string | null)[]>();
         relevantConnections.forEach(conn => {
             if (!map.has(conn.toNodeId)) map.set(conn.toNodeId, []);
             map.get(conn.toNodeId)!.push(findImageDataSource(conn.fromNodeId, conn.fromHandleId, new Set(), false));
         });
 
-        // Update Cache
         imageSourcesCache.current = { signature: currentSignature, data: map };
         return map;
     }, [connections, nodes, findImageDataSource]);
 
     const connectedCharacterData = useMemo(() => {
-        // 1. Identify relevant targets (Image Sequence Generators)
         const targets = nodes.filter(n => n.type === NodeType.IMAGE_SEQUENCE_GENERATOR);
         
-        // 2. Build Signature
-        // We need to track connections TO these targets, and the VALUES of the source nodes.
-        // Also if connections change (reroute insertion), the connection IDs change, altering the signature.
         const relevantConnections = connections.filter(c => targets.some(t => t.id === c.toNodeId) && c.toHandleId === 'character_data');
         
         const signatureParts = relevantConnections.map(c => {
             const fromNode = nodes.find(n => n.id === c.fromNodeId);
-            // Use hash instead of length to catch state changes (like isOutput toggles) that preserve string length
             return `${c.id}:${fromNode?.id}:${generateSignature(fromNode?.value || '')}`; 
         });
         const currentSignature = signatureParts.join('|');
 
-        // 3. Check Cache
         if (currentSignature === characterDataCache.current.signature) {
             return characterDataCache.current.data;
         }
 
-        // 4. Recalculate
         const findUpstreamSources = (nodeId: string, handleId: string | undefined, visited = new Set<string>()): { node: Node, handleId?: string, connectionId: string }[] => {
             if (visited.has(nodeId)) return [];
             visited.add(nodeId);
@@ -195,28 +189,6 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                 const fromNode = nodes.find(n => n.id === conn.fromNodeId);
                 if (!fromNode) continue;
                 if (fromNode.type === NodeType.REROUTE_DOT) {
-                     // Pass the original connection ID to the target node if possible, or track the path.
-                     // But for detach purposes, we need the connection *entering* the target node (which is 'conn.id' in the inputConns loop).
-                     // However, recursion returns upstream nodes.
-                     // The `connectionId` stored here must be the one directly connected to `toNodeId` to allow cutting.
-                     // But if we recurse, `conn` changes. 
-                     // Wait, we need the connection ID that connects to the Sequence Generator.
-                     // The `inputConns` loop iterates over direct connections. 
-                     // If it's a Reroute, we recurse to find the source *Node*, but the connection *to cut* is the one in `inputConns`.
-                     // So we should pass down the initial connection ID if we want to cut the immediate link.
-                     // BUT `findUpstreamSources` returns a list. 
-                     // Let's modify the return structure to carry the *immediate* connection ID if it's not passed recursively, or maybe just return the source node + the immediate connection ID.
-                     // Actually, if we have A -> R -> B. B is target. Conn R->B is `conn`.
-                     // We call find(R). R has input A->R.
-                     // We want to know that A is the source, but `conn.id` (R->B) is the connection to cut on B.
-                     // So we should capture `conn.id` from the top level call.
-                     
-                     // Simplified approach for now: Just recursive finding.
-                     // The issue is `connectionId` property below. It comes from the *recursive* call.
-                     // So if A->R->B, the result comes from processing A->R. `connectionId` is A->R.
-                     // If we detach based on that ID, we cut A->R. B still connected to R.
-                     // This stops data flow, so it works logic-wise.
-                     
                      results.push(...findUpstreamSources(fromNode.id, undefined, visited));
                 }
                 else if (getOutputHandleType(fromNode, conn.fromHandleId) === 'character_data') {
@@ -228,23 +200,16 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
 
         const map = new Map<string, any[]>();
         targets.forEach(toNode => {
-            // We use the same recursive finder. Note the caveat about connectionId above. 
-            // If cutting A->R connection, the data stops. 
-            // The "Duplicate" bug is likely due to the "All Data" detach logic which copies to local but might fail to cut if IDs are mixed up.
             const sources = findUpstreamSources(toNode.id, 'character_data');
             
             if (sources.length > 0) {
                 const nodeData: any[] = [];
-                // Deduplication Set: Store "NodeID:HandleID" to ensure we don't process the same output twice for a single target
                 const processedSignatures = new Set<string>();
 
                 sources.forEach(source => {
                     const fromNode = source.node;
-                    
-                    // Generate unique signature for this source output
                     const signature = `${fromNode.id}:${source.handleId || 'default'}`;
                     
-                    // If we already processed this exact output for this target, skip it
                     if (processedSignatures.has(signature)) return;
                     processedSignatures.add(signature);
 
@@ -264,20 +229,27 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             let charsToProcess: { data: any, originalIndex: number }[] = [];
 
                             if (hId === 'all_data') {
-                                // Pass all characters
-                                charsToProcess = characters.map((c, idx) => ({ data: c, originalIndex: idx }));
+                                // Filter out inactive (muted) characters
+                                charsToProcess = characters
+                                    .map((c, idx) => ({ data: c, originalIndex: idx }))
+                                    .filter(item => item.data.isActive !== false);
                             } else if (hId === 'primary_data') {
-                                // Pass only primary (output) character
                                 const primaryChar = characters.find((c: any) => c.isOutput) || characters[0];
-                                const idx = characters.indexOf(primaryChar);
-                                charsToProcess = [{ data: primaryChar, originalIndex: idx }];
+                                // Primary data output respects mute status too
+                                if (primaryChar && primaryChar.isActive !== false) {
+                                    const idx = characters.indexOf(primaryChar);
+                                    charsToProcess = [{ data: primaryChar, originalIndex: idx }];
+                                }
                             } else if (hId && hId.startsWith('char_')) {
                                 const idx = parseInt(hId.split('_')[1]);
-                                if (characters[idx]) {
+                                if (characters[idx] && characters[idx].isActive !== false) {
                                     charsToProcess = [{ data: characters[idx], originalIndex: idx }];
                                 }
                             } else {
-                                charsToProcess = characters.map((c, idx) => ({ data: c, originalIndex: idx }));
+                                // Default to all active
+                                charsToProcess = characters
+                                    .map((c, idx) => ({ data: c, originalIndex: idx }))
+                                    .filter(item => item.data.isActive !== false);
                             }
 
                             charsToProcess.forEach(({ data, originalIndex }) => {
@@ -304,7 +276,6 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
             }
         });
 
-        // Update Cache
         characterDataCache.current = { signature: currentSignature, data: map };
         return map;
     }, [connections, nodes, getFullSizeImage]);
@@ -334,6 +305,15 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                          if (parsed.characters && parsed.characters[idx]) {
                              values.push(parsed.characters[idx]);
                          }
+                    } else if (fromNode.type === NodeType.CHARACTER_CARD) {
+                        // Handle filtering for generic character_data read (e.g. Data Reader)
+                        const chars = Array.isArray(parsed) ? parsed : [parsed];
+                        // Filter inactive if reading via all_data
+                        if (conn.fromHandleId === 'all_data') {
+                             values.push(chars.filter((c: any) => c.isActive !== false));
+                        } else {
+                             values.push(parsed);
+                        }
                     } else {
                          values.push(parsed);
                     }
@@ -357,18 +337,24 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                     } else if (fromNode.type === NodeType.CHARACTER_CARD) {
                         const charArr = Array.isArray(parsed) ? parsed : [parsed];
                         const char = charArr.find((c:any) => c.isOutput) || charArr[0];
-                        const fullDesc = char?.fullDescription || '';
-
-                        if (conn.fromHandleId === 'prompt') {
-                            values.push(char?.prompt || '');
-                        } else if (conn.fromHandleId === 'appearance') {
-                            values.push(extractMarkdownSection(fullDesc, 'Appearance'));
-                        } else if (conn.fromHandleId === 'personality') {
-                            values.push(extractMarkdownSection(fullDesc, 'Personality'));
-                        } else if (conn.fromHandleId === 'clothing') {
-                            values.push(extractMarkdownSection(fullDesc, 'Clothing'));
+                        
+                        // Respect Inactive State even for text properties if it's the primary character
+                        if (char && char.isActive === false) {
+                            // Skip or push empty string? Usually skip value for upstream processing
                         } else {
-                            values.push(fromNode.value);
+                            const fullDesc = char?.fullDescription || '';
+
+                            if (conn.fromHandleId === 'prompt') {
+                                values.push(char?.prompt || '');
+                            } else if (conn.fromHandleId === 'appearance') {
+                                values.push(extractMarkdownSection(fullDesc, 'Appearance'));
+                            } else if (conn.fromHandleId === 'personality') {
+                                values.push(extractMarkdownSection(fullDesc, 'Personality'));
+                            } else if (conn.fromHandleId === 'clothing') {
+                                values.push(extractMarkdownSection(fullDesc, 'Clothing'));
+                            } else {
+                                values.push(fromNode.value);
+                            }
                         }
                     } else {
                         values.push(fromNode.value);

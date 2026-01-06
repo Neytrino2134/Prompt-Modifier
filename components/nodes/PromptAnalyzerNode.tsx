@@ -72,7 +72,7 @@ export const PromptAnalyzerNode: React.FC<NodeContentProps> = ({ node, onValueCh
                         value={value || ''}
                         onChange={(e) => onChange(e.target.value)}
                         placeholder={placeholder}
-                        className="w-full h-full p-2 bg-gray-700 border-none rounded-md resize-none focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                        className="w-full h-full p-2 bg-gray-700 border-none rounded-md resize-none focus:ring-2 focus:ring-accent focus:outline-none"
                         onWheel={e => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
                         onFocus={deselectAllNodes}
@@ -115,7 +115,7 @@ export const PromptAnalyzerNode: React.FC<NodeContentProps> = ({ node, onValueCh
                 <button
                     onClick={() => onAnalyze(node.id)}
                     disabled={isAnalyzing}
-                    className="w-full px-4 py-2 mt-2 font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0"
+                    className="w-full px-4 py-2 mt-2 font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0"
                 >
                     {isAnalyzing ? t('node.content.analyzing') : t('node.content.analyzePrompt')}
                 </button>

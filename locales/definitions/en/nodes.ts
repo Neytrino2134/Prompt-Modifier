@@ -286,6 +286,8 @@ export const nodes = {
     'image_sequence.clear_prompts_only': 'Clear Text Prompts Only',
     'image_sequence.prev_scene': 'Previous Scene',
     'image_sequence.next_scene': 'Next Scene',
+    'image_sequence.frames_hidden': '({count} frames hidden)',
+    'image_sequence.frames_count': '({count} frames)',
     'node.content.modificationRequest': 'Modification Request',
     'node.content.technicalPrompt': 'Technical Prompt',
     

@@ -1,5 +1,4 @@
 
-
 export const editors = {
     'imageEditor.title': 'Rasm Muharriri',
     'imageEditor.canvasResolution': 'Xolst O\'lchami',
@@ -108,4 +107,9 @@ export const editors = {
     'geminiChat.mode.prompt': 'Prompt Mutaxassisi',
     'geminiChat.mode.script': 'Ssenarist',
     'geminiChat.mode.youtube': 'YouTube Analitik',
+    'image_sequence.shot_type.WS': "Ob'ektni Keng Plan (WS) bilan sahnaga va harakatga birlashtiring. Atrof-muhitni ko'rsating.",
+    'image_sequence.shot_type.MS': "Ob'ektni O'rta Plan (MS) bilan sahnaga birlashtiring. Personaj belidan yuqori.",
+    'image_sequence.shot_type.CU': "Ob'ektni Yirik Plan (CU) bilan sahnaga birlashtiring.",
+    'image_sequence.shot_type.ECU': "Ob'ektni Juda Yirik Plan (ECU) bilan sahnaga birlashtiring. Maksimal tafsilot.",
+    'image_sequence.shot_type.LS': "Ob'ektni Uzoq Plan (LS) bilan sahnaga birlashtirib, ko'lamni ko'rsating."
 };

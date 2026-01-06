@@ -1,5 +1,4 @@
 
-
 export const editors = {
     'imageEditor.title': 'Éditeur d\'Image',
     'imageEditor.canvasResolution': 'Résolution Canevas',
@@ -108,4 +107,9 @@ export const editors = {
     'geminiChat.mode.prompt': 'Expert Prompt',
     'geminiChat.mode.script': 'Scénariste',
     'geminiChat.mode.youtube': 'Analyste YouTube',
+    'image_sequence.shot_type.WS': "Intégrez l'Entité avec un Plan Large (WS) dans la scène et l'action. Montrez l'environnement.",
+    'image_sequence.shot_type.MS': "Intégrez l'Entité avec un Plan Moyen (MS) dans la scène. Personnage de la taille vers le haut.",
+    'image_sequence.shot_type.CU': "Intégrez l'Entité avec un Gros Plan (CU) dans la scène.",
+    'image_sequence.shot_type.ECU': "Intégrez l'Entité avec un Très Gros Plan (ECU) dans la scène. Détails maximum.",
+    'image_sequence.shot_type.LS': "Intégrez l'Entité avec un Plan d'Ensemble (LS) dans la scène pour montrer l'échelle."
 };

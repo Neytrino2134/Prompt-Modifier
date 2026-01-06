@@ -1,4 +1,5 @@
 
+
 import { Node, NodeType, Connection, Point } from '../types';
 
 export const HEADER_HEIGHT = 40;
@@ -234,11 +235,11 @@ export const getEmptyValueForNodeType = (node: Node): string => {
         case NodeType.CHARACTER_GENERATOR: return JSON.stringify({ prompt: '', characters: [] });
         case NodeType.CHARACTER_CARD: return JSON.stringify([{ name: 'New Entity 1', index: 'Entity-1', image: null, thumbnails: { '1:1': null, '16:9': null, '9:16': null }, selectedRatio: '1:1', prompt: '', fullDescription: '' }]);
         case NodeType.IMAGE_ANALYZER: return JSON.stringify({ image: null, description: '', softPrompt: false });
-        case NodeType.IMAGE_SEQUENCE_GENERATOR: return JSON.stringify({ prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'none', enableAspectRatio: false, isStyleCollapsed: true, checkedFrameNumbers: [], topPaneHeight: 440, leftPaneWidth: 570, autoCrop169: true });
+        case NodeType.IMAGE_SEQUENCE_GENERATOR: return JSON.stringify({ prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, isStyleCollapsed: true, checkedFrameNumbers: [], topPaneHeight: 440, leftPaneWidth: 570, autoCrop169: true });
         case NodeType.PROMPT_SEQUENCE_EDITOR: return JSON.stringify({ instruction: '', sourcePrompts: [], modifiedPrompts: [], leftPaneWidth: 500, checkedSourceFrameNumbers: [], selectedFrameNumber: null, targetLanguage: 'en', modificationModel: 'gemini-3-flash-preview' });
         case NodeType.IMAGE_EDITOR: return JSON.stringify({ inputImages: [], prompt: '', outputImage: null, aspectRatio: '1:1', enableAspectRatio: false, enableOutpainting: false, outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: 'gemini-3-flash-preview', autoDownload: true, autoCrop169: false, leftPaneWidth: 360, topPaneHeight: 330 });
         case NodeType.GEMINI_CHAT: return JSON.stringify({ messages: [], currentInput: '', lastPrompt: '' });
-        case NodeType.TRANSLATOR: return JSON.stringify({ targetLanguage: 'ru', inputText: '', translatedText: '', inputHeight: 80 });
+        case NodeType.TRANSLATOR: return JSON.stringify({ targetLanguage: 'ru', inputText: '', translatedText: '', image: null });
         case NodeType.SCRIPT_GENERATOR: return JSON.stringify({ prompt: '', summary: '', detailedCharacters: [], scenes: [], targetLanguage: 'en' });
         case NodeType.SCRIPT_VIEWER: return '{}';
         case NodeType.REROUTE_DOT: return JSON.stringify({ type: null });

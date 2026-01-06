@@ -103,6 +103,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                     selectedRatio: '1:1', prompt: '', fullDescription: '',
                     targetLanguage: 'en',
                     isOutput: true,
+                    isActive: true,
                     isDescriptionCollapsed: false,
                     additionalPrompt: "Full body character concept on a gray background"
                 }];
@@ -119,6 +120,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 fullDescription: char.fullDescription || '',
                 targetLanguage: char.targetLanguage || 'en',
                 isOutput: char.isOutput || (i === 0 && !parsed.some((c: any) => c.isOutput)),
+                isActive: char.isActive !== false, // Default true if undefined
                 isDescriptionCollapsed: char.isDescriptionCollapsed ?? false
             }));
         } catch {
@@ -130,6 +132,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 selectedRatio: '1:1', prompt: '', fullDescription: '',
                 targetLanguage: 'en',
                 isOutput: true,
+                isActive: true,
                 isDescriptionCollapsed: false,
                 additionalPrompt: "Full body character concept on a gray background"
             }];
@@ -198,6 +201,12 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         }));
         handleValueUpdate(newChars);
         addToast?.("Character marked as output", "success");
+    };
+
+    const handleToggleActive = (idx: number) => {
+        const newChars = [...characters];
+        newChars[idx] = { ...newChars[idx], isActive: !newChars[idx].isActive };
+        handleValueUpdate(newChars);
     };
 
     const handleCardDragStart = (e: React.DragEvent, index: number) => {
@@ -332,7 +341,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                     id: `char-card-${Date.now()}`,
                     // Ensure only one card is marked as output. If it's the first card, make it output.
                     // Otherwise force false to prevent multiple primaries.
-                    isOutput: isFirstCard
+                    isOutput: isFirstCard,
+                    isActive: true
                 };
                 
                 // Insert at specific position or append
@@ -378,6 +388,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                                         fullDescription: '',
                                         targetLanguage: 'en',
                                         isOutput: true,
+                                        isActive: true,
                                         isDescriptionCollapsed: false,
                                         additionalPrompt: "Full body character concept on a gray background"
                                     }];
@@ -434,6 +445,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             selectedRatio: '1:1', prompt: '', fullDescription: '',
             targetLanguage: 'en',
             isOutput: false,
+            isActive: true,
             isDescriptionCollapsed: false,
             additionalPrompt: "Full body character concept on a gray background"
         }];
@@ -457,6 +469,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 selectedRatio: '1:1', prompt: '', fullDescription: '',
                 targetLanguage: 'en',
                 isOutput: true,
+                isActive: true,
                 isDescriptionCollapsed: false,
                 additionalPrompt: "Full body character concept on a gray background"
             }]);
@@ -751,6 +764,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         onUpdate={(updates) => handleUpdateCard(idx, updates)}
                         onRemove={() => handleRemoveCard(idx)}
                         onSetAsOutput={() => handleSetAsOutput(idx)}
+                        onToggleActive={() => handleToggleActive(idx)} // Pass the toggle handler
                         onDragStart={(e) => handleCardDragStart(e, idx)}
                         onDragEnd={() => { setDraggedCardIndex(null); setDropInsertionIndex(null); setActiveDropZone(null); }}
                         onSmartDragOver={(e) => handleSmartCardDragOver(e, idx)}
@@ -769,8 +783,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         onSyncFromConnection={() => handleUpdatePromptFromImage(idx)} 
                         
                         onLoad={() => onLoadCharacterCard(node.id)}
-                        onSave={() => onSaveCharacterCard(node.id, idx)} // Pass index for saving single
-                        onSaveToCatalog={() => onSaveCharacterToCatalog(node.id, idx)} // Pass index for saving single
+                        onSave={() => onSaveCharacterCard(node.id, idx)} 
+                        onSaveToCatalog={() => onSaveCharacterToCatalog(node.id, idx)} 
                         onCopySpecific={() => handleCopySpecificCard(idx)}
                         onPasteSpecific={() => handlePasteToSpecificCard(idx)}
                         onDetach={() => handleDetach(idx)}

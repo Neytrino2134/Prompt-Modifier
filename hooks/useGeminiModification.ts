@@ -3,7 +3,7 @@
 /* Fix: Added missing React import to resolve namespace errors */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NodeType, type Node, type Tab, type ActiveOperation, type ToastType } from '../types';
-import { enhancePrompt, enhanceVideoPrompt, translateText, generateScript, generateCharacters, sanitizePrompt, translateScript, modifyPromptSequence, updateCharacterDescription, modifyCharacter } from '../services/geminiService';
+import { enhancePrompt, enhanceVideoPrompt, translateText, generateScript, generateCharacters, sanitizePrompt, translateScript, modifyPromptSequence, updateCharacterDescription, modifyCharacter, extractTextFromImage } from '../services/geminiService';
 import { languages } from '../localization';
 
 interface UseGeminiModificationProps {
@@ -167,8 +167,25 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
             if (!node) return;
             const initialParsed = JSON.parse(node.value || '{}');
             const upstreamTexts = getUpstreamNodeValues(nodeId).filter(v => typeof v === 'string') as string[];
-            const textToTranslate = upstreamTexts.length > 0 ? upstreamTexts.join('\n') : initialParsed.inputText;
+            let textToTranslate = upstreamTexts.length > 0 ? upstreamTexts.join('\n') : initialParsed.inputText;
             const targetLanguage = initialParsed.targetLanguage || 'en';
+
+            // Check if there is an image to extract text from (OCR)
+            if (initialParsed.image && typeof initialParsed.image === 'string' && initialParsed.image.startsWith('data:image')) {
+                 const parts = initialParsed.image.split(',');
+                 if (parts.length === 2) {
+                     const mimeMatch = initialParsed.image.match(/:(.*?);/);
+                     const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+                     const base64 = parts[1];
+                     
+                     // Perform OCR
+                     const extractedText = await extractTextFromImage(base64, mime);
+                     if (extractedText && extractedText !== "No text found") {
+                         // Update source text with extracted
+                         textToTranslate = extractedText;
+                     }
+                 }
+            }
             
             const translatedText = await translateText(textToTranslate, targetLanguage);
             

@@ -168,6 +168,13 @@ export const useHotkeys = (props: UseHotkeysProps) => {
 
             // Copy/Paste
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyC') {
+                // Check for text selection first
+                const selection = window.getSelection();
+                if (selection && selection.toString().length > 0) {
+                    // Allow browser default copy behavior (do not preventDefault)
+                    return;
+                }
+
                 if (selectedNodeIds.length > 0) {
                     e.preventDefault();
                     const lastSelectedNodeId = selectedNodeIds[selectedNodeIds.length - 1];

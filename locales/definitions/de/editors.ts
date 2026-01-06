@@ -1,5 +1,4 @@
 
-
 export const editors = {
     'imageEditor.title': 'Bildeditor',
     'imageEditor.canvasResolution': 'Leinwandauflösung',
@@ -108,4 +107,9 @@ export const editors = {
     'geminiChat.mode.prompt': 'Prompt-Experte',
     'geminiChat.mode.script': 'Drehbuchautor',
     'geminiChat.mode.youtube': 'YouTube-Analyst',
+    'image_sequence.shot_type.WS': "Integrieren Sie die Entität mit einer Totalen (WS) in die Szene und Handlung. Zeigen Sie die Umgebung.",
+    'image_sequence.shot_type.MS': "Integrieren Sie die Entität mit einer Halbnahaufnahme (MS) in die Szene. Charakter ab der Taille aufwärts.",
+    'image_sequence.shot_type.CU': "Integrieren Sie die Entität mit einer Nahaufnahme (CU) in die Szene.",
+    'image_sequence.shot_type.ECU': "Integrieren Sie die Entität mit einer extremen Nahaufnahme (ECU) in die Szene. Maximale Details.",
+    'image_sequence.shot_type.LS': "Integrieren Sie die Entität mit einer Weitwinkeleinstellung (LS) in die Szene, um den Maßstab zu zeigen."
 };

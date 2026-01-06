@@ -1,5 +1,4 @@
 
-
 export const editors = {
     'imageEditor.title': '画像エディタ',
     'imageEditor.canvasResolution': 'キャンバス解像度',
@@ -98,4 +97,19 @@ export const editors = {
     'image_sequence.force_refresh': '強制更新',
     'image_sequence.select_scene_frames': 'このシーンの全フレームを選択',
     'image_sequence.collapse_other_scenes': '他のシーンを折りたたむ',
+    'prompt_sequence_editor.instructionPlaceholder': 'プロンプトを変更するための指示を入力してください...',
+    'prompt_sequence_editor.modifying': '変更中...',
+    'prompt_sequence_editor.modifySelected': '選択項目を変更 ({count})',
+    'prompt_sequence_editor.sourcePrompts': 'ソースプロンプト',
+    'prompt_sequence_editor.finalPrompts': '変更後のプロンプト',
+    'prompt_sequence_editor.error.invalidInput': 'データ形式が無効です。プロンプトシーケンス配列を接続してください。',
+    'geminiChat.mode.general': '一般',
+    'geminiChat.mode.prompt': 'プロンプト専門家',
+    'geminiChat.mode.script': '脚本家',
+    'geminiChat.mode.youtube': 'YouTubeアナリスト',
+    'image_sequence.shot_type.WS': "エンティティをワイドショット (WS) でシーンとアクションに統合します。環境を表示します。",
+    'image_sequence.shot_type.MS': "エンティティをミディアムショット (MS) でシーンに統合します。腰から上のキャラクター。",
+    'image_sequence.shot_type.CU': "エンティティをクローズアップ (CU) でシーンに統合します。",
+    'image_sequence.shot_type.ECU': "エンティティを極端なクローズアップ (ECU) でシーンに統合します。最大の詳細。",
+    'image_sequence.shot_type.LS': "エンティティをロングショット (LS) でシーンに統合してスケールを表示します。"
 };

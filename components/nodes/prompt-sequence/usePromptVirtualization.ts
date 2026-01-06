@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { SCENE_HEADER_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO } from './Constants';
+import { SCENE_HEADER_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO, SHOT_TYPE_INSTRUCTIONS } from './Constants';
 
 export interface PromptItem {
     frameNumber: number;
@@ -11,6 +11,7 @@ export interface PromptItem {
     characters?: string[];
     duration?: number;
     isCollapsed?: boolean;
+    shotType?: string; // Needed for height calc
 }
 
 export const usePromptVirtualization = (
@@ -55,8 +56,13 @@ export const usePromptVirtualization = (
              // Add Prompts if scene not collapsed OR if headers are hidden (flat view implies expanded)
              if (!showSceneHeaders || !collapsedScenes.includes(g.scene)) {
                  g.prompts.forEach(p => {
-                     const expandedHeight = showVideoPrompts ? CARD_EXPANDED_HEIGHT : CARD_EXPANDED_HEIGHT_NO_VIDEO;
+                     // Check if this prompt has a shot instruction displayed
+                     const shotInstruction = p.shotType ? SHOT_TYPE_INSTRUCTIONS[p.shotType] : undefined;
+                     const extraHeight = shotInstruction ? 30 : 0;
+                     
+                     const expandedHeight = (showVideoPrompts ? CARD_EXPANDED_HEIGHT : CARD_EXPANDED_HEIGHT_NO_VIDEO) + extraHeight;
                      const height = (p.isCollapsed ? CARD_COLLAPSED_HEIGHT : expandedHeight) + 8; // + margin bottom
+                     
                      flattenItems.push({ type: 'prompt', h: height, top: y, data: p, scene: g.scene });
                      y += height;
                  });

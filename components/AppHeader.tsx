@@ -166,7 +166,7 @@ const AppHeader: React.FC = () => {
             {showWelcome && <WelcomeScreen onClose={() => setShowWelcome(false)} isResumable={canResume} />}
             
             <header className="absolute top-0 left-0 w-full flex justify-start p-2 z-30 pointer-events-none">
-                <div className="bg-panel/90 backdrop-blur-md rounded-lg shadow-lg p-1 flex items-center gap-1 pointer-events-auto border border-gray-700" onMouseDown={(e) => e.stopPropagation()}>
+                <div className="bg-gray-900 rounded-lg shadow-lg p-1 flex items-center gap-1 pointer-events-auto border border-gray-700" onMouseDown={(e) => e.stopPropagation()}>
                     <TooltipWrapper title={isTopPanelCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')} align="left">
                         <button
                             onClick={() => setIsTopPanelCollapsed(p => !p)}

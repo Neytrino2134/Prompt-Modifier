@@ -9,14 +9,6 @@ interface UseSequenceNodeProps extends GeminiGenerationCommonProps {
     connectedCharacterData: Map<string, any[]>;
 }
 
-const SHOT_TYPE_INSTRUCTIONS: Record<string, string> = {
-    'WS': "Integrate the character/object with a Wide Shot (WS) into the scene and action. Show the environment.",
-    'MS': "Integrate the character/object with a Medium Shot (MS) into the scene. Character from waist up.",
-    'CU': "Integrate the character/object with a Close-Up (CU) into the scene.",
-    'ECU': "Integrate the character/object with an Extreme Close-Up (ECU) into the scene. Maximum detail.",
-    'LS': "Integrate the character/object with a Long Shot (LS) into the scene to show scale."
-};
-
 const raceWithAbort = <T>(promise: Promise<T>, signal: AbortSignal): Promise<T> => {
     return Promise.race([
         promise,
@@ -128,7 +120,7 @@ export const useSequenceNode = ({
             const allConcepts = prepareConcepts(parsed, nodeId);
             const framesToProcess = prompts.slice(startIndex);
             const isStyleInserted = parsed.isStyleInserted !== false; // Default true
-            const prefix = parsed.integrationPrompt || "Integrate these characters/objects into the scene and action. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
+            const prefix = parsed.integrationPrompt || "Integrate these Entities into the scene, action and pose. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
 
             updateNodeInStorage(currentTabId, nodeId, (prev) => {
                 const newStatuses = { ...(prev.frameStatuses || {}) };
@@ -146,14 +138,11 @@ export const useSequenceNode = ({
                 }));
 
                 try {
-                    // 1. Prepare images first to determine if we need the prefix
+                    // 1. Prepare images first
                     let charNames = promptItem.characters || [];
-                    
-                    // FALLBACK: If characters array is empty, check the prompt text for tags like Character-1
                     if (charNames.length === 0 && promptItem.prompt) {
                         const foundTags = promptItem.prompt.match(/(?:character|entity)-\d+/gi);
                         if (foundTags) {
-                             // Use a Set to remove duplicates
                              charNames = [...new Set(foundTags)];
                         }
                     }
@@ -163,17 +152,12 @@ export const useSequenceNode = ({
 
                     for (const charRef of charNames) {
                         const concept = resolveCharacterConcept(charRef, allConcepts);
-                        
-                        // Prevent sending duplicate images for the same character reference
                         if (!concept || usedIndices.has(concept.index || concept.id)) continue;
                         
-                        // Prioritize the full resolution image from upstream cache, fallback to thumbnail
                         const imgSource = concept._fullResImage || concept.image;
-                        
                         if (imgSource && typeof imgSource === 'string' && imgSource.startsWith('data:')) {
                              const mimeMatch = imgSource.match(/:(.*?);/);
                              const base64ImageData = imgSource.split(',')[1];
-                             
                              if (base64ImageData) {
                                  imagesToSend.push({ 
                                     base64ImageData, 
@@ -186,21 +170,19 @@ export const useSequenceNode = ({
                     }
 
                     // 2. Construct Prompt
-                    // Only add prefix if we are actually sending reference images (editing mode)
                     let fullPrompt = promptItem.prompt;
                     if (imagesToSend.length > 0) {
-                        // Look for Shot Type specific instruction
-                        const shotInstruction = SHOT_TYPE_INSTRUCTIONS[promptItem.shotType] || "";
+                        // Use localized Shot Type instruction
+                        const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : "";
+                        // Prefix (Integration Instruction) is placed at the beginning as requested
                         fullPrompt = `${prefix}\n${shotInstruction}\n\n${fullPrompt}`;
                     }
                     
                     // Replace Tags Logic
                     if (parsed.characterPromptCombination === 'replace') {
-                        // Regex to match "Character-1", "character-2", etc. more robustly
                         fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
                              const concept = resolveCharacterConcept(match, allConcepts);
                              if (concept && concept.prompt) {
-                                 // "Character-1 (description...)"
                                  return `${match} (${concept.prompt})`;
                              }
                              return match;
@@ -236,8 +218,6 @@ export const useSequenceNode = ({
                     
                     const thumb = await generateThumbnail(finalUrl, 128, 128);
                     
-                    // Update Node state (thumbnail + status) AND pass Full Res for storage/cache
-                    // Passing finalUrl as the 4th argument ensures it gets saved to the correct tab's cache
                     updateNodeInStorage(currentTabId, nodeId, (prev) => ({
                         ...prev,
                         images: { ...(prev.images || {}), [frameNum]: thumb },
@@ -294,7 +274,7 @@ export const useSequenceNode = ({
             const allConcepts = prepareConcepts(parsed, nodeId);
             const framesToProcess = prompts.filter((p: any) => framesToProcessIndices.includes(p.frameNumber));
             const isStyleInserted = parsed.isStyleInserted !== false;
-            const prefix = parsed.integrationPrompt || "Integrate these characters/objects into the scene and action. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
+            const prefix = parsed.integrationPrompt || "Integrate these Entities into the scene and action. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
 
             updateNodeInStorage(currentTabId, nodeId, (prev) => {
                 const newStatuses = { ...(prev.frameStatuses || {}) };
@@ -312,14 +292,10 @@ export const useSequenceNode = ({
                 }));
 
                 try {
-                    // 1. Prepare images first
                     let charNames = promptItem.characters || [];
-                    
-                    // FALLBACK: If characters array is empty, check the prompt text for tags like Character-1
                     if (charNames.length === 0 && promptItem.prompt) {
                         const foundTags = promptItem.prompt.match(/(?:character|entity)-\d+/gi);
                         if (foundTags) {
-                             // Use a Set to remove duplicates
                              charNames = [...new Set(foundTags)];
                         }
                     }
@@ -329,7 +305,6 @@ export const useSequenceNode = ({
 
                     for (const charRef of charNames) {
                         const concept = resolveCharacterConcept(charRef, allConcepts);
-                        
                         if (!concept || usedIndices.has(concept.index || concept.id)) continue;
                         
                         const imgSource = concept._fullResImage || concept.image;
@@ -347,15 +322,13 @@ export const useSequenceNode = ({
                         }
                     }
 
-                    // 2. Construct Prompt with conditional prefix and shot type
                     let fullPrompt = promptItem.prompt;
                     if (imagesToSend.length > 0) {
-                         // Look for Shot Type specific instruction
-                        const shotInstruction = SHOT_TYPE_INSTRUCTIONS[promptItem.shotType] || "";
+                        const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : "";
+                        // Prefix (Integration Instruction) is placed at the beginning as requested
                         fullPrompt = `${prefix}\n${shotInstruction}\n\n${fullPrompt}`;
                     }
                     
-                    // Replace Tags Logic
                     if (parsed.characterPromptCombination === 'replace') {
                         fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
                              const concept = resolveCharacterConcept(match, allConcepts);
@@ -378,7 +351,6 @@ export const useSequenceNode = ({
                         finalImagesToSend = imagesToSend.map(i => ({ base64ImageData: i.base64ImageData, mimeType: i.mimeType }));
                     }
                     
-                    // Insert Style Logic
                     if (isStyleInserted && parsed.styleOverride) {
                         fullPrompt = `${fullPrompt}\n\n[Visual Style]: ${parsed.styleOverride}`;
                     }
@@ -395,8 +367,6 @@ export const useSequenceNode = ({
                     
                     const thumb = await generateThumbnail(finalUrl, 128, 128);
                     
-                    // Update Node state (thumbnail + status) AND pass Full Res for storage/cache
-                    // Passing finalUrl as the 4th argument ensures it gets saved to the correct tab's cache
                     updateNodeInStorage(currentTabId, nodeId, (prev) => ({
                         ...prev,
                         images: { ...(prev.images || {}), [frameNum]: thumb },

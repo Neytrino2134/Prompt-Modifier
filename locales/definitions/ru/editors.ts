@@ -103,8 +103,14 @@ export const editors = {
     'prompt_sequence_editor.modifySelected': 'Изменить выбранные ({count})',
     'prompt_sequence_editor.sourcePrompts': 'Исходные промпты',
     'prompt_sequence_editor.finalPrompts': 'Отредактированные промпты',
+    'prompt_sequence_editor.error.invalidInput': 'Неверный формат данных. Пожалуйста, подключите массив последовательности промптов.',
     'geminiChat.mode.general': 'Общий',
     'geminiChat.mode.prompt': 'Эксперт по промптам',
     'geminiChat.mode.script': 'Сценарист',
     'geminiChat.mode.youtube': 'YouTube Аналитик',
+    'image_sequence.shot_type.WS': "Интегрируйте Сущность с общим планом (WS) в сцену и действие. Показать окружение.",
+    'image_sequence.shot_type.MS': "Интегрируйте Сущность со средним планом (MS) в сцену. Персонаж по пояс.",
+    'image_sequence.shot_type.CU': "Интегрируйте Сущность с крупным планом (CU) в сцену.",
+    'image_sequence.shot_type.ECU': "Интегрируйте Сущность с экстремально крупным планом (ECU) в сцену. Максимальная детализация.",
+    'image_sequence.shot_type.LS': "Интегрируйте Сущность с дальним планом (LS) в сцену, чтобы показать масштаб."
 };

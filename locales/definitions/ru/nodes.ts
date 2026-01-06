@@ -1,4 +1,5 @@
 
+
 export const nodes = {
     'node.title.text_input': 'Текстовый узел',
     'node.title.image_input': 'Узел изображения',
@@ -276,14 +277,17 @@ export const nodes = {
     'prompt_sequence_editor.modifySelected': 'Изменить выбранные ({count})',
     'prompt_sequence_editor.sourcePrompts': 'Исходные промпты',
     'prompt_sequence_editor.finalPrompts': 'Отредактированные промпты',
+    'prompt_sequence_editor.error.invalidInput': 'Неверный формат данных. Пожалуйста, подключите массив последовательности промптов.',
     'geminiChat.mode.general': 'Общий',
     'geminiChat.mode.prompt': 'Эксперт по промптам',
     'geminiChat.mode.script': 'Сценарист',
-    'geminiChat.mode.youtube': 'YouTube Аналитик',
+    'geminiChat.mode.youtube': 'Ютюб Аналитик',
     'image_sequence.deselect_scene': 'Снять выделение со сцены',
     'image_sequence.clear_prompts_only': 'Очистить только текст',
     'image_sequence.prev_scene': 'Пред. сцена',
     'image_sequence.next_scene': 'След. сцена',
+    'image_sequence.frames_hidden': '({count} кадров скрыто)',
+    'image_sequence.frames_count': '({count} кадров)',
     'node.content.modificationRequest': 'Запрос на изменение',
     'node.content.technicalPrompt': 'Технический промпт',
     'node.promptProcessor.safePromptTooltip': 'Переписывает промпт для соблюдения правил безопасности и предотвращения нарушений.',

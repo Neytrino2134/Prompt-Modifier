@@ -1,5 +1,4 @@
 
-
 export const editors = {
     'imageEditor.title': 'Editor de Imagen',
     'imageEditor.canvasResolution': 'Resolución del Lienzo',
@@ -29,7 +28,7 @@ export const editors = {
     'imageEditor.sequenceMode': 'Modo Secuencia',
     'imageEditor.sequenceModeHelp': 'Procesar imágenes de entrada desde Entrada A secuencialmente.',
     'imageEditor.sequentialCombination': 'Combinación Secuencial de Imágenes',
-    'imageEditor.sequentialCombinationHelp': 'Para cada cuadro: Envía imagen actual de A + Todas las imágenes de B.',
+    'imageEditor.sequentialCombinationHelp': 'Para cada cuadro: Envíe la imagen actual de A + Todas las imágenes de B.',
     'imageEditor.sequentialPrompt': 'Combinación Secuencial de Prompts',
     'imageEditor.sequentialPromptHelp': 'Para cada cuadro: Usa un prompt único de la lista + imagen actual.',
     'imageEditor.sequentialEditingWithPrompts': 'Edición Secuencial con Prompts',
@@ -98,4 +97,19 @@ export const editors = {
     'image_sequence.force_refresh': 'Forzar Actualización',
     'image_sequence.select_scene_frames': 'Seleccionar todos los cuadros en esta escena',
     'image_sequence.collapse_other_scenes': 'Colapsar otras escenas',
+    'prompt_sequence_editor.instructionPlaceholder': 'Introducir instrucción para modificar prompts...',
+    'prompt_sequence_editor.modifying': 'Modificando...',
+    'prompt_sequence_editor.modifySelected': 'Modificar Seleccionados ({count})',
+    'prompt_sequence_editor.sourcePrompts': 'Prompts de Origen',
+    'prompt_sequence_editor.finalPrompts': 'Prompts Modificados',
+    'prompt_sequence_editor.error.invalidInput': 'Formato de datos inválido. Por favor conecte un array de secuencia de prompts.',
+    'geminiChat.mode.general': 'General',
+    'geminiChat.mode.prompt': 'Experto en Prompts',
+    'geminiChat.mode.script': 'Guionista',
+    'geminiChat.mode.youtube': 'Analista de YouTube',
+    'image_sequence.shot_type.WS': "Integra la Entidad con un Plano General (WS) en la escena y la acción. Muestra el entorno.",
+    'image_sequence.shot_type.MS': "Integra la Entidad con un Plano Medio (MS) en la escena. Personaje desde la cintura hacia arriba.",
+    'image_sequence.shot_type.CU': "Integra la Entidad con un Primer Plano (CU) en la escena.",
+    'image_sequence.shot_type.ECU': "Integra la Entidad con un Primerísimo Primer Plano (ECU) en la escena. Máximo detalle.",
+    'image_sequence.shot_type.LS': "Integra la Entidad con un Plano Largo (LS) en la escena para mostrar escala."
 };

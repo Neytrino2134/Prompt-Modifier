@@ -11,6 +11,7 @@ export interface CharacterData {
     fullDescription: string;
     targetLanguage?: string;
     isOutput?: boolean;
+    isActive?: boolean; // Controls if the card is included in output and editable
     isDescriptionCollapsed?: boolean;
     // Internal fields for drag/drop
     imageSources?: Record<string, string | null>;

@@ -1,5 +1,6 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { NodeContentProps } from '../../types';
 import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
@@ -27,19 +28,19 @@ const formatText = (text: string) => {
 };
 
 // A component to render markdown-like content from the AI
-const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
+const MarkdownContent: React.FC<{ content: string }> = React.memo(({ content }) => {
     // Split by code blocks first to avoid formatting inside code
     // Matches ```prompt ... ``` OR generic ``` ... ```
     const parts = content.split(/(```prompt\n[\s\S]*?\n```|```[\s\S]*?```)/g);
 
     return (
-        <div className="text-sm leading-relaxed space-y-2 text-gray-200 break-words">
+        <div className="text-sm leading-relaxed space-y-2 text-gray-200 break-words cursor-text">
             {parts.map((part, index) => {
                 // 1. Special Prompt Code Block
                 const promptMatch = part.match(/```prompt\n([\s\S]*?)\n```/);
                 if (promptMatch) {
                     return (
-                        <pre key={index} className="bg-gray-900/80 p-3 my-2 rounded-md border border-gray-600 text-accent-text overflow-x-auto font-mono text-xs shadow-inner [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-500">
+                        <pre key={index} className="bg-gray-900/80 p-3 my-2 rounded-md border border-gray-600 text-accent-text overflow-x-auto font-mono text-xs shadow-inner [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-500 select-text">
                             <code>{promptMatch[1].trim()}</code>
                         </pre>
                     );
@@ -49,7 +50,7 @@ const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
                 const codeMatch = part.match(/```([\s\S]*?)```/);
                 if (codeMatch) {
                      return (
-                        <pre key={index} className="bg-gray-800 p-3 my-2 rounded-md border border-gray-700 text-gray-300 overflow-x-auto font-mono text-xs shadow-inner [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-500">
+                        <pre key={index} className="bg-gray-800 p-3 my-2 rounded-md border border-gray-700 text-gray-300 overflow-x-auto font-mono text-xs shadow-inner [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-500 select-text">
                             <code>{codeMatch[1].trim()}</code>
                         </pre>
                     );
@@ -65,11 +66,19 @@ const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
 
                 const flushList = () => {
                     if (listBuffer.length > 0) {
-                        elements.push(
-                            isOrderedList 
-                                ? <ol key={`list-${index}-${elements.length}`} className="list-decimal list-inside pl-2 space-y-1 mb-2 marker:text-gray-500">{[...listBuffer]}</ol>
-                                : <ul key={`list-${index}-${elements.length}`} className="list-disc list-inside pl-2 space-y-1 mb-2 marker:text-gray-500">{[...listBuffer]}</ul>
-                        );
+                        if (isOrderedList) {
+                            elements.push(
+                                <ol key={`list-${index}-${elements.length}`} className="list-decimal list-inside pl-2 space-y-1 mb-2 marker:text-gray-500 select-text">
+                                    {[...listBuffer]}
+                                </ol>
+                            );
+                        } else {
+                            elements.push(
+                                <ul key={`list-${index}-${elements.length}`} className="list-disc list-inside pl-2 space-y-1 mb-2 marker:text-gray-500 select-text">
+                                    {[...listBuffer]}
+                                </ul>
+                            );
+                        }
                         listBuffer = [];
                     }
                 };
@@ -99,25 +108,25 @@ const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
                             const fontSize = level === 1 ? 'text-lg' : level === 2 ? 'text-base' : 'text-sm';
                             // Themed header color
                             elements.push(
-                                <div key={lineIdx} className={`${fontSize} font-bold text-accent-text mt-3 mb-1 border-b border-gray-700/50 pb-1`} dangerouslySetInnerHTML={{ __html: formatText(headerMatch[2]) }} />
+                                <div key={lineIdx} className={`${fontSize} font-bold text-accent-text mt-3 mb-1 border-b border-gray-700/50 pb-1 select-text`} dangerouslySetInnerHTML={{ __html: formatText(headerMatch[2]) }} />
                             );
                         } else {
                             // Paragraphs
                             if (line.trim() === '') {
                                 elements.push(<div key={lineIdx} className="h-2" />); // Spacer for empty lines
                             } else {
-                                elements.push(<div key={lineIdx} className="min-h-[1.2em]" dangerouslySetInnerHTML={{ __html: formatText(line) }} />);
+                                elements.push(<div key={lineIdx} className="min-h-[1.2em] select-text" dangerouslySetInnerHTML={{ __html: formatText(line) }} />);
                             }
                         }
                     }
                 });
                 flushList(); // Flush any remaining list items
 
-                return <div key={index}>{elements}</div>;
+                return <div key={index} className="select-text">{elements}</div>;
             })}
         </div>
     );
-};
+});
 
 // Internal Style Button Component with Tooltip
 const StyleButton: React.FC<{ id: string; label: string; icon: React.ReactNode; isActive: boolean; onClick: () => void; }> = ({ label, icon, isActive, onClick }) => {
@@ -140,7 +149,51 @@ const StyleButton: React.FC<{ id: string; label: string; icon: React.ReactNode; 
     );
 };
 
-export const GeminiChatNode: React.FC<NodeContentProps> = ({ node, onValueChange, onSendMessage, isChatting, t, onSelectNode, addToast }) => {
+const FloatingCopyButton: React.FC<{ 
+    selection: Selection; 
+    onCopy: () => void; 
+    containerRef: React.RefObject<HTMLDivElement> 
+}> = ({ selection, onCopy, containerRef }) => {
+    const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+
+    useEffect(() => {
+        if (!selection || selection.rangeCount === 0 || selection.toString().length === 0) {
+            setPosition(null);
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        
+        // Ensure the selection is actually inside our container
+        if (containerRef.current && !containerRef.current.contains(range.commonAncestorContainer)) {
+            setPosition(null);
+            return;
+        }
+
+        // Calculate position relative to viewport (fixed) for portal
+        setPosition({
+            top: rect.top - 40, // Above the selection
+            left: rect.left + rect.width / 2 // Center horizontally
+        });
+    }, [selection, containerRef]);
+
+    if (!position) return null;
+
+    return createPortal(
+        <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCopy(); }}
+            style={{ top: position.top, left: position.left, transform: 'translateX(-50%)' }}
+            className="fixed z-[9999] px-3 py-1.5 bg-gray-800 text-white text-xs font-bold rounded-lg shadow-xl border border-gray-600 hover:bg-gray-700 hover:border-cyan-500 transition-all flex items-center gap-2 animate-fade-in-up"
+        >
+            <CopyIcon className="h-3 w-3" />
+            Copy
+        </button>,
+        document.body
+    );
+};
+
+const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChange, onSendMessage, isChatting, t, onSelectNode, addToast }) => {
     const chatValue = useMemo(() => {
         try {
             return JSON.parse(node.value || '{}');
@@ -157,11 +210,37 @@ export const GeminiChatNode: React.FC<NodeContentProps> = ({ node, onValueChange
     const startYRef = useRef<number>(0);
     const startHeightRef = useRef<number>(0);
 
+    // Text Selection State
+    const [selection, setSelection] = useState<Selection | null>(null);
+
     useEffect(() => {
+        // Auto-scroll to bottom
         if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+            // Only scroll if we are not selecting text to avoid jumps
+            const sel = window.getSelection();
+            if (!sel || sel.toString().length === 0) {
+                 chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+            }
         }
     }, [messages, isChatting]);
+
+    // Handle Selection Change
+    useEffect(() => {
+        const handleSelectionChange = () => {
+            const sel = window.getSelection();
+            if (sel && sel.toString().length > 0) {
+                // Verify selection is inside this component
+                if (chatContainerRef.current && chatContainerRef.current.contains(sel.anchorNode)) {
+                    setSelection(sel);
+                    return;
+                }
+            }
+            setSelection(null);
+        };
+
+        document.addEventListener('selectionchange', handleSelectionChange);
+        return () => document.removeEventListener('selectionchange', handleSelectionChange);
+    }, []);
 
     const handleSend = () => {
         if (!isChatting) {
@@ -245,6 +324,16 @@ export const GeminiChatNode: React.FC<NodeContentProps> = ({ node, onValueChange
     const handleRemoveAttachment = () => {
         onValueChange(node.id, JSON.stringify({ ...chatValue, attachment: null }));
     };
+    
+    const handleFloatingCopy = () => {
+        if (selection) {
+            navigator.clipboard.writeText(selection.toString());
+            if (addToast) addToast(t('toast.copiedToClipboard'));
+            // Clear selection after copy
+            selection.removeAllRanges();
+            setSelection(null);
+        }
+    };
 
     // --- Resizing Logic (Top Edge) ---
     const handleResizeMouseDown = (e: React.MouseEvent) => {
@@ -280,6 +369,11 @@ export const GeminiChatNode: React.FC<NodeContentProps> = ({ node, onValueChange
     
     const activeLabel = styles.find(s => s.id === style)?.label;
 
+    // Helper to stop all propagation (Mouse Move/Up/Down) to prevent canvas drag interference
+    const stopPropagation = (e: React.MouseEvent) => {
+        e.stopPropagation();
+    };
+
     return (
         <div className="flex flex-col h-full">
             <input 
@@ -289,6 +383,8 @@ export const GeminiChatNode: React.FC<NodeContentProps> = ({ node, onValueChange
                 onChange={handleFileChange} 
                 accept="image/*,.txt,.pdf,.json" 
             />
+            
+            {selection && <FloatingCopyButton selection={selection} onCopy={handleFloatingCopy} containerRef={chatContainerRef} />}
 
             {/* Style Switcher */}
             <div className="flex bg-gray-900/50 p-1 rounded-md mb-2 space-x-1 shrink-0" onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}>
@@ -305,9 +401,17 @@ export const GeminiChatNode: React.FC<NodeContentProps> = ({ node, onValueChange
             </div>
 
             {/* Chat Messages */}
-            <div ref={chatContainerRef} onWheel={e => e.stopPropagation()} className="flex-grow p-2 bg-gray-900/50 rounded-md overflow-y-auto overflow-x-hidden mb-1 space-y-4 custom-scrollbar">
+            <div 
+                ref={chatContainerRef} 
+                onWheel={e => e.stopPropagation()} 
+                className="flex-grow p-2 bg-gray-900/50 rounded-md overflow-y-auto overflow-x-hidden mb-1 space-y-4 custom-scrollbar select-text cursor-text"
+                onMouseDown={stopPropagation} // CRITICAL: Stop propagation to prevent node drag start which resets selection
+                onMouseMove={stopPropagation} // CRITICAL: Stop updates on move to prevent re-render flickers
+                onMouseUp={stopPropagation}   // CRITICAL: Stop propagation
+                onClick={stopPropagation}
+            >
                 {messages.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-2 opacity-50">
+                    <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-2 opacity-50 select-none pointer-events-none">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                         <span className="text-xs font-medium">{activeLabel}</span>
                     </div>
@@ -315,21 +419,31 @@ export const GeminiChatNode: React.FC<NodeContentProps> = ({ node, onValueChange
                 {messages.map((msg: { role: string, content: string }, index: number) => (
                     <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         {/* User Message: Themed Accent Color */}
-                        <div className={`relative group max-w-[90%] p-3 rounded-lg select-text ${msg.role === 'user' ? 'bg-accent/40 border border-accent/30' : 'bg-gray-800 border border-gray-700'}`}>
-                           {msg.role === 'model' ? <MarkdownContent content={msg.content} /> : <p className="text-sm whitespace-pre-wrap break-words text-gray-200">{msg.content}</p>}
+                        <div className={`relative group max-w-[90%] p-3 rounded-lg select-text flex gap-2 ${msg.role === 'user' ? 'bg-accent/40 border border-accent/30' : 'bg-gray-800 border border-gray-700'}`}>
                            
+                           {/* Content Wrapper */}
+                           <div className="min-w-0 flex-grow">
+                               {msg.role === 'model' ? <MarkdownContent content={msg.content} /> : <p className="text-sm whitespace-pre-wrap break-words text-gray-200 select-text">{msg.content}</p>}
+                           </div>
+                           
+                           {/* Sticky Action Sidebar */}
                            {msg.role === 'model' && (
-                               <ActionButton
-                                   title={t('node.action.copy')}
-                                   onClick={(e) => {
-                                       e.stopPropagation();
-                                       navigator.clipboard.writeText(msg.content);
-                                       addToast(t('toast.copiedToClipboard'));
-                                   }}
-                                   className="absolute top-2 right-2 p-1.5 bg-gray-800/80 rounded-md text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity border border-gray-600"
-                               >
-                                   <CopyIcon className="h-3 w-3" />
-                               </ActionButton>
+                               <div className="flex flex-col justify-center shrink-0 self-stretch">
+                                    <div className="sticky top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                       <ActionButton
+                                           title={t('node.action.copy')}
+                                           onClick={(e) => {
+                                               e.stopPropagation();
+                                               navigator.clipboard.writeText(msg.content);
+                                               addToast(t('toast.copiedToClipboard'));
+                                           }}
+                                           className="p-1.5 bg-gray-800/80 rounded-md text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 shadow-sm"
+                                           tooltipPosition="top"
+                                       >
+                                           <CopyIcon className="h-3 w-3" />
+                                       </ActionButton>
+                                   </div>
+                               </div>
                            )}
                         </div>
                     </div>
@@ -377,10 +491,16 @@ export const GeminiChatNode: React.FC<NodeContentProps> = ({ node, onValueChange
                 <textarea
                     value={currentInput}
                     onChange={(e) => onValueChange(node.id, JSON.stringify({ ...chatValue, currentInput: e.target.value }))}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                    onKeyDown={(e) => { 
+                         e.stopPropagation(); // Stop hotkeys
+                         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } 
+                    }}
+                    onKeyUp={e => e.stopPropagation()}
                     placeholder={t('node.content.chatPlaceholder')}
                     onWheel={e => e.stopPropagation()}
                     onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}
+                    onMouseMove={stopPropagation}
+                    onMouseUp={stopPropagation}
                     className="w-full p-2 pr-20 bg-transparent border-none rounded-md resize-none focus:outline-none text-sm text-white placeholder-gray-400 hide-scrollbar"
                     style={{ height: `${inputHeight}px` }}
                 />
@@ -422,3 +542,5 @@ export const GeminiChatNode: React.FC<NodeContentProps> = ({ node, onValueChange
         </div>
     );
 };
+
+export const GeminiChatNode = React.memo(GeminiChatNodeComponent);

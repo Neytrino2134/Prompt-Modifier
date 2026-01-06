@@ -19,6 +19,7 @@ interface CharacterConceptsPanelProps {
     deselectAllNodes: () => void;
     conceptsMode?: 'normal' | 'collapsed' | 'expanded';
     onToggleMode?: (mode: 'normal' | 'collapsed' | 'expanded') => void;
+    duplicateIndices?: Set<string>;
 }
 
 export const CharacterConceptsPanel: React.FC<CharacterConceptsPanelProps> = ({
@@ -33,7 +34,8 @@ export const CharacterConceptsPanel: React.FC<CharacterConceptsPanelProps> = ({
     t,
     deselectAllNodes,
     conceptsMode = 'normal',
-    onToggleMode
+    onToggleMode,
+    duplicateIndices = new Set()
 }) => {
     const [isDragOverAdd, setIsDragOverAdd] = useState(false);
 
@@ -72,7 +74,10 @@ export const CharacterConceptsPanel: React.FC<CharacterConceptsPanelProps> = ({
                 title="Click to toggle collapse"
             >
                  <div className="flex items-center space-x-2">
-                    <h3 className="text-sm font-bold text-gray-300 flex-shrink-0">{t('node.content.characterConcepts')}</h3>
+                    <h3 className={`text-sm font-bold ${duplicateIndices.size > 0 ? 'text-red-400' : 'text-gray-300'} flex-shrink-0`}>
+                        {t('node.content.characterConcepts')}
+                        {duplicateIndices.size > 0 && <span className="ml-2 text-[10px] bg-red-900/40 px-1 rounded uppercase">предупреждение одинаковый индекс</span>}
+                    </h3>
                     <div onClick={(e) => e.stopPropagation()}>
                         <ActionButton title="Clear All (Local & Connected)" onClick={onClearConcepts}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -119,7 +124,11 @@ export const CharacterConceptsPanel: React.FC<CharacterConceptsPanelProps> = ({
                     }}
                     onWheel={e => e.stopPropagation()}
                 >
-                    {allConcepts.map((concept: any, index: number) => (
+                    {allConcepts.map((concept: any, index: number) => {
+                        // Check ID instead of name for duplication
+                        const hasError = duplicateIndices.has((concept.id || '').trim());
+                        
+                        return (
                         <div key={concept.uniqueKey || index} className="h-full w-full">
                             <CharacterConceptEditor 
                                 concept={{
@@ -143,9 +152,10 @@ export const CharacterConceptsPanel: React.FC<CharacterConceptsPanelProps> = ({
                                 onDetach={() => onDetachConnectedConcept(concept)}
                                 onViewImage={handleViewImage}
                                 t={t}
+                                hasError={hasError}
                             />
                         </div>
-                    ))}
+                    )})}
                     <button
                         onClick={onAddConcept}
                         onDragEnter={handleDragEnter}

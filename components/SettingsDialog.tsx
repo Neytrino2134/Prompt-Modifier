@@ -4,6 +4,7 @@ import { useLanguage } from '../localization';
 import { ActionButton } from './ActionButton';
 import { useAppContext } from '../contexts/AppContext';
 import { ReloadIcon, GoogleDriveIcon } from './icons/AppIcons';
+import { CustomCheckbox } from './CustomCheckbox';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -119,16 +120,12 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
           </div>
 
           <div className="flex items-center space-x-3 p-3 bg-gray-700/50 rounded-md border border-gray-600">
-            <input
-              type="checkbox"
-              id="useDevKey"
-              checked={useDevKey}
-              onChange={(e) => setUseDevKey(e.target.checked)}
-              className="h-5 w-5 rounded border-gray-500 text-accent focus:ring-accent bg-gray-800 cursor-pointer"
+            <CustomCheckbox
+                id="useDevKey"
+                checked={useDevKey}
+                onChange={(checked) => setUseDevKey(checked)}
+                label={t('dialog.settings.useDevKeyLabel')}
             />
-            <label htmlFor="useDevKey" className="text-sm font-medium text-gray-200 cursor-pointer select-none">
-              {t('dialog.settings.useDevKeyLabel')}
-            </label>
           </div>
 
           {/* Google Drive Integration Group */}
@@ -183,16 +180,12 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
           </div>
           
            <div className="flex items-center space-x-3 p-3 bg-gray-700/50 rounded-md border border-gray-600">
-            <input
-              type="checkbox"
-              id="instantNodeClose"
-              checked={instantNodeClose}
-              onChange={(e) => setInstantNodeClose(e.target.checked)}
-              className="h-5 w-5 rounded border-gray-500 text-accent focus:ring-accent bg-gray-800 cursor-pointer"
+            <CustomCheckbox
+                id="instantNodeClose"
+                checked={instantNodeClose}
+                onChange={(checked) => setInstantNodeClose(checked)}
+                label={t('dialog.settings.instantNodeCloseLabel')}
             />
-            <label htmlFor="instantNodeClose" className="text-sm font-medium text-gray-200 cursor-pointer select-none">
-              {t('dialog.settings.instantNodeCloseLabel')}
-            </label>
           </div>
 
           {/* Node Animation Mode Selector */}

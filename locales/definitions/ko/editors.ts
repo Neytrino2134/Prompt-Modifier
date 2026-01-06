@@ -1,5 +1,4 @@
 
-
 export const editors = {
     'imageEditor.title': '이미지 편집기',
     'imageEditor.canvasResolution': '캔버스 해상도',
@@ -98,4 +97,19 @@ export const editors = {
     'image_sequence.force_refresh': '강제 새로고침',
     'image_sequence.select_scene_frames': '이 장면의 모든 프레임 선택',
     'image_sequence.collapse_other_scenes': '다른 장면 축소',
+    'prompt_sequence_editor.instructionPlaceholder': '프롬프트 수정 지침 입력...',
+    'prompt_sequence_editor.modifying': '수정 중...',
+    'prompt_sequence_editor.modifySelected': '선택 항목 수정 ({count})',
+    'prompt_sequence_editor.sourcePrompts': '소스 프롬프트',
+    'prompt_sequence_editor.finalPrompts': '수정된 프롬프트',
+    'prompt_sequence_editor.error.invalidInput': '유효하지 않은 데이터 형식입니다. 프롬프트 시퀀스 배열을 연결해 주세요.',
+    'geminiChat.mode.general': '일반',
+    'geminiChat.mode.prompt': '프롬프트 전문가',
+    'geminiChat.mode.script': '시나리오 작가',
+    'geminiChat.mode.youtube': 'YouTube 분석가',
+    'image_sequence.shot_type.WS': "엔티티를 와이드 샷(WS)으로 장면과 동작에 통합합니다. 환경을 보여줍니다.",
+    'image_sequence.shot_type.MS': "엔티티를 미디엄 샷(MS)으로 장면에 통합합니다. 허리 위 캐릭터.",
+    'image_sequence.shot_type.CU': "엔티티를 클로즈업(CU)으로 장면에 통합합니다.",
+    'image_sequence.shot_type.ECU': "엔티티를 익스트림 클로즈업(ECU)으로 장면에 통합합니다. 최대 디테일.",
+    'image_sequence.shot_type.LS': "엔티티를 롱 샷(LS)으로 장면에 통합하여 규모를 보여줍니다."
 };

@@ -1,6 +1,6 @@
 
 import { NodeProcessor } from './types';
-import { enhancePrompt, sanitizePrompt, enhanceVideoPrompt, translateText } from '../geminiService';
+import { enhancePrompt, sanitizePrompt, enhanceVideoPrompt, translateText, extractTextFromImage } from '../geminiService';
 
 export const processPromptProcessor: NodeProcessor = async ({ node, upstreamData }) => {
     let texts = upstreamData.filter(v => typeof v === 'string') as string[];
@@ -60,9 +60,27 @@ export const processVideoPromptProcessor: NodeProcessor = async ({ node, upstrea
 export const processTranslator: NodeProcessor = async ({ node, upstreamData }) => {
     const parsed = JSON.parse(node.value || '{}');
     const upstreamTexts = upstreamData.filter(v => typeof v === 'string') as string[];
-    const textToTranslate = upstreamTexts.length > 0 ? upstreamTexts.join('\n') : parsed.inputText;
+    let textToTranslate = upstreamTexts.length > 0 ? upstreamTexts.join('\n') : parsed.inputText;
     const targetLanguage = parsed.targetLanguage || 'en';
     
+    // Check for image to OCR
+    if (parsed.image && typeof parsed.image === 'string' && parsed.image.startsWith('data:image')) {
+         const parts = parsed.image.split(',');
+         if (parts.length === 2) {
+             const mimeMatch = parsed.image.match(/:(.*?);/);
+             const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+             const base64 = parts[1];
+             
+             // Perform OCR
+             const extractedText = await extractTextFromImage(base64, mime);
+             if (extractedText && extractedText !== "No text found") {
+                 textToTranslate = extractedText;
+                 // Update parsed input text to reflect what was extracted
+                 parsed.inputText = extractedText;
+             }
+         }
+    }
+
     const translatedText = await translateText(textToTranslate, targetLanguage);
     
     return {

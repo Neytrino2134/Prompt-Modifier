@@ -51,7 +51,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         try {
             return JSON.parse(node.value || '{}');
         } catch {
-            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'none', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: '', usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {} };
+            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: '', usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {} };
         }
     }, [node.value]);
 
@@ -65,7 +65,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         initialWidth = MIN_LEFT_PANE_WIDTH;
     }
 
-    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'none', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = '', usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {} } = parsedValue;
+    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = '', usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {} } = parsedValue;
     
     // Sorted Used Characters Logic
     const sortedUsedCharacters = useMemo(() => {
@@ -147,6 +147,24 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         }));
         return [...mappedUpstream, ...mappedLocal];
     }, [sortedUpstream, characterConcepts]);
+
+    // Calculate duplicates (indices)
+    const duplicateIndices = useMemo(() => {
+        const counts: Record<string, number> = {};
+        const duplicates = new Set<string>();
+        allConcepts.forEach(c => {
+            const id = (c.id || '').trim(); // Using ID/Index
+            if (id) {
+                counts[id] = (counts[id] || 0) + 1;
+            }
+        });
+        Object.keys(counts).forEach(key => {
+            if (counts[key] > 1) {
+                duplicates.add(key);
+            }
+        });
+        return duplicates;
+    }, [allConcepts]);
 
     const reindexLocalConcepts = (currentLocal: CharacterConcept[]) => {
         let maxUpstreamIndex = 0;
@@ -847,7 +865,8 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         t={t} 
                         deselectAllNodes={deselectAllNodes} 
                         conceptsMode={conceptsMode} 
-                        onToggleMode={handleToggleConceptsMode} 
+                        onToggleMode={handleToggleConceptsMode}
+                        duplicateIndices={duplicateIndices} // Pass validation result
                     />
                 </div>
                 
@@ -921,13 +940,57 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                 <DebouncedTextarea 
                                     value={integrationPrompt} 
                                     onDebouncedChange={(v) => handleValueUpdate({ integrationPrompt: v })} 
-                                    placeholder="Integrate these characters/objects into the scene..."
+                                    placeholder="Integrate these Entities into the scene..."
                                     className="w-full p-2 bg-gray-700 border-none rounded-md resize-none focus:outline-none text-xs" 
                                     style={{ minHeight: '60px' }} 
                                     onMouseDown={e => e.stopPropagation()} 
                                     onWheel={(e) => e.stopPropagation()} 
                                 />
                             )}
+                        </div>
+
+                         <div 
+                            onWheel={e => e.stopPropagation()}
+                            className="flex-shrink-0 flex flex-col space-y-2 mb-2"
+                         >
+                            <div className="flex flex-col space-y-1">
+                                <div 
+                                    className="flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group"
+                                    onClick={handleToggleCharacterPromptCombinationCollapse}
+                                >
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1 flex-grow">
+                                        {t('image_sequence.character_prompt_combination')}
+                                        {characterPromptCombination !== 'none' && (
+                                            <span className="text-cyan-400 font-normal ml-1 normal-case">
+                                                ({characterPromptCombination === 'combine' ? t('image_sequence.combination_combine') : t('image_sequence.combination_replace')})
+                                            </span>
+                                        )}
+                                    </label>
+                                    <div className="text-gray-500 group-hover:text-gray-300 p-1">
+                                        {isCharacterPromptCombinationCollapsed
+                                            ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                            : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+                                        }
+                                    </div>
+                                </div>
+
+                                {!isCharacterPromptCombinationCollapsed && (
+                                    <div className="flex items-center space-x-4 bg-gray-800/50 p-2 rounded-md border border-gray-700">
+                                        <CustomCheckbox 
+                                            checked={characterPromptCombination === 'combine'}
+                                            onChange={(checked) => handleValueUpdate({ characterPromptCombination: checked ? 'combine' : 'none' })}
+                                            label={t('image_sequence.combination_combine')}
+                                            title="Добавляет описание персонажа к промпту кадра."
+                                        />
+                                        <CustomCheckbox 
+                                            checked={characterPromptCombination === 'replace'}
+                                            onChange={(checked) => handleValueUpdate({ characterPromptCombination: checked ? 'replace' : 'none' })}
+                                            label={t('image_sequence.combination_replace')}
+                                            title="Заменяет теги (напр. Character-1) в промпте на описание персонажа."
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Style Panel */}
@@ -960,66 +1023,8 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                              {!isStyleCollapsed && <DebouncedTextarea value={styleOverride} onDebouncedChange={(v) => handleValueUpdate({ styleOverride: v })} className="w-full p-2 bg-gray-700 border-none rounded-md resize-none focus:outline-none text-xs" style={{ minHeight: '60px' }} onMouseDown={e => e.stopPropagation()} onWheel={(e) => e.stopPropagation()} />}
                         </div>
 
-                         <div 
-                            onWheel={e => e.stopPropagation()}
-                            className="flex-shrink-0 flex flex-col space-y-2 mb-2 pt-2 border-t border-gray-700/50"
-                         >
-                            <div className="flex flex-col space-y-1">
-                                <div 
-                                    className="flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group"
-                                    onClick={handleToggleCharacterPromptCombinationCollapse}
-                                >
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1 flex-grow">
-                                        {t('image_sequence.character_prompt_combination')}
-                                    </label>
-                                    <div className="text-gray-500 group-hover:text-gray-300 p-1">
-                                        {isCharacterPromptCombinationCollapsed
-                                            ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                                            : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
-                                        }
-                                    </div>
-                                </div>
-
-                                {!isCharacterPromptCombinationCollapsed && (
-                                    <div className="flex items-center space-x-4 bg-gray-800/50 p-2 rounded-md border border-gray-700">
-                                        <CustomCheckbox 
-                                            checked={characterPromptCombination === 'combine'}
-                                            onChange={(checked) => handleValueUpdate({ characterPromptCombination: checked ? 'combine' : 'none' })}
-                                            label={t('image_sequence.combination_combine')}
-                                            title="Добавляет описание персонажа к промпту кадра."
-                                        />
-                                        <CustomCheckbox 
-                                            checked={characterPromptCombination === 'replace'}
-                                            onChange={(checked) => handleValueUpdate({ characterPromptCombination: checked ? 'replace' : 'none' })}
-                                            label={t('image_sequence.combination_replace')}
-                                            title="Заменяет теги (напр. Character-1) в промпте на описание персонажа."
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {/* Aspect Ratio Container */}
-                            <div className="flex-shrink-0 mt-2 border border-gray-700/50 rounded-md p-2 bg-gray-800/20">
-                                <div className="mb-2">
-                                    <CustomCheckbox
-                                        id={`aspect-ratio-toggle-${node.id}`}
-                                        checked={enableAspectRatio}
-                                        onChange={(checked) => { 
-                                            const updates: any = { enableAspectRatio: checked }; 
-                                            if (!checked) updates.aspectRatio = 'Auto'; 
-                                            handleValueUpdate(updates); 
-                                        }}
-                                        label={t('node.content.enableAspectRatioFormatting')}
-                                    />
-                                </div>
-                                {enableAspectRatio && (
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.aspectRatio')}</label>
-                                        <CustomSelect value={aspectRatio || '16:9'} onChange={(value) => handleValueUpdate({ aspectRatio: value })} options={[{ value: 'Auto', label: 'Auto' }, { value: "16:9", label: "16:9" }, { value: "9:16", label: "9:16" }, { value: "1:1", label: "1:1" }, { value: "4:3", label: "4:3" }, { value: "3:4", label: "3:4" }]} />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        {/* Visible Divider */}
+                        <div className="w-full h-0.5 bg-gray-600/80 my-3 flex-shrink-0"></div>
 
                         <SourcePromptList 
                             ref={sourceListRef} 

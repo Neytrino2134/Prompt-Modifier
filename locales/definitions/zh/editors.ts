@@ -1,5 +1,4 @@
 
-
 export const editors = {
     'imageEditor.title': '图像编辑器',
     'imageEditor.canvasResolution': '画布分辨率',
@@ -98,4 +97,19 @@ export const editors = {
     'image_sequence.force_refresh': '强制刷新',
     'image_sequence.select_scene_frames': '选择此场景中的所有帧',
     'image_sequence.collapse_other_scenes': '折叠其他场景',
+    'prompt_sequence_editor.instructionPlaceholder': '输入修改提示词的指令...',
+    'prompt_sequence_editor.modifying': '修改中...',
+    'prompt_sequence_editor.modifySelected': '修改选中 ({count})',
+    'prompt_sequence_editor.sourcePrompts': '源提示词',
+    'prompt_sequence_editor.finalPrompts': '修改后的提示词',
+    'prompt_sequence_editor.error.invalidInput': '数据格式无效。请连接提示词序列数组。',
+    'geminiChat.mode.general': '通用',
+    'geminiChat.mode.prompt': '提示词专家',
+    'geminiChat.mode.script': '编剧',
+    'geminiChat.mode.youtube': 'YouTube 分析师',
+    'image_sequence.shot_type.WS': "将实体以广角镜头 (WS) 整合到场景和动作中。展示环境。",
+    'image_sequence.shot_type.MS': "将实体以中景镜头 (MS) 整合到场景中。角色从腰部向上。",
+    'image_sequence.shot_type.CU': "将实体以特写镜头 (CU) 整合到场景中。",
+    'image_sequence.shot_type.ECU': "将实体以极特写镜头 (ECU) 整合到场景中。最大细节。",
+    'image_sequence.shot_type.LS': "将实体以远景镜头 (LS) 整合到场景中以展示规模。"
 };

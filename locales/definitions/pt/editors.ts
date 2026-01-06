@@ -1,5 +1,4 @@
 
-
 export const editors = {
     'imageEditor.title': 'Editor de Imagem',
     'imageEditor.canvasResolution': 'Resolução da Tela',
@@ -98,4 +97,19 @@ export const editors = {
     'image_sequence.force_refresh': 'Forçar Atualização',
     'image_sequence.select_scene_frames': 'Selecionar todos os quadros nesta cena',
     'image_sequence.collapse_other_scenes': 'Recolher outras cenas',
+    'prompt_sequence_editor.instructionPlaceholder': 'Insira a instrução para modificar prompts...',
+    'prompt_sequence_editor.modifying': 'Modificando...',
+    'prompt_sequence_editor.modifySelected': 'Modificar Selecionados ({count})',
+    'prompt_sequence_editor.sourcePrompts': 'Prompts de Origem',
+    'prompt_sequence_editor.finalPrompts': 'Prompts Modificados',
+    'prompt_sequence_editor.error.invalidInput': 'Formato de dados inválido. Por favor conecte um array de sequência de prompts.',
+    'geminiChat.mode.general': 'Geral',
+    'geminiChat.mode.prompt': 'Especialista em Prompt',
+    'geminiChat.mode.script': 'Roteirista',
+    'geminiChat.mode.youtube': 'Analista do YouTube',
+    'image_sequence.shot_type.WS': "Integre a Entidade com um Plano Aberto (WS) na cena e ação. Mostre o ambiente.",
+    'image_sequence.shot_type.MS': "Integre a Entidade com um Plano Médio (MS) na cena. Personagem da cintura para cima.",
+    'image_sequence.shot_type.CU': "Integre a Entidade com um Plano Próximo (CU) na cena.",
+    'image_sequence.shot_type.ECU': "Integre a Entidade com um Plano Muito Próximo (ECU) na cena. Máximo detalhe.",
+    'image_sequence.shot_type.LS': "Integre a Entidade com um Plano Longo (LS) na cena para mostrar escala."
 };

@@ -19,6 +19,7 @@ interface CharacterConceptEditorProps {
     onDetach: () => void;
     onViewImage: (imageUrl: string) => void;
     t: (key: string) => string;
+    hasError?: boolean;
 }
 
 const AspectRatioIcon: React.FC<{ width: number; height: number }> = ({ width, height }) => {
@@ -46,7 +47,7 @@ const AspectRatioIcon: React.FC<{ width: number; height: number }> = ({ width, h
     );
 };
 
-export const CharacterConceptEditor: React.FC<CharacterConceptEditorProps> = ({ concept, displayImage, fullResImage, isReadOnly, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast, onDetach, onViewImage, t }) => {
+export const CharacterConceptEditor: React.FC<CharacterConceptEditorProps> = ({ concept, displayImage, fullResImage, isReadOnly, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast, onDetach, onViewImage, t, hasError }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragOver, setIsDragOver] = useState(false);
     const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -153,9 +154,10 @@ export const CharacterConceptEditor: React.FC<CharacterConceptEditorProps> = ({ 
     };
 
     return (
-        <div className={`bg-gray-800 rounded-lg p-2 flex flex-col h-full border-2 border-gray-700 w-full`}>
+        <div className={`bg-gray-800 rounded-lg p-2 flex flex-col h-full border-2 ${hasError ? 'border-red-500' : 'border-gray-700'} w-full`}>
             <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-bold text-gray-400 truncate" title={concept.id}>{concept.id}</span>
+                {/* Apply error style to ID header if duplicate */}
+                <span className={`text-xs font-bold ${hasError ? 'text-red-500 animate-pulse' : 'text-gray-400'} truncate`} title={concept.id}>{concept.id}</span>
                 <div className="flex items-center space-x-1">
                     {concept.isConnected && (
                          <ActionButton title="Detach" tooltipPosition="left" onClick={(e) => { e.stopPropagation(); onDetach(); }}>
@@ -219,8 +221,8 @@ export const CharacterConceptEditor: React.FC<CharacterConceptEditorProps> = ({ 
                      <DebouncedInput
                         value={concept.name} 
                         onDebouncedChange={(val) => onUpdate({ name: val })}
-                        className="w-full bg-gray-900 text-xs text-white p-1 rounded border border-gray-700 focus:outline-none focus:border-cyan-500"
-                        placeholder="Index" 
+                        className={`w-full bg-gray-900 text-xs text-white p-1 rounded border border-gray-700 focus:outline-none focus:border-cyan-500`}
+                        placeholder="Name" 
                         readOnly={isReadOnly}
                      />
                      <DebouncedTextarea 

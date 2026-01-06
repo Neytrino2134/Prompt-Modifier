@@ -292,7 +292,7 @@ export interface NodeContentProps {
   onRegenerateFrame: (nodeId: string, frameNumber: number, suppliedParsedValue?: any) => void;
   onDownloadImageFromUrl: (imageUrl: string, frameNumber: number, prompt: string, filenameOverride?: string) => void;
   onCopyImageToClipboard: (imageUrl: string) => Promise<void>;
-  onSaveCharacterCard: (nodeId: string) => void;
+  onSaveCharacterCard: (nodeId: string, cardIndex?: number) => void;
   onLoadCharacterCard: (nodeId: string) => void;
   onOutputHandleMouseDown: (e: React.MouseEvent<HTMLDivElement>, nodeId: string, handleId?: string) => void;
   onOutputHandleTouchStart: (e: React.TouchEvent<HTMLDivElement>, nodeId: string, handleId?: string) => void;
@@ -300,7 +300,7 @@ export interface NodeContentProps {
   handleCursor: string;
   onDetachAndPasteConcept?: (sequenceNodeId: string, conceptToPaste: any) => void;
   onDetachImageToNode: (imageDataUrl: string, sourceNodeId: string) => void;
-  onSaveCharacterToCatalog: (nodeId: string) => void;
+  onSaveCharacterToCatalog: (nodeId: string, cardIndex?: number) => void;
   onSaveGeneratedCharacterToCatalog: (characterData: any) => void;
   onSaveScriptToCatalog: (nodeId: string) => void;
   onSaveSequenceToCatalog: (nodeId: string) => void;

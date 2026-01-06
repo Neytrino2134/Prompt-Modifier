@@ -1,10 +1,87 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../localization';
+import { CopyIcon } from './icons/AppIcons';
+import { Tooltip } from './Tooltip';
+
+interface LinkItemProps {
+    title: string;
+    url: string;
+    icon: React.ReactNode;
+    colorClass: string;
+    description?: string;
+}
+
+const LinkCard: React.FC<LinkItemProps> = ({ title, url, icon, colorClass, description }) => {
+    const { t } = useLanguage();
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleOpen = () => {
+        window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
+    return (
+        <div 
+            onClick={handleOpen}
+            className="group relative flex items-center justify-between bg-gray-900/40 p-3 rounded-xl border border-gray-700/50 hover:border-gray-600 transition-all duration-200 hover:bg-gray-800/60 cursor-pointer"
+        >
+            <div className="flex items-center gap-4 overflow-hidden">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gray-800 border border-gray-700 shadow-sm shrink-0 ${colorClass}`}>
+                    {icon}
+                </div>
+                <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-gray-200 text-sm truncate group-hover:text-cyan-400 transition-colors">{title}</span>
+                    {description && <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{description}</span>}
+                    <span className="text-[10px] text-gray-600 truncate font-mono mt-0.5 group-hover:text-gray-500 transition-colors">{url}</span>
+                </div>
+            </div>
+            
+            <div className="flex items-center gap-2 pl-2">
+                <Tooltip content={copied ? t('help.copied') : t('help.copyLink')} position="top">
+                    <button 
+                        onClick={handleCopy}
+                        className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 border border-transparent hover:border-gray-600 transition-all focus:outline-none"
+                    >
+                        {copied ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                        ) : (
+                            <CopyIcon className="h-4 w-4" />
+                        )}
+                    </button>
+                </Tooltip>
+                
+                {/* Visual indicator for external link */}
+                <div className="p-2 text-gray-600 group-hover:text-cyan-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
+    <div className="flex items-center gap-2 mb-3 mt-4 first:mt-0">
+        <div className="h-px bg-gray-700 flex-grow"></div>
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{title}</span>
+        <div className="h-px bg-gray-700 flex-grow"></div>
+    </div>
+);
 
 const HelpPanel: React.FC = () => {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'hotkeys' | 'links'>('hotkeys');
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +130,7 @@ const HelpPanel: React.FC = () => {
     windows: [
       { key: 'Space', description: t('hotkeys.windows.search') },
       { key: 'Ctrl+Space', description: t('hotkeys.windows.catalog') },
-      { key: 'F1', description: t('help.panelTitle') }, // Added F1 to the list visually as well
+      { key: 'F1', description: t('help.panelTitle') }, 
     ],
     alignment: [
         { key: 'F', description: t('contextMenu.align.left') },
@@ -104,7 +181,7 @@ const HelpPanel: React.FC = () => {
   );
 
   return (
-    <div ref={panelRef} className="relative">
+    <div ref={panelRef} className="relative select-none">
       <div
         className="relative flex items-center"
         onMouseEnter={() => setIsTooltipVisible(true)}
@@ -129,61 +206,173 @@ const HelpPanel: React.FC = () => {
 
       {isOpen && (
         <div 
-          className="absolute top-full mt-2 left-0 bg-gray-800 rounded-lg shadow-2xl w-[580px] h-[660px] border border-gray-700 z-50 flex flex-col" 
+          className="absolute top-full mt-2 left-0 bg-gray-800 rounded-lg shadow-2xl w-[600px] h-[720px] border border-gray-700 z-50 flex flex-col overflow-hidden" 
           onMouseDown={e => e.stopPropagation()}
         >
-          <div className="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-            <h2 className="text-lg font-bold text-gray-400">{t('help.panelTitle')}</h2>
-            <button 
-              onClick={() => setIsOpen(false)}
-              className="p-1 text-gray-400 rounded-full hover:bg-gray-600 hover:text-white"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="p-6 overflow-y-auto text-sm text-gray-400 flex-grow min-h-0 flex flex-col">
-              <div className="flex-grow">
-                  <div className="mb-8 text-left">
-                    <h3 className="text-2xl font-bold text-accent-text">{t('app.title')}</h3>
-                    <p className="text-base text-white mt-1">{t('app.subtitle')}</p>
-                  </div>
-                  
-                  <hr className="border-gray-600 my-4" />
-
-                  <div className="mb-8">
-                      <h4 className="text-xl font-bold text-accent-text mb-2 text-left">{t('help.howToUse.title')}</h4>
-                      <p className="text-white">{t('help.howToUse.content')}</p>
-                  </div>
-
-                   <hr className="border-gray-600 my-4" />
-
-                  <div className="mb-4">
-                      <h3 className="text-xl font-bold text-accent-text mb-4 text-left">{t('help.title')}</h3>
-                      <div className="flex flex-col space-y-6">
-                          <div>
-                              {renderHotkeySection(t('hotkeys.tools.title'), hotkeySections.tools)}
-                          </div>
-                          <div>
-                              {renderHotkeySection(t('hotkeys.windows.title'), hotkeySections.windows)}
-                          </div>
-                          <div>
-                               {renderHotkeySection("Alignment (2+ Selected)", hotkeySections.alignment)}
-                          </div>
-                          <div>
-                              {renderHotkeySection(t('hotkeys.createNode.title'), hotkeySections.createNode)}
-                          </div>
-                      </div>
-                  </div>
+          {/* Header & Tabs */}
+          <div className="bg-gray-900 border-b border-gray-700">
+              <div className="flex items-center justify-between p-4 pb-2">
+                  <h2 className="text-lg font-bold text-gray-200">
+                    {t('app.title')} <span className="text-xs text-gray-500 font-normal ml-2">{t('help.subtitle')}</span>
+                  </h2>
+                  <button 
+                    onClick={() => setIsOpen(false)}
+                    className="p-1 text-gray-400 rounded-full hover:bg-gray-700 hover:text-white transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+              </div>
+              
+              {/* Tabs */}
+              <div className="flex px-4 gap-6">
+                   <button 
+                       onClick={() => setActiveTab('hotkeys')}
+                       className={`pb-3 text-sm font-semibold transition-colors relative ${activeTab === 'hotkeys' ? 'text-accent-text' : 'text-gray-400 hover:text-gray-200'}`}
+                   >
+                       {t('help.panelTitle')}
+                       {activeTab === 'hotkeys' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full"></div>}
+                   </button>
+                   <button 
+                       onClick={() => setActiveTab('links')}
+                       className={`pb-3 text-sm font-semibold transition-colors relative ${activeTab === 'links' ? 'text-accent-text' : 'text-gray-400 hover:text-gray-200'}`}
+                   >
+                       {t('help.tab.links')}
+                       {activeTab === 'links' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-t-full"></div>}
+                   </button>
               </div>
           </div>
+
+          <div className="p-6 overflow-y-auto custom-scrollbar flex-grow bg-gray-800">
+              {activeTab === 'hotkeys' ? (
+                  <div className="flex flex-col space-y-6 text-sm text-gray-400">
+                      <div>
+                          {renderHotkeySection(t('hotkeys.tools.title'), hotkeySections.tools)}
+                      </div>
+                      <div>
+                          {renderHotkeySection(t('hotkeys.windows.title'), hotkeySections.windows)}
+                      </div>
+                      <div>
+                           {renderHotkeySection("Alignment (2+ Selected)", hotkeySections.alignment)}
+                      </div>
+                      <div>
+                          {renderHotkeySection(t('hotkeys.createNode.title'), hotkeySections.createNode)}
+                      </div>
+                  </div>
+              ) : (
+                  <div className="flex flex-col gap-2">
+                       <SectionHeader title={t('help.section.socials')} />
+                       
+                       <LinkCard 
+                           title="MurcelloNovaes" 
+                           description="YouTube Channel"
+                           url="https://www.youtube.com/@MurcelloNovaes" 
+                           colorClass="text-red-500"
+                           icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>}
+                       />
+
+                        <LinkCard 
+                           title="MeowMasterArt" 
+                           description="Linktree"
+                           url="https://linktr.ee/meowmasterart" 
+                           colorClass="text-green-500"
+                           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v12m0-12c-2 0-3-1-3-3 0-1 0-2 1-3m2 6c2 0 3-1 3-3 0-1 0-2-1-3M7 7c0 2 1 3 2 5m8-5c0 2-1 3-2 5M9 2h6" /></svg>}
+                       />
+
+                       <div className="grid grid-cols-2 gap-2">
+                            <LinkCard 
+                               title="Telegram Channel" 
+                               url="https://t.me/+h0YEu0nx9QdhMDNi" 
+                               colorClass="text-sky-400"
+                               icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>}
+                           />
+                            <LinkCard 
+                               title="Telegram Group" 
+                               url="https://t.me/+tyQLGFxiEbRhMDdi" 
+                               colorClass="text-sky-500"
+                               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                           />
+                       </div>
+
+                       <SectionHeader title={t('help.section.studioStable')} />
+                       
+                       <LinkCard 
+                           title="Prompt Modifier 0.1.7" 
+                           description="Stable Version"
+                           url="https://ai.studio/apps/drive/1YCO0DaA4BTm9p0j5XqvpBhX_XTg9ClwC?fullscreenApplet=true" 
+                           colorClass="text-blue-400"
+                           icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>}
+                       />
+                       <LinkCard 
+                           title="Script Modifier 0.1.3" 
+                           description="Stable Version"
+                           url="https://ai.studio/apps/drive/1enTmQ5Wz9RBArkZMZm5s5nYQcKxQ9L8M?fullscreenApplet=true" 
+                           colorClass="text-emerald-400"
+                           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                       />
+
+                        <SectionHeader title={t('help.section.studioAlpha')} />
+                       
+                       <LinkCard 
+                           title="Prompt Modifier 0.1.8 Alpha" 
+                           description="Latest Alpha"
+                           url="https://aistudio.google.com/apps/drive/1OJfPP9wUKlnjvZ5_2_Fxq_v1dW0iftlW?showAssistant=true&resourceKey=&showPreview=true" 
+                           colorClass="text-orange-400"
+                           icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M19.07 4.93L17.07 3.53C17.07 3.53 15.07 6.05 13.07 6.05C11.07 6.05 11.07 3.53 11.07 3.53L9.07 4.93C9.07 4.93 11.07 8.05 14.07 8.05C17.07 8.05 19.07 4.93 19.07 4.93ZM20.07 13.05C20.07 13.05 17.07 8.53 14.07 8.53C11.07 8.53 8.07 13.05 8.07 13.05H20.07ZM14.07 22.05C18.07 22.05 21.37 19.05 22.07 15.05H6.07C6.77 19.05 10.07 22.05 14.07 22.05Z" /></svg>}
+                       />
+                       <LinkCard 
+                           title="Script Modifier 0.1.4 Alpha" 
+                           description="Latest Alpha"
+                           url="https://aistudio.google.com/apps/drive/1y9CSUmlVQK2xq7ckses7fpM6wpbZdBnB?showAssistant=true&resourceKey=&showPreview=true" 
+                           colorClass="text-amber-400"
+                           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
+                       />
+
+                       <SectionHeader title={t('help.section.netlify')} />
+
+                       <div className="grid grid-cols-2 gap-2">
+                           <LinkCard 
+                               title="Script Modifier" 
+                               url="https://scriptmodifier2.netlify.app/" 
+                               colorClass="text-teal-400"
+                               icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 2L2 19.777h20L12 2zm0 3.7l6.6 11.677H5.4L12 5.7z"/></svg>}
+                           />
+                           <LinkCard 
+                               title="Prompt Modifier" 
+                               url="https://promptmodifier2.netlify.app/" 
+                               colorClass="text-teal-400"
+                               icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 2L2 19.777h20L12 2zm0 3.7l6.6 11.677H5.4L12 5.7z"/></svg>}
+                           />
+                       </div>
+
+                       <SectionHeader title={t('help.section.github')} />
+                       
+                       <div className="grid grid-cols-1 gap-2">
+                            <LinkCard 
+                               title="Script Modifier 0.1.4 Alpha" 
+                               url="https://github.com/Neytrino2134/Script-Modifier-0.1.4-Alpha" 
+                               colorClass="text-gray-200"
+                               icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" /></svg>}
+                           />
+                           <LinkCard 
+                               title="Prompt Modifier 0.1.8 Alpha" 
+                               url="https://github.com/Neytrino2134/Prompt-Modifier-0.1.8-Alpha" 
+                               colorClass="text-gray-200"
+                               icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" /></svg>}
+                           />
+                       </div>
+
+                       {/* Spacer */}
+                       <div className="h-4"></div>
+                  </div>
+              )}
+          </div>
           
-          <div className="p-4 bg-gray-900/50 border-t border-gray-700 text-xs flex-shrink-0 rounded-b-lg">
+          <div className="p-4 bg-gray-900/50 border-t border-gray-700 text-xs flex-shrink-0">
               <div className="flex justify-between items-baseline">
                   <span className="font-bold text-gray-600 text-sm">{t('app.title')}</span>
-                  <span className="text-gray-600">Licensed under GNU GPLv3</span>
+                  <span className="text-gray-600">{t('help.license')}</span>
               </div>
               
               <div className="w-full h-px bg-gray-700 my-3"></div>
@@ -197,7 +386,7 @@ const HelpPanel: React.FC = () => {
                       <a href="mailto:MeowMasterArt@gmail.com" className="text-gray-400 hover:text-accent-text transition-colors">MeowMasterArt@gmail.com</a>
 
                       <span className="text-gray-500">GitHub:</span>
-                      <a href="https://github.com/meowmasterart-spec/PrompModifier" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-accent-text transition-colors underline">meowmasterart-spec/PrompModifier</a>
+                      <a href="https://github.com/Neytrino2134/Prompt-Modifier-0.1.8-Alpha" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-accent-text transition-colors underline">Neytrino2134/Prompt-Modifier-0.1.8-Alpha</a>
                   </div>
                   <a href="https://www.netlify.com" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity">
                     <img src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" className="h-10" />

@@ -1,10 +1,11 @@
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
-import { CARD_EXPANDED_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO } from './Constants';
+import { CARD_EXPANDED_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO, SHOT_TYPE_INSTRUCTIONS } from './Constants';
 import { CopyIcon } from '../../icons/AppIcons';
 import { InputWithSpinners } from './SharedUI';
+import { CustomCheckbox } from '../../CustomCheckbox';
 
 interface PromptCardProps {
     index: number;
@@ -45,14 +46,6 @@ interface PromptCardProps {
     showVideoPrompts?: boolean;
     showSceneInfo?: boolean; 
 }
-
-const SHOT_TYPE_INSTRUCTIONS: Record<string, string> = {
-    'WS': "Integrate the character/object with a Wide Shot (WS) into the scene and action. Show the environment.",
-    'MS': "Integrate the character/object with a Medium Shot (MS) into the scene. Character from waist up.",
-    'CU': "Integrate the character/object with a Close-Up (CU) into the scene.",
-    'ECU': "Integrate the character/object with an Extreme Close-Up (ECU) into the scene. Maximum detail.",
-    'LS': "Integrate the character/object with a Long Shot (LS) into the scene to show scale."
-};
 
 export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameNumber, sceneNumber, prompt, videoPrompt, shotType, characters, duration, isSelected, isCollapsed, onToggleCollapse, onSelect, onChange, onDelete, onAddAfter, onCopy, onCopyVideo, onMoveUp, onMoveDown, onMoveToSource, onMoveToStart, onMoveToEnd, isFirst, isLast, t, readOnly = false, isChecked, onCheck, style, onEditInSource, onEditPrompt, showVideoPrompts = true, showSceneInfo = true }) => {
     
@@ -162,12 +155,11 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
             >
                  <div className="flex items-center space-x-2 flex-1 overflow-hidden">
                     {onCheck && (
-                        <div className="flex-shrink-0" onClick={(e) => { e.stopPropagation(); onCheck(frameNumber, e.shiftKey); }} title="Select frame for batch modification">
-                            <input 
-                                type="checkbox" 
-                                checked={isChecked} 
-                                readOnly
-                                className="h-5 w-5 rounded bg-gray-900/50 border-gray-500 text-accent focus:ring-accent cursor-pointer"
+                        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()} title="Select frame for batch modification">
+                            <CustomCheckbox
+                                checked={!!isChecked}
+                                onChange={(_, e) => onCheck(frameNumber, e.shiftKey)}
+                                className="h-5 w-5"
                             />
                         </div>
                     )}

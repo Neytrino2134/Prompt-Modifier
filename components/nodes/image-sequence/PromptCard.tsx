@@ -47,25 +47,16 @@ interface PromptCardProps {
     showSceneInfo?: boolean; 
 }
 
-const SHOT_TYPE_INSTRUCTIONS: Record<string, string> = {
-    'WS': "Integrate the character/object with a Wide Shot (WS) into the scene and action. Show the environment.",
-    'MS': "Integrate the character/object with a Medium Shot (MS) into the scene. Character from waist up.",
-    'CU': "Integrate the character/object with a Close-Up (CU) into the scene.",
-    'ECU': "Integrate the character/object with an Extreme Close-Up (ECU) into the scene. Maximum detail.",
-    'LS': "Integrate the character/object with a Long Shot (LS) into the scene to show scale."
-};
-
 export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameNumber, sceneNumber, prompt, videoPrompt, shotType, characters, duration, isSelected, isCollapsed, onToggleCollapse, onSelect, onChange, onDelete, onAddAfter, onCopy, onCopyVideo, onMoveUp, onMoveDown, onMoveToSource, onMoveToStart, onMoveToEnd, isFirst, isLast, t, readOnly = false, isChecked, onCheck, isModified, style, onRegenerate, isAnyGenerationInProgress, maxCharacters, onEditInSource, onEditPrompt, showVideoPrompts = true, showSceneInfo = true }) => {
     
     const handleUpdateCharacter = useCallback((charIndexInArray: number, newCharNumber: number) => {
         if (readOnly || newCharNumber < 1) return;
         const oldCharId = (characters || [])[charIndexInArray];
-        const newCharId = `Entity-${newCharNumber}`; // Updated to Entity
+        const newCharId = `Entity-${newCharNumber}`;
         
         const newCharacters = [...(characters || [])];
         newCharacters[charIndexInArray] = newCharId;
         
-        // Dynamic regex for both naming styles
         const regex = new RegExp(`\\(${oldCharId}\\)`, 'gi');
         const newPrompt = prompt.replace(regex, `(${newCharId})`);
 
@@ -93,7 +84,7 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
             newCharNumber++;
         }
         
-        const newCharId = `Entity-${newCharNumber}`; // Updated to Entity
+        const newCharId = `Entity-${newCharNumber}`;
         const newCharacters = [...currentChars, newCharId];
         
         onChange(frameNumber, { characters: newCharacters });
@@ -103,9 +94,8 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
         if (readOnly) return;
         const newPromptText = newVal;
         
-         // Use generalized regex to find character tags in both old and new text
         const getCharTags = (text: string) => {
-             const found = text.match(/(?:character|entity)-\d+/gi) || []; // Updated Regex
+             const found = text.match(/(?:character|entity)-\d+/gi) || [];
              return found.map(t => t.toLowerCase()).sort().join(',');
         };
 
@@ -131,7 +121,8 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
     const frameIndexStr = String(frameNumber).padStart(3, '0');
     const title = `FRAME-${frameIndexStr}${shotType ? `, [${shotType}]` : ''}`;
 
-    const shotInstruction = shotType ? SHOT_TYPE_INSTRUCTIONS[shotType] : undefined;
+    // Use localized instruction via t()
+    const shotInstruction = shotType ? t(`image_sequence.shot_type.${shotType}` as any) : undefined;
 
     return (
         <div
@@ -141,10 +132,10 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                 height: isCollapsed 
                     ? `${CARD_COLLAPSED_HEIGHT}px` 
                     : (showVideoPrompts 
-                        ? (shotInstruction ? `${CARD_EXPANDED_HEIGHT}px` : `${CARD_EXPANDED_HEIGHT - 30}px`)
-                        : (shotInstruction ? `${CARD_EXPANDED_HEIGHT_NO_VIDEO}px` : `${CARD_EXPANDED_HEIGHT_NO_VIDEO - 30}px`)),
+                        ? (shotInstruction ? `${CARD_EXPANDED_HEIGHT + 30}px` : `${CARD_EXPANDED_HEIGHT}px`)
+                        : (shotInstruction ? `${CARD_EXPANDED_HEIGHT_NO_VIDEO + 30}px` : `${CARD_EXPANDED_HEIGHT_NO_VIDEO}px`)),
             }}
-            className={`relative group bg-gray-700 p-2 rounded-lg border-2 overflow-hidden ${isSelected ? 'border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'border-transparent hover:border-gray-600'}`}
+            className={`relative group bg-gray-700 p-2 rounded-lg border-2 overflow-hidden mb-1 ${isSelected ? 'border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'border-transparent hover:border-gray-600'}`}
         >
             <div 
                 className="flex justify-between items-center mb-1 h-[28px] gap-2"
@@ -152,12 +143,12 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
             >
                  <div className="flex items-center space-x-2 flex-1 overflow-hidden">
                     {onCheck && (
-                        <div className="flex-shrink-0" title="Select frame for batch generation">
-                             <CustomCheckbox
+                        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()} title="Select frame for batch modification">
+                            <CustomCheckbox
                                 checked={!!isChecked}
                                 onChange={(_, e) => onCheck(frameNumber, e.shiftKey)}
                                 className="h-5 w-5"
-                             />
+                            />
                         </div>
                     )}
                     <ActionButton tooltipPosition="right" title={isCollapsed ? t('node.action.expand') : t('node.action.collapse')} onClick={(e) => { e.stopPropagation(); onToggleCollapse(frameNumber); }}>
@@ -166,42 +157,30 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                             : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
                         }
                     </ActionButton>
+                    
                     <h4 className="text-[10px] font-black text-gray-200 flex-shrink-0 whitespace-nowrap uppercase tracking-tighter" title={title}>
                         {title}
                     </h4>
 
-                    <div className="flex items-center flex-shrink-0 bg-gray-800 rounded">
-                        <input
-                            type="number"
-                            value={duration}
-                            min="0"
-                            readOnly={readOnly}
-                            onChange={e => onChange(frameNumber, { duration: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                            className="w-10 p-0.5 bg-transparent rounded text-xs text-center border-none focus:ring-1 focus:ring-cyan-500"
-                            onClick={e => e.stopPropagation()}
-                            onMouseDown={e => e.stopPropagation()}
-                        />
-                         <span className="text-xs text-gray-400 pr-1.5">s</span>
-                    </div>
-                    <div className="flex items-center space-x-1 flex-shrink-0">
-                        <span className="text-xs text-gray-400 font-semibold">ENT:</span>
+                    <div className="flex items-center space-x-1 flex-shrink-0 ml-1">
+                        <span className="text-[10px] text-gray-500 font-semibold uppercase">ENT:</span>
                         {(characters || []).map((charId, charIndex) => {
                             const num = parseInt(charId.replace(/(?:character|entity)-/i, ''), 10);
                             if (isNaN(num)) return null;
                             return (
-                                <div key={charIndex} className="flex items-center bg-gray-800 rounded">
-                                    <span className="text-xs font-semibold px-2">{num}</span>
-                                    <div className="flex flex-col border-l border-gray-600">
+                                <div key={charIndex} className="flex items-center bg-gray-600 rounded text-gray-200 border border-gray-500">
+                                    <span className="text-[10px] font-semibold px-1.5">{num}</span>
+                                    <div className="flex flex-col border-l border-gray-500">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleUpdateCharacter(charIndex, num + 1); }}
-                                            className="px-1 text-gray-400 hover:text-white text-xs leading-none disabled:text-gray-600 disabled:cursor-not-allowed"
+                                            className="px-0.5 text-gray-300 hover:text-white text-[8px] middle-none disabled:text-gray-500 disabled:cursor-not-allowed"
                                             disabled={readOnly}
                                         >
                                             ▲
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleUpdateCharacter(charIndex, num - 1); }}
-                                            className="px-1 text-gray-400 hover:text-white text-xs leading-none border-t border-gray-600 disabled:text-gray-600 disabled:cursor-not-allowed"
+                                            className="px-0.5 text-gray-300 hover:text-white text-[8px] border-t border-gray-600 disabled:text-gray-500 disabled:cursor-not-allowed"
                                             disabled={readOnly || num <= 1}
                                         >
                                             ▼
@@ -210,7 +189,7 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleRemoveCharacter(charIndex); }}
                                         disabled={readOnly}
-                                        className="px-1.5 text-red-400 hover:text-red-300 border-l border-gray-600 text-sm disabled:text-gray-600 disabled:cursor-not-allowed"
+                                        className="px-1 text-red-300 hover:text-red-100 border-l border-gray-500 text-[10px] disabled:text-gray-500 disabled:cursor-not-allowed"
                                     >
                                         &times;
                                     </button>
@@ -220,13 +199,25 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                         <button
                             onClick={(e) => { e.stopPropagation(); handleAddCharacter(); }}
                             disabled={readOnly}
-                            className="flex items-center justify-center w-5 h-5 bg-gray-600 hover:bg-cyan-600 rounded text-sm disabled:bg-gray-700 disabled:cursor-not-allowed"
+                            className="flex items-center justify-center w-4 h-4 bg-gray-600 hover:bg-gray-500 rounded text-[10px] text-gray-300 disabled:bg-gray-700 disabled:cursor-not-allowed"
                         >
                             +
                         </button>
                     </div>
                 </div>
-                <div className="flex items-center flex-shrink-0">
+
+                <div className="flex items-center flex-shrink-0 space-x-1">
+                     {!isCollapsed && !readOnly && (
+                         <div className="flex items-center flex-shrink-0 mr-1">
+                            <InputWithSpinners 
+                                value={duration.toString()}
+                                onChange={(val) => onChange(frameNumber, { duration: Math.max(0, parseInt(val, 10) || 0) })}
+                                min={0}
+                            />
+                            <span className="text-[9px] text-gray-400 ml-1">s</span>
+                        </div>
+                    )}
+
                     {onMoveToSource && (
                          <ActionButton tooltipPosition="left" title="Move to Source" onClick={(e) => { e.stopPropagation(); onMoveToSource(frameNumber); }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -234,6 +225,24 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                             </svg>
                         </ActionButton>
                     )}
+                    
+                    {!readOnly && (
+                        <div className="flex p-0.5">
+                            {onMoveToStart && <ActionButton tooltipPosition="left" title="Move to Start" onClick={(e) => { e.stopPropagation(); onMoveToStart(index); }} disabled={isFirst}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 11l7-7 7 7M5 19l7-7 7 7" /></svg>
+                            </ActionButton>}
+                            {onMoveUp && <ActionButton tooltipPosition="left" title="Move Up" onClick={(e) => { e.stopPropagation(); onMoveUp(index); }} disabled={isFirst}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+                            </ActionButton>}
+                            {onMoveDown && <ActionButton tooltipPosition="left" title="Move Down" onClick={(e) => { e.stopPropagation(); onMoveDown(index); }} disabled={isLast}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                            </ActionButton>}
+                            {onMoveToEnd && <ActionButton tooltipPosition="left" title="Move to End" onClick={(e) => { e.stopPropagation(); onMoveToEnd(index); }} disabled={isLast}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 13l-7 7-7-7m14-8l-7 7-7-7" /></svg>
+                            </ActionButton>}
+                        </div>
+                    )}
+                    
                     {!readOnly && onAddAfter && (
                         <ActionButton tooltipPosition="left" title="Add Frame After" onClick={(e) => { e.stopPropagation(); onAddAfter(frameNumber); }} className="p-1 rounded-md text-[#dad5cf] hover:bg-gray-600 hover:text-white transition-colors focus:outline-none">
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -241,21 +250,17 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                             </svg>
                         </ActionButton>
                     )}
-                    {!readOnly && onMoveUp && <ActionButton tooltipPosition="left" title={t('image_sequence.move_up')} onClick={(e) => { e.stopPropagation(); onMoveUp(index); }} disabled={isFirst}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
-                    </ActionButton>}
-                    {!readOnly && onMoveDown && <ActionButton tooltipPosition="left" title={t('image_sequence.move_down')} onClick={(e) => { e.stopPropagation(); onMoveDown(index); }} disabled={isLast}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                    </ActionButton>}
-                    {!readOnly && onMoveToStart && <ActionButton tooltipPosition="left" title="Move to Start" onClick={(e) => { e.stopPropagation(); onMoveToStart(index); }} disabled={isFirst}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 11l7-7 7 7M5 19l7-7 7 7" /></svg>
-                    </ActionButton>}
-                    {!readOnly && onMoveToEnd && <ActionButton tooltipPosition="left" title="Move to End" onClick={(e) => { e.stopPropagation(); onMoveToEnd(index); }} disabled={isLast}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 13l-7 7-7-7m14-8l-7 7-7-7" /></svg>
-                    </ActionButton>}
+
                     <ActionButton tooltipPosition="left" title={t('node.action.copyImagePrompt')} onClick={(e) => { e.stopPropagation(); onCopy(prompt); }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <CopyIcon className="h-4 w-4" />
                     </ActionButton>
+                    
+                    <ActionButton tooltipPosition="left" title={t('node.action.copyVideoPrompt')} onClick={(e) => { e.stopPropagation(); if (videoPrompt && onCopyVideo) onCopyVideo(videoPrompt); }}>
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                             <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                        </svg>
+                    </ActionButton>
+                    
                     {!readOnly && onDelete && <ActionButton tooltipPosition="left" title={t('image_sequence.delete_frame')} onClick={(e) => { e.stopPropagation(); onDelete(frameNumber); }} className="p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-gray-600 transition-colors focus:outline-none">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </ActionButton>}
@@ -285,7 +290,7 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                          </div>
                     )}
                     <div className="flex flex-col">
-                         <label className="text-[10px] font-bold text-gray-400 uppercase">IMAGE PROMPT #{frameIndexStr}</label>
+                         <label className="text-[10px] font-bold text-gray-400 uppercase">IMAGE PROMPT</label>
                          <DebouncedTextarea
                             value={prompt}
                             onDebouncedChange={handlePromptTextChange}
@@ -297,15 +302,10 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                             onWheel={e => e.stopPropagation()}
                         />
                     </div>
-                     {showVideoPrompts && (
+                    {showVideoPrompts && (
                          <div className="flex flex-col mt-1 pt-1 border-t border-gray-600/30">
                              <div className="flex justify-between items-center mb-0.5">
-                                 <label className="text-[10px] font-bold text-gray-400 uppercase">VIDEO PROMPT #{frameIndexStr}</label>
-                                 <ActionButton tooltipPosition="left" title={t('node.action.copyVideoPrompt')} onClick={(e) => { e.stopPropagation(); if (videoPrompt && onCopyVideo) onCopyVideo(videoPrompt); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-                                    </svg>
-                                </ActionButton>
+                                 <label className="text-[10px] font-bold text-gray-400 uppercase">VIDEO PROMPT</label>
                              </div>
                              <DebouncedTextarea
                                 value={videoPrompt || ''}

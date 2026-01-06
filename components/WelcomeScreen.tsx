@@ -268,6 +268,21 @@ const WelcomeContent: React.FC<{
                     </div>
                 </div>
             </div>
+
+            {/* External Link Button */}
+            <div className={`mt-10 transition-all duration-700 delay-100 ${exitPhase !== 'idle' ? 'opacity-0 translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+                <a 
+                    href="https://scriptmodifier2.netlify.app/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center gap-3 px-6 py-3 rounded-full bg-gray-900/60 hover:bg-gray-800 border border-gray-700 hover:border-cyan-500/50 text-gray-400 hover:text-cyan-400 transition-all duration-300 backdrop-blur-sm shadow-lg hover:shadow-cyan-500/10"
+                >
+                    <span className="font-semibold tracking-wide text-sm">Go to Script Modifier</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                </a>
+            </div>
         </div>
     );
 };
@@ -476,7 +491,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
 
             {/* GitHub Repository */}
             <a 
-                href="https://github.com/meowmasterart-spec/PrompModifier" 
+                href="https://github.com/Neytrino2134/Prompt-Modifier-0.1.8-Alpha" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="transition-all duration-300 hover:opacity-100 opacity-60 hover:scale-110"

@@ -1,5 +1,4 @@
 
-
 export const editors = {
     'imageEditor.title': 'Editor Immagini',
     'imageEditor.canvasResolution': 'Risoluzione Tela',
@@ -77,7 +76,7 @@ export const editors = {
     'image_sequence.combination_none': 'Nessuna',
     'image_sequence.combination_combine': 'Combina',
     'image_sequence.combination_replace': 'Sostituisci Tag',
-    'image_sequence.status.error': 'Errore',
+    'image_sequence.status.error': 'Erro',
     'image_sequence.status.pending': 'In Coda',
     'image_sequence.clear_selected_prompts': 'Pulisci Prompt Selezionati',
     'image_sequence.range_from': 'Da:',
@@ -98,4 +97,19 @@ export const editors = {
     'image_sequence.force_refresh': 'Forza Aggiornamento',
     'image_sequence.select_scene_frames': 'Seleziona tutti i fotogrammi in questa scena',
     'image_sequence.collapse_other_scenes': 'Comprimi altre scene',
+    'prompt_sequence_editor.instructionPlaceholder': 'Inserisci istruzione per modificare i prompt...',
+    'prompt_sequence_editor.modifying': 'Modifica in corso...',
+    'prompt_sequence_editor.modifySelected': 'Modifica Selezionati ({count})',
+    'prompt_sequence_editor.sourcePrompts': 'Prompt Sorgente',
+    'prompt_sequence_editor.finalPrompts': 'Prompt Modificati',
+    'prompt_sequence_editor.error.invalidInput': 'Formato dati non valido. Connetti un array di sequenza prompt.',
+    'geminiChat.mode.general': 'Generale',
+    'geminiChat.mode.prompt': 'Esperto Prompt',
+    'geminiChat.mode.script': 'Sceneggiatore',
+    'geminiChat.mode.youtube': 'Analista YouTube',
+    'image_sequence.shot_type.WS': "Integra l'Entità con un Campo Lungo (WS) nella scena e nell'azione. Mostra l'ambiente.",
+    'image_sequence.shot_type.MS': "Integra l'Entità con un Piano Medio (MS) nella scena. Personaggio dalla vita in su.",
+    'image_sequence.shot_type.CU': "Integra l'Entità con un Primo Piano (CU) nella scena.",
+    'image_sequence.shot_type.ECU': "Integra l'Entità con un Primissimo Piano (ECU) nella scena. Massimo dettaglio.",
+    'image_sequence.shot_type.LS': "Integra l'Entità con un Piano Totale (LS) nella scena per mostrare la scala."
 };

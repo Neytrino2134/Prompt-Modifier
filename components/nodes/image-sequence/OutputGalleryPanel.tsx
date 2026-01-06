@@ -323,8 +323,13 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
                                     {/* Right: Meta and Actions */}
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         
-                                        {/* Hidden Count */}
-                                        {isOutputSceneCollapsed && <span className="text-[10px] text-gray-500 font-medium whitespace-nowrap">({group.prompts.length} frames hidden)</span>}
+                                        {/* Hidden Count / Frame Count */}
+                                        <span className="text-[10px] text-gray-500 font-medium whitespace-nowrap">
+                                            {isOutputSceneCollapsed
+                                                ? t('image_sequence.frames_hidden', { count: group.prompts.length })
+                                                : t('image_sequence.frames_count', { count: group.prompts.length })
+                                            }
+                                        </span>
                                         
                                         {/* Frame Range */}
                                         <span className="text-[10px] text-gray-500 font-mono whitespace-nowrap">{frameRange}</span>
@@ -363,10 +368,15 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
                          const group = item.data;
                          return (
                             <div key={`grid-content-${group.scene}`} style={{ position: 'absolute', top: item.top, left: 0, right: 0, height: item.h }}>
-                                <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4 pl-2">
+                                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 pl-2">
                                     {group.prompts.map((p: any) => {
                                          const charIndices: string[] = [];
-                                         if (p.characters && Array.isArray(p.characters)) p.characters.forEach((charId: string) => { const match = charId.match(/character-(\d+)/i); if (match) charIndices.push(match[1]); });
+                                         if (p.characters && Array.isArray(p.characters)) {
+                                             p.characters.forEach((charId: string) => { 
+                                                 const match = charId.match(/(?:character|entity)-(\d+)/i); 
+                                                 if (match) charIndices.push(match[1]); 
+                                             });
+                                         }
                                          
                                          // Prioritize thumbnail from node state for faster UI
                                          const thumbnail = images[p.frameNumber];
@@ -374,7 +384,7 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
                                          const imageUrl = thumbnail || fullSizeUrl;
 
                                          return (
-                                            <div key={p.frameNumber} className="w-full aspect-video">
+                                            <div key={p.frameNumber} className="w-full h-[200px]">
                                                 <OutputFrame
                                                     index={p.frameNumber}
                                                     frameNumber={p.frameNumber}
