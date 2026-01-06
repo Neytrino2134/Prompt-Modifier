@@ -1,0 +1,5 @@
+
+export const CARD_EXPANDED_HEIGHT = 260;
+export const CARD_EXPANDED_HEIGHT_NO_VIDEO = 180;
+export const CARD_COLLAPSED_HEIGHT = 44;
+export const SCENE_HEADER_HEIGHT = 36;

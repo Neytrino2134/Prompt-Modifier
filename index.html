@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prompt Modifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <style>
+      /* --- Theme Variables --- */
+      /* Default Theme (Cyan) */
+      :root {
+        --color-bg-canvas: #111827; /* gray-900 */
+        --color-bg-node: #1f2937;   /* gray-800 */
+        --color-bg-panel: #111827;  /* gray-900 */
+        --color-bg-input: #18202f;  /* Dark Blue (Requested) */
+        --color-border: #4b5563;    /* gray-600 */
+        --color-scrollbar: #4b5563; /* gray-600 (Fixed Scrollbar Color) */
+        
+        --color-accent: #0891b2;        /* cyan-600 */
+        --color-accent-hover: #0e7490;  /* cyan-700 */
+        --color-accent-dim: rgba(34, 211, 238, 0.1);
+        --color-text-accent: #22d3ee;   /* cyan-400 */
+        --color-selection: rgba(34, 211, 238, 0.3); /* Selection Color */
+
+        --color-accent-secondary: #0d9488;       /* teal-600 */
+        --color-accent-secondary-hover: #0f766e; /* teal-700 */
+        
+        --color-connection-text: #22d3ee; /* cyan-400 */
+        --color-connection-image: #1cead8; /* Bright Turquoise */
+        
+        --color-border-hover: #1cead8;    /* Bright Turquoise */
+        --color-border-selected: #22d3ee; /* Cyan-400 */
+        
+        --color-text-primary: #ffffff;
+        --color-text-secondary: #9ca3af; /* gray-400 */
+      }
+
+      /* Orange Theme */
+      [data-theme='orange'] {
+        --color-bg-canvas: #0f0f0f; /* Black (Monochrome style) */
+        --color-bg-node: #3f1d12;   /* Dark brown */
+        --color-bg-panel: #0f0f0f;  /* Black (Monochrome style) */
+        /* --color-bg-input: #2a1b15;  Reverted to default */
+        /* --color-border: #7c2d12;    Reverted to default */
+        
+        --color-accent: #ea580c;        /* orange-600 */
+        --color-accent-hover: #c2410c;  /* orange-700 */
+        --color-accent-dim: rgba(251, 146, 60, 0.1);
+        --color-text-accent: #fb923c;   /* orange-400 */
+        --color-selection: rgba(251, 146, 60, 0.3); /* Selection Color */
+
+        --color-accent-secondary: #d97706;       /* amber-600 */
+        --color-accent-secondary-hover: #b45309; /* amber-700 */
+        
+        --color-connection-text: #fb923c; /* orange-400 */
+        --color-connection-image: #fbbf24; /* amber-400 */
+        
+        --color-border-hover: #fdba74;    /* orange-300 */
+        --color-border-selected: #fb923c; /* orange-400 */
+      }
+
+      /* Pink Theme */
+      [data-theme='pink'] {
+        --color-bg-canvas: #0f0f0f; /* Black (Monochrome style) */
+        --color-bg-node: #500724;   /* Dark pink */
+        --color-bg-panel: #0f0f0f;  /* Black (Monochrome style) */
+        /* --color-bg-input: #2e101b;  Reverted to default */
+        /* --color-border: #9d174d;    Reverted to default */
+        
+        --color-accent: #db2777;        /* pink-600 */
+        --color-accent-hover: #be185d;  /* pink-700 */
+        --color-accent-dim: rgba(244, 114, 182, 0.1);
+        --color-text-accent: #f472b6;   /* pink-400 */
+        --color-selection: rgba(244, 114, 182, 0.3); /* Selection Color */
+
+        --color-accent-secondary: #be123c;       /* rose-700 */
+        --color-accent-secondary-hover: #9f1239; /* rose-800 */
+        
+        --color-connection-text: #f472b6; /* pink-400 */
+        --color-connection-image: #e879f9; /* fuchsia-400 */
+        
+        --color-border-hover: #f9a8d4;    /* pink-300 */
+        --color-border-selected: #f472b6; /* pink-400 */
+      }
+      
+      /* Gray (Monochrome) Theme */
+      [data-theme='gray'] {
+        --color-bg-canvas: #0f0f0f;
+        --color-bg-node: #27272a;   /* zinc-800 */
+        --color-bg-panel: #0f0f0f;
+        --color-bg-input: #18181b;  /* zinc-950 */
+        --color-border: #52525b;    /* zinc-600 */
+        
+        --color-accent: #52525b;        /* zinc-600 (used as active button) */
+        --color-accent-hover: #71717a;  /* zinc-500 */
+        --color-accent-dim: rgba(255, 255, 255, 0.05);
+        --color-text-accent: #e4e4e7;   /* zinc-200 */
+        --color-selection: rgba(161, 161, 170, 0.3); /* Selection Color */
+
+        --color-accent-secondary: #71717a;       /* zinc-500 */
+        --color-accent-secondary-hover: #a1a1aa; /* zinc-400 */
+        
+        --color-connection-text: #a1a1aa; /* Zinc-400 */
+        --color-connection-image: #a1a1aa; /* Zinc-400 */
+        
+        --color-border-hover: #d4d4d8;    /* Zinc-300 */
+        --color-border-selected: #a1a1aa; /* Zinc-400 */
+      }
+
+      /* Global Selection Style */
+      ::selection {
+        background-color: var(--color-selection);
+        color: #ffffff;
+      }
+
+      body {
+        overflow: hidden;
+        background-color: var(--color-bg-canvas);
+        color: var(--color-text-primary);
+        /* Улучшаем отрисовку шрифтов */
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      
+      #app-container {
+        touch-action: none;
+      }
+      
+      #canvas-transform-layer {
+        transform-style: flat;
+      }
+
+      .node-view {
+        text-rendering: optimizeLegibility;
+      }
+
+      /* Custom Scrollbar Styles */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: #4B5563; /* gray-600 fallback */
+        background-color: var(--color-scrollbar); /* Fixed gray color for all themes */
+        border-radius: 4px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: #6B7280; /* gray-500 */
+      }
+      /* For Firefox */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-scrollbar) transparent; /* Fixed gray color for all themes */
+      }
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
+      /* Custom Textarea Resizer Handle */
+      textarea::-webkit-resizer {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        background-image: url('data:image/svg+xml,%3Csvg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M12 6L6 12" stroke="%23374151" stroke-width="2" stroke-linecap="round"/%3E%3Cpath d="M14 10L10 14" stroke="%23374151" stroke-width="2" stroke-linecap="round"/%3E%3C/svg%3E');
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 12px;
+        border: none;
+        cursor: se-resize;
+        transition: background-image 0.2s ease-in-out;
+      }
+
+      textarea:hover::-webkit-resizer,
+      textarea:focus::-webkit-resizer {
+        /* Note: Ideally we pass CSS var here, but SVG data URI requires encoded colors. 
+           For now we keep cyan as hover, or use a neutral hover color. */
+        background-image: url('data:image/svg+xml,%3Csvg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M12 6L6 12" stroke="%239ca3af" stroke-width="2" stroke-linecap="round"/%3E%3Cpath d="M14 10L10 14" stroke="%239ca3af" stroke-width="2" stroke-linecap="round"/%3E%3C/svg%3E');
+      }
+
+      textarea {
+        overflow-y: scroll;
+      }
+
+      /* Global Input Focus Override */
+      input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+      textarea:focus {
+        outline: none !important;
+        border-color: var(--color-border-selected) !important;
+        box-shadow: none !important; /* Forces a thin 1px border by removing shadows/rings */
+      }
+
+      @keyframes progress-bar-stripes {
+        from { background-position: 40px 0; }
+        to { background-position: 0 0; }
+      }
+      .progress-bar-animated {
+        animation: progress-bar-stripes 1s linear infinite;
+      }
+
+      @keyframes fade-in-out {
+        0% { opacity: 0; transform: translateY(-20px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-20px); }
+      }
+      .animate-fade-in-out {
+        animation: fade-in-out 3s ease-in-out forwards;
+      }
+
+      @keyframes fade-in-down {
+        0% { opacity: 0; transform: translate(-50%, -20px); }
+        100% { opacity: 1; transform: translate(-50%, 0); }
+      }
+      .animate-fade-in-down {
+        animation: fade-in-down 0.3s ease-out forwards;
+      }
+
+      @keyframes fade-in-drop {
+        0% { opacity: 0; transform: translateY(-10px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-drop {
+        animation: fade-in-drop 0.2s ease-out forwards;
+      }
+      
+      @keyframes border-flash {
+        0% { border-color: transparent; }
+        50% { border-color: var(--color-text-accent); }
+        100% { border-color: transparent; }
+      }
+      .animate-border-flash {
+        animation: border-flash 0.25s ease-in-out;
+      }
+
+      @keyframes rotate-ring {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      @keyframes pulse-cyan {
+        0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.0); border-color: rgb(55 65 81); }
+        50% { box-shadow: 0 0 20px 2px rgba(34, 211, 238, 0.25); border-color: var(--color-text-accent); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.0); border-color: rgb(55 65 81); }
+      }
+
+      .node-pulse-animation {
+        animation: pulse-cyan 2s infinite ease-in-out;
+      }
+      
+      /* Tutorial Animations */
+      @keyframes pulse-ring {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.7); }
+        70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(34, 211, 238, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+      }
+      
+      .tutorial-ring {
+         animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+      }
+      
+      @keyframes bounce-horizontal {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(5px); }
+      }
+      
+      .tutorial-bounce-right {
+        animation: bounce-horizontal 1s infinite;
+      }
+
+      .new-node-ring {
+        position: absolute;
+        inset: -3px; 
+        border-radius: 10px; 
+        z-index: 20; 
+        pointer-events: none;
+        padding: 3px; 
+        
+        -webkit-mask: 
+           linear-gradient(#fff 0 0) content-box, 
+           linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+      }
+
+      .new-node-ring::before {
+        content: '';
+        position: absolute;
+        inset: -50%; 
+        background: conic-gradient(
+          from 0deg,
+          transparent 0deg,
+          rgba(34, 211, 238, 0) 100deg,
+          var(--color-text-accent) 150deg, 
+          transparent 150deg,
+          transparent 280deg,
+          rgba(34, 211, 238, 0) 330deg,
+          var(--color-text-accent) 360deg 
+        );
+        animation: rotate-ring 6s linear infinite;
+      }
+
+      .welcome-ring {
+        position: absolute;
+        inset: -3px; 
+        border-radius: 27px; 
+        z-index: 20;
+        pointer-events: none;
+        padding: 3px; 
+        
+        -webkit-mask: 
+           linear-gradient(#fff 0 0) content-box, 
+           linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+      }
+
+      .welcome-ring::before {
+        content: '';
+        position: absolute;
+        inset: -50%;
+        background: conic-gradient(
+          from 0deg,
+          transparent 0deg,
+          rgba(34, 211, 238, 0) 60deg,
+          var(--color-text-accent) 100deg, 
+          #3b82f6 130deg, 
+          transparent 170deg,
+          
+          transparent 180deg,
+          
+          rgba(34, 211, 238, 0) 240deg,
+          var(--color-text-accent) 280deg, 
+          #3b82f6 310deg, 
+          transparent 350deg,
+          transparent 360deg
+        );
+        animation: rotate-ring 5s linear infinite;
+      }
+
+      @keyframes flow-move {
+        from { stroke-dashoffset: 80; }
+        to { stroke-dashoffset: 0; }
+      }
+      
+      .connection-flow {
+        stroke-dasharray: 8 72;
+        animation: flow-move 3s linear infinite;
+        opacity: 0.4;
+        stroke-linecap: round;
+        filter: drop-shadow(0 0 1px rgba(255,255,255,0.3));
+      }
+
+      .no-select {
+        -webkit-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      .scrollbar-gutter-stable {
+        scrollbar-gutter: stable;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "react-dom": "https://esm.sh/react-dom@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "@google/genai": "https://esm.sh/@google/genai",
+    "jszip": "https://esm.sh/jszip@3.10.1"
+  }
+}
+</script>
+<script>
+    // Tailwind Configuration to use CSS Variables
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            // Semantic colors mapping to CSS variables
+            canvas: 'var(--color-bg-canvas)',
+            node: 'var(--color-bg-node)',
+            panel: 'var(--color-bg-panel)',
+            input: 'var(--color-bg-input)',
+            'node-border': 'var(--color-border)',
+            
+            accent: 'var(--color-accent)',
+            'accent-hover': 'var(--color-accent-hover)',
+            'accent-dim': 'var(--color-accent-dim)',
+            'accent-text': 'var(--color-text-accent)',
+
+            'accent-secondary': 'var(--color-accent-secondary)',
+            'accent-secondary-hover': 'var(--color-accent-secondary-hover)',
+            
+            'connection-text': 'var(--color-connection-text)',
+            'connection-image': 'var(--color-connection-image)',
+            
+            'node-hover': 'var(--color-border-hover)',
+            'node-selected': 'var(--color-border-selected)',
+            
+            'text-main': 'var(--color-text-primary)',
+            'text-muted': 'var(--color-text-secondary)',
+          }
+        }
+      }
+    }
+</script>
+</head>
+  <body class="bg-canvas text-text-main">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

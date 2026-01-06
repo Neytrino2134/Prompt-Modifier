@@ -1,0 +1,7 @@
+{
+  "name": "Prompt Modifier 0.1.8 Alpha",
+  "description": "A node-based application to visually construct, refine, and generate images from complex prompts using the Gemini API. Users connect text nodes to build a prompt, which is then enhanced by AI and used to generate an image.",
+  "requestFramePermissions": [
+    "clipboard-read"
+  ]
+}
