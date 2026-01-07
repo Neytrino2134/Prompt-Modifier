@@ -12,7 +12,12 @@ export const useCanvas = (initialTransform?: { scale: number; translate: Point }
     const [viewTransform, setViewTransform] = useState(initialTransform || { scale: 1, translate: { x: 0, y: 0 } });
     const [panInfo, setPanInfo] = useState<PanInfo | null>(null);
     const [pointerPosition, setPointerPosition] = useState<Point>({ x: 0, y: 0 });
-    const [clientPointerPosition, setClientPointerPosition] = useState<Point>({ x: 0, y: 0 });
+    // Initialize client pointer to center of screen to ensure menus open in a visible location
+    // even if the user hasn't moved the mouse yet.
+    const [clientPointerPosition, setClientPointerPosition] = useState<Point>(() => ({ 
+        x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0, 
+        y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0 
+    }));
     const canvasRef = useRef<HTMLDivElement | null>(null);
 
     const setCanvasRef = useCallback((node: HTMLDivElement | null) => {

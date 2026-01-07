@@ -11,13 +11,12 @@ interface EditorSidebarProps {
     activeTool: string;
     isSnappingEnabled: boolean; setIsSnappingEnabled: (v: boolean) => void;
     isFreeAspect: boolean; setIsFreeAspect: (v: boolean) => void;
-    drawColor: string; setDrawColor: (v: string) => void;
     brushSize: number; setBrushSize: (v: number) => void;
     modificationPrompt: string; setModificationPrompt: (v: string) => void;
     isProcessing: boolean;
     handleRequestModification: () => void;
     handleRemoveObject: () => void;
-    handleRemoveBackground: () => void; // New prop
+    handleRemoveBackground: () => void;
     canvasSize: { width: number; height: number };
 }
 
@@ -28,17 +27,15 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
     activeTool,
     isSnappingEnabled, setIsSnappingEnabled,
     isFreeAspect, setIsFreeAspect,
-    drawColor, setDrawColor,
     brushSize, setBrushSize,
     modificationPrompt, setModificationPrompt,
     isProcessing,
     handleRequestModification,
     handleRemoveObject,
-    handleRemoveBackground, // New prop
+    handleRemoveBackground,
     canvasSize
 }) => {
     const { t } = useLanguage();
-    const palette = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#f43f5e', '#ffffff', '#9ca3af', '#4b5563', '#000000'];
 
     const resolutionOptions = useMemo(() => {
         const raw = [
@@ -151,13 +148,9 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
              {/* Brush Settings */}
              {(activeTool === 'pencil' || activeTool === 'rectangle') && (
                  <div className="mt-4 space-y-2">
-                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Style</label>
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                        {palette.map(color => (
-                            <button key={color} onClick={() => setDrawColor(color)} className={`w-6 h-6 rounded-full border ${drawColor === color ? 'border-white ring-1 ring-cyan-500' : 'border-gray-600'}`} style={{ backgroundColor: color }} />
-                        ))}
-                         <input type="color" value={drawColor} onChange={(e) => setDrawColor(e.target.value)} className="w-6 h-6 p-0 rounded-full border-none overflow-hidden cursor-pointer" />
-                    </div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Brush Settings</label>
+                    
+                    {/* Brush Size Slider */}
                     <div className="flex items-center space-x-2">
                         <span className="text-xs text-gray-400 w-8">Size</span>
                         <input type="range" min="1" max="50" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="flex-grow h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-cyan-500" />

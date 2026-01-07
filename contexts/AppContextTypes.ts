@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme } from '../types';
+import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, LogEntry, LogLevel } from '../types';
 import { NodeType } from '../types';
 import { LanguageCode } from '../localization';
 import {
@@ -90,6 +90,11 @@ export type AppContextType =
   handleCharacterCardFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   error: string | null;
   setError: (error: string | null) => void;
+  logs: LogEntry[];
+  addLog: (level: LogLevel, message: string, details?: any) => void;
+  clearLogs: () => void;
+  isDebugConsoleOpen: boolean;
+  setIsDebugConsoleOpen: React.Dispatch<React.SetStateAction<boolean>>;
   handleDetachAndPasteConcept: (sequenceNodeId: string, conceptToPaste: any) => void;
   onDetachImageToNode: (imageDataUrl: string, sourceNodeId: string) => void;
   isRadialMenuOpen: boolean;
@@ -193,6 +198,8 @@ export type AppContextType =
   isStoppingSequence: boolean;
   isInstantCloseEnabled: boolean;
   setIsInstantCloseEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  isHoverHighlightEnabled: boolean;
+  setIsHoverHighlightEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   nodeAnimationMode: string;
   setNodeAnimationMode: React.Dispatch<React.SetStateAction<string>>;
   dockHoverMode: DockMode | null;
@@ -234,4 +241,10 @@ export type AppContextType =
   // New handler
   handleUpdateCharacterPromptFromImage: (nodeId: string, cardIndex: number) => void;
   isUpdatingCharacterPrompt: string | null;
+
+  // Connection Settings
+  isConnectionAnimationEnabled: boolean;
+  setIsConnectionAnimationEnabled: (enabled: boolean) => void;
+  connectionOpacity: number;
+  setConnectionOpacity: (opacity: number) => void;
 };

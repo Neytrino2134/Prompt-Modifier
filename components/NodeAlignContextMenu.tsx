@@ -158,14 +158,14 @@ const NodeAlignContextMenu: React.FC<NodeAlignContextMenuProps> = ({ isOpen, pos
     return (
         <div
             ref={menuRef}
-            className="fixed z-[70] bg-gray-900/95 backdrop-blur-md border border-node-border rounded-lg shadow-2xl p-1 flex flex-col space-y-1"
+            className="fixed z-[70] bg-gray-800 rounded-lg shadow-2xl p-1 flex flex-col space-y-1"
             style={style}
             onContextMenu={(e) => e.preventDefault()}
             onMouseDown={(e) => e.stopPropagation()}
         >
             {/* Row 1: Alignment Tools */}
             <div className="flex flex-row space-x-1">
-                <div className="flex items-center space-x-1 pr-1 border-r border-node-border mr-1">
+                <div className="flex items-center space-x-1 pr-1 border-r border-gray-600 mr-1">
                     <AlignButton 
                         title={t('contextMenu.undoPosition')} 
                         onClick={handleUndo}
@@ -195,7 +195,7 @@ const NodeAlignContextMenu: React.FC<NodeAlignContextMenuProps> = ({ isOpen, pos
                     onClick={() => handleAlign('right')}
                     icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="12" y="2" width="2" height="12" fill="currentColor" rx="1"/><rect x="5" y="4" width="6" height="2" fill="currentColor" rx="1"/><rect x="3" y="8" width="8" height="2" fill="currentColor" rx="1"/><rect x="7" y="12" width="4" height="2" fill="currentColor" rx="1"/></svg>}
                 />
-                <div className="w-px bg-node-border my-1 mx-1"></div>
+                <div className="w-px bg-gray-600 my-1 mx-1"></div>
                 <AlignButton 
                     title={t('contextMenu.align.top')} 
                     onClick={() => handleAlign('top')}
@@ -211,7 +211,7 @@ const NodeAlignContextMenu: React.FC<NodeAlignContextMenuProps> = ({ isOpen, pos
                     onClick={() => handleAlign('bottom')}
                     icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="12" width="12" height="2" fill="currentColor" rx="1"/><rect x="4" y="5" width="2" height="6" fill="currentColor" rx="1"/><rect x="8" y="3" width="2" height="8" fill="currentColor" rx="1"/><rect x="12" y="7" width="2" height="4" fill="currentColor" rx="1"/></svg>}
                 />
-                <div className="w-px bg-node-border my-1 mx-1"></div>
+                <div className="w-px bg-gray-600 my-1 mx-1"></div>
                 <AlignButton 
                     title={t('contextMenu.distribute.horizontal')} 
                     onClick={() => handleAlign('distribute-horizontal')}
@@ -224,7 +224,7 @@ const NodeAlignContextMenu: React.FC<NodeAlignContextMenuProps> = ({ isOpen, pos
                 />
             </div>
 
-            <div className="h-px bg-node-border w-full my-1"></div>
+            <div className="h-px bg-gray-600 w-full my-1"></div>
 
             {/* Row 2: General Actions + Docking */}
             <div className="flex flex-row space-x-1 justify-center">
@@ -244,7 +244,7 @@ const NodeAlignContextMenu: React.FC<NodeAlignContextMenuProps> = ({ isOpen, pos
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                 />
                 
-                <div className="w-px bg-node-border my-1 mx-1"></div>
+                <div className="w-px bg-gray-600 my-1 mx-1"></div>
                 
                 {/* Docking Controls */}
                 {!isRestricted && (

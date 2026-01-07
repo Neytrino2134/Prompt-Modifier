@@ -1,4 +1,6 @@
 
+
+
 import { useState, useCallback, useRef } from 'react';
 import { generateImage } from '../../services/geminiService';
 import { generateThumbnail, formatImageForAspectRatio, cropImageTo169 } from '../../utils/imageUtils';
@@ -120,6 +122,8 @@ export const useSequenceNode = ({
             const allConcepts = prepareConcepts(parsed, nodeId);
             const framesToProcess = prompts.slice(startIndex);
             const isStyleInserted = parsed.isStyleInserted !== false; // Default true
+            const isSceneContextInserted = parsed.isSceneContextInserted !== false; // Default true
+            const sceneContexts = parsed.sceneContexts || {};
             const prefix = parsed.integrationPrompt || "Integrate these Entities into the scene, action and pose. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
 
             updateNodeInStorage(currentTabId, nodeId, (prev) => {
@@ -171,22 +175,32 @@ export const useSequenceNode = ({
 
                     // 2. Construct Prompt
                     let fullPrompt = promptItem.prompt;
+                    
                     if (imagesToSend.length > 0) {
                         // Use localized Shot Type instruction
                         const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : "";
                         // Prefix (Integration Instruction) is placed at the beginning as requested
                         fullPrompt = `${prefix}\n${shotInstruction}\n\n${fullPrompt}`;
-                    }
-                    
-                    // Replace Tags Logic
-                    if (parsed.characterPromptCombination === 'replace') {
-                        fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
-                             const concept = resolveCharacterConcept(match, allConcepts);
-                             if (concept && concept.prompt) {
-                                 return `${match} (${concept.prompt})`;
-                             }
-                             return match;
-                        });
+                        
+                        // Insert Scene Context (If enabled and exists)
+                        if (isSceneContextInserted) {
+                            const sceneNum = promptItem.sceneNumber || 1;
+                            const contextText = sceneContexts[String(sceneNum)];
+                            if (contextText && contextText.trim()) {
+                                fullPrompt = `${contextText.trim()}\n\n${fullPrompt}`;
+                            }
+                        }
+
+                        // Replace Tags Logic - Applied only if images (characters) are present
+                        if (parsed.characterPromptCombination === 'replace') {
+                            fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
+                                 const concept = resolveCharacterConcept(match, allConcepts);
+                                 if (concept && concept.prompt) {
+                                     return `${match} (${concept.prompt})`;
+                                 }
+                                 return match;
+                            });
+                        }
                     }
                     
                     let finalImagesToSend: { base64ImageData: string, mimeType: string }[] = [];
@@ -201,7 +215,7 @@ export const useSequenceNode = ({
                         finalImagesToSend = imagesToSend.map(i => ({ base64ImageData: i.base64ImageData, mimeType: i.mimeType }));
                     }
 
-                    // Insert Style Logic
+                    // Insert Style Logic (Always applies if enabled)
                     if (isStyleInserted && parsed.styleOverride) {
                         fullPrompt = `${fullPrompt}\n\n[Visual Style]: ${parsed.styleOverride}`;
                     }
@@ -274,6 +288,8 @@ export const useSequenceNode = ({
             const allConcepts = prepareConcepts(parsed, nodeId);
             const framesToProcess = prompts.filter((p: any) => framesToProcessIndices.includes(p.frameNumber));
             const isStyleInserted = parsed.isStyleInserted !== false;
+            const isSceneContextInserted = parsed.isSceneContextInserted !== false; // Default true
+            const sceneContexts = parsed.sceneContexts || {};
             const prefix = parsed.integrationPrompt || "Integrate these Entities into the scene and action. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
 
             updateNodeInStorage(currentTabId, nodeId, (prev) => {
@@ -323,22 +339,33 @@ export const useSequenceNode = ({
                     }
 
                     let fullPrompt = promptItem.prompt;
+                    
                     if (imagesToSend.length > 0) {
                         const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : "";
                         // Prefix (Integration Instruction) is placed at the beginning as requested
                         fullPrompt = `${prefix}\n${shotInstruction}\n\n${fullPrompt}`;
+                        
+                        // Insert Scene Context (If enabled and exists)
+                        if (isSceneContextInserted) {
+                            const sceneNum = promptItem.sceneNumber || 1;
+                            const contextText = sceneContexts[String(sceneNum)];
+                            if (contextText && contextText.trim()) {
+                                fullPrompt = `${contextText.trim()}\n\n${fullPrompt}`;
+                            }
+                        }
+
+                        // Replace Tags Logic - Applied only if images (characters) are present
+                        if (parsed.characterPromptCombination === 'replace') {
+                            fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
+                                 const concept = resolveCharacterConcept(match, allConcepts);
+                                 if (concept && concept.prompt) {
+                                     return `${match} (${concept.prompt})`;
+                                 }
+                                 return match;
+                            });
+                        }
                     }
                     
-                    if (parsed.characterPromptCombination === 'replace') {
-                        fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
-                             const concept = resolveCharacterConcept(match, allConcepts);
-                             if (concept && concept.prompt) {
-                                 return `${match} (${concept.prompt})`;
-                             }
-                             return match;
-                        });
-                    }
-
                     let finalImagesToSend: { base64ImageData: string, mimeType: string }[] = [];
                     if (parsed.enableAspectRatio && parsed.aspectRatio && parsed.aspectRatio !== 'Auto' && imagesToSend.length > 0) {
                          finalImagesToSend = await Promise.all(imagesToSend.map(async (img) => {
@@ -351,6 +378,7 @@ export const useSequenceNode = ({
                         finalImagesToSend = imagesToSend.map(i => ({ base64ImageData: i.base64ImageData, mimeType: i.mimeType }));
                     }
                     
+                    // Insert Style Logic (Always applies if enabled)
                     if (isStyleInserted && parsed.styleOverride) {
                         fullPrompt = `${fullPrompt}\n\n[Visual Style]: ${parsed.styleOverride}`;
                     }
@@ -378,7 +406,7 @@ export const useSequenceNode = ({
                     }
 
                 } catch (err: any) {
-                    if (err.name === 'AbortError' || err.message === 'Aborted') {
+                    if (err.name === 'AbortError' && err.message === 'Aborted') {
                         updateNodeInStorage(currentTabId, nodeId, (prev) => ({
                             ...prev,
                             frameStatuses: { ...(prev.frameStatuses || {}), [frameNum]: 'idle' }

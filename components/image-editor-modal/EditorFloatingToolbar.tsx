@@ -2,6 +2,7 @@
 import React from 'react';
 import { ToolButton } from './SharedUI';
 import { useLanguage } from '../../localization';
+import { EyedropperIcon } from '../icons/AppIcons'; // Import icon
 
 interface EditorFloatingToolbarProps {
     activeTool: string;
@@ -54,6 +55,12 @@ export const EditorFloatingToolbar: React.FC<EditorFloatingToolbarProps> = ({
                      onClick={() => setActiveTool('rectangle')} 
                      active={activeTool === 'rectangle'} 
                      icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /></svg>}
+                 />
+                 <ToolButton 
+                     title="Eyedropper"
+                     onClick={() => setActiveTool('eyedropper')} 
+                     active={activeTool === 'eyedropper'} 
+                     icon={<EyedropperIcon className="h-5 w-5" />}
                  />
             </div>
 

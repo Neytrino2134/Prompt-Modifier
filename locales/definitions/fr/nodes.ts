@@ -1,4 +1,5 @@
 
+
 export const nodes = {
     'node.title.text_input': 'Entrée de Texte',
     'node.title.image_input': 'Entrée d\'Image',
@@ -145,6 +146,7 @@ export const nodes = {
     'node.content.analyzePrompt': 'Analyser le prompt',
     'node.content.analyzeImage': 'Analyser l\'image',
     'node.content.imageToText': 'Image vers Texte',
+    'node.content.updatePromptFromImage': 'Mettre à jour le prompt depuis l\'image',
     'node.content.analyzeCharacter': 'Analyser Personnage',
     'node.content.generateCharacters': 'Générer Personnages',
     'node.content.characterPromptPlaceholder': 'Décrivez le(s) personnage(s)...',
@@ -285,6 +287,8 @@ export const nodes = {
     'image_sequence.clear_prompts_only': 'Effacer Textes Uniquement',
     'image_sequence.prev_scene': 'Scène Précédente',
     'image_sequence.next_scene': 'Scène Suivante',
+    'image_sequence.frames_hidden': '({count} cadres masqués)',
+    'image_sequence.frames_count': '({count} cadres)',
     'node.content.modificationRequest': 'Demande de modification',
     'node.content.technicalPrompt': 'Prompt Technique',
     

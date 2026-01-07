@@ -1,4 +1,6 @@
 
+
+
 import React, { useCallback, useRef, useEffect } from 'react';
 import { NodeType, Node, Connection, Point, ConnectingInfo } from '../types';
 import { addMetadataToPNG } from '../utils/pngMetadata';
@@ -203,6 +205,7 @@ export const useAppOrchestration = (
                     type: 'script-prompt-modifier-data',
                     title: title,
                     usedCharacters: data.usedCharacters || [],
+                    sceneContexts: data.sceneContexts || {}, // Save contexts
                     finalPrompts: promptsToSave,
                 };
             } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
@@ -220,6 +223,7 @@ export const useAppOrchestration = (
                     type: 'script-prompt-modifier-data',
                     title: title,
                     usedCharacters: data.usedCharacters || [],
+                    sceneContexts: data.sceneContexts || {}, // Save contexts
                     finalPrompts: mergedPrompts.map((p: any) => ({
                         frameNumber: p.frameNumber,
                         sceneNumber: p.sceneNumber || 1,
@@ -768,6 +772,19 @@ export const useAppOrchestration = (
             try {
                 let json = JSON.parse(text);
                 
+                // Handle chat history paste
+                if (json.type === 'gemini-chat-history' || (json.messages && Array.isArray(json.messages) && !json.nodes)) {
+                    const newNodeId = entityActionsHook.onAddNode(NodeType.GEMINI_CHAT, pastePosition);
+                    const content = JSON.stringify({
+                        messages: json.messages || [],
+                        currentInput: json.currentInput || '',
+                        style: json.style || 'general',
+                        attachment: json.attachment || null
+                    });
+                    nodesHook.handleValueChange(newNodeId, content);
+                    return;
+                }
+
                 // --- NEW LOGIC START ---
                 // Handle Array of Character Cards (copied via new logic)
                 // It can be a direct array of cards OR a single object (legacy)
@@ -875,6 +892,7 @@ export const useAppOrchestration = (
                          selectedFrameNumber: null,
                          styleOverride: json.styleOverride || '',
                          usedCharacters: json.usedCharacters || [],
+                         sceneContexts: json.sceneContexts || {}, // Ensure sceneContexts is handled
                          leftPaneRatio: 0.5
                      });
                      

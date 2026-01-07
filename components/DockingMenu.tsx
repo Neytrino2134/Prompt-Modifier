@@ -23,7 +23,8 @@ const DockButton: React.FC<{
     return (
         <div 
             data-dock-mode={mode} // Add data attribute for hit testing
-            className={`relative flex items-center justify-center transition-all duration-200 cursor-pointer group ${className} ${isActive ? 'bg-cyan-500/30 border-cyan-400 text-cyan-200' : 'bg-gray-800/80 border-gray-600 text-gray-400 hover:bg-gray-700'}`}
+            // Theme Change: bg-accent/30 border-accent text-accent-text
+            className={`relative flex items-center justify-center transition-all duration-200 cursor-pointer group ${className} ${isActive ? 'bg-accent/30 border-accent text-accent-text' : 'bg-gray-800/80 border-gray-600 text-gray-400 hover:bg-gray-700'}`}
             onMouseEnter={() => onHover(mode)}
             onMouseLeave={() => onHover(null)}
             style={{ pointerEvents: 'auto' }}

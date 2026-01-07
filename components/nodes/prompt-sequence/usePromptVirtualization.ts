@@ -1,6 +1,7 @@
 
+
 import { useMemo } from 'react';
-import { SCENE_HEADER_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO, SHOT_TYPE_INSTRUCTIONS } from './Constants';
+import { SCENE_HEADER_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO, SHOT_TYPE_INSTRUCTIONS, SCENE_CONTEXT_HEIGHT, SCENE_CONTEXT_COLLAPSED_HEIGHT } from './Constants';
 
 export interface PromptItem {
     frameNumber: number;
@@ -20,7 +21,9 @@ export const usePromptVirtualization = (
     scrollTop: number,
     containerHeight: number = 800, // Default fallback
     showVideoPrompts: boolean = true,
-    showSceneHeaders: boolean = true // New parameter
+    showSceneHeaders: boolean = true, // New parameter
+    sceneContexts: Record<string, string> = {}, // New parameter
+    expandedSceneContexts: number[] = [] // New parameter
 ) => {
     // 1. Group prompts by Scene
     const groupedPrompts = useMemo(() => {
@@ -44,7 +47,7 @@ export const usePromptVirtualization = (
 
     // 2. Calculate Virtual Items (Flattened list with positions)
     const virtualItems = useMemo(() => {
-        const flattenItems: { type: 'scene_header' | 'prompt', h: number, top: number, data: any, scene: number }[] = [];
+        const flattenItems: { type: 'scene_header' | 'scene_context' | 'prompt', h: number, top: number, data: any, scene: number }[] = [];
         let y = 0;
         groupedPrompts.forEach(g => {
              // Add Header only if enabled
@@ -55,6 +58,15 @@ export const usePromptVirtualization = (
              
              // Add Prompts if scene not collapsed OR if headers are hidden (flat view implies expanded)
              if (!showSceneHeaders || !collapsedScenes.includes(g.scene)) {
+                 
+                 // Inject Scene Context Card
+                 const contextVal = sceneContexts[String(g.scene)] || '';
+                 const contextHeight = expandedSceneContexts.includes(g.scene) ? SCENE_CONTEXT_HEIGHT : SCENE_CONTEXT_COLLAPSED_HEIGHT;
+                 
+                 // Add margin bottom to context card
+                 flattenItems.push({ type: 'scene_context', h: contextHeight + 8, top: y, data: contextVal, scene: g.scene });
+                 y += contextHeight + 8;
+
                  g.prompts.forEach(p => {
                      // Check if this prompt has a shot instruction displayed
                      const shotInstruction = p.shotType ? SHOT_TYPE_INSTRUCTIONS[p.shotType] : undefined;
@@ -69,7 +81,7 @@ export const usePromptVirtualization = (
              }
         });
         return { items: flattenItems, totalHeight: y };
-    }, [groupedPrompts, collapsedScenes, showVideoPrompts, showSceneHeaders]);
+    }, [groupedPrompts, collapsedScenes, showVideoPrompts, showSceneHeaders, sceneContexts, expandedSceneContexts]);
 
     // 3. Get Visible Items based on scroll
     const visibleItems = useMemo(() => {

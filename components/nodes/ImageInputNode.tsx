@@ -271,7 +271,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    className={`w-full h-full flex items-center justify-center cursor-pointer transition-all relative ${isDragOver ? 'bg-gray-600 ring-2 ring-cyan-400' : 'hover:bg-gray-600'}`}
+                    className={`w-full h-full flex items-center justify-center cursor-pointer transition-all relative ${isDragOver ? 'bg-gray-600 ring-2 ring-accent' : 'hover:bg-gray-600'}`}
                 >
                     {image ? (
                         <>
@@ -354,7 +354,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 <button
                                     onClick={() => onProcessImage(node.id)}
                                     disabled={isProcessingImage || !image || !!transformingRatio}
-                                    className="w-full h-9 px-3 text-sm font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 truncate flex items-center justify-center gap-2"
+                                    className="w-full h-9 px-3 text-sm font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 truncate flex items-center justify-center gap-2"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
                                     <span className="truncate">{isProcessingImage ? t('node.content.processing') : t('node.action.processImage')}</span>
@@ -368,7 +368,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     <button
                                         onClick={(e) => handleOpenInNode(e, NodeType.IMAGE_ANALYZER)}
                                         disabled={!image}
-                                        className="w-full h-full flex items-center justify-center bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
+                                        className="w-full h-full flex items-center justify-center bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.792V5.25a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 5.25v13.5A2.25 2.25 0 005.25 21h7.55" />
@@ -383,7 +383,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     <button
                                         onClick={() => onImageToText && onImageToText(node.id)}
                                         disabled={!image || isAnalyzingImage || !onImageToText}
-                                        className="w-full h-full flex items-center justify-center bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
+                                        className="w-full h-full flex items-center justify-center bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
                                     >
                                         {isAnalyzingImage ? (
                                             <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -400,7 +400,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     <button
                                         onClick={() => handleRatioExpand('16:9')}
                                         disabled={!image || isProcessingImage || !!transformingRatio}
-                                        className="w-full h-full px-1 text-[10px] font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1"
+                                        className="w-full h-full px-1 text-[10px] font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1"
                                     >
                                         {transformingRatio === '16:9' ? <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : (
                                             <>
@@ -416,7 +416,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     <button
                                         onClick={() => handleRatioExpand('9:16')}
                                         disabled={!image || isProcessingImage || !!transformingRatio}
-                                        className="w-full h-full px-1 text-[10px] font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1"
+                                        className="w-full h-full px-1 text-[10px] font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1"
                                     >
                                         {transformingRatio === '9:16' ? <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : (
                                             <>
@@ -436,7 +436,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 <button
                                     onClick={() => setIsEditorOpen(true)}
                                     disabled={!image}
-                                    className="w-full h-9 px-2 text-xs font-bold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                    className="w-full h-9 px-2 text-xs font-bold text-white bg-accent-secondary rounded-md hover:bg-accent-secondary-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1.5"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
                                     <span className="truncate">{t('node.action.rasterEditor')}</span>
@@ -448,7 +448,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 <button
                                     onClick={(e) => handleOpenInNode(e, NodeType.IMAGE_EDITOR)}
                                     disabled={!image}
-                                    className="w-full h-9 px-2 text-xs font-bold text-white bg-teal-600 rounded-md hover:bg-teal-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1.5"
+                                    className="w-full h-9 px-2 text-xs font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1.5"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.562L16.25 22.5l-.648-1.938a3.375 3.375 0 00-2.672-2.672L11.25 18l1.938-.648a3.375 3.375 0 002.672 2.672L16.25 13l.648 1.938a3.375 3.375 0 002.672 2.672L21.75 18l-1.938.648a3.375 3.375 0 00-2.672 2.672z" />
@@ -462,7 +462,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     {metadataPrompt && (
                         <div className="flex-shrink-0 relative">
                              <div className="absolute top-0 right-0 z-10">
-                                <button onClick={() => { handleValueUpdate({ prompt: `${prompt ? prompt + ', ' : ''}${metadataPrompt}` }); setMetadataPrompt(null); }} className="px-2 py-0.5 text-[10px] font-bold bg-cyan-600 hover:bg-cyan-700 text-white rounded shadow-sm" title={t('node.action.copyPrompt')}>
+                                <button onClick={() => { handleValueUpdate({ prompt: `${prompt ? prompt + ', ' : ''}${metadataPrompt}` }); setMetadataPrompt(null); }} className="px-2 py-0.5 text-[10px] font-bold bg-accent hover:bg-accent-hover text-white rounded shadow-sm" title={t('node.action.copyPrompt')}>
                                     Use
                                 </button>
                              </div>
@@ -475,7 +475,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                             value={prompt || ''}
                             onChange={(e) => handleValueUpdate({ prompt: e.target.value })}
                             placeholder={t('node.content.prompt')}
-                            className="w-full h-full p-2 bg-[#18202f] border border-gray-600 rounded-md resize-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none custom-scrollbar text-sm"
+                            className="w-full h-full p-2 bg-[#18202f] border border-gray-600 rounded-md resize-none focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none custom-scrollbar text-sm"
                             onWheel={e => e.stopPropagation()}
                             onMouseDown={(e) => e.stopPropagation()}
                             onFocus={deselectAllNodes}

@@ -182,7 +182,7 @@ export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, fram
         }
     };
 
-    const commonButtonClass = "p-1 rounded-md text-[#dad5cf] hover:bg-gray-600 hover:text-white transition-colors focus:outline-none pointer-events-auto";
+    const commonButtonClass = "p-1 rounded-md text-[#dad5cf] hover:bg-gray-600 hover:text-white transition-colors focus:outline-none pointer-events-auto disabled:cursor-not-allowed disabled:opacity-50";
 
     const isProcessingOrGenerating = status === 'prompt_processing' || status === 'generating';
     const showImage = !!imageUrl;

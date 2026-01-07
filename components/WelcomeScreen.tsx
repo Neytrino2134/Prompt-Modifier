@@ -491,7 +491,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
 
             {/* GitHub Repository */}
             <a 
-                href="https://github.com/Neytrino2134/Prompt-Modifier-0.1.8-Alpha" 
+                href="https://github.com/Neytrino2134/Prompt-Modifier" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="transition-all duration-300 hover:opacity-100 opacity-60 hover:scale-110"

@@ -11,6 +11,7 @@ export const editors = {
     'imageEditor.action.sendRequest': 'リクエスト送信',
     'imageEditor.tooltip.removeObject': '削除 (赤) / 保持 (緑)',
     'imageEditor.action.removeObject': 'オブジェクト削除',
+    'imageEditor.action.removeBackground': '背景を削除',
     'imageEditor.tool.transform': '変形',
     'imageEditor.tool.hand': '手のひらツール',
     'imageEditor.tool.zoom': 'ズーム',

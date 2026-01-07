@@ -16,19 +16,22 @@ import ApiKeyDialog from './ApiKeyDialog';
 import NodeDeleteConfirm from './NodeDeleteConfirm';
 import SettingsDialog from './SettingsDialog';
 import ErrorDialog from './ErrorDialog';
+import { DebugConsole } from './DebugConsole';
 import { CatalogItemType } from '../hooks/useCatalog';
-
-// We need to manage `isSettingsOpen` locally here since it was moved out of App.tsx
-// But it's triggered from AppHeader. 
-// Ideally, `SettingsDialog` state should be in context. 
-// For this refactor, we will listen to a custom event dispatched by AppHeader to open it.
+import { Point } from '../types';
 
 const DialogLayer: React.FC = () => {
     const context = useAppContext();
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+    const [settingsAnchor, setSettingsAnchor] = React.useState<Point | null>(null);
 
     React.useEffect(() => {
-        const handler = () => setIsSettingsOpen(true);
+        const handler = (e: any) => {
+             if (e.detail) {
+                 setSettingsAnchor(e.detail);
+             }
+             setIsSettingsOpen(true);
+        };
         window.addEventListener('open-settings', handler);
         return () => window.removeEventListener('open-settings', handler);
     }, []);
@@ -208,6 +211,8 @@ const DialogLayer: React.FC = () => {
                 message={error}
                 onClose={() => setError(null)}
             />
+            
+            <DebugConsole />
 
             <PromptEditDialog
                 isOpen={!!promptEditInfo}
@@ -254,18 +259,18 @@ const DialogLayer: React.FC = () => {
                 onRenameSequence={(id, name) => setRenameInfo({ type: 'sequence', id, currentTitle: name })}
             />
 
-            {isApiKeyDialogOpen && (
-                <ApiKeyDialog
-                    onSelectKey={handleApiKeySelect}
-                    onClose={handleApiKeyDialogClose}
-                />
-            )}
+            <ApiKeyDialog
+                isOpen={isApiKeyDialogOpen}
+                onSelectKey={handleApiKeySelect}
+                onClose={handleApiKeyDialogClose}
+            />
 
             <SettingsDialog 
                 isOpen={isSettingsOpen} 
                 onClose={() => setIsSettingsOpen(false)} 
                 addToast={addToast} 
                 setIsInstantCloseEnabled={setIsInstantCloseEnabled}
+                anchorPosition={settingsAnchor}
             />
         </>
     );

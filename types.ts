@@ -2,7 +2,7 @@
 import React from 'react';
 
 export type Resolution = '720p' | '1080p' | '1K' | '2K' | '4K';
-export type Theme = 'cyan' | 'orange' | 'pink' | 'gray';
+export type Theme = 'cyan' | 'orange' | 'pink' | 'gray' | 'lime' | 'purple' | 'azure' | 'red' | 'emerald';
 
 export enum NodeType {
   TEXT_INPUT = 'TEXT_INPUT',
@@ -31,6 +31,16 @@ export enum NodeType {
   MEDIA_VIEWER = 'MEDIA_VIEWER',
   DATA_PROTECTION = 'DATA_PROTECTION',
   POSE_CREATOR = 'POSE_CREATOR',
+}
+
+export type LogLevel = 'info' | 'warning' | 'error' | 'success';
+
+export interface LogEntry {
+    id: string;
+    timestamp: number;
+    level: LogLevel;
+    message: string;
+    details?: any;
 }
 
 export type TutorialStep = 

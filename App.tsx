@@ -168,13 +168,20 @@ const Editor: React.FC = () => {
       {/* 6. Toast Notifications */}
       <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[101] flex flex-col items-center space-y-2 pointer-events-none">
         {toasts.map(toast => {
-          const toastStyle = {
-            success: 'bg-teal-600/90',
-            info: 'bg-blue-500/80',
-            error: 'bg-red-500/80',
-          }[toast.type];
+          let classes = "backdrop-blur font-bold px-6 py-3 rounded-xl shadow-2xl animate-fade-in-out text-sm flex items-center justify-center text-center border pointer-events-auto";
+          
+          if (toast.type === 'success') {
+              // Success uses the theme accent color
+              classes += " bg-accent/95 text-white border-white/20 shadow-accent/20";
+          } else if (toast.type === 'error') {
+              classes += " bg-red-600/95 text-white border-red-400/30 shadow-red-900/30";
+          } else {
+              // Info
+              classes += " bg-gray-800/95 text-gray-200 border-gray-600/50 shadow-black/30";
+          }
+
           return (
-            <div key={toast.id} className={`${toastStyle} backdrop-blur text-white font-semibold px-4 py-2 rounded-lg shadow-lg animate-fade-in-out text-sm`}>
+            <div key={toast.id} className={classes}>
               {toast.message}
             </div>
           );

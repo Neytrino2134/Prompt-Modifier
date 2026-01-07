@@ -1,8 +1,11 @@
 
+
 export const CARD_EXPANDED_HEIGHT = 260;
 export const CARD_EXPANDED_HEIGHT_NO_VIDEO = 180;
 export const CARD_COLLAPSED_HEIGHT = 44;
 export const SCENE_HEADER_HEIGHT = 36;
+export const SCENE_CONTEXT_HEIGHT = 160;
+export const SCENE_CONTEXT_COLLAPSED_HEIGHT = 32;
 
 export const SHOT_TYPE_INSTRUCTIONS: Record<string, string> = {
     'WS': "Integrate the character/object with a Wide Shot (WS) into the scene and action. Show the environment.",

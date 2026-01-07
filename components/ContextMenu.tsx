@@ -232,10 +232,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ isOpen, position, onCl
         onWheel={(e) => e.stopPropagation()}
         onContextMenu={(e) => e.preventDefault()}
     >
-        <div className="bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-2xl border border-node-border w-full relative z-10 flex flex-col">
+        <div className="bg-gray-800 rounded-lg shadow-2xl w-full relative z-10 flex flex-col">
             
             <div 
-                className="flex items-center justify-between px-2 py-2 cursor-move select-none border-b border-node-border rounded-t-lg"
+                className="flex items-center justify-between px-2 py-2 cursor-move select-none border-b border-gray-700 rounded-t-lg"
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
@@ -268,7 +268,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ isOpen, position, onCl
                 </ContextMenuButton>
             </div>
 
-            <div className="h-px bg-node-border w-full"></div>
+            <div className="h-px bg-gray-700 w-full"></div>
             
             <div className="p-2 grid grid-cols-4 gap-1">
                 {slots.map((slotType, index) => (
@@ -298,7 +298,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ isOpen, position, onCl
                  />
             )}
 
-             <div className="h-px bg-node-border w-full"></div>
+             <div className="h-px bg-gray-700 w-full"></div>
 
              <div className="p-2 space-y-2">
                  {onZoomChange && sliderValueToScale && (

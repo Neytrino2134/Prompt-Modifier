@@ -40,7 +40,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     // Core Hooks
     const tabsHook = useTabs();
-    const { tabs, setTabs, activeTabId, setActiveTabId, handleAddTab, handleSwitchTab, handleRenameTab, handleCloseTab, resetTabs, getLocalizedCanvasState } = tabsHook;
+    const { tabs, setTabs, activeTabId, setActiveTabId, handleAddTab, handleSwitchTab, handleRenameTab, handleCloseTab, resetTabs, resetCurrentTab, getLocalizedCanvasState } = tabsHook;
 
     const activeTab = useMemo(() => {
         const found = tabs.find(t => t.id === activeTabId);
@@ -330,7 +330,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const handleResetCanvas = useCallback((e?: React.MouseEvent) => {
         const performReset = () => {
-            resetTabs(language);
+            const defaultState = getLocalizedCanvasState(language);
+            resetCurrentTab(language);
+            loadCanvasState(defaultState); // Immediately update UI
         };
 
         if (e?.shiftKey) {
@@ -342,7 +344,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 onConfirm: performReset
             });
         }
-    }, [resetTabs, language, t, dialogsHook]);
+    }, [resetCurrentTab, language, t, dialogsHook, getLocalizedCanvasState, loadCanvasState]);
 
     const value = useMemo(() => {
         const { replaceAllItems: libReplaceAll, importItemsData: libImport, ...restLibrary } = libraryHook;

@@ -27,7 +27,7 @@ const QuickAddItem: React.FC<{ title: string; onClick: () => void; children: Rea
             <button
                 onClick={onClick}
                 aria-label={title}
-                className={`flex items-center justify-center w-9 h-9 p-2 rounded-md transition-colors text-gray-300 hover:text-white ${isActive ? 'bg-accent text-white' : 'bg-input hover:bg-accent'}`}
+                className={`flex items-center justify-center w-9 h-9 p-2 rounded-md transition-colors text-gray-300 hover:text-white ${isActive ? 'bg-accent text-white' : 'bg-gray-700 hover:bg-accent'}`}
             >
                 {children}
             </button>
@@ -274,7 +274,7 @@ const QuickAddMenu: React.FC<QuickAddMenuProps> = ({ isOpen, position, onClose, 
     return (
         <div
             ref={menuRef}
-            className="fixed bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-2xl border border-node-border p-2 flex flex-col w-auto z-[51]"
+            className="fixed bg-gray-800 rounded-lg shadow-2xl p-2 flex flex-col w-auto z-[51]"
             style={{
                 ...style,
                 transform: `translate(${offset.x}px, ${offset.y}px)`
@@ -283,7 +283,7 @@ const QuickAddMenu: React.FC<QuickAddMenuProps> = ({ isOpen, position, onClose, 
         >
             {/* Header with Drag Handle */}
             <div
-                className="flex items-center justify-between px-1 pb-2 mb-1 border-b border-node-border cursor-move"
+                className="flex items-center justify-between px-1 pb-2 mb-1 border-b border-gray-700 cursor-move"
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
@@ -322,7 +322,7 @@ const QuickAddMenu: React.FC<QuickAddMenuProps> = ({ isOpen, position, onClose, 
 
              {/* Footer with Paste Action */}
             {onPaste && (
-                <div className="mt-2 pt-2 border-t border-node-border">
+                <div className="mt-2 pt-2 border-t border-gray-700">
                     <button 
                         onClick={handlePasteClick}
                         className="w-full flex items-center justify-center p-2 rounded-md bg-input hover:bg-accent text-gray-300 hover:text-white transition-colors gap-2 group"

@@ -143,4 +143,5 @@ export const ui = {
     'search.group.scripts': 'Сценарии',
     'toolbar.enterFullScreen': 'На весь экран',
     'toolbar.exitFullScreen': 'Выйти из полноэкранного режима',
+    'dialog.settings.hoverHighlightLabel': 'Подсветка узла при наведении',
 };

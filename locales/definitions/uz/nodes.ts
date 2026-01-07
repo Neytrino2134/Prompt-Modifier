@@ -1,4 +1,5 @@
 
+
 export const nodes = {
     'node.title.text_input': 'Matn Kiritish',
     'node.title.image_input': 'Rasm Kiritish',
@@ -145,6 +146,7 @@ export const nodes = {
     'node.content.analyzePrompt': 'Promptni Tahlil Qilish',
     'node.content.analyzeImage': 'Rasmni Tahlil Qilish',
     'node.content.imageToText': 'Rasmdan Matnga',
+    'node.content.updatePromptFromImage': 'Rasmdan promptni yangilash',
     'node.content.analyzeCharacter': 'Personajni Tahlil Qilish',
     'node.content.generateCharacters': 'Personajlarni Yaratish',
     'node.content.characterPromptPlaceholder': 'Yaratish uchun personaj(lar)ni tasvirlang...',
@@ -285,6 +287,8 @@ export const nodes = {
     'image_sequence.clear_prompts_only': 'Faqat Matn Promptlarini Tozalash',
     'image_sequence.prev_scene': 'Oldingi Sahna',
     'image_sequence.next_scene': 'Keyingi Sahna',
+    'image_sequence.frames_hidden': '({count} kadrlar yashirilgan)',
+    'image_sequence.frames_count': '({count} kadrlar)',
     'node.content.modificationRequest': 'O\'zgartirish So\'rovi',
     'node.content.technicalPrompt': 'Texnik Prompt',
     

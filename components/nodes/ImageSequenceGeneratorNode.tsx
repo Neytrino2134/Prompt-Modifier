@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { NodeContentProps, CharacterConcept } from '../../types';
@@ -51,7 +53,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         try {
             return JSON.parse(node.value || '{}');
         } catch {
-            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: '', usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {} };
+            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isSceneContextInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: '', usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {}, sceneContexts: {}, expandedSceneContexts: [] };
         }
     }, [node.value]);
 
@@ -65,7 +67,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         initialWidth = MIN_LEFT_PANE_WIDTH;
     }
 
-    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = '', usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {} } = parsedValue;
+    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isSceneContextInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = '', usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {}, sceneContexts = {}, expandedSceneContexts = [] } = parsedValue;
     
     // Sorted Used Characters Logic
     const sortedUsedCharacters = useMemo(() => {
@@ -148,7 +150,58 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         return [...mappedUpstream, ...mappedLocal];
     }, [sortedUpstream, characterConcepts]);
 
-    // Calculate duplicates (indices)
+    // Validation Logic for Used Characters
+    const validationResults = useMemo(() => {
+        let hasError = false;
+        let matchCount = 0;
+        const normalize = (str: string) => (str || '').toLowerCase().trim();
+
+        const results = sortedUsedCharacters.map((char: any) => {
+            const uName = normalize(char.name);
+            const uIndex = normalize(char.index);
+            
+            if (!uName && !uIndex) return { status: 'empty' };
+
+            // 1. Find by Index (ID/Alias/Index)
+            const indexMatch = allConcepts.find(c => normalize(c.index || c.id || c.alias) === uIndex);
+            
+            // 2. Find by Name
+            const nameMatch = allConcepts.find(c => normalize(c.name) === uName);
+
+            // Case 1: Perfect Match (Same Concept found by both)
+            if (indexMatch && nameMatch && indexMatch === nameMatch) {
+                matchCount++;
+                return { status: 'match' };
+            }
+
+            // Case 2: Index exists, but name differs
+            if (indexMatch) {
+                const actualName = indexMatch.name;
+                if (normalize(actualName) !== uName) {
+                    hasError = true;
+                    return { status: 'mismatch_name', expectedName: actualName, conceptIndex: indexMatch.index || indexMatch.id };
+                }
+            }
+
+            // Case 3: Name exists, but index differs
+            if (nameMatch) {
+                const actualIndex = nameMatch.index || nameMatch.id || nameMatch.alias;
+                if (normalize(actualIndex) !== uIndex) {
+                     hasError = true;
+                     return { status: 'mismatch_index', expectedIndex: actualIndex, conceptName: nameMatch.name };
+                }
+            }
+            
+            // Case 4: No match found
+            return { status: 'missing' };
+        });
+
+        const allValid = sortedUsedCharacters.length > 0 && matchCount === sortedUsedCharacters.length && !hasError;
+
+        return { results, hasError, allValid };
+    }, [sortedUsedCharacters, allConcepts]);
+
+    // Calculate duplicates (indices) for concept panel
     const duplicateIndices = useMemo(() => {
         const counts: Record<string, number> = {};
         const duplicates = new Set<string>();
@@ -747,6 +800,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         const promptMap = new Map<number, any>();
         let styleOverrideFromUpstream = styleOverride;
         let usedCharactersFromUpstream = usedCharacters;
+        let sceneContextsFromUpstream = sceneContexts;
         let implicitFrameCounter = 1;
         upstreamValues.forEach((val: any) => {
             if (typeof val === 'string') {
@@ -757,6 +811,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         extractedPrompts = parsed.finalPrompts || parsed.prompts || [];
                         if (parsed.styleOverride) styleOverrideFromUpstream = parsed.styleOverride;
                         if (parsed.usedCharacters) usedCharactersFromUpstream = parsed.usedCharacters;
+                        if (parsed.sceneContexts) sceneContextsFromUpstream = parsed.sceneContexts;
                         if (parsed.videoPrompts) {
                              const videoMap = new Map(parsed.videoPrompts.map((vp: any) => [vp.frameNumber, vp]));
                              extractedPrompts = extractedPrompts.map((p: any) => ({...p, videoPrompt: p.videoPrompt || videoMap.get(p.frameNumber) || ''}));
@@ -770,6 +825,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         extractedPrompts = Array.from(mergedMap.values());
                         if (parsed.styleOverride) styleOverrideFromUpstream = parsed.styleOverride;
                         if (parsed.usedCharacters) usedCharactersFromUpstream = parsed.usedCharacters;
+                        if (parsed.sceneContexts) sceneContextsFromUpstream = parsed.sceneContexts;
                     } else if (Array.isArray(parsed)) { extractedPrompts = parsed; }
                     
                     if (extractedPrompts.length > 0) {
@@ -784,9 +840,9 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 } catch { }
             }
         });
-        if (promptMap.size > 0) return { prompts: Array.from(promptMap.values()).sort((a, b) => a.frameNumber - b.frameNumber), styleOverride: styleOverrideFromUpstream, usedCharacters: usedCharactersFromUpstream };
+        if (promptMap.size > 0) return { prompts: Array.from(promptMap.values()).sort((a, b) => a.frameNumber - b.frameNumber), styleOverride: styleOverrideFromUpstream, usedCharacters: usedCharactersFromUpstream, sceneContexts: sceneContextsFromUpstream };
         return null;
-    }, [getUpstreamNodeValues, node.id, styleOverride, usedCharacters]);
+    }, [getUpstreamNodeValues, node.id, styleOverride, usedCharacters, sceneContexts]);
 
     useEffect(() => {
         if (isPromptInputConnected && !isGeneratingSequence) {
@@ -797,8 +853,10 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 const currentStyle = parsedValueRef.current.styleOverride;
                 const currentUsedChars = JSON.stringify(parsedValueRef.current.usedCharacters);
                 const newUsedChars = JSON.stringify(updates.usedCharacters);
+                const currentContexts = JSON.stringify(parsedValueRef.current.sceneContexts);
+                const newContexts = JSON.stringify(updates.sceneContexts);
                 
-                if (currentPromptsStr !== newPromptsStr || currentStyle !== updates.styleOverride || currentUsedChars !== newUsedChars) handleValueUpdate(updates);
+                if (currentPromptsStr !== newPromptsStr || currentStyle !== updates.styleOverride || currentUsedChars !== newUsedChars || currentContexts !== newContexts) handleValueUpdate(updates);
             }
         }
     }, [isPromptInputConnected, calculateUpstreamUpdates, handleValueUpdate, isGeneratingSequence]);
@@ -826,6 +884,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const handleToggleUsedCharsCollapse = () => handleValueUpdate({ isUsedCharsCollapsed: !isUsedCharsCollapsed });
     const handleToggleStyleCollapse = () => handleValueUpdate({ isStyleCollapsed: !isStyleCollapsed });
     const handleToggleInsertStyle = (checked: boolean) => handleValueUpdate({ isStyleInserted: checked });
+    const handleToggleInsertSceneContext = (checked: boolean) => handleValueUpdate({ isSceneContextInserted: checked }); // New Handler
     const handleToggleIntegrationSettings = () => handleValueUpdate({ isIntegrationSettingsCollapsed: !isIntegrationSettingsCollapsed });
     const handleToggleCharacterPromptCombinationCollapse = () => handleValueUpdate({ isCharacterPromptCombinationCollapsed: !isCharacterPromptCombinationCollapsed });
 
@@ -844,6 +903,19 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         if (currentDimensions[frameNumber]?.width === width && currentDimensions[frameNumber]?.height === height) return;
         handleValueUpdate({ imageDimensions: { ...currentDimensions, [frameNumber]: { width, height } } });
     }, [handleValueUpdate]);
+
+    const handleUpdateSceneContext = (sceneNum: number, text: string) => {
+        const newContexts = { ...sceneContexts, [sceneNum]: text };
+        handleValueUpdate({ sceneContexts: newContexts });
+    };
+
+    const handleToggleSceneContext = (sceneNum: number) => {
+        const current = expandedSceneContexts || [];
+        const newExpanded = current.includes(sceneNum)
+            ? current.filter((s: number) => s !== sceneNum)
+            : [...current, sceneNum];
+        handleValueUpdate({ expandedSceneContexts: newExpanded });
+    };
 
     return (
         <div className="flex h-full w-full space-x-2" onWheel={(e) => e.stopPropagation()}>
@@ -874,10 +946,22 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                     <div className="flex-grow flex flex-col min-h-0 pt-2"> 
                          <div className="flex flex-col space-y-1 mb-1 flex-shrink-0">
                              <div 
-                                className="flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group"
+                                className={`flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group ${validationResults.hasError ? "bg-red-900/30" : validationResults.allValid ? "bg-cyan-900/30" : ""}`}
                                 onClick={handleToggleUsedCharsCollapse}
                              >
-                                <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1 flex-grow">Используемые персонажи</label>
+                                <label className={`text-[10px] font-bold uppercase cursor-pointer py-1 flex-grow flex items-center gap-2 ${validationResults.hasError ? "text-red-400" : validationResults.allValid ? "text-cyan-400" : "text-gray-400"}`}>
+                                    {validationResults.hasError ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        </svg>
+                                    ) : validationResults.allValid ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                    ) : null}
+                                    Используемые персонажи
+                                    {validationResults.allValid && <span className="text-[9px] font-normal opacity-70 ml-1">(Все совпадают)</span>}
+                                </label>
                                 <div className="text-gray-500 group-hover:text-gray-300 p-1">
                                     {isUsedCharsCollapsed 
                                         ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
@@ -891,28 +975,41 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                     className="bg-gray-700/50 p-2 rounded-md border border-gray-600 max-h-32 overflow-y-auto custom-scrollbar"
                                 >
                                     {sortedUsedCharacters.length > 0 ? sortedUsedCharacters.map((char: any, i: number) => {
-                                        const isValidated = allConcepts.some(c => 
-                                            (c.name?.toLowerCase() === char.name?.toLowerCase() || c.id?.toLowerCase() === char.name?.toLowerCase()) && 
-                                            ((c.index || c.alias || c.id)?.toLowerCase() === char.index?.toLowerCase())
-                                        );
+                                        const result = validationResults.results[i] || { status: 'missing' };
+                                        
+                                        let icon = null;
+                                        let textColor = "text-gray-400";
+                                        let tooltip = "";
+
+                                        if (result.status === 'match') {
+                                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>;
+                                            textColor = "text-green-400";
+                                            tooltip = "Совпадение имени и индекса";
+                                        } else if (result.status === 'mismatch_name') {
+                                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>;
+                                            textColor = "text-red-400";
+                                            tooltip = `Индекс совпадает (${char.index}), но имя отличается. Ожидается: "${result.expectedName}"`;
+                                        } else if (result.status === 'mismatch_index') {
+                                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>;
+                                            textColor = "text-red-400";
+                                            tooltip = `Имя совпадает ("${char.name}"), но индекс отличается. Исправьте индекс на: ${result.expectedIndex}`;
+                                        } else {
+                                             // Missing or Empty
+                                             icon = <span className="text-gray-600 text-[10px]">•</span>;
+                                             tooltip = "Персонаж не найден в концептах";
+                                        }
 
                                         return (
-                                            <div key={i} className="flex items-center gap-2 mb-1 last:mb-0">
+                                            <div key={i} className="flex items-center gap-2 mb-1 last:mb-0 group/item" title={tooltip}>
                                                 <div className="w-4 flex-shrink-0 flex items-center justify-center">
-                                                    {isValidated && (
-                                                        <div className="text-green-500" title="Character matched in concepts">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                            </svg>
-                                                        </div>
-                                                    )}
+                                                    {icon}
                                                 </div>
-                                                <span className="text-[10px] font-mono text-cyan-400 w-20 shrink-0 truncate" title={char.index}>{char.index}:</span>
+                                                <span className={`text-[10px] font-mono w-20 shrink-0 truncate ${textColor}`}>{char.index}:</span>
                                                 <input 
                                                     type="text" 
                                                     value={char.name} 
                                                     onChange={(e) => handleUpdateUsedCharacterName(i, e.target.value)}
-                                                    className="flex-grow bg-gray-800 border-none rounded px-1.5 py-0.5 text-[10px] text-gray-200 outline-none focus:ring-1 focus:ring-cyan-500"
+                                                    className={`flex-grow bg-gray-800 border-none rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-cyan-500 ${result.status.startsWith('mismatch') ? 'text-red-200 bg-red-900/20' : 'text-gray-200'}`}
                                                     onMouseDown={e => e.stopPropagation()}
                                                 />
                                             </div>
@@ -1002,13 +1099,23 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                 <div className="flex items-center gap-2 flex-grow">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1">{t('node.content.style')}</label>
                                     
-                                    {/* Insert Style Checkbox - Using CustomCheckbox */}
+                                    {/* Insert Style Checkbox */}
                                     <div onClick={(e) => e.stopPropagation()}>
                                         <CustomCheckbox
                                             checked={isStyleInserted}
                                             onChange={handleToggleInsertStyle}
                                             title="Автоматически добавляет описание стиля ко всем кадрам."
                                             label="Вставлять стиль"
+                                        />
+                                    </div>
+
+                                    {/* Insert Scene Context Checkbox */}
+                                    <div onClick={(e) => e.stopPropagation()} className="ml-2">
+                                        <CustomCheckbox
+                                            checked={isSceneContextInserted}
+                                            onChange={handleToggleInsertSceneContext}
+                                            title="Автоматически добавляет описание контекста сцены ко всем кадрам этой сцены."
+                                            label={t('node.content.insertSceneContext')}
                                         />
                                     </div>
                                 </div>
@@ -1060,6 +1167,11 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                             onUnlink={handleUnlink} 
                             addToast={addToast}
                             onClearTextOnly={handleClearTextOnly}
+                            // New props passed down
+                            sceneContexts={sceneContexts}
+                            onUpdateSceneContext={handleUpdateSceneContext}
+                            expandedSceneContexts={expandedSceneContexts}
+                            onToggleSceneContext={handleToggleSceneContext}
                         />
                     </div>
                 )}

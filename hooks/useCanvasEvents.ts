@@ -1,4 +1,6 @@
 
+
+
 import React, { useCallback, useRef, useEffect } from 'react';
 import { NodeType, Point, Connection } from '../types';
 import { getEmptyValueForNodeType, RATIO_INDICES, getOutputHandleType } from '../utils/nodeUtils';
@@ -299,6 +301,20 @@ export const useCanvasEvents = (props: any) => {
                                  if (setError) setError(t('error.scriptModifierCanvas'));
                                  return;
                              }
+                             
+                             // Handle Chat History Drop
+                             if (json.type === 'gemini-chat-history' || (json.messages && Array.isArray(json.messages) && !json.nodes)) {
+                                 const newNodeId = onAddNode(NodeType.GEMINI_CHAT, pos);
+                                 const content = JSON.stringify({
+                                     messages: json.messages || [],
+                                     currentInput: json.currentInput || '',
+                                     style: json.style || 'general',
+                                     attachment: json.attachment || null
+                                 });
+                                 handleValueChange(newNodeId, content);
+                                 return;
+                             }
+
                              if (json.type === 'prompModifierGroup' || (json.root && json.root.type === 'prompModifierGroup')) {
                                  if (pasteGroup) pasteGroup(json.root || json, pos);
                                  return;
@@ -395,7 +411,8 @@ export const useCanvasEvents = (props: any) => {
                                          };
                                      });
 
-                                     handleValueChange(newNodeId, JSON.stringify({ instruction: '', sourcePrompts, modifiedPrompts: [], checkedSourceFrameNumbers: [], selectedFrameNumber: null, styleOverride: json.styleOverride || '', usedCharacters: json.usedCharacters || [], leftPaneRatio: 0.5 }));
+                                     handleValueChange(newNodeId, JSON.stringify({ instruction: '', sourcePrompts, modifiedPrompts: [], checkedSourceFrameNumbers: [], selectedFrameNumber: null, styleOverride: json.styleOverride || '', usedCharacters: json.usedCharacters || [], sceneContexts: json.sceneContexts || {}, // Ensure sceneContexts is handled
+                                     leftPaneRatio: 0.5 }));
                                  } else if (json.type === 'script-generator-data' || json.type === 'script-analyzer-data' || (json.characters && json.scenes && json.scenes[0]?.frames)) {
                                      onAddNode(NodeType.SCRIPT_VIEWER, pos, undefined, { centerNode: true, initialValue: text });
                                  } else onAddNode(NodeType.TEXT_INPUT, pos, undefined, { centerNode: true, initialValue: text });

@@ -1,4 +1,5 @@
 
+
 export const nodes = {
     'node.title.text_input': 'Entrada de Texto',
     'node.title.image_input': 'Entrada de Imagen',
@@ -92,6 +93,20 @@ export const nodes = {
     'node.action.flipImage': 'Voltear Imagen',
     'node.action.pin': 'Fijar Nodo Arriba',
     'node.action.unpin': 'Desfijar Nodo',
+    'node.action.updateDescription': 'Actualizar descripción desde prompt',
+    'node.action.modifyCharacter': 'Solicitar Cambios',
+    'node.action.updateDataFormat': 'Actualizar formato de datos',
+    'node.action.expand169': 'Expandir a 16:9',
+    'node.action.expand916': 'Expandir a 9:16',
+    'node.action.sync': 'Sincronizar desde conexiones',
+    'node.action.expandRatio': 'Extender Relación de Aspecto',
+    'node.action.markPrimary': 'Marcar como Principal',
+    'node.action.addCard': 'Añadir Tarjeta',
+    'node.action.removeCard': 'Eliminar Tarjeta',
+    'node.action.showOutputs': 'Mostrar Salidas',
+    'node.action.hideOutputs': 'Ocultar Salidas',
+    'node.action.characterConcept': 'Concepto de Personaje',
+    'node.action.objectConcept': 'Concepto de Objeto',
     'node.mediaViewer.play': 'Reproducir',
     'node.mediaViewer.pause': 'Pausa',
     'node.mediaViewer.stop': 'Parar',
@@ -133,6 +148,7 @@ export const nodes = {
     'node.content.analyzePrompt': 'Analizar Prompt',
     'node.content.analyzeImage': 'Analizar Imagen',
     'node.content.imageToText': 'Imagen a Texto',
+    'node.content.updatePromptFromImage': 'Actualizar prompt desde imagen',
     'node.content.analyzeCharacter': 'Analizar Personaje',
     'node.content.generateCharacters': 'Generar Personajes',
     'node.content.characterPromptPlaceholder': 'Describe personaje(s) para generar...',
@@ -273,6 +289,8 @@ export const nodes = {
     'image_sequence.clear_prompts_only': 'Borrar Solo Prompts de Texto',
     'image_sequence.prev_scene': 'Escena Anterior',
     'image_sequence.next_scene': 'Siguiente Escena',
+    'image_sequence.frames_hidden': '({count} cuadros ocultos)',
+    'image_sequence.frames_count': '({count} cuadros)',
     'node.content.modificationRequest': 'Solicitud de modificación',
     'node.content.technicalPrompt': 'Prompt Técnico',
     

@@ -47,7 +47,8 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
   const { node, activeTool, onOutputHandleMouseDown, onOutputHandleTouchStart, isHovered, isSelected, onNodeMouseEnter, onNodeMouseLeave, onDeleteNode, connectingInfo, connectionTarget, onDetachNodeFromGroup, isGlobalProcessing, isProxy, isFocused, isGrouped, isGroupDragging } = props;
   
   const context = useAppContext();
-  const { handleOpenNodeContextMenu, requestDeleteNodes, handleUndockNode, selectNode, nodeAnimationMode, connectedInputTypes, handleClearNodeNewFlag } = context || {}; 
+  // Default isHoverHighlightEnabled to true if context is not yet available, but prefer context value
+  const { handleOpenNodeContextMenu, requestDeleteNodes, handleUndockNode, selectNode, nodeAnimationMode, connectedInputTypes, handleClearNodeNewFlag, isHoverHighlightEnabled = true } = context || {}; 
   const { t } = useLanguage();
 
   const isRerouteDot = node.type === NodeType.REROUTE_DOT;
@@ -90,7 +91,21 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
   // --- Styles & Classes ---
   // Pass group context to style generator
   const styles = getNodeStyles(node, isDockedWindow, isProxyMode, isRerouteDot, isSelected, isHovered, minSize, isFocused, isGrouped, isGroupDragging);
-  const classes = getNodeClasses(node, isDockedWindow, isProxyMode, isRerouteDot, isSelected, isHovered, !!props.isDragging, !!props.isDragOverTarget, connectionTarget?.nodeId === node.id, !!props.isExecuting, rerouteType, isFocused);
+  const classes = getNodeClasses(
+      node, 
+      isDockedWindow, 
+      isProxyMode, 
+      isRerouteDot, 
+      isSelected, 
+      isHovered, 
+      !!props.isDragging, 
+      !!props.isDragOverTarget, 
+      connectionTarget?.nodeId === node.id, 
+      !!props.isExecuting, 
+      rerouteType, 
+      isFocused,
+      isHoverHighlightEnabled // Pass current setting
+  );
   const handleCursor = activeTool === 'edit' ? (isDockedWindow ? 'default' : 'crosshair') : 'inherit';
   const nodeCursor = activeTool === 'cutter' ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="%23ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>') 12 12, auto` : (isDockedWindow ? 'default' : 'default');
 
@@ -145,7 +160,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
   if (isProxyMode) {
       return (
         <div
-            className={`node-view absolute flex items-center justify-center rounded-lg border-2 border-gray-600 bg-gray-800 text-gray-400 px-4 py-2 shadow-lg select-none cursor-move ${isSelected ? 'border-cyan-500 text-cyan-400' : ''}`}
+            className={`node-view absolute flex items-center justify-center rounded-lg border-2 border-gray-600 bg-gray-800 text-gray-400 px-4 py-2 shadow-lg select-none cursor-move ${isSelected ? 'border-node-selected text-accent-text' : ''}`}
             style={{ ...styles, zIndex: isSelected ? 12 : 10 }}
             onMouseUp={gestures.handleMouseUp} 
             onMouseEnter={() => onNodeMouseEnter(node.id)} 
@@ -153,6 +168,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
             onMouseDown={gestures.handleDragMouseDown}
             onTouchStart={gestures.handleDragTouchStart}
             onContextMenu={(e) => { if (handleOpenNodeContextMenu) handleOpenNodeContextMenu(e, node.id); }}
+            onWheel={(e) => e.stopPropagation()}
         >
              <span className="font-bold text-xs truncate max-w-[140px] pointer-events-none">{node.title}</span>
              <InputHandles node={node} getHandleColor={getHandleColor} handleCursor={handleCursor} t={t} isHovered={isHovered} isCollapsed={true} isProxy={true} connectedInputType={connectedInputType} />
@@ -180,6 +196,8 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
       onMouseDownCapture={handleInteraction}
       onTouchStartCapture={handleInteraction}
       onTouchStart={isRerouteDot ? gestures.handleDragTouchStart : undefined}
+      // Prevent canvas zoom when scrolling inside node
+      onWheel={(e) => e.stopPropagation()}
     >
       {/* Blade Runner Animation Ring */}
       {node.isNewlyCreated && nodeAnimationMode === 'blade-runner' && !isDockedWindow && !isProxyMode && <div className="new-node-ring" />}

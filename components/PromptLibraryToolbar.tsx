@@ -128,15 +128,16 @@ export const PromptLibraryToolbar: React.FC<PromptLibraryToolbarProps> = ({ libr
       <button
         onClick={handleToggleMenu}
         title={t('catalog.tabs.library')}
-        className={`w-full p-1.5 rounded transition-colors flex items-center justify-start space-x-2 ${isMenuOpen ? 'bg-cyan-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+        // Theme Change: bg-accent when open
+        className={`w-full p-1.5 rounded transition-colors flex items-center justify-start space-x-2 ${isMenuOpen ? 'bg-accent' : 'bg-gray-700 hover:bg-gray-600'}`}
       >
-        {/* Book Icon */}
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+        {/* Book Icon - Theme Change: text-accent-text, but if active (bg-accent) use white for contrast */}
+        <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 flex-shrink-0 ${isMenuOpen ? 'text-white' : 'text-accent-text'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
         </svg>
-        <span className="text-xs font-semibold text-gray-200 truncate">{t('catalog.tabs.library')}</span>
+        <span className={`text-xs font-semibold truncate ${isMenuOpen ? 'text-white' : 'text-gray-200'}`}>{t('catalog.tabs.library')}</span>
         <div className="flex-grow"></div>
-        <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 text-gray-400 transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${isMenuOpen ? 'text-white' : 'text-gray-400'} transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -159,7 +160,8 @@ export const PromptLibraryToolbar: React.FC<PromptLibraryToolbarProps> = ({ libr
                 onClick={currentFolderId ? handleNavigateBack : undefined}
             >
                 {currentFolderId ? (
-                    <div className="mr-2 p-1 text-cyan-400 flex-shrink-0">
+                    // Theme Change: text-accent-text
+                    <div className="mr-2 p-1 text-accent-text flex-shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
@@ -190,7 +192,8 @@ export const PromptLibraryToolbar: React.FC<PromptLibraryToolbarProps> = ({ libr
                                         className="w-full flex items-center justify-between p-2 rounded hover:bg-gray-700 text-left group transition-colors"
                                     >
                                         <div className="flex items-center space-x-2 min-w-0">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            {/* Theme Change: text-accent-text */}
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-accent-text flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                             </svg>
                                             <span className="text-sm text-gray-200 truncate group-hover:text-white">{item.name}</span>
@@ -205,7 +208,8 @@ export const PromptLibraryToolbar: React.FC<PromptLibraryToolbarProps> = ({ libr
                                         className="w-full flex items-center space-x-2 p-2 rounded hover:bg-gray-700 text-left group transition-colors"
                                         title={item.content}
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-500 flex-shrink-0 opacity-70 group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        {/* Theme Change: text-accent */}
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-accent flex-shrink-0 opacity-70 group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
                                         <span className="text-sm text-gray-300 truncate group-hover:text-white">{item.name}</span>

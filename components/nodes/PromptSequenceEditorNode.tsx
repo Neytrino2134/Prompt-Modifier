@@ -8,6 +8,7 @@ import { useAppContext } from '../../contexts/AppContext';
 import { PromptSequenceControls } from './prompt-sequence/PromptSequenceControls';
 import { SourcePromptList, SourcePromptListRef } from './prompt-sequence/SourcePromptList';
 import { ModifiedPromptList } from './prompt-sequence/ModifiedPromptList';
+import { CopyIcon } from '../icons/AppIcons'; // Added import
 
 const MIN_LEFT_PANE_WIDTH = 620;
 const MIN_RIGHT_PANE_WIDTH = 400;
@@ -25,7 +26,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
         try {
             return JSON.parse(node.value || '{}');
         } catch {
-            return { instruction: '', sourcePrompts: [], modifiedPrompts: [], leftPaneWidth: MIN_LEFT_PANE_WIDTH, checkedSourceFrameNumbers: [], selectedFrameNumber: null, styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isUsedCharsCollapsed: true, usedCharacters: [], collapsedSourceScenes: [], collapsedModifiedScenes: [], targetLanguage: 'en', modificationModel: 'gemini-3-flash-preview', includeVideoPrompts: false };
+            return { instruction: '', sourcePrompts: [], modifiedPrompts: [], leftPaneWidth: MIN_LEFT_PANE_WIDTH, checkedSourceFrameNumbers: [], selectedFrameNumber: null, styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isUsedCharsCollapsed: true, usedCharacters: [], collapsedSourceScenes: [], collapsedModifiedScenes: [], targetLanguage: 'en', modificationModel: 'gemini-3-flash-preview', includeVideoPrompts: false, sceneContexts: {}, expandedSceneContexts: [] };
         }
     }, [node.value]);
 
@@ -39,7 +40,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
         initialWidth = MIN_LEFT_PANE_WIDTH;
     }
 
-    const { instruction = '', sourcePrompts = [], modifiedPrompts = [], checkedSourceFrameNumbers = [], selectedFrameNumber = null, styleOverride = '', isStyleCollapsed = true, isUsedCharsCollapsed = true, usedCharacters = [], collapsedSourceScenes = [], collapsedModifiedScenes = [], targetLanguage = 'en', modificationModel = 'gemini-3-flash-preview', includeVideoPrompts = false } = parsedValue;
+    const { instruction = '', sourcePrompts = [], modifiedPrompts = [], checkedSourceFrameNumbers = [], selectedFrameNumber = null, styleOverride = '', isStyleCollapsed = true, isUsedCharsCollapsed = true, usedCharacters = [], collapsedSourceScenes = [], collapsedModifiedScenes = [], targetLanguage = 'en', modificationModel = 'gemini-3-flash-preview', includeVideoPrompts = false, sceneContexts = {}, expandedSceneContexts = [] } = parsedValue;
     const leftPaneWidth = initialWidth;
 
     const handleValueUpdate = useCallback((updates: any) => {
@@ -81,12 +82,13 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
     const handleAddScene = useCallback(() => {
         const current = [...(parsedValueRef.current.sourcePrompts || [])];
         const lastScene = current.length > 0 ? Math.max(...current.map((p: any) => p.sceneNumber || 1)) : 0;
+        const nextScene = lastScene + 1;
         const nextFrame = current.length > 0 ? Math.max(...current.map((p: any) => p.frameNumber)) + 1 : 1;
         
-        const newItem = {
+        const newPrompt = {
             frameNumber: nextFrame,
-            sceneNumber: lastScene + 1,
-            sceneTitle: `Scene ${lastScene + 1}`,
+            sceneNumber: nextScene,
+            sceneTitle: `Scene ${nextScene}`,
             prompt: '',
             videoPrompt: '',
             shotType: 'WS',
@@ -94,7 +96,8 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
             duration: 3,
             isCollapsed: false
         };
-        handleValueUpdate({ sourcePrompts: [...current, newItem] });
+        
+        handleValueUpdate({ sourcePrompts: [...current, newPrompt] });
     }, [handleValueUpdate]);
 
     const handleDeletePrompt = useCallback((frameNumber: number) => {
@@ -184,6 +187,8 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                     if (parsed.type === 'script-prompt-modifier-data' && Array.isArray(parsed.finalPrompts)) {
                          const incomingPrompts = parsed.finalPrompts;
                          const incomingUsedChars = parsed.usedCharacters || [];
+                         const incomingSceneContexts = parsed.sceneContexts || {};
+
                          const newSourcePrompts: any[] = [];
                          let hasChanges = false;
                          incomingPrompts.forEach((inc: any) => {
@@ -202,13 +207,22 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                              if (!existing || existing.prompt !== newPrompt.prompt || existing.videoPrompt !== newPrompt.videoPrompt || existing.shotType !== newPrompt.shotType || JSON.stringify(existing.characters) !== JSON.stringify(newPrompt.characters)) hasChanges = true;
                              newSourcePrompts.push(newPrompt);
                          });
-                         if (sourcePrompts.length !== newSourcePrompts.length || JSON.stringify(usedCharacters) !== JSON.stringify(incomingUsedChars)) hasChanges = true;
-                         if (hasChanges) handleValueUpdate({ sourcePrompts: newSourcePrompts, usedCharacters: incomingUsedChars });
+                         
+                         // Check global changes
+                         if (sourcePrompts.length !== newSourcePrompts.length || JSON.stringify(usedCharacters) !== JSON.stringify(incomingUsedChars) || JSON.stringify(sceneContexts) !== JSON.stringify(incomingSceneContexts)) hasChanges = true;
+                         
+                         if (hasChanges) {
+                             handleValueUpdate({ 
+                                 sourcePrompts: newSourcePrompts, 
+                                 usedCharacters: incomingUsedChars,
+                                 sceneContexts: incomingSceneContexts
+                             });
+                         }
                     }
                 } catch (e) { }
             }
         }
-    }, [isReferenceDataConnected, getUpstreamNodeValues, node.id, handleValueUpdate, sourcePrompts, usedCharacters]); 
+    }, [isReferenceDataConnected, getUpstreamNodeValues, node.id, handleValueUpdate, sourcePrompts, usedCharacters, sceneContexts]); 
     
     const handleHorizontalResize = useCallback((e: React.MouseEvent) => {
         e.preventDefault(); e.stopPropagation();
@@ -239,6 +253,19 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
         const newChars = [...usedCharacters];
         newChars[idx] = { ...newChars[idx], name: newName };
         handleValueUpdate({ usedCharacters: newChars });
+    };
+
+    const handleUpdateSceneContext = (sceneNum: number, text: string) => {
+        const newContexts = { ...sceneContexts, [sceneNum]: text };
+        handleValueUpdate({ sceneContexts: newContexts });
+    };
+
+    const handleToggleSceneContext = (sceneNum: number) => {
+        const current = expandedSceneContexts || [];
+        const newExpanded = current.includes(sceneNum)
+            ? current.filter((s: number) => s !== sceneNum)
+            : [...current, sceneNum];
+        handleValueUpdate({ expandedSceneContexts: newExpanded });
     };
 
     return (
@@ -283,16 +310,42 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                      {!isUsedCharsCollapsed && (
                         <div className="bg-gray-700/50 p-2 rounded-md border border-gray-600 max-h-40 overflow-y-auto custom-scrollbar">
                              {usedCharacters.length > 0 ? usedCharacters.map((char: any, i: number) => (
-                                 <div key={i} className="flex items-center gap-2 mb-1 last:mb-0">
-                                     <span className="text-[10px] font-mono text-cyan-400 w-20 shrink-0">{char.index}:</span>
-                                     <input 
-                                        type="text" 
-                                        value={char.name} 
-                                        onChange={(e) => handleUpdateUsedCharacterName(i, e.target.value)}
-                                        placeholder="Имя персонажа..."
-                                        className="flex-grow bg-gray-800 border-none rounded px-1.5 py-0.5 text-[10px] text-gray-200 focus:ring-1 focus:ring-cyan-500 outline-none"
-                                        onMouseDown={e => e.stopPropagation()}
-                                     />
+                                 <div key={i} className="flex items-center gap-1 mb-1 last:mb-0 group/item">
+                                     <div className="flex items-center gap-1 min-w-[100px] shrink-0 bg-gray-800/50 rounded px-1 border border-gray-600/50">
+                                         <span className="text-[10px] font-mono text-cyan-400 truncate w-16">{char.index}:</span>
+                                         <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                navigator.clipboard.writeText(`[${char.index}]`); 
+                                                if(addToast) addToast(t('toast.copiedToClipboard')); 
+                                            }}
+                                            className="text-gray-500 hover:text-white p-0.5 transition-colors opacity-0 group-hover/item:opacity-100"
+                                            title="Copy as [Tag]"
+                                         >
+                                            <CopyIcon className="h-3 w-3" />
+                                         </button>
+                                     </div>
+                                     <div className="flex-grow flex items-center bg-gray-800 border-none rounded px-1.5 py-0.5 relative">
+                                        <input 
+                                            type="text" 
+                                            value={char.name} 
+                                            onChange={(e) => handleUpdateUsedCharacterName(i, e.target.value)}
+                                            placeholder="Имя персонажа..."
+                                            className="w-full bg-transparent border-none text-[10px] text-gray-200 focus:outline-none focus:ring-0"
+                                            onMouseDown={e => e.stopPropagation()}
+                                        />
+                                        <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                navigator.clipboard.writeText(char.name); 
+                                                if(addToast) addToast(t('toast.copiedToClipboard')); 
+                                            }}
+                                            className="text-gray-500 hover:text-white p-0.5 transition-colors opacity-0 group-hover/item:opacity-100 absolute right-1"
+                                            title="Copy Name"
+                                        >
+                                            <CopyIcon className="h-3 w-3" />
+                                        </button>
+                                     </div>
                                  </div>
                              )) : <div className="text-[10px] text-gray-500 italic">Персонажи не указаны.</div>}
                         </div>
@@ -347,7 +400,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                         const newCollapsed = collapsedSourceScenes.includes(scene) ? collapsedSourceScenes.filter((s: number) => s !== scene) : [...collapsedSourceScenes, scene];
                         handleValueUpdate({ collapsedSourceScenes: newCollapsed });
                     }}
-                    onClearAll={() => handleValueUpdate({ sourcePrompts: [], styleOverride: '', usedCharacters: [] })}
+                    onClearAll={() => handleValueUpdate({ sourcePrompts: [], styleOverride: '', usedCharacters: [], sceneContexts: {} })}
                     onAddPrompt={handleAddPrompt}
                     onAddScene={handleAddScene}
                     onDeletePrompt={handleDeletePrompt}
@@ -361,6 +414,11 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                     onEditPrompt={handleEditPrompt}
                     isGeneratingSequence={isModifyingPromptSequence}
                     allConceptsLength={0}
+                    // New props
+                    sceneContexts={sceneContexts}
+                    onUpdateSceneContext={handleUpdateSceneContext}
+                    expandedSceneContexts={expandedSceneContexts}
+                    onToggleSceneContext={handleToggleSceneContext}
                 />
             </div>
             

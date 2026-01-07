@@ -30,6 +30,9 @@
         
         --color-connection-text: #22d3ee; /* cyan-400 */
         --color-connection-image: #1cead8; /* Bright Turquoise */
+        --color-connection-character: #ec4899; /* pink-500 */
+        --color-connection-video: #6366f1; /* indigo-500 */
+        --color-connection-audio: #3b82f6; /* blue-500 */
         
         --color-border-hover: #1cead8;    /* Bright Turquoise */
         --color-border-selected: #22d3ee; /* Cyan-400 */
@@ -40,23 +43,25 @@
 
       /* Orange Theme */
       [data-theme='orange'] {
-        --color-bg-canvas: #0f0f0f; /* Black (Monochrome style) */
-        --color-bg-node: #3f1d12;   /* Dark brown */
-        --color-bg-panel: #0f0f0f;  /* Black (Monochrome style) */
-        /* --color-bg-input: #2a1b15;  Reverted to default */
-        /* --color-border: #7c2d12;    Reverted to default */
+        --color-bg-canvas: #111827; /* Gray-900 (Cyan Default) */
+        --color-bg-node: #1f2937;   /* Gray-800 (Cyan Default) */
+        --color-bg-panel: #111827;  /* Gray-900 (Cyan Default) */
+        --color-bg-input: #18202f;  /* Dark Blue (Cyan Default) */
         
-        --color-accent: #ea580c;        /* orange-600 */
-        --color-accent-hover: #c2410c;  /* orange-700 */
+        --color-accent: #c2410c;        /* orange-700 (Restrained) */
+        --color-accent-hover: #9a3412;  /* orange-800 */
         --color-accent-dim: rgba(251, 146, 60, 0.1);
         --color-text-accent: #fb923c;   /* orange-400 */
         --color-selection: rgba(251, 146, 60, 0.3); /* Selection Color */
 
-        --color-accent-secondary: #d97706;       /* amber-600 */
-        --color-accent-secondary-hover: #b45309; /* amber-700 */
+        --color-accent-secondary: #b45309;       /* amber-700 (Restrained) */
+        --color-accent-secondary-hover: #92400e; /* amber-800 */
         
         --color-connection-text: #fb923c; /* orange-400 */
         --color-connection-image: #fbbf24; /* amber-400 */
+        --color-connection-character: #ef4444; /* red-500 */
+        --color-connection-video: #c2410c; /* orange-700 */
+        --color-connection-audio: #f59e0b; /* amber-500 */
         
         --color-border-hover: #fdba74;    /* orange-300 */
         --color-border-selected: #fb923c; /* orange-400 */
@@ -64,23 +69,25 @@
 
       /* Pink Theme */
       [data-theme='pink'] {
-        --color-bg-canvas: #0f0f0f; /* Black (Monochrome style) */
-        --color-bg-node: #500724;   /* Dark pink */
-        --color-bg-panel: #0f0f0f;  /* Black (Monochrome style) */
-        /* --color-bg-input: #2e101b;  Reverted to default */
-        /* --color-border: #9d174d;    Reverted to default */
+        --color-bg-canvas: #111827; /* Gray-900 (Cyan Default) */
+        --color-bg-node: #1f2937;   /* Gray-800 (Cyan Default) */
+        --color-bg-panel: #111827;  /* Gray-900 (Cyan Default) */
+        --color-bg-input: #18202f;  /* Dark Blue (Cyan Default) */
         
-        --color-accent: #db2777;        /* pink-600 */
-        --color-accent-hover: #be185d;  /* pink-700 */
+        --color-accent: #be185d;        /* pink-700 (Restrained) */
+        --color-accent-hover: #9d174d;  /* pink-800 */
         --color-accent-dim: rgba(244, 114, 182, 0.1);
         --color-text-accent: #f472b6;   /* pink-400 */
         --color-selection: rgba(244, 114, 182, 0.3); /* Selection Color */
 
-        --color-accent-secondary: #be123c;       /* rose-700 */
-        --color-accent-secondary-hover: #9f1239; /* rose-800 */
+        --color-accent-secondary: #9f1239;       /* rose-800 (Restrained) */
+        --color-accent-secondary-hover: #881337; /* rose-900 */
         
         --color-connection-text: #f472b6; /* pink-400 */
         --color-connection-image: #e879f9; /* fuchsia-400 */
+        --color-connection-character: #be123c; /* rose-700 */
+        --color-connection-video: #9333ea; /* purple-600 */
+        --color-connection-audio: #c026d3; /* fuchsia-600 */
         
         --color-border-hover: #f9a8d4;    /* pink-300 */
         --color-border-selected: #f472b6; /* pink-400 */
@@ -88,9 +95,9 @@
       
       /* Gray (Monochrome) Theme */
       [data-theme='gray'] {
-        --color-bg-canvas: #0f0f0f;
+        --color-bg-canvas: #18181b; /* zinc-950 (Lighter than black) */
         --color-bg-node: #27272a;   /* zinc-800 */
-        --color-bg-panel: #0f0f0f;
+        --color-bg-panel: #18181b;  /* zinc-950 */
         --color-bg-input: #18181b;  /* zinc-950 */
         --color-border: #52525b;    /* zinc-600 */
         
@@ -105,9 +112,137 @@
         
         --color-connection-text: #a1a1aa; /* Zinc-400 */
         --color-connection-image: #a1a1aa; /* Zinc-400 */
+        --color-connection-character: #a1a1aa; /* Zinc-400 */
+        --color-connection-video: #a1a1aa; /* Zinc-400 */
+        --color-connection-audio: #a1a1aa; /* Zinc-400 */
         
         --color-border-hover: #d4d4d8;    /* Zinc-300 */
         --color-border-selected: #a1a1aa; /* Zinc-400 */
+      }
+
+      /* Lime Theme (Acid/Cyberpunk) */
+      [data-theme='lime'] {
+        --color-bg-canvas: #111827; /* Gray-900 (Cyan Default) */
+        --color-bg-node: #1f2937;   /* Gray-800 */
+        --color-bg-panel: #111827;  /* Gray-900 */
+        
+        --color-accent: #65a30d;        /* lime-600 */
+        --color-accent-hover: #4d7c0f;  /* lime-700 */
+        --color-accent-dim: rgba(163, 230, 53, 0.1);
+        --color-text-accent: #a3e635;   /* lime-400 */
+        --color-selection: rgba(163, 230, 53, 0.3);
+        
+        --color-accent-secondary: #16a34a;       /* green-600 */
+        --color-accent-secondary-hover: #15803d; /* green-700 */
+
+        --color-connection-text: #a3e635; /* lime-400 */
+        --color-connection-image: #4ade80; /* green-400 */
+        --color-connection-character: #facc15; /* yellow-400 */
+        --color-connection-video: #65a30d; /* lime-600 */
+        --color-connection-audio: #84cc16; /* lime-500 */
+        
+        --color-border-hover: #bef264;    /* lime-300 */
+        --color-border-selected: #a3e635; /* lime-400 */
+      }
+
+      /* Purple Theme (Synthwave) */
+      [data-theme='purple'] {
+        --color-bg-canvas: #111827;
+        --color-bg-node: #1f2937;
+        --color-bg-panel: #111827;
+        
+        --color-accent: #9333ea;        /* purple-600 */
+        --color-accent-hover: #7e22ce;  /* purple-700 */
+        --color-accent-dim: rgba(192, 132, 252, 0.1);
+        --color-text-accent: #c084fc;   /* purple-400 */
+        --color-selection: rgba(192, 132, 252, 0.3);
+
+        --color-accent-secondary: #d946ef;       /* fuchsia-500 */
+        --color-accent-secondary-hover: #c026d3; /* fuchsia-600 */
+
+        --color-connection-text: #c084fc; /* purple-400 */
+        --color-connection-image: #e879f9; /* fuchsia-400 */
+        --color-connection-character: #d946ef; /* fuchsia-500 */
+        --color-connection-video: #9333ea; /* purple-600 */
+        --color-connection-audio: #a855f7; /* purple-500 */
+        
+        --color-border-hover: #d8b4fe;    /* purple-300 */
+        --color-border-selected: #c084fc; /* purple-400 */
+      }
+
+      /* Azure Theme (Cool Tech) */
+      [data-theme='azure'] {
+        --color-bg-canvas: #111827;
+        --color-bg-node: #1f2937;
+        --color-bg-panel: #111827;
+        
+        --color-accent: #0284c7;        /* sky-600 */
+        --color-accent-hover: #0369a1;  /* sky-700 */
+        --color-accent-dim: rgba(56, 189, 248, 0.1);
+        --color-text-accent: #38bdf8;   /* sky-400 */
+        --color-selection: rgba(56, 189, 248, 0.3);
+
+        --color-accent-secondary: #3b82f6;       /* blue-500 */
+        --color-accent-secondary-hover: #2563eb; /* blue-600 */
+
+        --color-connection-text: #38bdf8; /* sky-400 */
+        --color-connection-image: #60a5fa; /* blue-400 */
+        --color-connection-character: #818cf8; /* indigo-400 */
+        --color-connection-video: #0ea5e9; /* sky-500 */
+        --color-connection-audio: #3b82f6; /* blue-500 */
+        
+        --color-border-hover: #7dd3fc;    /* sky-300 */
+        --color-border-selected: #38bdf8; /* sky-400 */
+      }
+
+      /* Red Theme (Alert/Bold) */
+      [data-theme='red'] {
+        --color-bg-canvas: #111827;
+        --color-bg-node: #1f2937;
+        --color-bg-panel: #111827;
+        
+        --color-accent: #dc2626;        /* red-600 */
+        --color-accent-hover: #b91c1c;  /* red-700 */
+        --color-accent-dim: rgba(248, 113, 113, 0.1);
+        --color-text-accent: #f87171;   /* red-400 */
+        --color-selection: rgba(248, 113, 113, 0.3);
+
+        --color-accent-secondary: #e11d48;       /* rose-600 */
+        --color-accent-secondary-hover: #be123c; /* rose-700 */
+
+        --color-connection-text: #f87171; /* red-400 */
+        --color-connection-image: #fb7185; /* rose-400 */
+        --color-connection-character: #ef4444; /* red-500 */
+        --color-connection-video: #dc2626; /* red-600 */
+        --color-connection-audio: #e11d48; /* rose-600 */
+        
+        --color-border-hover: #fca5a5;    /* red-300 */
+        --color-border-selected: #f87171; /* red-400 */
+      }
+      
+      /* Emerald Theme (Nature/Fresh) */
+      [data-theme='emerald'] {
+        --color-bg-canvas: #111827;
+        --color-bg-node: #1f2937;
+        --color-bg-panel: #111827;
+        
+        --color-accent: #059669;        /* emerald-600 */
+        --color-accent-hover: #047857;  /* emerald-700 */
+        --color-accent-dim: rgba(52, 211, 153, 0.1);
+        --color-text-accent: #34d399;   /* emerald-400 */
+        --color-selection: rgba(52, 211, 153, 0.3);
+
+        --color-accent-secondary: #0d9488;       /* teal-600 */
+        --color-accent-secondary-hover: #0f766e; /* teal-700 */
+
+        --color-connection-text: #34d399; /* emerald-400 */
+        --color-connection-image: #2dd4bf; /* teal-400 */
+        --color-connection-character: #10b981; /* emerald-500 */
+        --color-connection-video: #059669; /* emerald-600 */
+        --color-connection-audio: #14b8a6; /* teal-500 */
+        
+        --color-border-hover: #6ee7b7;    /* emerald-300 */
+        --color-border-selected: #34d399; /* emerald-400 */
       }
 
       /* Global Selection Style */
@@ -143,6 +278,14 @@
         width: 8px;
         height: 8px;
       }
+      
+      /* Hide scrollbar buttons (arrows) */
+      ::-webkit-scrollbar-button {
+        display: none;
+        width: 0;
+        height: 0;
+      }
+
       ::-webkit-scrollbar-track {
         background: transparent;
       }
@@ -302,12 +445,11 @@
         background: conic-gradient(
           from 0deg,
           transparent 0deg,
-          rgba(34, 211, 238, 0) 100deg,
-          var(--color-text-accent) 150deg, 
-          transparent 150deg,
-          transparent 280deg,
-          rgba(34, 211, 238, 0) 330deg,
-          var(--color-text-accent) 360deg 
+          transparent 80deg,           /* Start of tail 1 */
+          var(--color-text-accent) 180deg, /* Head 1 (Halfway) */
+          transparent 180deg,          /* Cutoff */
+          transparent 260deg,          /* Start of tail 2 */
+          var(--color-text-accent) 360deg  /* Head 2 (End) */
         );
         animation: rotate-ring 6s linear infinite;
       }
@@ -372,20 +514,6 @@
         scrollbar-gutter: stable;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "react-dom": "https://esm.sh/react-dom@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "vite": "https://esm.sh/vite@^7.2.7",
-    "@google/genai": "https://esm.sh/@google/genai",
-    "jszip": "https://esm.sh/jszip@3.10.1"
-  }
-}
-</script>
 <script>
     // Tailwind Configuration to use CSS Variables
     tailwind.config = {
@@ -409,6 +537,9 @@
             
             'connection-text': 'var(--color-connection-text)',
             'connection-image': 'var(--color-connection-image)',
+            'connection-character': 'var(--color-connection-character)',
+            'connection-video': 'var(--color-connection-video)',
+            'connection-audio': 'var(--color-connection-audio)',
             
             'node-hover': 'var(--color-border-hover)',
             'node-selected': 'var(--color-border-selected)',
@@ -420,6 +551,21 @@
       }
     }
 </script>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom": "https://esm.sh/react-dom@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "jszip": "https://esm.sh/jszip@^3.10.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-canvas text-text-main">
     <div id="root"></div>

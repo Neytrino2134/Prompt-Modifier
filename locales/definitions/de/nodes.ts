@@ -1,4 +1,5 @@
 
+
 export const nodes = {
     'node.title.text_input': 'Texteingabe',
     'node.title.image_input': 'Bildeingabe',
@@ -133,6 +134,7 @@ export const nodes = {
     'node.content.analyzePrompt': 'Prompt analysieren',
     'node.content.analyzeImage': 'Bild analysieren',
     'node.content.imageToText': 'Bild zu Text',
+    'node.content.updatePromptFromImage': 'Prompt aus Bild aktualisieren',
     'node.content.analyzeCharacter': 'Charakter analysieren',
     'node.content.generateCharacters': 'Charaktere generieren',
     'node.content.characterPromptPlaceholder': 'Beschreiben Sie den/die Charakter(e)...',
@@ -258,7 +260,7 @@ export const nodes = {
     'search.node.data_protection.title': 'Datenschutz',
     'search.node.data_protection.description': 'Verteidigen Sie Ihren Datenstrom in diesem Minispiel.',
     'search.node.pose_creator.title': 'Pose Creator',
-    'search.node.pose_creator.description': 'Visual rig to define and generate character poses for consistency.',
+    'search.node.pose_creator.description': 'Visually rig and create character poses for generation guidance.',
     'prompt_sequence_editor.instructionPlaceholder': 'Geben Sie eine Anweisung zum Ändern der Prompts ein...',
     'prompt_sequence_editor.modifying': 'Änderung läuft...',
     'prompt_sequence_editor.modifySelected': 'Ausgewählte ändern ({count})',
@@ -273,6 +275,8 @@ export const nodes = {
     'image_sequence.clear_prompts_only': 'Nur Text-Prompts löschen',
     'image_sequence.prev_scene': 'Vorherige Szene',
     'image_sequence.next_scene': 'Nächste Szene',
+    'image_sequence.frames_hidden': '({count} Frames ausgeblendet)',
+    'image_sequence.frames_count': '({count} Frames)',
     'node.content.modificationRequest': 'Änderungsanfrage',
     'node.content.technicalPrompt': 'Technischer Prompt',
     

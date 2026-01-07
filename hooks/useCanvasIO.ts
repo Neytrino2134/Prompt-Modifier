@@ -1,4 +1,5 @@
 
+
 import React, { useCallback, useRef } from 'react';
 import { Node, NodeType, CanvasState, Tab, LibraryItem } from '../types';
 import { getEmptyValueForNodeType, RATIO_INDICES } from '../utils/nodeUtils';
@@ -242,12 +243,14 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                 let videoPromptsToLoad: any[] = [];
                 let incomingStyle = '';
                 let usedCharactersToLoad: any[] = [];
+                let incomingSceneContexts: Record<string, string> = {};
                 
                 if (parsedJson.type === 'script-prompt-modifier-data') {
                     promptsToLoad = parsedJson.finalPrompts || parsedJson.prompts || [];
                     videoPromptsToLoad = parsedJson.videoPrompts || [];
                     incomingStyle = parsedJson.styleOverride || '';
                     usedCharactersToLoad = parsedJson.usedCharacters || [];
+                    incomingSceneContexts = parsedJson.sceneContexts || {};
                 } else if (Array.isArray(parsedJson)) {
                     promptsToLoad = parsedJson;
                 } else if (parsedJson.prompts) {
@@ -297,6 +300,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                     };
                     if (incomingStyle) updates.styleOverride = incomingStyle;
                     if (usedCharactersToLoad.length > 0) updates.usedCharacters = usedCharactersToLoad;
+                    if (Object.keys(incomingSceneContexts).length > 0) updates.sceneContexts = incomingSceneContexts;
 
                     handleValueChange(nodeId, JSON.stringify({ ...currentVal, ...updates }));
                 } else {
@@ -334,12 +338,14 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                 let videoPrompts: any[] | null = null;
                 let loadedStyleOverride = '';
                 let usedChars: any[] = [];
+                let loadedSceneContexts: Record<string, string> = {};
 
                 if (parsedJson && parsedJson.type === 'script-prompt-modifier-data') {
                     prompts = parsedJson.finalPrompts || parsedJson.prompts;
                     videoPrompts = parsedJson.videoPrompts;
                     loadedStyleOverride = parsedJson.styleOverride || '';
                     usedChars = parsedJson.usedCharacters || [];
+                    loadedSceneContexts = parsedJson.sceneContexts || {};
                 } else if (Array.isArray(parsedJson)) {
                     prompts = parsedJson;
                 } else if (parsedJson && Array.isArray(parsedJson.prompts)) {
@@ -390,6 +396,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                         };
                         if (loadedStyleOverride) updates.styleOverride = loadedStyleOverride;
                         if (usedChars.length > 0) updates.usedCharacters = usedChars;
+                        if (Object.keys(loadedSceneContexts).length > 0) updates.sceneContexts = loadedSceneContexts;
                         
                         const newValue = JSON.stringify({ ...currentParsedValue, ...updates });
                         handleValueChange(nodeId, newValue);
@@ -630,6 +637,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                     type: 'script-prompt-modifier-data',
                     title: node.title || "Финалайзер промптов",
                     usedCharacters: data.usedCharacters || [],
+                    sceneContexts: data.sceneContexts || {}, // Save scene contexts
                     finalPrompts: mergedPrompts.map((p: any) => ({
                         frameNumber: p.frameNumber,
                         sceneNumber: p.sceneNumber || 1,
@@ -679,6 +687,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                     type: 'script-prompt-modifier-data',
                     title: node.title || "Sequence Generator",
                     usedCharacters: data.usedCharacters || [],
+                    sceneContexts: data.sceneContexts || {}, // Save scene contexts
                     finalPrompts: promptsToSave.map((p: any) => ({
                         frameNumber: p.frameNumber,
                         sceneNumber: p.sceneNumber,

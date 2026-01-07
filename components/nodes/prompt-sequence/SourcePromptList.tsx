@@ -1,9 +1,11 @@
 
+
 import React, { useRef, useState, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { PromptCard } from './PromptCard';
 import { usePromptVirtualization } from './usePromptVirtualization';
 import { InputWithSpinners } from './SharedUI';
+import { DebouncedTextarea } from '../../DebouncedTextarea';
 
 interface SourcePromptListProps {
     prompts: any[];
@@ -42,6 +44,13 @@ interface SourcePromptListProps {
     selectionKey?: string; // New prop to customize state key
     onUnlink?: () => void;
     addToast?: (msg: string, type?: 'success' | 'info' | 'error') => void;
+    // New prop for clearing text only
+    onClearTextOnly?: () => void;
+    // New Props for Context
+    sceneContexts?: Record<string, string>;
+    onUpdateSceneContext?: (scene: number, text: string) => void;
+    expandedSceneContexts?: number[];
+    onToggleSceneContext?: (scene: number) => void;
 }
 
 export interface SourcePromptListRef {
@@ -80,11 +89,14 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
     allConceptsLength,
     selectionKey = 'checkedSourceFrameNumbers', // Default for Prompt Editor
     onUnlink,
-    addToast
+    addToast,
+    onClearTextOnly,
+    sceneContexts = {},
+    onUpdateSceneContext,
+    expandedSceneContexts = [],
+    onToggleSceneContext
 }, ref) => {
     const listRef = useRef<HTMLDivElement>(null);
-    const prevSelectedFrameRef = useRef<number | null>(null);
-    
     const [scrollTop, setScrollTop] = useState(0);
     const [containerHeight, setContainerHeight] = useState(800);
     const [isDragOver, setIsDragOver] = useState(false);
@@ -125,7 +137,9 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
         scrollTop, 
         containerHeight, 
         showVideoPrompts,
-        showSceneHeaders
+        showSceneHeaders,
+        sceneContexts,
+        expandedSceneContexts
     );
 
     useImperativeHandle(ref, () => ({
@@ -139,26 +153,6 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
              if (listRef.current) listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
         }
     }));
-
-    // Auto-scroll to selected frame when it changes (e.g. from navigation)
-    useEffect(() => {
-        if (selectedFrameNumber !== null) {
-             // Only scroll if the selected frame has actually changed to prevent snapping back while scrolling/editing
-             if (prevSelectedFrameRef.current !== selectedFrameNumber) {
-                 prevSelectedFrameRef.current = selectedFrameNumber;
-                 
-                 // Small delay to allow expansion rendering
-                 setTimeout(() => {
-                     const top = getScrollPositionForFrame(selectedFrameNumber);
-                     if (top !== null && listRef.current) {
-                        listRef.current.scrollTo({ top: Math.max(0, top - 100), behavior: 'smooth' });
-                    }
-                 }, 100);
-             }
-        } else {
-            prevSelectedFrameRef.current = null;
-        }
-    }, [selectedFrameNumber, getScrollPositionForFrame]);
 
     const handleSearchFrame = (val?: string) => {
         const frameNum = parseInt(val || searchFrame, 10);
@@ -205,8 +199,14 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                      try {
                         const json = JSON.parse(ev.target.result as string);
                         let newPrompts = json.finalPrompts || json.prompts || (Array.isArray(json) ? json : []);
+                        let newContexts = json.sceneContexts || {};
+                        
                         if (newPrompts.length > 0) {
-                            onUpdatePrompts({ sourcePrompts: newPrompts, prompts: newPrompts });
+                            onUpdatePrompts({ 
+                                sourcePrompts: newPrompts, 
+                                prompts: newPrompts,
+                                sceneContexts: newContexts
+                            });
                         }
                      } catch (e) { console.error(e); }
                  }
@@ -270,6 +270,14 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
         navigator.clipboard.writeText(txt);
         if (addToast) addToast(t('toast.copiedToClipboard'));
     };
+    
+    const handleClearTextOnly = () => {
+        if (onClearTextOnly) {
+            onClearTextOnly();
+        } else {
+            onClearAll();
+        }
+    }
 
     return (
         <div className="flex-grow flex flex-col space-y-2 min-h-0">
@@ -382,7 +390,7 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                     </ActionButton>
                     
                     {!isLinked && (
-                        <ActionButton title={t('image_sequence.clear_prompts_only')} onClick={onClearAll} disabled={prompts.length === 0}>
+                        <ActionButton title={t('image_sequence.clear_prompts_only')} onClick={handleClearTextOnly} disabled={prompts.length === 0}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </ActionButton>
                     )}
@@ -442,6 +450,50 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                                                 </span>
                                                 <span className="text-[10px] text-gray-500">({group.prompts.length} frames)</span>
                                             </div>
+                                        </div>
+                                    </div>
+                                );
+                            } else if (item.type === 'scene_context') {
+                                // Scene Context Card
+                                const contextText = item.data; // Passed via data property
+                                const sceneNum = item.scene;
+                                const isExpanded = expandedSceneContexts.includes(sceneNum); // Check visibility
+                                
+                                return (
+                                    <div 
+                                        key={`context-${sceneNum}`}
+                                        style={{ position: 'absolute', top: item.top, left: 0, right: 0, height: item.h }}
+                                        className="pl-2 border-l-2 border-orange-500/50 ml-2 pb-2"
+                                    >
+                                        <div className="bg-gray-800/80 rounded border border-orange-500/30 p-2 h-full flex flex-col">
+                                             <div 
+                                                className="flex justify-between items-center cursor-pointer select-none"
+                                                onClick={(e) => { e.stopPropagation(); onToggleSceneContext && onToggleSceneContext(sceneNum); }}
+                                             >
+                                                 <div className="flex items-center gap-2">
+                                                    <div className="text-orange-500">
+                                                        {isExpanded 
+                                                            ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                                            : <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                                        }
+                                                    </div>
+                                                    <label className="text-[10px] font-bold text-orange-400 uppercase tracking-wider cursor-pointer">SCENE CONTEXT</label>
+                                                 </div>
+                                             </div>
+                                             
+                                             {isExpanded && (
+                                                 <div className="flex-grow min-h-0 mt-2">
+                                                     <DebouncedTextarea 
+                                                        value={contextText}
+                                                        onDebouncedChange={(val) => onUpdateSceneContext && onUpdateSceneContext(sceneNum, val)}
+                                                        readOnly={isLinked}
+                                                        className={`w-full h-full text-xs p-1.5 bg-gray-900/50 rounded resize-none border-none focus:outline-none transition-shadow focus:ring-1 focus:ring-orange-500 ${isLinked ? 'cursor-default' : 'cursor-text'}`}
+                                                        placeholder="Describe scene environment and context..."
+                                                        onMouseDown={e => e.stopPropagation()}
+                                                        onWheel={e => e.stopPropagation()}
+                                                     />
+                                                 </div>
+                                             )}
                                         </div>
                                     </div>
                                 );

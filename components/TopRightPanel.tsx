@@ -4,6 +4,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { ActiveOperation } from '../types';
 import { TutorialTooltip } from './TutorialTooltip';
 import { useLanguage } from '../localization';
+import { Tooltip } from './Tooltip';
 
 const useFps = () => {
   const [fps, setFps] = useState(0);
@@ -66,12 +67,17 @@ const TopRightPanel: React.FC = () => {
         skipTutorial, 
         advanceTutorial,
         nextAutoSaveTime,
-        isAutoSaving
+        isAutoSaving,
+        logs,
+        isDebugConsoleOpen,
+        setIsDebugConsoleOpen
     } = context;
     
     const operations: ActiveOperation[] = Array.from(activeOperations.values());
     const currentOp = operations.length > 0 ? operations[operations.length - 1] : null;
     const isProcessing = operations.length > 0;
+    
+    const errorCount = logs.filter(l => l.level === 'error').length;
     
     // Check for tutorial step
     const isTutorialActive = tutorialStep === 'image_output_generating';
@@ -158,6 +164,26 @@ const TopRightPanel: React.FC = () => {
                     
                     {!isCollapsed && (
                         <>
+                            {/* Debug Console Button */}
+                            <Tooltip content="Debug Console" position="bottom">
+                                <button
+                                    onClick={() => setIsDebugConsoleOpen(!isDebugConsoleOpen)}
+                                    className={`p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center relative ${isDebugConsoleOpen ? 'text-accent-text bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    {errorCount > 0 && !isDebugConsoleOpen && (
+                                        <span className="absolute top-1 right-1 flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                        </span>
+                                    )}
+                                </button>
+                            </Tooltip>
+                            
+                            <div className="w-px h-8 bg-gray-700 mx-1"></div>
+
                             {/* Status Group */}
                             <div className="flex items-center space-x-3 px-2 min-w-[140px]">
                                  {currentOp ? (
@@ -240,18 +266,19 @@ const TopRightPanel: React.FC = () => {
                     )}
 
                      {/* Expand/Collapse Button */}
-                     <button
-                        onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-accent hover:text-white text-gray-300 ml-1"
-                        aria-label={isCollapsed ? "Expand Panel" : "Collapse Panel"}
-                        title={isCollapsed ? "Expand" : "Collapse"}
-                    >
-                        {isCollapsed ? (
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                        ) : (
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                        )}
-                    </button>
+                     <Tooltip content={isCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')} position="bottom">
+                        <button
+                            onClick={() => setIsCollapsed(!isCollapsed)}
+                            className="p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-accent hover:text-white text-gray-300 ml-1"
+                            aria-label={isCollapsed ? "Expand Panel" : "Collapse Panel"}
+                        >
+                            {isCollapsed ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            )}
+                        </button>
+                    </Tooltip>
                  </div>
              </TutorialTooltip>
         </div>

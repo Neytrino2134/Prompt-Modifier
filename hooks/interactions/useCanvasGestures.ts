@@ -1,5 +1,6 @@
+
 import React, { useRef, useCallback } from 'react';
-import { Point } from '../../types';
+import { Point, NodeType } from '../../types';
 
 interface UseCanvasGesturesProps {
     viewTransform: { scale: number; translate: Point };

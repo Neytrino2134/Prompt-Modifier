@@ -309,7 +309,7 @@ export const useTabs = () => {
         );
     }, []);
     
-    // New function to completely reset tabs with specific language defaults
+    // Function to completely reset all tabs with specific language defaults (Factory Reset)
     const resetTabs = useCallback((lang: LanguageCode) => {
         const newState = getLocalizedCanvasState(lang);
         const newTab = createNewTab('Canvas 1', newState);
@@ -319,6 +319,20 @@ export const useTabs = () => {
         // Also wipe DB to prevent resurrection of old state
         saveSessionToDB([newTab], newTab.id);
     }, []);
+
+    // NEW: Function to reset ONLY the current tab to defaults, keeping others intact
+    const resetCurrentTab = useCallback((lang: LanguageCode) => {
+        const defaultState = getLocalizedCanvasState(lang);
+        setTabs(prevTabs => prevTabs.map(tab => {
+            if (tab.id === activeTabId) {
+                return {
+                    ...tab,
+                    state: defaultState
+                };
+            }
+            return tab;
+        }));
+    }, [activeTabId]);
 
     const loadCanvasState = useCallback((state: CanvasState) => {
         setTabs(prevTabs => prevTabs.map(tab =>
@@ -341,9 +355,10 @@ export const useTabs = () => {
         handleRenameTab,
         loadCanvasState,
         getCurrentCanvasState,
-        resetTabs, // Exported
-        getLocalizedCanvasState, // Exported helper
-        nextAutoSaveTime, // Exported for UI
-        isAutoSaving // Exported for UI
+        resetTabs, 
+        resetCurrentTab, // Export new function
+        getLocalizedCanvasState, 
+        nextAutoSaveTime, 
+        isAutoSaving 
     };
 };

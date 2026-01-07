@@ -143,4 +143,5 @@ export const ui = {
     'search.group.scripts': 'Scripts',
     'toolbar.enterFullScreen': 'Full Screen',
     'toolbar.exitFullScreen': 'Exit Full Screen',
+    'dialog.settings.hoverHighlightLabel': 'Node Hover Highlight',
 };

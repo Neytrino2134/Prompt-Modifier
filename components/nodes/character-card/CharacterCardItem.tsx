@@ -206,7 +206,7 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                         </div>
                         <div className="flex gap-1">
                             <ActionButton 
-                                title={t('node.content.imageToText')} 
+                                title={t('node.content.updatePromptFromImage')} 
                                 onClick={() => onSyncFromConnection()} 
                                 tooltipPosition="left"
                                 disabled={isUpdatingCharacterPrompt === cardOpKey}
@@ -236,24 +236,26 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                     <div className="flex justify-between items-center">
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{t('node.content.additionalPromptSuffix')}</label>
                         <div className="flex gap-0.5">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onUpdate({ additionalPrompt: SUFFIX_CHAR }); }}
-                                className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${char.additionalPrompt === SUFFIX_CHAR ? 'text-cyan-400' : 'text-gray-500 hover:text-white'}`}
-                                title="Character Concept"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                                </svg>
-                            </button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onUpdate({ additionalPrompt: SUFFIX_OBJ }); }}
-                                className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${char.additionalPrompt === SUFFIX_OBJ ? 'text-cyan-400' : 'text-gray-500 hover:text-white'}`}
-                                title="Object Concept"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                </svg>
-                            </button>
+                            <Tooltip content={t('node.action.characterConcept')}>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onUpdate({ additionalPrompt: SUFFIX_CHAR }); }}
+                                    className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${char.additionalPrompt === SUFFIX_CHAR ? 'text-accent' : 'text-gray-500 hover:text-accent'}`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </button>
+                            </Tooltip>
+                            <Tooltip content={t('node.action.objectConcept')}>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onUpdate({ additionalPrompt: SUFFIX_OBJ }); }}
+                                    className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${char.additionalPrompt === SUFFIX_OBJ ? 'text-accent' : 'text-gray-500 hover:text-accent'}`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
+                                </button>
+                            </Tooltip>
                         </div>
                     </div>
                     <input

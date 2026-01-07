@@ -12,6 +12,8 @@ interface LinkItemProps {
     description?: string;
 }
 
+const LOCAL_STORAGE_POS_KEY = 'helpPanelPosition';
+
 const LinkCard: React.FC<LinkItemProps> = ({ title, url, icon, colorClass, description }) => {
     const { t } = useLanguage();
     const [copied, setCopied] = useState(false);
@@ -81,17 +83,91 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
 const HelpPanel: React.FC = () => {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(false); // For animation
   const [activeTab, setActiveTab] = useState<'hotkeys' | 'links'>('hotkeys');
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
+  
+  const windowRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
+
+  // Draggable State
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const dragStart = useRef({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const positionRef = useRef(position);
+
+  // Sync ref
+  useEffect(() => {
+      positionRef.current = position;
+  }, [position]);
+
+  // Handle Open/Close Logic
+  useEffect(() => {
+    if (isOpen) {
+        setIsVisible(true);
+        const saved = localStorage.getItem(LOCAL_STORAGE_POS_KEY);
+        
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+                    setPosition(parsed);
+                } else {
+                    throw new Error("Invalid pos");
+                }
+            } catch {
+                // Fallback center if corrupt
+                setPosition({ 
+                    x: Math.max(0, window.innerWidth / 2 - 300), 
+                    y: Math.max(0, window.innerHeight / 2 - 360) 
+                });
+            }
+        } else {
+            // Initial positioning relative to button
+            if (buttonRef.current) {
+                const rect = buttonRef.current.getBoundingClientRect();
+                const windowW = window.innerWidth;
+                const windowH = window.innerHeight;
+                const panelW = 600;
+                const panelH = 720;
+
+                // Try to align left, but ensure it fits
+                let x = rect.left;
+                // If it goes off-screen right, align right to window edge
+                if (x + panelW > windowW) x = windowW - panelW - 20;
+                // Ensure non-negative
+                x = Math.max(20, x);
+
+                let y = rect.bottom + 10;
+                // If it goes off-screen bottom, push it up
+                if (y + panelH > windowH) y = Math.max(20, windowH - panelH - 20);
+
+                setPosition({ x, y });
+            } else {
+                 setPosition({ 
+                    x: Math.max(0, window.innerWidth / 2 - 300), 
+                    y: Math.max(0, window.innerHeight / 2 - 360) 
+                });
+            }
+        }
+    } else {
+        const timer = setTimeout(() => setIsVisible(false), 200); // Wait for transition
+        return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+      // Don't close if clicking inside the window or the button
+      if (windowRef.current && windowRef.current.contains(event.target as Node)) {
+        return;
       }
+      if (buttonRef.current && buttonRef.current.contains(event.target as Node)) {
+        return;
+      }
+      setIsOpen(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -111,6 +187,35 @@ const HelpPanel: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Drag Handlers
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('button')) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      isDragging.current = true;
+      dragStart.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+      e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setPosition({
+          x: e.clientX - dragStart.current.x,
+          y: e.clientY - dragStart.current.y
+      });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      localStorage.setItem(LOCAL_STORAGE_POS_KEY, JSON.stringify(positionRef.current));
+  };
 
   const hotkeySections = {
     tools: [
@@ -181,7 +286,7 @@ const HelpPanel: React.FC = () => {
   );
 
   return (
-    <div ref={panelRef} className="relative select-none">
+    <div ref={buttonRef} className="relative select-none">
       <div
         className="relative flex items-center"
         onMouseEnter={() => setIsTooltipVisible(true)}
@@ -204,20 +309,33 @@ const HelpPanel: React.FC = () => {
         </div>
       </div>
 
-      {isOpen && (
+      {isVisible && (
         <div 
-          className="absolute top-full mt-2 left-0 bg-gray-800 rounded-lg shadow-2xl w-[600px] h-[720px] border border-gray-700 z-50 flex flex-col overflow-hidden" 
+          ref={windowRef}
+          className={`fixed bg-gray-800 rounded-lg shadow-2xl w-[600px] h-[720px] z-[250] flex flex-col overflow-hidden border border-gray-700 transition-opacity duration-200 ease-in-out ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          style={{ 
+             left: position.x, 
+             top: position.y
+          }}
           onMouseDown={e => e.stopPropagation()}
         >
-          {/* Header & Tabs */}
-          <div className="bg-gray-900 border-b border-gray-700">
-              <div className="flex items-center justify-between p-4 pb-2">
-                  <h2 className="text-lg font-bold text-gray-200">
-                    {t('app.title')} <span className="text-xs text-gray-500 font-normal ml-2">{t('help.subtitle')}</span>
+          {/* Header & Tabs - Draggable */}
+          <div 
+              className="bg-[#18202f] border-b border-gray-600 cursor-move"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+          >
+              <div className="flex items-center justify-between px-6 py-4">
+                  <h2 className="text-xl font-bold text-accent-text flex items-center gap-2 pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {t('app.title')} <span className="text-xs text-accent-text/70 font-normal ml-2">{t('help.subtitle')}</span>
                   </h2>
                   <button 
                     onClick={() => setIsOpen(false)}
-                    className="p-1 text-gray-400 rounded-full hover:bg-gray-700 hover:text-white transition-colors"
+                    className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-full"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -226,7 +344,7 @@ const HelpPanel: React.FC = () => {
               </div>
               
               {/* Tabs */}
-              <div className="flex px-4 gap-6">
+              <div className="flex px-6 gap-6">
                    <button 
                        onClick={() => setActiveTab('hotkeys')}
                        className={`pb-3 text-sm font-semibold transition-colors relative ${activeTab === 'hotkeys' ? 'text-accent-text' : 'text-gray-400 hover:text-gray-200'}`}
@@ -350,14 +468,14 @@ const HelpPanel: React.FC = () => {
                        
                        <div className="grid grid-cols-1 gap-2">
                             <LinkCard 
-                               title="Script Modifier 0.1.4 Alpha" 
-                               url="https://github.com/Neytrino2134/Script-Modifier-0.1.4-Alpha" 
+                               title="Script Modifier" 
+                               url="https://github.com/Neytrino2134/Script-Modifier" 
                                colorClass="text-gray-200"
                                icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" /></svg>}
                            />
                            <LinkCard 
-                               title="Prompt Modifier 0.1.8 Alpha" 
-                               url="https://github.com/Neytrino2134/Prompt-Modifier-0.1.8-Alpha" 
+                               title="Prompt Modifier" 
+                               url="https://github.com/Neytrino2134/Prompt-Modifier" 
                                colorClass="text-gray-200"
                                icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" /></svg>}
                            />
@@ -369,7 +487,7 @@ const HelpPanel: React.FC = () => {
               )}
           </div>
           
-          <div className="p-4 bg-gray-900/50 border-t border-gray-700 text-xs flex-shrink-0">
+          <div className="p-4 bg-gray-900 border-t border-gray-700 text-xs flex-shrink-0">
               <div className="flex justify-between items-baseline">
                   <span className="font-bold text-gray-600 text-sm">{t('app.title')}</span>
                   <span className="text-gray-600">{t('help.license')}</span>
@@ -386,7 +504,7 @@ const HelpPanel: React.FC = () => {
                       <a href="mailto:MeowMasterArt@gmail.com" className="text-gray-400 hover:text-accent-text transition-colors">MeowMasterArt@gmail.com</a>
 
                       <span className="text-gray-500">GitHub:</span>
-                      <a href="https://github.com/Neytrino2134/Prompt-Modifier-0.1.8-Alpha" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-accent-text transition-colors underline">Neytrino2134/Prompt-Modifier-0.1.8-Alpha</a>
+                      <a href="https://github.com/Neytrino2134/Prompt-Modifier" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-accent-text transition-colors underline">Neytrino2134/Prompt-Modifier</a>
                   </div>
                   <a href="https://www.netlify.com" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity">
                     <img src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" className="h-10" />

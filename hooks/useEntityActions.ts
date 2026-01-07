@@ -536,6 +536,57 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
            });
        });
    }, [setNodes, takeSnapshot, nodes]);
+   
+    const getTimestamp = () => new Date().toISOString().replace(/:/g, '-').replace('T', '_').split('.')[0];
+
+   const handleDownloadImage = useCallback((nodeId: string, onDownloadImageFromUrl: any) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        let imageUrl: string | undefined;
+        let prompt = '';
+
+        try {
+            const parsed = JSON.parse(node.value || '{}');
+
+            if (node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.VIDEO_OUTPUT) {
+                 imageUrl = getFullSizeImage(nodeId, 0) || node.value;
+                 prompt = getPromptForNode(nodeId);
+            } else if (node.type === NodeType.IMAGE_INPUT) {
+                 imageUrl = getFullSizeImage(nodeId, 0) || parsed.image;
+                 prompt = parsed.prompt || '';
+            } else if (node.type === NodeType.IMAGE_EDITOR) {
+                 imageUrl = getFullSizeImage(nodeId, 0) || parsed.outputImage;
+                 prompt = parsed.prompt || '';
+            } else if (node.type === NodeType.GEMINI_CHAT) {
+                // EXPORT CHAT HISTORY
+                const dataToSave = {
+                    type: 'gemini-chat-history',
+                    messages: parsed.messages || [],
+                    currentInput: parsed.currentInput || '',
+                    style: parsed.style || 'general',
+                    attachment: parsed.attachment || null
+                };
+                
+                const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const timestamp = getTimestamp();
+                a.download = `Gemini_Chat_History_${timestamp}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                addToast(t('toast.scriptSaved'));
+                return;
+            }
+        } catch (e) {}
+
+        if (imageUrl) {
+            onDownloadImageFromUrl(imageUrl, 0, prompt);
+        }
+    }, [nodes, getFullSizeImage, getPromptForNode, addToast, t]);
 
     return {
         onAddNode,
@@ -546,6 +597,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         pasteGroup,
         handleAlignNodes,
         handleDockNode,
-        handleUndockNode
+        handleUndockNode,
+        handleDownloadImage // Exposed here
     };
 };

@@ -58,7 +58,7 @@ export const TextInputNode: React.FC<NodeContentProps> = ({ node, onValueChange,
                     value={node.value}
                     onDebouncedChange={(val) => onValueChange(node.id, val)}
                     placeholder={t('node.content.notePlaceholder')}
-                    className="w-full h-full p-2 bg-input border border-gray-600 rounded-md resize-none focus:border-accent focus:outline-none"
+                    className="w-full h-full p-2 bg-input border border-transparent rounded-md resize-none focus:border-accent focus:outline-none"
                     onWheel={e => e.stopPropagation()}
                     onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}
                 />

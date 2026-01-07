@@ -256,7 +256,8 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                                 <ActionButton 
                                     title={node.isPinned ? t('node.action.unpin') : t('node.action.pin')} 
                                     onClick={(e) => { e.stopPropagation(); handleToggleNodePin(node.id); }}
-                                    className={`p-1 rounded hover:bg-gray-600 transition-colors border ${node.isPinned ? 'border-[#1cead8] text-[#1cead8]' : 'border-transparent text-gray-500 hover:text-white'}`}
+                                    // Theme Change: Use dynamic theme color instead of hardcoded cyan
+                                    className={`p-1 rounded hover:bg-gray-600 transition-colors border ${node.isPinned ? 'border-accent-text text-accent-text' : 'border-transparent text-gray-500 hover:text-white'}`}
                                 >
                                     <PinIcon className="h-4 w-4" />
                                 </ActionButton>
@@ -290,7 +291,8 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                     <ActionButton 
                         title={node.collapsedHandles ? t('node.action.showOutputs') : t('node.action.hideOutputs')} 
                         onClick={(e) => { e.stopPropagation(); handleToggleNodeHandles(node.id); }}
-                        className={`p-1 rounded hover:bg-gray-600 transition-colors border ${node.collapsedHandles ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-gray-400 hover:text-white'}`}
+                        // Theme Change: Use dynamic theme color instead of hardcoded cyan
+                        className={`p-1 rounded hover:bg-gray-600 transition-colors border ${node.collapsedHandles ? 'border-accent text-accent-text' : 'border-transparent text-gray-400 hover:text-white'}`}
                     >
                         {node.collapsedHandles ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
                     </ActionButton>
@@ -348,7 +350,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                       </ActionButton>
                   )}
 
-                  {!isNoteMinimal && (node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.VIDEO_OUTPUT || node.type === NodeType.IMAGE_INPUT) && hasImageContent && (<ActionButton title={t('node.action.download')} onClick={() => onDownloadImage(node.id)}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></ActionButton>)}
+                  {!isNoteMinimal && (node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.VIDEO_OUTPUT || node.type === NodeType.IMAGE_INPUT || node.type === NodeType.GEMINI_CHAT) && (hasImageContent || node.type === NodeType.GEMINI_CHAT) && (<ActionButton title={t('node.action.download')} onClick={() => onDownloadImage(node.id)}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></ActionButton>)}
                   {!isNoteMinimal && (node.type === NodeType.IMAGE_INPUT || node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.DATA_READER) && hasImageContent && (<ActionButton title={t('node.action.clear')} onClick={handleClearContent}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></ActionButton>)}
                   {!isNoteMinimal && (node.type === NodeType.IMAGE_ANALYZER) && hasImageContent && (<ActionButton title={t('node.action.clear')} onClick={handleClearContent}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></ActionButton>)}
                   {!isNoteMinimal && node.type === NodeType.IMAGE_EDITOR && (<ActionButton title={t('node.action.clear')} onClick={() => onRefreshImageEditor(node.id)}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></ActionButton>)}

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import type { Point, Connection, Tool, Node, LineStyle } from '../types';
 import { NodeType } from '../types';
 import { getOutputHandleType, COLLAPSED_NODE_HEIGHT } from '../utils/nodeUtils';
+import { useAppContext } from '../contexts/AppContext';
 
 interface ConnectionViewProps {
   connection: Connection;
@@ -29,6 +30,7 @@ const ConnectionView: React.FC<ConnectionViewProps> = ({
     onSplit,
     lineStyle,
 }) => {
+  const { isConnectionAnimationEnabled, connectionOpacity } = useAppContext() || { isConnectionAnimationEnabled: true, connectionOpacity: 0.4 };
   const [isLineHovered, setIsLineHovered] = useState(false);
 
   // Helper to get effective dimensions (collapsed vs full)
@@ -196,19 +198,19 @@ const ConnectionView: React.FC<ConnectionViewProps> = ({
   let lineColor;
   switch (fromType) {
     case 'text':
-      lineColor = 'var(--color-connection-text)'; // Use CSS variable for theme-based color
+      lineColor = 'var(--color-connection-text)';
       break;
     case 'image':
-      lineColor = 'var(--color-connection-image)'; // Use CSS variable for theme-based color
+      lineColor = 'var(--color-connection-image)';
       break;
     case 'character_data':
-      lineColor = '#ec4899'; // pink-500
+      lineColor = 'var(--color-connection-character)';
       break;
     case 'video':
-      lineColor = '#6366f1'; // indigo-500
+      lineColor = 'var(--color-connection-video)';
       break;
     case 'audio':
-      lineColor = '#3b82f6'; // blue-500
+      lineColor = 'var(--color-connection-audio)';
       break;
     default:
       lineColor = defaultColor;
@@ -224,7 +226,7 @@ const ConnectionView: React.FC<ConnectionViewProps> = ({
   
   // Dim the base line if it's a normal connection so the dashed flow is visible on top.
   // If highlighted, keep full opacity.
-  const baseOpacity = isHighlighted ? 1 : 0.3;
+  const baseOpacity = isHighlighted ? 1 : connectionOpacity;
   
   const strokeWidth = isHighlighted ? 5 : 3;
   
@@ -279,14 +281,16 @@ const ConnectionView: React.FC<ConnectionViewProps> = ({
       />
 
       {/* Data Flow Animation Layer (Bright Dashes in Type Color) */}
-      <path
-        d={pathData}
-        stroke={lineColor}
-        strokeWidth={3}
-        fill="none"
-        className="connection-flow"
-        style={{ pointerEvents: 'none', opacity: 1 }}
-      />
+      {isConnectionAnimationEnabled && (
+          <path
+            d={pathData}
+            stroke={lineColor}
+            strokeWidth={3}
+            fill="none"
+            className="connection-flow"
+            style={{ pointerEvents: 'none', opacity: 1 }}
+          />
+      )}
     </g>
   );
 };

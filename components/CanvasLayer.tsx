@@ -337,10 +337,10 @@ const CanvasLayer: React.FC = () => {
         switch (type) {
             case 'text': return 'var(--color-connection-text)';
             case 'image': return 'var(--color-connection-image)';
-            case 'character_data': return '#ec4899';
-            case 'video': return '#6366f1';
-            case 'audio': return '#3b82f6';
-            default: return '#6b7280';
+            case 'character_data': return 'var(--color-connection-character)';
+            case 'video': return 'var(--color-connection-video)';
+            case 'audio': return 'var(--color-connection-audio)';
+            default: return 'var(--color-border)';
         }
     };
 
@@ -375,14 +375,22 @@ const CanvasLayer: React.FC = () => {
                         <div className="absolute top-0 left-[-50000px] w-[100000px] h-[1px] bg-cyan-900/30 -translate-y-1/2"></div>
                         <div className="absolute left-0 top-[-50000px] w-[1px] h-[100000px] bg-cyan-900/30 -translate-x-1/2"></div>
                         <div className="absolute top-0 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-                             <div className="absolute w-3 h-[2px] bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]"></div>
-                             <div className="absolute h-3 w-[2px] bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]"></div>
+                             {/* Central Crosshair - Themed */}
+                             <div className="absolute w-3 h-[2px] bg-accent shadow-[0_0_5px_var(--color-accent)]"></div>
+                             <div className="absolute h-3 w-[2px] bg-accent shadow-[0_0_5px_var(--color-accent)]"></div>
                         </div>
                     </div>
 
                     {selectionRect && (
-                        <div className="absolute border-2 border-dashed border-cyan-400 bg-cyan-400/20 pointer-events-none" 
-                             style={{ left: Math.min(selectionRect.start.x, selectionRect.end.x), top: Math.min(selectionRect.start.y, selectionRect.end.y), width: Math.abs(selectionRect.start.x - selectionRect.end.x), height: Math.abs(selectionRect.start.y - selectionRect.end.y), zIndex: 100 }} />
+                        <div className="absolute border-2 border-dashed border-accent-text pointer-events-none" 
+                             style={{ 
+                                 left: Math.min(selectionRect.start.x, selectionRect.end.x), 
+                                 top: Math.min(selectionRect.start.y, selectionRect.end.y), 
+                                 width: Math.abs(selectionRect.start.x - selectionRect.end.x), 
+                                 height: Math.abs(selectionRect.start.y - selectionRect.end.y), 
+                                 zIndex: 100,
+                                 backgroundColor: 'var(--color-selection)' 
+                             }} />
                     )}
 
                     {groupButtonPosition && (
@@ -393,7 +401,7 @@ const CanvasLayer: React.FC = () => {
                           onTouchStart={(e) => e.stopPropagation()}
                       >
                           <Tooltip content={t('hotkeys.tools.group')} position="top">
-                              <button onClick={handleGroupSelection} className="px-4 py-2 font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 transition-all duration-200 shadow-lg flex items-center space-x-2 whitespace-nowrap">
+                              <button onClick={handleGroupSelection} className="px-4 py-2 font-bold text-white bg-accent rounded-md hover:bg-accent-hover transition-all duration-200 shadow-lg flex items-center space-x-2 whitespace-nowrap shadow-accent/20">
                                   <GroupIcon />
                                   <span>{t('group.button.create', { count: selectedNodeIds.length })}</span>
                               </button>
@@ -413,33 +421,33 @@ const CanvasLayer: React.FC = () => {
                                     </Tooltip>
                                 </div>
                                 <Tooltip content={t('contextMenu.align.left')} position="top">
-                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'left')} className="p-1.5 hover:bg-cyan-600 rounded text-gray-300 hover:text-white">
+                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'left')} className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white">
                                         <AlignLeftIcon />
                                     </button>
                                 </Tooltip>
                                 <Tooltip content={t('contextMenu.align.centerX')} position="top">
-                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'center-x')} className="p-1.5 hover:bg-cyan-600 rounded text-gray-300 hover:text-white">
+                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'center-x')} className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white">
                                         <AlignCenterXIcon />
                                     </button>
                                 </Tooltip>
                                 <Tooltip content={t('contextMenu.align.right')} position="top">
-                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'right')} className="p-1.5 hover:bg-cyan-600 rounded text-gray-300 hover:text-white">
+                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'right')} className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white">
                                         <AlignRightIcon />
                                     </button>
                                 </Tooltip>
                                 <div className="w-px bg-gray-600 mx-1"></div>
                                 <Tooltip content={t('contextMenu.align.top')} position="top">
-                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'top')} className="p-1.5 hover:bg-cyan-600 rounded text-gray-300 hover:text-white">
+                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'top')} className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white">
                                         <AlignTopIcon />
                                     </button>
                                 </Tooltip>
                                 <Tooltip content={t('contextMenu.align.centerY')} position="top">
-                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'center-y')} className="p-1.5 hover:bg-cyan-600 rounded text-gray-300 hover:text-white">
+                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'center-y')} className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white">
                                         <AlignCenterYIcon />
                                     </button>
                                 </Tooltip>
                                 <Tooltip content={t('contextMenu.align.bottom')} position="top">
-                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'bottom')} className="p-1.5 hover:bg-cyan-600 rounded text-gray-300 hover:text-white">
+                                    <button onClick={() => handleAlignNodes(selectedNodeIds, 'bottom')} className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white">
                                         <AlignBottomIcon />
                                     </button>
                                 </Tooltip>
@@ -447,12 +455,12 @@ const CanvasLayer: React.FC = () => {
                                     <>
                                         <div className="w-px bg-gray-600 mx-1"></div>
                                         <Tooltip content={t('contextMenu.distribute.horizontal')} position="top">
-                                            <button onClick={() => handleAlignNodes(selectedNodeIds, 'distribute-horizontal')} className="p-1.5 hover:bg-cyan-600 rounded text-gray-300 hover:text-white">
+                                            <button onClick={() => handleAlignNodes(selectedNodeIds, 'distribute-horizontal')} className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white">
                                                 <DistributeHorizontalIcon />
                                             </button>
                                         </Tooltip>
                                         <Tooltip content={t('contextMenu.distribute.vertical')} position="top">
-                                            <button onClick={() => handleAlignNodes(selectedNodeIds, 'distribute-vertical')} className="p-1.5 hover:bg-cyan-600 rounded text-gray-300 hover:text-white">
+                                            <button onClick={() => handleAlignNodes(selectedNodeIds, 'distribute-vertical')} className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white">
                                                 <DistributeVerticalIcon />
                                             </button>
                                         </Tooltip>
@@ -521,7 +529,7 @@ const CanvasLayer: React.FC = () => {
                     ))}
 
                     <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-[15] overflow-visible">
-                        {spawnLine && <path d={`M ${spawnLine.start.x} ${spawnLine.start.y} L ${spawnLine.end.x} ${spawnLine.end.y}`} stroke="#22d3ee" strokeWidth="2" fill="none" style={{ strokeDasharray: '6 4', transition: 'opacity 0.5s ease-out', opacity: spawnLine.fading ? 0 : 1 }} />}
+                        {spawnLine && <path d={`M ${spawnLine.start.x} ${spawnLine.start.y} L ${spawnLine.end.x} ${spawnLine.end.y}`} stroke="var(--color-text-accent)" strokeWidth="2" fill="none" style={{ strokeDasharray: '6 4', transition: 'opacity 0.5s ease-out', opacity: spawnLine.fading ? 0 : 1 }} />}
                     </svg>
                 </div>
             )}
@@ -549,7 +557,7 @@ const CanvasLayer: React.FC = () => {
                     >
                         <button
                             onClick={(e) => { e.stopPropagation(); setIsToolbarCompact(!isToolbarCompact); }}
-                            className={`px-3 py-1 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none ${isToolbarCompact ? 'text-cyan-400' : 'text-gray-400 hover:text-gray-200'}`}
+                            className={`px-3 py-1 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none ${isToolbarCompact ? 'text-accent-text' : 'text-gray-400 hover:text-gray-200'}`}
                             title={isToolbarCompact ? "Expand Titles" : "Compact Mode (Hide Titles)"}
                         >
                             {isToolbarCompact ? (
@@ -594,7 +602,7 @@ const CanvasLayer: React.FC = () => {
                             <TopTooltipWrapper title={isViewControlsCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')} align="left">
                                 <button
                                     onClick={() => setIsViewControlsCollapsed(p => !p)}
-                                    className="p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-cyan-600 hover:text-white text-gray-300"
+                                    className="p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-accent hover:text-white text-gray-300"
                                 >
                                     {isViewControlsCollapsed ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>}
                                 </button>

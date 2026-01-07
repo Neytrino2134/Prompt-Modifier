@@ -291,7 +291,8 @@ const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onC
               setSearchTerm(e.target.value);
               setSelectedIndex(0);
             }}
-            className="w-full px-3 py-2 bg-gray-900 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            // Theme Change: focus:ring-accent
+            className="w-full px-3 py-2 bg-gray-900 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent"
             onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                     e.preventDefault();
@@ -343,16 +344,18 @@ const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onC
                             data-index={index}
                             onClick={() => handleClick(node.type)}
                             onMouseEnter={() => setSelectedIndex(index)}
+                            // Theme Change: bg-accent for selected
                             className={`flex items-center space-x-4 p-3 rounded-md cursor-pointer transition-colors duration-150 ${
-                            index === selectedIndex ? 'bg-cyan-600' : 'hover:bg-gray-700'
+                            index === selectedIndex ? 'bg-accent' : 'hover:bg-gray-700'
                             }`}
                         >
                             <div className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded ${index === selectedIndex ? 'text-white' : 'text-gray-300'}`}>
                             {node.icon}
                             </div>
                             <div>
+                            {/* Theme Change: text-white for selected title, description uses default gray or light accent if needed */}
                             <p className={`font-semibold ${index === selectedIndex ? 'text-white' : 'text-gray-100'}`}>{node.title}</p>
-                            <p className={`text-sm ${index === selectedIndex ? 'text-cyan-100' : 'text-gray-400'}`}>{node.description}</p>
+                            <p className={`text-sm ${index === selectedIndex ? 'text-white/80' : 'text-gray-400'}`}>{node.description}</p>
                             </div>
                         </li>
                     </React.Fragment>

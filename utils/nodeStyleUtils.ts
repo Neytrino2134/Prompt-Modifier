@@ -125,7 +125,8 @@ export const getNodeClasses = (
     isConnectionTarget: boolean,
     isExecuting: boolean,
     rerouteType: string | null,
-    isFocused?: boolean
+    isFocused?: boolean,
+    isHoverHighlightEnabled: boolean = true
 ) => {
     let borderClass = 'border-gray-700';
 
@@ -134,18 +135,19 @@ export const getNodeClasses = (
     else if (isConnectionTarget) borderClass = 'border-teal-600'; 
     else if (isExecuting) borderClass = 'border-yellow-500';
     else if (isSelected) borderClass = 'border-node-selected';
-    else if (isHovered && !isRerouteDot && !isProxyMode) borderClass = 'border-node-hover ring-1 ring-node-hover/50 shadow-[0_0_15px_var(--color-border-hover)]';
+    // Strict boolean check on isHoverHighlightEnabled
+    else if (isHovered && isHoverHighlightEnabled === true && !isRerouteDot && !isProxyMode) borderClass = 'border-node-hover ring-1 ring-node-hover/50 shadow-[0_0_15px_var(--color-border-hover)]';
     else if (node.isPinned) borderClass = 'border-node-hover'; 
     else if (isRerouteDot) {
-        if (rerouteType === 'text') borderClass = 'border-[var(--color-connection-text)]';
-        else if (rerouteType === 'image') borderClass = 'border-[var(--color-connection-image)]';
-        else if (rerouteType === 'character_data') borderClass = 'border-pink-500';
-        else if (rerouteType === 'video') borderClass = 'border-indigo-500';
-        else if (rerouteType === 'audio') borderClass = 'border-blue-500';
+        if (rerouteType === 'text') borderClass = 'border-connection-text';
+        else if (rerouteType === 'image') borderClass = 'border-connection-image';
+        else if (rerouteType === 'character_data') borderClass = 'border-connection-character';
+        else if (rerouteType === 'video') borderClass = 'border-connection-video';
+        else if (rerouteType === 'audio') borderClass = 'border-connection-audio';
     }
   
     if (isDockedWindow) {
-        borderClass = 'border-gray-600 shadow-2xl hover:border-cyan-500'; 
+        borderClass = 'border-gray-600 shadow-2xl hover:border-node-hover'; 
     }
     if (isProxyMode) borderClass = 'border-gray-600 border-dashed opacity-80';
 
@@ -198,11 +200,11 @@ export const getHandleColorClass = (
     
     let color = 'bg-gray-400';
     switch(finalType) {
-        case 'text': color = 'bg-[var(--color-connection-text)]'; break;
+        case 'text': color = 'bg-connection-text'; break;
         case 'image': color = 'bg-connection-image'; break;
-        case 'character_data': color = 'bg-pink-500'; break;
-        case 'video': color = 'bg-indigo-500'; break;
-        case 'audio': color = 'bg-blue-500'; break;
+        case 'character_data': color = 'bg-connection-character'; break;
+        case 'video': color = 'bg-connection-video'; break;
+        case 'audio': color = 'bg-connection-audio'; break;
     }
 
     if (!connectingInfo || (!isHovered && !isRerouteDot)) return color;

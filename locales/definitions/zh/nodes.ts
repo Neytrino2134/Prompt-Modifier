@@ -1,4 +1,5 @@
 
+
 export const nodes = {
     'node.title.text_input': '文本输入',
     'node.title.image_input': '图像输入',
@@ -133,6 +134,7 @@ export const nodes = {
     'node.content.analyzePrompt': '分析提示词',
     'node.content.analyzeImage': '分析图像',
     'node.content.imageToText': '图像转文本',
+    'node.content.updatePromptFromImage': '从图像更新提示词',
     'node.content.analyzeCharacter': '分析角色',
     'node.content.generateCharacters': '生成角色',
     'node.content.characterPromptPlaceholder': '描述要生成的角色...',
@@ -207,6 +209,7 @@ export const nodes = {
     'node.content.style.comics': '漫画',
     'node.content.style.custom': '自定义',
     'node.content.fullDescriptionTitle': '角色详细描述',
+    'node.content.integrationInstruction': '整合指令',
     'node.content.additionalPromptSuffix': '附加提示词 (后缀)',
     'search.node.text_input.title': '文本输入',
     'search.node.text_input.description': '一个简单的多行文本字段。',
@@ -272,5 +275,17 @@ export const nodes = {
     'image_sequence.clear_prompts_only': '仅清除文本提示词',
     'image_sequence.prev_scene': '上一场景',
     'image_sequence.next_scene': '下一场景',
+    'image_sequence.frames_hidden': '({count} 帧已隐藏)',
+    'image_sequence.frames_count': '({count} 帧)',
     'node.content.modificationRequest': '修改请求',
+    'node.content.technicalPrompt': '技术提示词',
+    
+    'node.promptProcessor.safePromptTooltip': '重写提示词以符合安全准则并避免违反政策。',
+    'node.promptProcessor.technicalPromptTooltip': '将提示词转换为高度详细的技术规范（照明、相机、渲染设置）。',
+    'node.promptProcessor.enhanceTooltip': '使用 AI 扩展并用描述性细节丰富提示词。',
+    'node.promptProcessor.chainTooltip': '执行此节点并触发所有连接的下游节点。',
+
+    'image_sequence.tooltip.autoCrop': '自动将生成的图像裁剪为 16:9 比例。',
+    'image_sequence.tooltip.autoDownload': '生成后自动将每张图像保存到您的设备。',
+    'image_sequence.tooltip.createZip': '将所有选定的图像打包成一个 ZIP 存档以便下载。'
 };

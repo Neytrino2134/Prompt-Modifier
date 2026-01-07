@@ -126,7 +126,7 @@ const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen,
   return (
     <div
       ref={menuRef}
-      className="fixed bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-2xl border border-node-border p-2 flex flex-col space-y-1 z-50"
+      className="fixed bg-gray-800 rounded-lg shadow-2xl p-2 flex flex-col space-y-1 z-50"
       style={style}
       onMouseDown={e => e.stopPropagation()}
     >

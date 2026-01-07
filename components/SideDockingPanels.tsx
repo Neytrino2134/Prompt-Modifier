@@ -10,24 +10,29 @@ const SideDockButton: React.FC<{
     isActive: boolean;
     icon: React.ReactNode;
     className?: string;
-}> = ({ mode, isActive, icon, className }) => (
-    <div 
-        data-dock-mode={mode} // Add data attribute for hit testing
-        className={`
-            w-12 h-16 flex items-center justify-center 
-            transition-all duration-200 cursor-pointer border-gray-600 flex-shrink-0
-            ${isActive 
-                ? 'bg-cyan-900/90 border-cyan-400 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.3)] z-10 scale-105' 
-                : 'bg-gray-900/90 text-gray-500 hover:bg-gray-800 hover:text-gray-300'
-            }
-            ${className}
-        `}
-    >
-        <div className="pointer-events-none">
-            {icon}
+}> = ({ mode, isActive, icon, className }) => {
+    // Remove border-b from className when active to prevent conflict with border-2
+    // This ensures the button uses the full accent border when active, while keeping layout classes like h-20
+    const activeClassName = className ? className.replace('border-b', '') : '';
+
+    return (
+        <div 
+            data-dock-mode={mode} // Add data attribute for hit testing
+            className={`
+                w-12 h-16 flex items-center justify-center 
+                transition-all duration-200 cursor-pointer flex-shrink-0
+                ${isActive 
+                    ? `bg-gray-800 border-2 border-accent text-accent shadow-[0_0_15px_var(--color-accent)] z-20 scale-110 ${activeClassName}` 
+                    : `bg-gray-900/95 text-gray-500 hover:bg-gray-800 hover:text-gray-300 border-gray-600 ${className || ''}`
+                }
+            `}
+        >
+            <div className="pointer-events-none">
+                {icon}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 export const SideDockingPanels: React.FC = () => {
     const context = useAppContext();
@@ -55,12 +60,6 @@ export const SideDockingPanels: React.FC = () => {
     // We only show panels if the active mode is one of the sides or corners
     const showLeftPanel = activeMode === 'tl' || activeMode === 'q1' || activeMode === 'bl';
     const showRightPanel = activeMode === 'tr' || activeMode === 'q4' || activeMode === 'br';
-
-    // Width of the trigger zone - wider when dragging to catch mouse easily, but effectively handled by useNodeDrag logic now
-    // We keep them visible but non-interactive unless active to serve as visual placeholders if needed, 
-    // or just rely on the sliding panels.
-    // Actually, we don't need the trigger strip anymore since useNodeDrag handles the proximity check.
-    // But we keep the container structure.
 
     return (
         <>

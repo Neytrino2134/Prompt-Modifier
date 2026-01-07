@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Toast, ToastType, LineStyle, Point, DraggingInfo, SmartGuide, ActiveOperation, DockMode, Tool, NodeType, GlobalMediaState, Theme } from '../types';
+import { Toast, ToastType, LineStyle, Point, DraggingInfo, SmartGuide, ActiveOperation, DockMode, Tool, NodeType, GlobalMediaState, Theme, LogEntry, LogLevel } from '../types';
 import { useLanguage } from '../localization';
 
 export const useGlobalState = (nodes: any[]) => {
@@ -15,7 +15,7 @@ export const useGlobalState = (nodes: any[]) => {
     const [spawnLine, setSpawnLine] = useState<{ start: Point; end: Point; fading: boolean; } | null>(null);
     const [activeTool, setActiveTool] = useState<Tool>('edit');
     const [draggingInfo, setDraggingInfo] = useState<DraggingInfo | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setErrorState] = useState<string | null>(null);
     const [fullSizeImageCache, setFullSizeImageCache] = useState<Record<string, Record<number, string>>>({});
     const [clearSelectionsSignal, setClearSelectionsSignal] = useState(0);
     const [globalImageEditor, setGlobalImageEditor] = useState<{ src: string } | null>(null);
@@ -23,11 +23,20 @@ export const useGlobalState = (nodes: any[]) => {
     const [smartGuides, setSmartGuides] = useState<SmartGuide[]>([]);
     const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
     const [isInstantCloseEnabled, setIsInstantCloseEnabled] = useState(false);
+    const [isHoverHighlightEnabled, setIsHoverHighlightEnabled] = useState(true); 
     const [nodeAnimationMode, setNodeAnimationMode] = useState<string>('pulse'); 
     const [dockHoverMode, setDockHoverMode] = useState<DockMode | null>(null);
     const [isDockingMenuVisible, setIsDockingMenuVisible] = useState(false);
     const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
     
+    // Debug Logs
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [isDebugConsoleOpen, setIsDebugConsoleOpen] = useState(false);
+    
+    // Connection Settings
+    const [isConnectionAnimationEnabled, setIsConnectionAnimationEnabled] = useState(true);
+    const [connectionOpacity, setConnectionOpacity] = useState(0.4);
+
     // NEW: Theme State
     const [currentTheme, setCurrentTheme] = useState<Theme>('cyan');
 
@@ -40,6 +49,22 @@ export const useGlobalState = (nodes: any[]) => {
     useEffect(() => {
         const storedInstant = localStorage.getItem('settings_instantNodeClose');
         setIsInstantCloseEnabled(storedInstant === 'true');
+
+        const storedHoverHighlight = localStorage.getItem('settings_hoverHighlight');
+        if (storedHoverHighlight !== null) {
+            setIsHoverHighlightEnabled(storedHoverHighlight === 'true');
+        }
+        
+        const storedConnAnim = localStorage.getItem('settings_connectionAnimation');
+        if (storedConnAnim !== null) {
+            setIsConnectionAnimationEnabled(storedConnAnim === 'true');
+        }
+
+        const storedConnOpacity = localStorage.getItem('settings_connectionOpacity');
+        if (storedConnOpacity !== null) {
+            const parsed = parseFloat(storedConnOpacity);
+            if (!isNaN(parsed)) setConnectionOpacity(parsed);
+        }
 
         const storedAnimMode = localStorage.getItem('settings_nodeAnimationMode');
         // Handle legacy boolean migration if necessary, default to 'pulse' if not set
@@ -71,6 +96,16 @@ export const useGlobalState = (nodes: any[]) => {
     const setTheme = useCallback((theme: Theme) => {
         setCurrentTheme(theme);
     }, []);
+    
+    const setConnectionAnimation = useCallback((enabled: boolean) => {
+        setIsConnectionAnimationEnabled(enabled);
+        localStorage.setItem('settings_connectionAnimation', String(enabled));
+    }, []);
+
+    const setOpacity = useCallback((opacity: number) => {
+        setConnectionOpacity(opacity);
+        localStorage.setItem('settings_connectionOpacity', String(opacity));
+    }, []);
 
     const addToast = useCallback((message: string, type: ToastType = 'success') => {
         const id = toastIdCounter.current++;
@@ -79,6 +114,54 @@ export const useGlobalState = (nodes: any[]) => {
             setToasts(current => current.filter(t => t.id !== id));
         }, 3000);
     }, []);
+
+    // Enhanced Logging
+    const addLog = useCallback((level: LogLevel, message: string, details?: any) => {
+        setLogs(prev => {
+            const newEntry: LogEntry = {
+                id: `log-${Date.now()}-${Math.random()}`,
+                timestamp: Date.now(),
+                level,
+                message,
+                details
+            };
+            // Keep last 100 logs
+            const updated = [newEntry, ...prev];
+            return updated.slice(0, 100);
+        });
+        
+        // Auto-open console on error if critical
+        if (level === 'error') {
+            // Optional: setIsDebugConsoleOpen(true); 
+        }
+    }, []);
+
+    const clearLogs = useCallback(() => {
+        setLogs([]);
+    }, []);
+
+    // Intercept setError to log it
+    const setError = useCallback((msg: string | null) => {
+        setErrorState(msg);
+        if (msg) {
+            // Attempt to parse if it looks like JSON to store details separately
+            if (msg.trim().startsWith('{') || msg.trim().includes('{"error":')) {
+                try {
+                    // Extract JSON part if mixed with text
+                    const jsonStart = msg.indexOf('{');
+                    const jsonEnd = msg.lastIndexOf('}');
+                    if (jsonStart !== -1 && jsonEnd !== -1) {
+                         const jsonStr = msg.substring(jsonStart, jsonEnd + 1);
+                         const parsed = JSON.parse(jsonStr);
+                         const textMsg = msg.substring(0, jsonStart).trim() || parsed.error?.message || "API Error";
+                         addLog('error', textMsg, parsed);
+                         return;
+                    }
+                } catch {}
+            }
+            addLog('error', msg);
+        }
+    }, [addLog]);
 
     const registerOperation = useCallback((op: ActiveOperation) => {
         setActiveOperations(prev => {
@@ -162,6 +245,7 @@ export const useGlobalState = (nodes: any[]) => {
         activeTool, setActiveTool,
         draggingInfo, setDraggingInfo,
         error, setError,
+        logs, addLog, clearLogs, isDebugConsoleOpen, setIsDebugConsoleOpen,
         fullSizeImageCache, setFullSizeImageCache,
         clearSelectionsSignal, setClearSelectionsSignal,
         globalImageEditor, openGlobalImageEditor, closeGlobalImageEditor,
@@ -169,6 +253,7 @@ export const useGlobalState = (nodes: any[]) => {
         smartGuides, setSmartGuides,
         selectedNodeIds, setSelectedNodeIds,
         isInstantCloseEnabled, setIsInstantCloseEnabled,
+        isHoverHighlightEnabled, setIsHoverHighlightEnabled,
         nodeAnimationMode, setNodeAnimationMode,
         dockHoverMode, setDockHoverMode,
         isDockingMenuVisible, setIsDockingMenuVisible,
@@ -177,6 +262,8 @@ export const useGlobalState = (nodes: any[]) => {
         t,
         focusedNodeId, toggleNodeFullScreen,
         globalMedia, setGlobalMedia,
-        currentTheme, setTheme // Export Theme
+        currentTheme, setTheme,
+        isConnectionAnimationEnabled, setIsConnectionAnimationEnabled: setConnectionAnimation,
+        connectionOpacity, setConnectionOpacity: setOpacity
     };
 };
