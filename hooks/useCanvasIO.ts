@@ -82,7 +82,8 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         a.click();
         URL.revokeObjectURL(url);
         a.remove();
-    }, [getCurrentCanvasState, activeTabName]);
+        addToast(t('toast.canvasSaved'), 'success');
+    }, [getCurrentCanvasState, activeTabName, addToast, t]);
 
     const handleSaveProject = useCallback(() => {
         const currentActiveState = getCurrentCanvasState();
@@ -119,7 +120,8 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         a.click();
         URL.revokeObjectURL(url);
         a.remove();
-    }, [getCurrentCanvasState, tabs, activeTabId, language, isSnapToGrid, lineStyle, catalogItems, libraryItems, characterCatalog.items, scriptCatalog.items, sequenceCatalog.items]);
+        addToast(t('toast.projectSaved'), 'success');
+    }, [getCurrentCanvasState, tabs, activeTabId, language, isSnapToGrid, lineStyle, catalogItems, libraryItems, characterCatalog.items, scriptCatalog.items, sequenceCatalog.items, addToast, t]);
 
     // --- LOAD CANVAS / PROJECT ---
 

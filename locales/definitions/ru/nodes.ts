@@ -2,6 +2,8 @@
 
 
 
+
+
 export const nodes = {
     'node.title.text_input': 'Текстовый узел',
     'node.title.image_input': 'Узел изображения',
@@ -230,6 +232,7 @@ export const nodes = {
     'node.content.integrationInstruction': 'Инструкция интеграции',
     'node.content.additionalPromptSuffix': 'Доп. Промпт (Суффикс)',
     'node.content.insertSceneContext': 'Вставлять окружение сцены',
+    'node.content.modificationRequest': 'Запрос на модификацию',
     'search.node.text_input.title': 'Текстовый ввод',
     'search.node.text_input.description': 'Простое многострочное текстовое поле.',
     'search.node.image_input.title': 'Ввод изображения',

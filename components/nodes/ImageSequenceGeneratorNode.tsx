@@ -273,7 +273,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         if (onRefreshUpstreamData) {
             onRefreshUpstreamData(node.id);
         }
-        addToast(t('toast.contentCleared'), 'info');
+        if (addToast) addToast(t('toast.contentCleared'), 'info');
     }, [handleValueUpdate, onRefreshUpstreamData, node.id, addToast, t, setConnections]);
 
     // NEW: Enhanced Detach Logic for "All Data"
@@ -315,7 +315,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                   // Cut ALL incoming character connections to ensure no duplicates
                   setConnections(prev => prev.filter(c => !(c.toNodeId === node.id && c.toHandleId === 'character_data')));
                   
-                  addToast(t('toast.pastedFromClipboard'), "success");
+                  if (addToast) addToast(t('toast.pastedFromClipboard'), "success");
                   return;
              }
         }
@@ -368,19 +368,19 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             setSelectedNodeIds([editorId]);
         }
         
-        addToast("Prompts detached to Prompt Sequence Editor (Left)", "success");
+        if (addToast) addToast("Prompts detached to Prompt Sequence Editor (Left)", "success");
     }, [prompts, onAddNode, node, styleOverride, usedCharacters, onValueChange, addToast, setSelectedNodeIds]);
 
     const handleClearAllWithToast = useCallback(() => {
         handleValueUpdate({ prompts: [], images: {}, frameStatuses: {} });
-        addToast("All prompts cleared", "info");
+        if (addToast) addToast("All prompts cleared", "info");
     }, [handleValueUpdate, addToast]);
 
     // NEW: Clear Images Only
     const handleClearImages = useCallback(() => {
         handleValueUpdate({ images: {} }); // Clear thumbnails in state
         clearImagesForNodeFromCache(node.id); // Clear heavy memory cache
-        addToast(t('toast.contentCleared'));
+        if (addToast) addToast(t('toast.contentCleared'));
     }, [handleValueUpdate, clearImagesForNodeFromCache, node.id, addToast, t]);
 
     // NEW: Clear Text Prompts Only
@@ -393,7 +393,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
              shotType: 'WS'
          }));
          handleValueUpdate({ prompts: newPrompts });
-         addToast("Text prompts cleared", "info");
+         if (addToast) addToast("Text prompts cleared", "info");
     }, [handleValueUpdate, addToast]);
 
     const handleAddPrompt = useCallback((afterFrame?: number) => {
@@ -501,7 +501,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const handleUnlink = useCallback(() => {
         if (setConnections && node.id) {
             setConnections(prev => prev.filter(c => !(c.toNodeId === node.id && c.toHandleId === 'prompt_input')));
-            addToast("Unlinked from source. Data copied to local.", "info");
+            if (addToast) addToast("Unlinked from source. Data copied to local.", "info");
         }
     }, [setConnections, node.id, addToast]);
 
@@ -615,7 +615,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         }).map(p => p.frameNumber);
 
         if (newChecked.length === 0) {
-            addToast("No images match this aspect ratio", "info");
+            if (addToast) addToast("No images match this aspect ratio", "info");
         } else {
             handleValueUpdate({ checkedFrameNumbers: newChecked });
         }
@@ -637,7 +637,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         }).map((p: any) => p.frameNumber);
 
         if (matchingFrames.length === 0) {
-            addToast(`No ${type} images found in Scene ${sceneNumber}`, "info");
+            if (addToast) addToast(`No ${type} images found in Scene ${sceneNumber}`, "info");
         } else {
             handleValueUpdate({ checkedFrameNumbers: matchingFrames });
         }
@@ -680,7 +680,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 }
 
                 if (fileCount === 0) {
-                    addToast("No valid images found to ZIP", "error");
+                    if (addToast) addToast("No valid images found to ZIP", "error");
                     setZipProgress(null);
                     return;
                 }
@@ -700,10 +700,10 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(link.href);
-                addToast("ZIP archive downloaded", "success");
+                if (addToast) addToast("ZIP archive downloaded", "success");
             } catch (e) { 
                 console.error("ZIP Error:", e);
-                addToast("Failed to create ZIP", "error"); 
+                if (addToast) addToast("Failed to create ZIP", "error"); 
             } finally {
                 setZipProgress(null); // Reset progress
             }
@@ -718,11 +718,12 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                     const padded = String(frameNum).padStart(3, '0');
                     const filename = `Frame_${padded}_seq_gen_${date}_${time}.png`;
                     onDownloadImageFromUrl(src, frameNum, p, filename);
+                    if (addToast) addToast(t('toast.downloadStarted'), 'success'); // Added Toast Notification
                     await new Promise(r => setTimeout(r, 300));
                 }
             }
         }
-    }, [checkedFrameNumbers, createZip, getFullSizeImage, node.id, images, prompts, onDownloadImageFromUrl, addToast]);
+    }, [checkedFrameNumbers, createZip, getFullSizeImage, node.id, images, prompts, onDownloadImageFromUrl, addToast, t]);
 
     const handleForceRefresh = useCallback(() => {
         const resetStatuses = { ...frameStatuses };
@@ -756,7 +757,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 frameStatuses: nextStatuses
             });
         } catch (e: any) {
-            addToast(`Expansion failed: ${e.message}`, 'error');
+            if (addToast) addToast(`Expansion failed: ${e.message}`, 'error');
             const nextStatuses = { ...parsedValueRef.current.frameStatuses, [frameNumber]: 'error' };
             handleValueUpdate({ frameStatuses: nextStatuses });
         }
@@ -890,12 +891,12 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
 
     const onCopyPrompt = useCallback((text: string) => {
         navigator.clipboard.writeText(text);
-        addToast(t('toast.copiedToClipboard'), 'info');
+        if (addToast) addToast(t('toast.copiedToClipboard'), 'info');
     }, [addToast, t]);
 
     const onCopyVideoPrompt = useCallback((text: string) => {
         navigator.clipboard.writeText(text);
-        addToast(t('toast.copiedToClipboard'), 'info');
+        if (addToast) addToast(t('toast.copiedToClipboard'), 'info');
     }, [addToast, t]);
 
     const handleReportDimensions = useCallback((frameNumber: number, width: number, height: number) => {
@@ -1256,6 +1257,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                              const paddedFrame = String(f).padStart(3, '0');
                              const filename = `Frame_${paddedFrame}_seq_gen_${date}_${time}.png`;
                              onDownloadImageFromUrl(src, f, p, filename);
+                             if (addToast) addToast(t('toast.downloadStarted'), 'success');
                         }
                     }} 
                     onCopy={(f) => onCopyImageToClipboard(getFullSizeImage(node.id, 1000 + f) || images[f])} 

@@ -47,6 +47,8 @@ interface PromptCardProps {
     showSceneInfo?: boolean; 
 }
 
+const SHOT_OPTIONS = ['WS', 'MS', 'CU', 'ECU', 'LS'];
+
 export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameNumber, sceneNumber, prompt, videoPrompt, shotType, characters, duration, isSelected, isCollapsed, onToggleCollapse, onSelect, onChange, onDelete, onAddAfter, onCopy, onCopyVideo, onMoveUp, onMoveDown, onMoveToSource, onMoveToStart, onMoveToEnd, isFirst, isLast, t, readOnly = false, isChecked, onCheck, style, onEditInSource, onEditPrompt, showVideoPrompts = true, showSceneInfo = true }) => {
     
     const handleUpdateCharacter = useCallback((charIndexInArray: number, newCharNumber: number) => {
@@ -78,6 +80,12 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
         
         onChange(frameNumber, { characters: newCharacters, prompt: newPrompt });
     }, [readOnly, characters, prompt, onChange, frameNumber]);
+
+    const handleInsertEntity = useCallback((charId: string) => {
+        if (readOnly) return;
+        const newPrompt = `[${charId}] ${prompt}`;
+        onChange(frameNumber, { prompt: newPrompt });
+    }, [readOnly, prompt, onChange, frameNumber]);
 
     const handleAddCharacter = useCallback(() => {
         if (readOnly) return;
@@ -129,9 +137,14 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
         if (readOnly) return;
         onChange(frameNumber, { videoPrompt: newVal });
     };
+
+    const handleShotTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        if (readOnly) return;
+        onChange(frameNumber, { shotType: e.target.value });
+    };
     
     const frameIndexStr = String(frameNumber).padStart(3, '0');
-    // Обновленный заголовок: удален номер сцены, добавлен shotType
+    // Updated title: Scene number removed, ShotType added if present
     const title = `FRAME-${frameIndexStr}${shotType ? `, [${shotType}]` : ''}`;
 
     const shotInstruction = shotType ? SHOT_TYPE_INSTRUCTIONS[shotType] : undefined;
@@ -199,6 +212,14 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                                             ▼
                                         </button>
                                     </div>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleInsertEntity(charId); }}
+                                        disabled={readOnly}
+                                        className="px-1 text-cyan-300 hover:text-cyan-100 border-l border-gray-500 text-[10px] disabled:text-gray-500 disabled:cursor-not-allowed"
+                                        title="Insert at start: [Entity-N]"
+                                    >
+                                        ↲
+                                    </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleRemoveCharacter(charIndex); }}
                                         disabled={readOnly}
@@ -296,9 +317,23 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
             </div>
             {!isCollapsed && (
                 <div className="flex flex-col space-y-1 mt-1">
+                     <div className="flex items-center gap-2 mb-1 bg-gray-800 p-1 rounded">
+                         <label className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">SHOT TYPE</label>
+                         <select 
+                             value={shotType || 'WS'} 
+                             onChange={handleShotTypeChange}
+                             disabled={readOnly}
+                             className="bg-gray-700 text-white text-[10px] rounded border border-gray-600 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-grow"
+                             onClick={e => e.stopPropagation()}
+                             onMouseDown={e => e.stopPropagation()}
+                         >
+                             {SHOT_OPTIONS.map(opt => (
+                                 <option key={opt} value={opt}>{opt}</option>
+                             ))}
+                         </select>
+                     </div>
                     {shotInstruction && (
                          <div className="px-2 py-1.5 bg-gray-800/80 rounded border border-gray-600/50 mb-1 text-[10px] text-gray-300 italic shadow-sm">
-                             <span className="font-bold text-cyan-400 not-italic mr-1">{shotType}:</span>
                              {shotInstruction}
                          </div>
                     )}

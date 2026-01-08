@@ -78,6 +78,24 @@ const SINGLE_CARD_WIDTH = 380;
 const SUFFIX_CHAR = "Full body character concept on a gray background";
 const SUFFIX_OBJ = "Full-length conceptual object on a grey background";
 
+const CollapseToggle: React.FC<{ isCollapsed: boolean; onClick: (e: React.MouseEvent) => void }> = ({ isCollapsed, onClick }) => (
+    <button 
+        onClick={onClick}
+        className="p-0.5 rounded hover:bg-gray-600 text-gray-400 hover:text-white transition-colors focus:outline-none"
+    >
+        <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className={`h-3 w-3 transform transition-transform duration-200 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`} 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor" 
+            strokeWidth={3}
+        >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
+);
+
 const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
     char, index, nodeId, isDragging,
     onUpdate, onRemove, onSetAsOutput, onToggleActive, onDragStart, onDragEnd, onSmartDragOver,
@@ -94,6 +112,10 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
 
     // Determine visual style for inactive state
     const inactiveClass = !char.isActive ? "opacity-50 grayscale pointer-events-none" : "";
+
+    // Destructure collapse states with defaults
+    const isImageCollapsed = char.isImageCollapsed ?? false;
+    const isPromptCollapsed = char.isPromptCollapsed ?? false;
 
     return (
         <div 
@@ -171,40 +193,58 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                     />
                 </div>
 
-                {/* Image Area */}
-                <CharacterImageArea 
-                    char={char}
-                    cardIdx={index}
-                    nodeId={nodeId}
-                    isDragOver={isDragOver}
-                    setIsDragOver={setIsDragOver}
-                    onRatioChange={onRatioChange}
-                    onPasteImage={onPasteImage}
-                    onClearImage={onClearImage}
-                    onCopyImage={onCopyImage}
-                    onGenerateImage={onGenerateImage}
-                    onEditRaster={onEditRaster}
-                    onEditAI={onEditAI}
-                    onCrop1x1={onCrop1x1}
-                    onExpandRatio={onExpandRatio}
-                    onSetEditingIndex={onSetEditingIndex}
-                    getFullSizeImage={getFullSizeImage}
-                    setImageViewer={setImageViewer}
-                    onCopyImageToClipboard={onCopyImageToClipboard}
-                    processNewImage={processNewImage}
-                    transformingRatio={transformingRatio}
-                    isGeneratingImage={isGeneratingImage}
-                    t={t}
-                />
+                {/* Collapsible Image Area */}
+                <div className="flex flex-col flex-shrink-0 mb-1">
+                    <div 
+                        className="flex items-center justify-between bg-gray-800/50 px-2 py-1 rounded mb-1 cursor-pointer hover:bg-gray-700/50 transition-colors select-none"
+                        onClick={() => onUpdate({ isImageCollapsed: !isImageCollapsed })}
+                    >
+                         <div className="flex items-center gap-2">
+                             <CollapseToggle isCollapsed={isImageCollapsed} onClick={(e) => { e.stopPropagation(); onUpdate({ isImageCollapsed: !isImageCollapsed }); }} />
+                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">IMAGE</span>
+                         </div>
+                    </div>
+                    
+                    {!isImageCollapsed && (
+                        <CharacterImageArea 
+                            char={char}
+                            cardIdx={index}
+                            nodeId={nodeId}
+                            isDragOver={isDragOver}
+                            setIsDragOver={setIsDragOver}
+                            onRatioChange={onRatioChange}
+                            onPasteImage={onPasteImage}
+                            onClearImage={onClearImage}
+                            onCopyImage={onCopyImage}
+                            onGenerateImage={onGenerateImage}
+                            onEditRaster={onEditRaster}
+                            onEditAI={onEditAI}
+                            onCrop1x1={onCrop1x1}
+                            onExpandRatio={onExpandRatio}
+                            onSetEditingIndex={onSetEditingIndex}
+                            getFullSizeImage={getFullSizeImage}
+                            setImageViewer={setImageViewer}
+                            onCopyImageToClipboard={onCopyImageToClipboard}
+                            processNewImage={processNewImage}
+                            transformingRatio={transformingRatio}
+                            isGeneratingImage={isGeneratingImage}
+                            t={t}
+                        />
+                    )}
+                </div>
 
-                {/* Prompt Section */}
+                {/* Collapsible Prompt Section */}
                 <div className="flex flex-col gap-1 mb-2 shrink-0">
-                    <div className="flex justify-between items-center mb-0.5">
+                    <div 
+                        className="flex justify-between items-center mb-0.5 cursor-pointer select-none"
+                        onClick={() => onUpdate({ isPromptCollapsed: !isPromptCollapsed })}
+                    >
                         <div className="flex items-center gap-1.5">
+                            <CollapseToggle isCollapsed={isPromptCollapsed} onClick={(e) => { e.stopPropagation(); onUpdate({ isPromptCollapsed: !isPromptCollapsed }); }} />
                             <span className="text-gray-400"><PromptIcon className="h-3 w-3" /></span>
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{t('node.content.prompt')}</label>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                             <ActionButton 
                                 title={t('node.content.updatePromptFromImage')} 
                                 onClick={() => onSyncFromConnection()} 
@@ -222,98 +262,103 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                             </ActionButton>
                         </div>
                     </div>
-                    <textarea 
-                        value={char.prompt} 
-                        onChange={e => onUpdate({ prompt: e.target.value })} 
-                        className="w-full p-2 bg-gray-900/60 border border-gray-700 rounded text-xs text-gray-200 resize-y focus:border-accent outline-none min-h-[60px] max-h-[120px] custom-scrollbar" 
-                        onMouseDown={e => e.stopPropagation()} 
-                        onFocus={deselectAllNodes} 
-                    />
-                </div>
-                
-                {/* Additional Prompt Input */}
-                <div className="flex flex-col gap-1 mb-2 shrink-0">
-                    <div className="flex justify-between items-center">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{t('node.content.additionalPromptSuffix')}</label>
-                        <div className="flex gap-0.5">
-                            <Tooltip content={t('node.action.characterConcept')}>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onUpdate({ additionalPrompt: SUFFIX_CHAR }); }}
-                                    className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${char.additionalPrompt === SUFFIX_CHAR ? 'text-accent' : 'text-gray-500 hover:text-accent'}`}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                </button>
-                            </Tooltip>
-                            <Tooltip content={t('node.action.objectConcept')}>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onUpdate({ additionalPrompt: SUFFIX_OBJ }); }}
-                                    className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${char.additionalPrompt === SUFFIX_OBJ ? 'text-accent' : 'text-gray-500 hover:text-accent'}`}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                    </svg>
-                                </button>
-                            </Tooltip>
-                        </div>
-                    </div>
-                    <input
-                        type="text"
-                        value={char.additionalPrompt || ''}
-                        onChange={e => onUpdate({ additionalPrompt: e.target.value })}
-                        className="w-full p-1 bg-gray-900/60 border border-gray-700 rounded text-xs text-gray-400 focus:border-accent outline-none"
-                        onMouseDown={e => e.stopPropagation()}
-                        onFocus={deselectAllNodes}
-                    />
-                </div>
+                    
+                    {!isPromptCollapsed && (
+                        <>
+                            <textarea 
+                                value={char.prompt} 
+                                onChange={e => onUpdate({ prompt: e.target.value })} 
+                                className="w-full p-2 bg-gray-900/60 border border-gray-700 rounded text-xs text-gray-200 resize-y focus:border-accent outline-none min-h-[60px] max-h-[120px] custom-scrollbar" 
+                                onMouseDown={e => e.stopPropagation()} 
+                                onFocus={deselectAllNodes} 
+                            />
+                            
+                            {/* Additional Prompt Input */}
+                            <div className="flex flex-col gap-1 mb-1 mt-1">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{t('node.content.additionalPromptSuffix')}</label>
+                                    <div className="flex gap-0.5">
+                                        <Tooltip content={t('node.action.characterConcept')}>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onUpdate({ additionalPrompt: SUFFIX_CHAR }); }}
+                                                className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${char.additionalPrompt === SUFFIX_CHAR ? 'text-accent' : 'text-gray-500 hover:text-accent'}`}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                </svg>
+                                            </button>
+                                        </Tooltip>
+                                        <Tooltip content={t('node.action.objectConcept')}>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onUpdate({ additionalPrompt: SUFFIX_OBJ }); }}
+                                                className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${char.additionalPrompt === SUFFIX_OBJ ? 'text-accent' : 'text-gray-500 hover:text-accent'}`}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                </svg>
+                                            </button>
+                                        </Tooltip>
+                                    </div>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={char.additionalPrompt || ''}
+                                    onChange={e => onUpdate({ additionalPrompt: e.target.value })}
+                                    className="w-full p-1 bg-gray-900/60 border border-gray-700 rounded text-xs text-gray-400 focus:border-accent outline-none"
+                                    onMouseDown={e => e.stopPropagation()}
+                                    onFocus={deselectAllNodes}
+                                />
+                            </div>
 
-                {/* Modification Request Section */}
-                <div className="flex flex-col gap-1 border-b border-gray-700/50 pb-3 mb-2 flex-shrink-0">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{t('node.content.modificationRequest')}</label>
-                    <div className="flex gap-2 h-[32px]">
-                        <input 
-                            value={modificationRequest} 
-                            onChange={e => setModificationRequest(e.target.value)} 
-                            placeholder="..." 
-                            className="flex-grow bg-gray-900/60 border border-gray-700 rounded px-2 text-xs text-white focus:border-accent outline-none h-full" 
-                            onMouseDown={e => e.stopPropagation()} 
-                            onFocus={deselectAllNodes} 
-                        />
-                        <div className="flex items-center bg-gray-700 rounded p-0.5 h-full space-x-0.5 justify-center min-w-[50px]">
-                            {/* Language Switcher */}
-                             {[
-                                { code: 'en', label: 'EN' },
-                                { code: secondaryLanguage, label: languages[secondaryLanguage].short }
-                             ].map((l, idx) => (
-                                <button 
-                                    key={l.code + idx} 
-                                    onClick={(e) => { e.stopPropagation(); onUpdate({ targetLanguage: l.code }); }} 
-                                    className={`h-full flex-1 rounded px-1.5 text-[10px] font-bold transition-colors flex items-center justify-center ${char.targetLanguage === l.code ? 'bg-accent text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                                >
-                                    {l.label}
-                                </button>
-                             ))}
-                        </div>
-                         
-                        <div className="flex gap-1 h-full">
-                            <Tooltip content={t('node.action.modifyCharacter')}>
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); onModify(); }} 
-                                    disabled={!modificationRequest.trim() || isModifyingCharacter === cardOpKey} 
-                                    className="w-8 bg-accent hover:bg-accent-hover text-white rounded flex items-center justify-center disabled:opacity-50 h-full"
-                                >
-                                    {isModifyingCharacter === cardOpKey ? (
-                                         <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    ) : (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                    )}
-                                </button>
-                            </Tooltip>
-                        </div>
-                    </div>
+                            {/* Modification Request Section */}
+                            <div className="flex flex-col gap-1 border-b border-gray-700/50 pb-3 mb-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{t('node.content.modificationRequest')}</label>
+                                <div className="flex gap-2 h-[32px]">
+                                    <input 
+                                        value={modificationRequest} 
+                                        onChange={e => setModificationRequest(e.target.value)} 
+                                        placeholder="..." 
+                                        className="flex-grow bg-gray-900/60 border border-gray-700 rounded px-2 text-xs text-white focus:border-accent outline-none h-full" 
+                                        onMouseDown={e => e.stopPropagation()} 
+                                        onFocus={deselectAllNodes} 
+                                    />
+                                    <div className="flex items-center bg-gray-700 rounded p-0.5 h-full space-x-0.5 justify-center min-w-[50px]">
+                                        {/* Language Switcher */}
+                                         {[
+                                            { code: 'en', label: 'EN' },
+                                            { code: secondaryLanguage, label: languages[secondaryLanguage].short }
+                                         ].map((l, idx) => (
+                                            <button 
+                                                key={l.code + idx} 
+                                                onClick={(e) => { e.stopPropagation(); onUpdate({ targetLanguage: l.code }); }} 
+                                                className={`h-full flex-1 rounded px-1.5 text-[10px] font-bold transition-colors flex items-center justify-center ${char.targetLanguage === l.code ? 'bg-accent text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                                            >
+                                                {l.label}
+                                            </button>
+                                         ))}
+                                    </div>
+                                     
+                                    <div className="flex gap-1 h-full">
+                                        <Tooltip content={t('node.action.modifyCharacter')}>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); onModify(); }} 
+                                                disabled={!modificationRequest.trim() || isModifyingCharacter === cardOpKey} 
+                                                className="w-8 bg-accent hover:bg-accent-hover text-white rounded flex items-center justify-center disabled:opacity-50 h-full"
+                                            >
+                                                {isModifyingCharacter === cardOpKey ? (
+                                                     <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                ) : (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                    </svg>
+                                                )}
+                                            </button>
+                                        </Tooltip>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Character Description Header */}
@@ -346,8 +391,7 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                                 {isUpdatingDescription === cardOpKey ? (
                                     <svg className="animate-spin h-3 w-3 text-accent-text" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                 ) : (
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

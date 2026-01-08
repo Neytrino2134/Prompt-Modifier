@@ -1,4 +1,6 @@
 
+
+
 import React, { useCallback, ReactNode, useState, useEffect, useRef } from 'react';
 import { LanguageContext, LanguageCode, getTranslation, TranslationKey } from './localization';
 import { AppProvider, useAppContext } from './contexts/AppContext';
@@ -102,6 +104,7 @@ const Editor: React.FC = () => {
     handlePromptSequenceFileChange, characterCardFileInputRef, 
     handleCharacterCardFileChange, scriptFileInputRef, handleScriptFileChange,
     toasts,
+    addToast,
     imageViewer, setImageViewer,
     onDownloadImageFromUrl, onCopyImageToClipboard,
     isDockingMenuVisible, dockHoverMode, clientPointerPositionRef,
@@ -162,6 +165,7 @@ const Editor: React.FC = () => {
           onClose={() => setImageViewer(null)}
           onDownloadImageFromUrl={onDownloadImageFromUrl}
           onCopyImageToClipboard={onCopyImageToClipboard}
+          addToast={addToast}
         />
       )}
 

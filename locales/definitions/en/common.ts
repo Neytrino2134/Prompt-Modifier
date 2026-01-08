@@ -38,6 +38,8 @@ export const common = {
     'toast.cacheEmpty': 'Cache is already optimized',
     'toast.scriptSaved': 'Script saved to disk',
     'toast.modificationComplete': 'Character modified successfully',
+    'toast.canvasSaved': 'Canvas saved successfully',
+    'toast.projectSaved': 'Project saved successfully',
     'alert.groupSaved': 'Group "{groupTitle}" saved to catalog.',
     'alert.loadCatalogFailed': 'Failed to load catalog file',
     'alert.invalidCatalogFile': 'Invalid catalog file format',

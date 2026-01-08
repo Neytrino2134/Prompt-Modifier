@@ -105,6 +105,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                     isOutput: true,
                     isActive: true,
                     isDescriptionCollapsed: false,
+                    isImageCollapsed: false,
+                    isPromptCollapsed: false,
                     additionalPrompt: "Full body character concept on a gray background"
                 }];
             }
@@ -121,7 +123,9 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 targetLanguage: char.targetLanguage || 'en',
                 isOutput: char.isOutput || (i === 0 && !parsed.some((c: any) => c.isOutput)),
                 isActive: char.isActive !== false, // Default true if undefined
-                isDescriptionCollapsed: char.isDescriptionCollapsed ?? false
+                isDescriptionCollapsed: char.isDescriptionCollapsed ?? false,
+                isImageCollapsed: char.isImageCollapsed ?? false,
+                isPromptCollapsed: char.isPromptCollapsed ?? false
             }));
         } catch {
             return [{ 
@@ -134,6 +138,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 isOutput: true,
                 isActive: true,
                 isDescriptionCollapsed: false,
+                isImageCollapsed: false,
+                isPromptCollapsed: false,
                 additionalPrompt: "Full body character concept on a gray background"
             }];
         }
@@ -342,7 +348,10 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                     // Ensure only one card is marked as output. If it's the first card, make it output.
                     // Otherwise force false to prevent multiple primaries.
                     isOutput: isFirstCard,
-                    isActive: true
+                    isActive: true,
+                    isDescriptionCollapsed: false,
+                    isImageCollapsed: false,
+                    isPromptCollapsed: false
                 };
                 
                 // Insert at specific position or append
@@ -390,6 +399,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                                         isOutput: true,
                                         isActive: true,
                                         isDescriptionCollapsed: false,
+                                        isImageCollapsed: false,
+                                        isPromptCollapsed: false,
                                         additionalPrompt: "Full body character concept on a gray background"
                                     }];
                                     // Clear cache for the now empty slot
@@ -447,6 +458,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             isOutput: false,
             isActive: true,
             isDescriptionCollapsed: false,
+            isImageCollapsed: false,
+            isPromptCollapsed: false,
             additionalPrompt: "Full body character concept on a gray background"
         }];
         handleValueUpdate(newChars);
@@ -471,6 +484,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 isOutput: true,
                 isActive: true,
                 isDescriptionCollapsed: false,
+                isImageCollapsed: false,
+                isPromptCollapsed: false,
                 additionalPrompt: "Full body character concept on a gray background"
             }]);
             return;

@@ -38,6 +38,8 @@ export const common = {
     'toast.cacheEmpty': 'Кэш уже оптимизирован',
     'toast.scriptSaved': 'Сценарий сохранен на диск',
     'toast.modificationComplete': 'Персонаж успешно изменен',
+    'toast.canvasSaved': 'Холст успешно сохранен',
+    'toast.projectSaved': 'Проект успешно сохранен',
     'alert.groupSaved': 'Группа "{groupTitle}" сохр. в каталог.',
     'alert.loadCatalogFailed': 'Не удалось загрузить файл каталога',
     'alert.invalidCatalogFile': 'Неверный формат файла каталога',

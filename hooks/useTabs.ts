@@ -129,7 +129,7 @@ export const getLocalizedCanvasState = (lang: LanguageCode): CanvasState => {
       "width": 460,
       "height": 940,
       "aspectRatio": "1:1",
-      "model": "imagen-4.0-generate-001",
+      "model": "gemini-2.5-flash-image",
       "autoDownload": true
     },
     {

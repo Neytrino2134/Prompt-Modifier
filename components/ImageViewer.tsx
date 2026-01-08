@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import type { Point } from '../types';
 import { ActionButton } from './ActionButton';
@@ -14,6 +16,7 @@ interface ImageViewerProps {
   onDownloadImageFromUrl: (imageUrl: string, frameNumber: number, prompt: string) => void;
   onCopyImageToClipboard: (imageUrl: string) => Promise<void>;
   onOpenInEditor?: (imageUrl: string) => void;
+  addToast?: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
 
 const formatBytes = (bytes: number, decimals = 2) => {
@@ -28,7 +31,7 @@ const formatBytes = (bytes: number, decimals = 2) => {
 const LOCAL_STORAGE_POS_KEY = 'imageViewerPosition';
 const LOCAL_STORAGE_SIZE_KEY = 'imageViewerSize';
 
-const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initialPosition, onClose, onDownloadImageFromUrl, onCopyImageToClipboard, onOpenInEditor }) => {
+const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initialPosition, onClose, onDownloadImageFromUrl, onCopyImageToClipboard, onOpenInEditor, addToast }) => {
   const { t } = useLanguage();
   
   // Window State
@@ -373,7 +376,11 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
             <ActionButton title="Copy Image" onClick={(e) => { e.stopPropagation(); onCopyImageToClipboard(currentSource.src); }}>
                 <CopyIcon className="h-5 w-5" />
             </ActionButton>
-            <ActionButton title="Download Image" onClick={(e) => { e.stopPropagation(); onDownloadImageFromUrl(currentSource.src, currentSource.frameNumber, currentSource.prompt || ''); }}>
+            <ActionButton title="Download Image" onClick={(e) => { 
+                e.stopPropagation(); 
+                onDownloadImageFromUrl(currentSource.src, currentSource.frameNumber, currentSource.prompt || '');
+                if (addToast) addToast(t('toast.downloadStarted'), 'success'); 
+            }}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             </ActionButton>
             <div className="w-px h-4 bg-gray-500 mx-1"></div>

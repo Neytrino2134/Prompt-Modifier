@@ -1,5 +1,4 @@
 
-
 import React, { useRef, useState, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { PromptCard } from './PromptCard';
@@ -275,6 +274,7 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
         if (onClearTextOnly) {
             onClearTextOnly();
         } else {
+            // Fallback to legacy clear all if not provided (should be provided in new implementation)
             onClearAll();
         }
     }
@@ -359,13 +359,7 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                 </div>
 
                 <div className="flex items-center space-x-1 h-full">
-                     <div className="flex items-center space-x-1 bg-gray-900/50 rounded p-0.5">
-                        <ActionButton title="Add Scene" onClick={onAddScene} disabled={isLinked}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m-3-3h6" /></svg></ActionButton>
-                        <ActionButton title={t('image_sequence.add_frame')} onClick={() => onAddPrompt(-1)} disabled={isLinked}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg></ActionButton>
-                    </div>
-                    
-                    <div className="w-px h-4 bg-gray-600 mx-1"></div>
-                    
+                    {/* SWAPPED: Visibility Controls */}
                     <ActionButton title={showVideoPrompts ? "Скрыть видео-промпты" : "Показать видео-промпты"} onClick={() => setShowVideoPrompts(!showVideoPrompts)}>
                          {showVideoPrompts 
                              ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -394,6 +388,14 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </ActionButton>
                     )}
+
+                    <div className="w-px h-4 bg-gray-600 mx-1"></div>
+
+                    {/* SWAPPED: Add Buttons moved to Right */}
+                    <div className="flex items-center space-x-1 bg-gray-900/50 rounded p-0.5">
+                        <ActionButton title="Add Scene" onClick={onAddScene} disabled={isLinked}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m-3-3h6" /></svg></ActionButton>
+                        <ActionButton title={t('image_sequence.add_frame')} onClick={() => onAddPrompt(-1)} disabled={isLinked}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg></ActionButton>
+                    </div>
                 </div>
             </div>
 
@@ -455,7 +457,7 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                                 );
                             } else if (item.type === 'scene_context') {
                                 // Scene Context Card
-                                const contextText = item.data; // Passed via data property
+                                const contextText = item.data;
                                 const sceneNum = item.scene;
                                 const isExpanded = expandedSceneContexts.includes(sceneNum); // Check visibility
                                 

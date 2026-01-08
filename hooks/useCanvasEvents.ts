@@ -1,6 +1,5 @@
 
 
-
 import React, { useCallback, useRef, useEffect } from 'react';
 import { NodeType, Point, Connection } from '../types';
 import { getEmptyValueForNodeType, RATIO_INDICES, getOutputHandleType } from '../utils/nodeUtils';
@@ -21,7 +20,8 @@ export const useCanvasEvents = (props: any) => {
         t,
         handleAddGroupFromCatalog,
         libraryItems,
-        setNodes // Ensure setNodes is destructured from props
+        setNodes, // Ensure setNodes is destructured from props
+        setConfirmInfo // Add this
     } = props;
 
     const dragCounter = useRef(0);
@@ -319,8 +319,22 @@ export const useCanvasEvents = (props: any) => {
                                  if (pasteGroup) pasteGroup(json.root || json, pos);
                                  return;
                              }
+                             
                              if (json.type === 'prompt-modifier-canvas' || json.type === 'prompt-modifier-project' || (Array.isArray(json.nodes) && Array.isArray(json.connections))) {
-                                 if (handleLoadCanvasIntoCurrentTab) handleLoadCanvasIntoCurrentTab(text);
+                                 if (handleLoadCanvasIntoCurrentTab) {
+                                     const performLoad = () => handleLoadCanvasIntoCurrentTab(text);
+                                     
+                                     if (setConfirmInfo) {
+                                         const isProject = json.type === 'prompt-modifier-project';
+                                         setConfirmInfo({
+                                             title: t('dialog.confirmLoad.title'),
+                                             message: t('dialog.confirmLoad.message') + (isProject ? " (Loading Project)" : ""),
+                                             onConfirm: performLoad
+                                         });
+                                     } else {
+                                         performLoad();
+                                     }
+                                 }
                              } else {
                                  
                                  // Handle Character Cards (Single or Array)
@@ -411,11 +425,31 @@ export const useCanvasEvents = (props: any) => {
                                          };
                                      });
 
-                                     handleValueChange(newNodeId, JSON.stringify({ instruction: '', sourcePrompts, modifiedPrompts: [], checkedSourceFrameNumbers: [], selectedFrameNumber: null, styleOverride: json.styleOverride || '', usedCharacters: json.usedCharacters || [], sceneContexts: json.sceneContexts || {}, // Ensure sceneContexts is handled
-                                     leftPaneRatio: 0.5 }));
-                                 } else if (json.type === 'script-generator-data' || json.type === 'script-analyzer-data' || (json.characters && json.scenes && json.scenes[0]?.frames)) {
-                                     onAddNode(NodeType.SCRIPT_VIEWER, pos, undefined, { centerNode: true, initialValue: text });
-                                 } else onAddNode(NodeType.TEXT_INPUT, pos, undefined, { centerNode: true, initialValue: text });
+                                     const nodeValue = JSON.stringify({
+                                         instruction: '',
+                                         sourcePrompts: sourcePrompts,
+                                         modifiedPrompts: [],
+                                         checkedSourceFrameNumbers: [],
+                                         selectedFrameNumber: null,
+                                         styleOverride: json.styleOverride || '',
+                                         usedCharacters: json.usedCharacters || [],
+                                         sceneContexts: json.sceneContexts || {}, // Ensure sceneContexts is handled
+                                         leftPaneRatio: 0.5
+                                     });
+                                     
+                                     handleValueChange(newNodeId, nodeValue);
+                                     return;
+                                 }
+
+                                 if (json.type === 'script-generator-data' || json.type === 'script-analyzer-data' || (json.characters && json.scenes)) {
+                                     const newNodeId = onAddNode(NodeType.SCRIPT_VIEWER, pos);
+                                     if (!json.type) json.type = 'script-analyzer-data';
+                                     handleValueChange(newNodeId, JSON.stringify(json));
+                                     return;
+                                 }
+
+                                 const newNodeId = onAddNode(NodeType.TEXT_INPUT, pos);
+                                 handleValueChange(newNodeId, JSON.stringify(json, null, 2));
                              }
                          } catch (err) { if (setError) setError("Failed to parse JSON file."); }
                      };
@@ -430,7 +464,7 @@ export const useCanvasEvents = (props: any) => {
                  }
              });
         }
-    }, [onAddNode, handleValueChange, handleRenameNode, setFullSizeImage, getTransformedPoint, handleLoadCanvasIntoCurrentTab, setError, pasteGroup, t, handleAddGroupFromCatalog, libraryItems, setNodes]);
+    }, [onAddNode, handleValueChange, handleRenameNode, setFullSizeImage, getTransformedPoint, handleLoadCanvasIntoCurrentTab, setError, pasteGroup, t, handleAddGroupFromCatalog, libraryItems, setNodes, setConfirmInfo]);
     
     return { handleDrop, handleDragOver, handleDragLeave, handleDragEnter };
 };
