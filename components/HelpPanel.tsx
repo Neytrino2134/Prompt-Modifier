@@ -80,6 +80,12 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
     </div>
 );
 
+const GoogleIcon = (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+        <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
+    </svg>
+);
+
 const HelpPanel: React.FC = () => {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
@@ -415,37 +421,60 @@ const HelpPanel: React.FC = () => {
 
                        <SectionHeader title={t('help.section.studioStable')} />
                        
-                       <LinkCard 
-                           title="Prompt Modifier 0.1.7" 
-                           description="Stable Version"
-                           url="https://ai.studio/apps/drive/1YCO0DaA4BTm9p0j5XqvpBhX_XTg9ClwC?fullscreenApplet=true" 
-                           colorClass="text-blue-400"
-                           icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>}
-                       />
-                       <LinkCard 
-                           title="Script Modifier 0.1.3" 
-                           description="Stable Version"
-                           url="https://ai.studio/apps/drive/1enTmQ5Wz9RBArkZMZm5s5nYQcKxQ9L8M?fullscreenApplet=true" 
-                           colorClass="text-emerald-400"
-                           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
-                       />
+                       <div className="grid grid-cols-2 gap-2">
+                           <LinkCard 
+                               title="Script Modifier 0.1.3" 
+                               description="Stable Version"
+                               url="https://ai.studio/apps/drive/1enTmQ5Wz9RBArkZMZm5s5nYQcKxQ9L8M?fullscreenApplet=true" 
+                               colorClass="text-blue-500"
+                               icon={GoogleIcon}
+                           />
+                           <LinkCard 
+                               title="Prompt Modifier 0.1.7" 
+                               description="Stable Version"
+                               url="https://ai.studio/apps/drive/1YCO0DaA4BTm9p0j5XqvpBhX_XTg9ClwC?fullscreenApplet=true" 
+                               colorClass="text-blue-500"
+                               icon={GoogleIcon}
+                           />
+                       </div>
 
                         <SectionHeader title={t('help.section.studioAlpha')} />
                        
-                       <LinkCard 
-                           title="Prompt Modifier 0.1.8 Alpha" 
-                           description="Latest Alpha"
-                           url="https://aistudio.google.com/apps/drive/1OJfPP9wUKlnjvZ5_2_Fxq_v1dW0iftlW?showAssistant=true&resourceKey=&showPreview=true" 
-                           colorClass="text-orange-400"
-                           icon={<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M19.07 4.93L17.07 3.53C17.07 3.53 15.07 6.05 13.07 6.05C11.07 6.05 11.07 3.53 11.07 3.53L9.07 4.93C9.07 4.93 11.07 8.05 14.07 8.05C17.07 8.05 19.07 4.93 19.07 4.93ZM20.07 13.05C20.07 13.05 17.07 8.53 14.07 8.53C11.07 8.53 8.07 13.05 8.07 13.05H20.07ZM14.07 22.05C18.07 22.05 21.37 19.05 22.07 15.05H6.07C6.77 19.05 10.07 22.05 14.07 22.05Z" /></svg>}
-                       />
-                       <LinkCard 
-                           title="Script Modifier 0.1.4 Alpha" 
-                           description="Latest Alpha"
-                           url="https://aistudio.google.com/apps/drive/1y9CSUmlVQK2xq7ckses7fpM6wpbZdBnB?showAssistant=true&resourceKey=&showPreview=true" 
-                           colorClass="text-amber-400"
-                           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
-                       />
+                       <div className="grid grid-cols-2 gap-2">
+                           <LinkCard 
+                               title="Script Modifier 0.1.4 Alpha" 
+                               description="Latest Alpha"
+                               url="https://aistudio.google.com/apps/drive/1y9CSUmlVQK2xq7ckses7fpM6wpbZdBnB?showAssistant=true&resourceKey=&showPreview=true" 
+                               colorClass="text-blue-500"
+                               icon={GoogleIcon}
+                           />
+                           <LinkCard 
+                               title="Prompt Modifier 0.1.8 Alpha" 
+                               description="Latest Alpha"
+                               url="https://aistudio.google.com/apps/drive/1OJfPP9wUKlnjvZ5_2_Fxq_v1dW0iftlW?showAssistant=true&resourceKey=&showPreview=true" 
+                               colorClass="text-blue-500"
+                               icon={GoogleIcon}
+                           />
+                       </div>
+
+                       <SectionHeader title={t('help.section.githubPages')} />
+
+                       <div className="grid grid-cols-2 gap-2">
+                           <LinkCard 
+                               title="Script Modifier" 
+                               description="GitHub Pages"
+                               url="https://neytrino2134.github.io/Script-Modifier/" 
+                               colorClass="text-purple-400"
+                               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>}
+                           />
+                           <LinkCard 
+                               title="Prompt Modifier" 
+                               description="GitHub Pages"
+                               url="https://neytrino2134.github.io/Prompt-Modifier/" 
+                               colorClass="text-indigo-400"
+                               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>}
+                           />
+                       </div>
 
                        <SectionHeader title={t('help.section.netlify')} />
 

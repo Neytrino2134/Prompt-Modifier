@@ -103,6 +103,7 @@ export const ui = {
     'help.section.studioAlpha': 'Google AI Studio (Альфа)',
     'help.section.netlify': 'Приложения Netlify',
     'help.section.github': 'Репозитории GitHub',
+    'help.section.githubPages': 'Приложения на GitHub',
     'help.license': 'Лицензия GNU GPLv3',
     'help.copyLink': 'Копировать ссылку',
     'help.copied': 'Скопировано!',

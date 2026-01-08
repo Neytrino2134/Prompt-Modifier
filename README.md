@@ -30,8 +30,8 @@ A powerful node-based visual editor for constructing, refining, and executing co
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/yourusername/prompt-modifier.git
-    cd prompt-modifier
+    git clone https://github.com/Neytrino2134/Prompt-Modifier.git
+    cd Prompt-Modifier
     ```
 
 2.  **Install dependencies:**
