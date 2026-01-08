@@ -399,6 +399,22 @@
         100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.0); border-color: rgb(55 65 81); }
       }
 
+      /* Swing Animation for Tab Names */
+      @keyframes swing {
+        0%, 15% { transform: translateX(0); }
+        85%, 100% { transform: translateX(var(--scroll-dist)); }
+      }
+      
+      .group:hover .group-hover\:animate-swing {
+        animation: swing 4s ease-in-out infinite alternate;
+      }
+      
+      /* Optional: Mask to fade edges of scrolling text */
+      .mask-fade {
+        mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+      }
+
       .node-pulse-animation {
         animation: pulse-cyan 2s infinite ease-in-out;
       }
@@ -567,7 +583,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="./assets/index-BQpfn6Na.js"></script>
+  <script type="module" crossorigin src="./assets/index-CuLw4QD-.js"></script>
 </head>
   <body class="bg-canvas text-text-main">
     <div id="root"></div>
