@@ -58,15 +58,22 @@ const generateSignature = (val: string) => {
     return `${len}-${hash}`;
 };
 
-// Specialized signature generator for Character Nodes to ensure Index/Name changes are always caught
+// Specialized signature generator for Character Nodes to ensure Index/Name/Ratio/Text changes are always caught immediately
 const getCharacterIdentitySignature = (val: string) => {
     if (!val) return 'empty';
-    // Extract key fields that affect logic: index, alias, name, isActive, isOutput
-    // We use a regex that looks for these keys and grabs their immediate values
-    // This avoids parsing the full JSON with massive base64 strings and ensures we catch changes 
-    // even if they are in the middle of a large string.
-    const matches = val.match(/"(index|alias|name|isActive|isOutput)"\s*:\s*("[^"]*"|true|false|null)/g);
-    return matches ? matches.join(',') : 'no-match';
+    // We strictly look for keys that affect the Sequence Generator display
+    // Using a regex to extract these specific values creates a signature that changes ONLY when relevant data changes,
+    // avoiding re-renders on unrelated changes but guaranteeing re-renders on these.
+    // keys: index, alias, name, selectedRatio, prompt, isOutput, isActive
+    const matches = val.match(/"(index|alias|name|selectedRatio|prompt|isActive|isOutput)"\s*:\s*("[^"]*"|true|false|null)/g);
+    
+    // Also include a simple hash of the full string to catch subtle description edits not caught by regex
+    let hash = 0;
+    for (let i = 0; i < Math.min(val.length, 200); i++) {
+        hash = ((hash << 5) - hash) + val.charCodeAt(i);
+    }
+    
+    return (matches ? matches.join(',') : 'no-match') + `-${hash}`;
 };
 
 export const useDerivedMemo = (props: UseDerivedMemoProps) => {
@@ -135,10 +142,15 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                      if (outputChar && outputChar.isActive === false) return null;
 
                      const charIdx = charArr.indexOf(outputChar);
-                     const ratioIdx = RATIO_INDICES[outputChar.selectedRatio] || 1;
+                     // Respect the selected ratio of the character card for image output
+                     const ratio = outputChar.selectedRatio || '1:1';
+                     const ratioIdx = RATIO_INDICES[ratio] || 1;
+                     
                      const cachedFull = getFullSizeImage(node.id, (charIdx * 10) + ratioIdx);
                      if (cachedFull && !optimizedForUI) return cachedFull;
-                     return outputChar?.image || outputChar?.thumbnails?.[outputChar.selectedRatio] || null;
+                     
+                     // Fallback to thumbnail of selected ratio or general image
+                     return outputChar?.thumbnails?.[ratio] || outputChar?.image || null;
 
                 case NodeType.IMAGE_OUTPUT: return getFullSizeImage(node.id, 0) || (node.value.startsWith('data:') ? node.value : null);
                 case NodeType.IMAGE_EDITOR: return optimizedForUI ? parsed.outputImage : (getFullSizeImage(node.id, 0) || parsed.outputImage || null);
@@ -185,8 +197,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
             const fromNode = nodes.find(n => n.id === c.fromNodeId);
             if (!fromNode) return '';
             
-            // Special handling for Character nodes to ensure updates to Index/Name are caught
-            // even if the JSON is very large (due to images) and would be truncated by generateSignature
+            // Special handling for Character nodes to ensure updates to Index/Name/Ratio are caught instantly
             if (fromNode.type === NodeType.CHARACTER_CARD || fromNode.type === NodeType.CHARACTER_GENERATOR) {
                 return `${c.id}:${fromNode.id}:${getCharacterIdentitySignature(fromNode.value || '')}`;
             }
@@ -239,7 +250,15 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             const index = match ? parseInt(match[1], 10) : -1;
                             if (index >= 0 && parsedValue.characters?.[index]) {
                                 const charData = parsedValue.characters[index];
-                                nodeData.push({ name: charData.name, alias: charData.index || charData.alias, prompt: charData.prompt, fullDescription: charData.fullDescription, image: charData.imageBase64 ? `data:image/png;base64,${charData.imageBase64}` : null, _sourceNodeId: fromNode.id, _connectionId: source.connectionId });
+                                nodeData.push({ 
+                                    name: charData.name, 
+                                    alias: charData.index || charData.alias, 
+                                    prompt: charData.prompt, 
+                                    fullDescription: charData.fullDescription, 
+                                    image: charData.imageBase64 ? `data:image/png;base64,${charData.imageBase64}` : null, 
+                                    _sourceNodeId: fromNode.id, 
+                                    _connectionId: source.connectionId 
+                                });
                             }
                         } else if (fromNode.type === NodeType.CHARACTER_CARD) {
                             const characters = Array.isArray(parsedValue) ? parsedValue : [parsedValue];
@@ -265,7 +284,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                                     charsToProcess = [{ data: characters[idx], originalIndex: idx }];
                                 }
                             } else {
-                                // Default to all active
+                                // Default to all active if handle ambiguous
                                 charsToProcess = characters
                                     .map((c, idx) => ({ data: c, originalIndex: idx }))
                                     .filter(item => item.data.isActive !== false);
@@ -273,14 +292,24 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
 
                             charsToProcess.forEach(({ data, originalIndex }) => {
                                 if (!data) return;
+                                
+                                // Prioritize image sources
                                 const sources = data.thumbnails ? { ...(data.thumbnails as object) } : (data.imageSources || {});
+                                
+                                // Hydrate sources from cache if available
                                 Object.entries(RATIO_INDICES).forEach(([ratio, index]) => { 
                                     const cached = getFullSizeImage(fromNode.id, (originalIndex * 10) + index); 
                                     if (cached) (sources as any)[ratio] = cached; 
                                 });
+
+                                // Determine active image based on selectedRatio
+                                const activeRatio = data.selectedRatio || '1:1';
+                                const activeImage = (sources as any)[activeRatio] || data.image || getFullSizeImage(fromNode.id, originalIndex * 10);
+
                                 nodeData.push({ 
                                     ...data, 
                                     alias: data.index || data.alias, 
+                                    image: activeImage, // IMPORTANT: Send the image matching the selected ratio
                                     imageSources: sources, 
                                     nodeTitle: fromNode.title, 
                                     _sourceNodeId: fromNode.id, 
