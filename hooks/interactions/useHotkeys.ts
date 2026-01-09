@@ -13,7 +13,7 @@ interface UseHotkeysProps {
     handleLoadCanvas: () => void;
     copyNodeValue: (id: string) => void;
     copyGroup: (id: string) => void;
-    handlePaste: () => void;
+    handlePaste: (isAlternativeMode?: boolean) => void;
     handleToggleCatalog: () => void;
     handleOpenQuickSearch: (pos: {x: number, y: number}) => void;
     handleOpenQuickAdd: (position: {x: number, y: number}) => void; // Added
@@ -194,7 +194,10 @@ export const useHotkeys = (props: UseHotkeysProps) => {
                     }
                 }
             }
-            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') { e.preventDefault(); handlePaste(); }
+            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') { 
+                e.preventDefault(); 
+                handlePaste(e.shiftKey); 
+            }
 
             // Select All
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyA') {

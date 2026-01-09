@@ -731,7 +731,7 @@ export const useAppOrchestration = (
         geminiGenerationHook.handleEditImage(nodeId, [frameNumber]);
     }, [geminiGenerationHook]);
 
-    const handlePaste = useCallback(async (selectedNodeIds: string[], pasteNodeValue: any, pasteImageToNode: any, canvasHook: any, entityActionsHook: any, nodesHook: any) => {
+    const handlePaste = useCallback(async (selectedNodeIds: string[], pasteNodeValue: any, pasteImageToNode: any, canvasHook: any, entityActionsHook: any, nodesHook: any, isAlternativeMode: boolean = false) => {
         const mousePos = canvasHook.pointerPosition || { x: 0, y: 0 };
         const pastePosition = (mousePos.x === 0 && mousePos.y === 0) 
             ? canvasHook.getTransformedPoint({ x: window.innerWidth/2, y: window.innerHeight/2 })
@@ -742,16 +742,64 @@ export const useAppOrchestration = (
              for (const item of items) {
                  if (item.types.some(t => t.startsWith('image/'))) {
                      const blob = await item.getType(item.types.find(t => t.startsWith('image/'))!);
-                     if (selectedNodeIds.length === 1) {
+                     
+                     // If NOT alternative mode, check for single selected node target
+                     if (!isAlternativeMode && selectedNodeIds.length === 1) {
                          const targetNode = nodes.find(n => n.id === selectedNodeIds[0]);
                          if (targetNode && (targetNode.type === NodeType.IMAGE_INPUT || targetNode.type === NodeType.IMAGE_EDITOR || targetNode.type === NodeType.IMAGE_ANALYZER || targetNode.type === NodeType.CHARACTER_CARD)) {
                              await pasteImageToNode(selectedNodeIds[0]);
                              return;
                          }
                      }
+                     
                      const file = new File([blob], "pasted_image.png", { type: blob.type });
-                     const newNodeId = entityActionsHook.onAddNode(NodeType.IMAGE_INPUT, pastePosition);
-                     await pasteImageToNode(newNodeId, file);
+
+                     if (isAlternativeMode) {
+                          // Alternative Mode: Paste into new AI Image Editor Node
+                          const newNodeId = entityActionsHook.onAddNode(NodeType.IMAGE_EDITOR, pastePosition);
+                          
+                          // Read file to base64 for immediate use
+                          const reader = new FileReader();
+                          reader.onload = async (ev) => {
+                              const dataUrl = ev.target?.result as string;
+                              if (dataUrl) {
+                                  // Set full size image in cache. 
+                                  // For ImageEditorNode, inputImages[0] corresponds to cache index 1 (0 is output)
+                                  setFullSizeImage(newNodeId, 1, dataUrl);
+                                  
+                                  const thumb = await generateThumbnail(dataUrl, 256, 256);
+                                  
+                                  // Initialize node state
+                                  const editorState = {
+                                      inputImages: [thumb],
+                                      prompt: '',
+                                      outputImage: null,
+                                      aspectRatio: '1:1',
+                                      enableAspectRatio: true, // Usually good default for pasted
+                                      enableOutpainting: false,
+                                      outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.',
+                                      model: 'gemini-3-flash-preview', // Default model
+                                      autoDownload: true,
+                                      autoCrop169: false,
+                                      leftPaneWidth: 360,
+                                      topPaneHeight: 330
+                                  };
+                                  
+                                  nodesHook.handleValueChange(newNodeId, JSON.stringify(editorState));
+                                  addToast(t('toast.pastedFromClipboard'), 'success');
+                                  
+                                  // Select new node
+                                  if (setSelectedNodeIds) setSelectedNodeIds([newNodeId]);
+                              }
+                          };
+                          reader.readAsDataURL(file);
+
+                     } else {
+                          // Standard Mode: Paste into new Image Input Node
+                          const newNodeId = entityActionsHook.onAddNode(NodeType.IMAGE_INPUT, pastePosition);
+                          await pasteImageToNode(newNodeId, file);
+                          if (setSelectedNodeIds) setSelectedNodeIds([newNodeId]);
+                     }
                      return;
                  }
              }

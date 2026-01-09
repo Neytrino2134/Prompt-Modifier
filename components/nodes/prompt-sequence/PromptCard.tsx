@@ -2,6 +2,7 @@
 import React, { useCallback, useState } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
+import { SyntaxHighlightedTextarea } from '../../SyntaxHighlightedTextarea';
 import { CARD_EXPANDED_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO, SHOT_TYPE_INSTRUCTIONS } from './Constants';
 import { CopyIcon } from '../../icons/AppIcons';
 import { InputWithSpinners } from './SharedUI';
@@ -163,8 +164,8 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
             className={`relative group bg-gray-700 p-2 rounded-lg border-2 overflow-hidden mb-1 ${isSelected ? 'border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'border-transparent hover:border-gray-600'}`}
         >
             <div 
-                className="flex justify-between items-center mb-1 h-[28px] gap-2"
-                onDoubleClick={(e) => { e.stopPropagation(); onToggleCollapse(frameNumber); }}
+                className="flex justify-between items-center mb-1 h-[28px] gap-2 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); onToggleCollapse(frameNumber); }}
             >
                  <div className="flex items-center space-x-2 flex-1 overflow-hidden">
                     {onCheck && (
@@ -194,7 +195,7 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                             const num = parseInt(charId.replace(/(?:character|entity)-/i, ''), 10);
                             if (isNaN(num)) return null;
                             return (
-                                <div key={charIndex} className="flex items-center bg-gray-600 rounded text-gray-200 border border-gray-500">
+                                <div key={charIndex} className="flex items-center bg-gray-600 rounded text-gray-200 border border-gray-500" onClick={(e) => e.stopPropagation()}>
                                     <span className="text-[10px] font-semibold px-1.5">{num}</span>
                                     <div className="flex flex-col border-l border-gray-500">
                                         <button
@@ -241,17 +242,6 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                 </div>
 
                 <div className="flex items-center flex-shrink-0 space-x-1">
-                     {!isCollapsed && !readOnly && (
-                         <div className="flex items-center flex-shrink-0 mr-1">
-                            <InputWithSpinners 
-                                value={duration.toString()}
-                                onChange={(val) => onChange(frameNumber, { duration: Math.max(0, parseInt(val, 10) || 0) })}
-                                min={0}
-                            />
-                            <span className="text-[9px] text-gray-400 ml-1">s</span>
-                        </div>
-                    )}
-
                     {onMoveToSource && (
                          <ActionButton tooltipPosition="left" title="Move to Source" onClick={(e) => { e.stopPropagation(); onMoveToSource(frameNumber); }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -318,12 +308,11 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
             {!isCollapsed && (
                 <div className="flex flex-col space-y-1 mt-1">
                      <div className="flex items-center gap-2 mb-1 bg-gray-800 p-1 rounded">
-                         <label className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">SHOT TYPE</label>
                          <select 
                              value={shotType || 'WS'} 
                              onChange={handleShotTypeChange}
                              disabled={readOnly}
-                             className="bg-gray-700 text-white text-[10px] rounded border border-gray-600 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-grow"
+                             className="bg-gray-700 text-white text-[10px] rounded border border-gray-600 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed w-20 shrink-0"
                              onClick={e => e.stopPropagation()}
                              onMouseDown={e => e.stopPropagation()}
                          >
@@ -331,15 +320,27 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                                  <option key={opt} value={opt}>{opt}</option>
                              ))}
                          </select>
-                     </div>
-                    {shotInstruction && (
-                         <div className="px-2 py-1.5 bg-gray-800/80 rounded border border-gray-600/50 mb-1 text-[10px] text-gray-300 italic shadow-sm">
-                             {shotInstruction}
+                         
+                         <div className="text-[10px] text-gray-400 italic flex-grow truncate" title={shotInstruction || "No Shot Type"}>
+                            {shotInstruction || <span className="opacity-50">No shot type selected</span>}
                          </div>
-                    )}
-                    <div className="flex flex-col">
+
+                         {!readOnly && (
+                             <div className="flex items-center flex-shrink-0 border-l border-gray-600 pl-2">
+                                <InputWithSpinners 
+                                    value={duration.toString()}
+                                    onChange={(val) => onChange(frameNumber, { duration: Math.max(0, parseInt(val, 10) || 0) })}
+                                    min={0}
+                                />
+                                <span className="text-[9px] text-gray-500 ml-1">s</span>
+                            </div>
+                        )}
+                     </div>
+                     
+                    <div className="flex flex-col h-full">
                          <label className="text-[10px] font-bold text-gray-400 uppercase">IMAGE PROMPT</label>
-                         <DebouncedTextarea
+                         {/* Using SyntaxHighlightedTextarea for Entity Highlighting */}
+                         <SyntaxHighlightedTextarea
                             value={prompt}
                             onDebouncedChange={handlePromptTextChange}
                             readOnly={readOnly}
@@ -355,7 +356,8 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                              <div className="flex justify-between items-center mb-0.5">
                                  <label className="text-[10px] font-bold text-gray-400 uppercase">VIDEO PROMPT</label>
                              </div>
-                             <DebouncedTextarea
+                             {/* Using SyntaxHighlightedTextarea for Entity Highlighting in Video Prompt */}
+                             <SyntaxHighlightedTextarea
                                 value={videoPrompt || ''}
                                 onDebouncedChange={handleVideoPromptTextChange}
                                 readOnly={readOnly}

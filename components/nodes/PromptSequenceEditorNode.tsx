@@ -50,6 +50,15 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
         onValueChange(node.id, JSON.stringify(newValue));
     }, [node.id, onValueChange]);
 
+    // Auto-scroll to selected frame when it changes (e.g. from "Edit in Source")
+    useEffect(() => {
+        if (selectedFrameNumber !== null) {
+            setTimeout(() => {
+                 sourceListRef.current?.scrollToFrame(selectedFrameNumber);
+            }, 100);
+        }
+    }, [selectedFrameNumber]);
+
     const handleAddPrompt = useCallback((afterFrame?: number) => {
         const current = [...(parsedValueRef.current.sourcePrompts || [])];
         const nextFrame = current.length > 0 ? Math.max(...current.map((p:any) => p.frameNumber)) + 1 : 1;

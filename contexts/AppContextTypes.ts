@@ -214,7 +214,7 @@ export type AppContextType =
   clientPointerPositionRef: React.MutableRefObject<Point>;
   handleDockNode: (nodeId: string, mode: DockMode) => void;
   handleUndockNode: (nodeId: string) => void;
-  handlePaste: () => void;
+  handlePaste: (isAlternativeMode?: boolean) => void;
   selectNode: (nodeId: string) => void;
   focusedNodeId: string | null;
   toggleNodeFullScreen: (nodeId: string | null) => void;

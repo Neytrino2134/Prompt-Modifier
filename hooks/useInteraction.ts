@@ -75,7 +75,7 @@ interface UseInteractionProps {
     isInstantCloseEnabled: boolean;
     handleAlignNodes: (selectedNodeIds: string[], type: Alignment) => void;
     handleDockNode?: (nodeId: string, mode: DockMode) => void;
-    handlePaste: () => void;
+    handlePaste: (isAlternativeMode?: boolean) => void; // Updated signature
     selectNode: (nodeId: string) => void;
     dockHoverMode: DockMode | null;
     setDockHoverMode: (mode: DockMode | null) => void;

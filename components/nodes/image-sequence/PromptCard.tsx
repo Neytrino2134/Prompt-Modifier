@@ -2,7 +2,8 @@
 import React, { useCallback, useState } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
-import { CARD_EXPANDED_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO } from './Constants';
+import { SyntaxHighlightedTextarea } from '../../SyntaxHighlightedTextarea';
+import { CARD_EXPANDED_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO, SHOT_TYPE_INSTRUCTIONS } from './Constants';
 import { CopyIcon } from '../../icons/AppIcons';
 import { InputWithSpinners } from './SharedUI';
 import { CustomCheckbox } from '../../CustomCheckbox';
@@ -47,6 +48,8 @@ interface PromptCardProps {
     showSceneInfo?: boolean; 
 }
 
+const SHOT_OPTIONS = ['WS', 'MS', 'CU', 'ECU', 'LS'];
+
 export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameNumber, sceneNumber, prompt, videoPrompt, shotType, characters, duration, isSelected, isCollapsed, onToggleCollapse, onSelect, onChange, onDelete, onAddAfter, onCopy, onCopyVideo, onMoveUp, onMoveDown, onMoveToSource, onMoveToStart, onMoveToEnd, isFirst, isLast, t, readOnly = false, isChecked, onCheck, isModified, style, onRegenerate, isAnyGenerationInProgress, maxCharacters, onEditInSource, onEditPrompt, showVideoPrompts = true, showSceneInfo = true }) => {
     
     const handleUpdateCharacter = useCallback((charIndexInArray: number, newCharNumber: number) => {
@@ -57,7 +60,10 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
         const newCharacters = [...(characters || [])];
         newCharacters[charIndexInArray] = newCharId;
         
-        const regex = new RegExp(`\\(${oldCharId}\\)`, 'gi');
+        // Dynamic regex to replace the old ID in the prompt with the new ID
+        // Handles cases like (Character-1) or (Entity-1)
+        const escapedOldId = oldCharId.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regex = new RegExp(`\\(${escapedOldId}\\)`, 'gi');
         const newPrompt = prompt.replace(regex, `(${newCharId})`);
 
         onChange(frameNumber, { characters: newCharacters, prompt: newPrompt });
@@ -69,11 +75,18 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
         
         const newCharacters = (characters || []).filter((_, i) => i !== charIndexInArray);
         
-        const regex = new RegExp(`\\s*\\(${charToRemove}\\)`, 'gi');
+        const escapedCharToRemove = charToRemove.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regex = new RegExp(`\\s*\\(${escapedCharToRemove}\\)`, 'gi');
         const newPrompt = prompt.replace(regex, '').trim().replace(/,\s*$/, "");
         
         onChange(frameNumber, { characters: newCharacters, prompt: newPrompt });
     }, [readOnly, characters, prompt, onChange, frameNumber]);
+
+    const handleInsertEntity = useCallback((charId: string) => {
+        if (readOnly) return;
+        const newPrompt = `[${charId}] ${prompt}`;
+        onChange(frameNumber, { prompt: newPrompt });
+    }, [readOnly, prompt, onChange, frameNumber]);
 
     const handleAddCharacter = useCallback(() => {
         if (readOnly) return;
@@ -94,6 +107,7 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
         if (readOnly) return;
         const newPromptText = newVal;
         
+        // Use generalized regex to find character tags in both old and new text
         const getCharTags = (text: string) => {
              const found = text.match(/(?:character|entity)-\d+/gi) || [];
              return found.map(t => t.toLowerCase()).sort().join(',');
@@ -106,8 +120,15 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
         const updates: any = { prompt: newPromptText };
 
         if (tagsInTextWereModified) {
+            // Scan for tags, prioritizing the new format but accepting old input
             const foundTags = newPromptText.match(/(?:character|entity)-\d+/gi) || [];
-            const newUniqueCharacters = [...new Set(foundTags.map(tag => tag.toLowerCase()))];
+            
+            // Normalize all found tags to Entity-N format for storage
+            const newUniqueCharacters = [...new Set(foundTags.map(tag => {
+                // Normalize to Entity-N
+                return tag.replace(/character-/i, 'Entity-').replace(/entity-/i, 'Entity-');
+            }))];
+            
             updates.characters = newUniqueCharacters;
         }
         onChange(frameNumber, updates);
@@ -117,11 +138,16 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
         if (readOnly) return;
         onChange(frameNumber, { videoPrompt: newVal });
     };
+
+    const handleShotTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        if (readOnly) return;
+        onChange(frameNumber, { shotType: e.target.value });
+    };
     
     const frameIndexStr = String(frameNumber).padStart(3, '0');
+    // Updated title: Scene number removed, ShotType added if present
     const title = `FRAME-${frameIndexStr}${shotType ? `, [${shotType}]` : ''}`;
 
-    // Use localized instruction via t()
     const shotInstruction = shotType ? t(`image_sequence.shot_type.${shotType}` as any) : undefined;
 
     return (
@@ -138,8 +164,8 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
             className={`relative group bg-gray-700 p-2 rounded-lg border-2 overflow-hidden mb-1 ${isSelected ? 'border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'border-transparent hover:border-gray-600'}`}
         >
             <div 
-                className="flex justify-between items-center mb-1 h-[28px] gap-2"
-                onDoubleClick={(e) => { e.stopPropagation(); onToggleCollapse(frameNumber); }}
+                className="flex justify-between items-center mb-1 h-[28px] gap-2 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); onToggleCollapse(frameNumber); }}
             >
                  <div className="flex items-center space-x-2 flex-1 overflow-hidden">
                     {onCheck && (
@@ -165,10 +191,11 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                     <div className="flex items-center space-x-1 flex-shrink-0 ml-1">
                         <span className="text-[10px] text-gray-500 font-semibold uppercase">ENT:</span>
                         {(characters || []).map((charId, charIndex) => {
+                            // Support both Entity- and Character- for display, preferring Entity
                             const num = parseInt(charId.replace(/(?:character|entity)-/i, ''), 10);
                             if (isNaN(num)) return null;
                             return (
-                                <div key={charIndex} className="flex items-center bg-gray-600 rounded text-gray-200 border border-gray-500">
+                                <div key={charIndex} className="flex items-center bg-gray-600 rounded text-gray-200 border border-gray-500" onClick={(e) => e.stopPropagation()}>
                                     <span className="text-[10px] font-semibold px-1.5">{num}</span>
                                     <div className="flex flex-col border-l border-gray-500">
                                         <button
@@ -186,6 +213,14 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                                             ▼
                                         </button>
                                     </div>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleInsertEntity(charId); }}
+                                        disabled={readOnly}
+                                        className="px-1 text-cyan-300 hover:text-cyan-100 border-l border-gray-500 text-[10px] disabled:text-gray-500 disabled:cursor-not-allowed"
+                                        title="Insert at start: [Entity-N]"
+                                    >
+                                        ↲
+                                    </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleRemoveCharacter(charIndex); }}
                                         disabled={readOnly}
@@ -207,17 +242,6 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                 </div>
 
                 <div className="flex items-center flex-shrink-0 space-x-1">
-                     {!isCollapsed && !readOnly && (
-                         <div className="flex items-center flex-shrink-0 mr-1">
-                            <InputWithSpinners 
-                                value={duration.toString()}
-                                onChange={(val) => onChange(frameNumber, { duration: Math.max(0, parseInt(val, 10) || 0) })}
-                                min={0}
-                            />
-                            <span className="text-[9px] text-gray-400 ml-1">s</span>
-                        </div>
-                    )}
-
                     {onMoveToSource && (
                          <ActionButton tooltipPosition="left" title="Move to Source" onClick={(e) => { e.stopPropagation(); onMoveToSource(frameNumber); }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -283,15 +307,40 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
             </div>
             {!isCollapsed && (
                 <div className="flex flex-col space-y-1 mt-1">
-                    {shotInstruction && (
-                         <div className="px-2 py-1.5 bg-gray-800/80 rounded border border-gray-600/50 mb-1 text-[10px] text-gray-300 italic shadow-sm">
-                             <span className="font-bold text-cyan-400 not-italic mr-1">{shotType}:</span>
-                             {shotInstruction}
+                     <div className="flex items-center gap-2 mb-1 bg-gray-800 p-1 rounded">
+                         <select 
+                             value={shotType || 'WS'} 
+                             onChange={handleShotTypeChange}
+                             disabled={readOnly}
+                             className="bg-gray-700 text-white text-[10px] rounded border border-gray-600 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed w-20 shrink-0"
+                             onClick={e => e.stopPropagation()}
+                             onMouseDown={e => e.stopPropagation()}
+                         >
+                             {SHOT_OPTIONS.map(opt => (
+                                 <option key={opt} value={opt}>{opt}</option>
+                             ))}
+                         </select>
+                         
+                         <div className="text-[10px] text-gray-400 italic flex-grow truncate" title={shotInstruction || "No Shot Type"}>
+                            {shotInstruction || <span className="opacity-50">No shot type selected</span>}
                          </div>
-                    )}
-                    <div className="flex flex-col">
+
+                         {!readOnly && (
+                             <div className="flex items-center flex-shrink-0 border-l border-gray-600 pl-2">
+                                <InputWithSpinners 
+                                    value={duration.toString()}
+                                    onChange={(val) => onChange(frameNumber, { duration: Math.max(0, parseInt(val, 10) || 0) })}
+                                    min={0}
+                                />
+                                <span className="text-[9px] text-gray-500 ml-1">s</span>
+                            </div>
+                        )}
+                     </div>
+                     
+                    <div className="flex flex-col h-full">
                          <label className="text-[10px] font-bold text-gray-400 uppercase">IMAGE PROMPT</label>
-                         <DebouncedTextarea
+                         {/* Using SyntaxHighlightedTextarea for Entity Highlighting */}
+                         <SyntaxHighlightedTextarea
                             value={prompt}
                             onDebouncedChange={handlePromptTextChange}
                             readOnly={readOnly}
@@ -307,7 +356,8 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                              <div className="flex justify-between items-center mb-0.5">
                                  <label className="text-[10px] font-bold text-gray-400 uppercase">VIDEO PROMPT</label>
                              </div>
-                             <DebouncedTextarea
+                             {/* Using SyntaxHighlightedTextarea for Entity Highlighting in Video Prompt */}
+                             <SyntaxHighlightedTextarea
                                 value={videoPrompt || ''}
                                 onDebouncedChange={handleVideoPromptTextChange}
                                 readOnly={readOnly}
