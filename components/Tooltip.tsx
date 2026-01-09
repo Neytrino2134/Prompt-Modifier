@@ -86,6 +86,32 @@ export const Tooltip: React.FC<TooltipProps> = ({
         }
     }, [isVisible, usePortal]);
 
+    // Safety watchdog: Sometimes (e.g. in Nativefier/WebViews) mouseleave isn't fired if an element becomes disabled
+    // or if the mouse moves very quickly. We manually check global mouse position when tooltip is visible.
+    useEffect(() => {
+        if (!isVisible) return;
+        
+        const handleGlobalMouseMove = (e: MouseEvent) => {
+            if (triggerRef.current) {
+                const rect = triggerRef.current.getBoundingClientRect();
+                const pad = 10; // buffer pixels to allow some wiggle room around the element
+                const isOver = 
+                    e.clientX >= rect.left - pad && 
+                    e.clientX <= rect.right + pad && 
+                    e.clientY >= rect.top - pad && 
+                    e.clientY <= rect.bottom + pad;
+                
+                if (!isOver) {
+                    setIsVisible(false);
+                    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                }
+            }
+        };
+        
+        window.addEventListener('mousemove', handleGlobalMouseMove);
+        return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+    }, [isVisible]);
+
     if (!content) return <div className={className}>{children}</div>;
 
     // Calculate CSS Transform based on position/alignment
@@ -132,7 +158,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
         <>
             <div 
                 ref={triggerRef}
-                className={`relative flex items-center justify-center ${className}`}
+                className={`relative flex items-center justify-center ${className} pointer-events-auto`}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
                 onMouseDown={() => setIsVisible(false)}

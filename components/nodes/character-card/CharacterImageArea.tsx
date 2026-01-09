@@ -44,24 +44,7 @@ export const CharacterImageArea: React.FC<CharacterImageAreaProps> = ({
     const hasImage = !!(char.thumbnails[char.selectedRatio] || char.image);
 
     return (
-        <div className="flex flex-col flex-shrink-0 mb-1">
-            <div className="flex items-end pl-2 gap-1 h-7 z-0">
-                {['1:1', '16:9', '9:16'].map(r => (
-                    <button 
-                        key={r} 
-                        onClick={(e) => { e.stopPropagation(); onRatioChange(r); }} 
-                        onDragEnter={(e) => { e.stopPropagation(); onRatioChange(r); }}
-                        className={`px-3 py-1 text-[10px] font-bold outline-none transition-colors rounded-t-md ${
-                            char.selectedRatio === r 
-                                ? 'bg-gray-700/50 text-white h-full shadow-none' 
-                                : 'bg-gray-900/40 text-gray-500 h-[80%] hover:bg-gray-700/50 hover:text-gray-300'
-                        }`}
-                    >
-                        {r}
-                    </button>
-                ))}
-            </div>
-            
+        <div className="flex flex-col flex-shrink-0">
             <div 
                 onClick={onSetEditingIndex} 
                 onDragEnter={(e) => { 

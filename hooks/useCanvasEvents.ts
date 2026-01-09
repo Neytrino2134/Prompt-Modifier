@@ -21,7 +21,9 @@ export const useCanvasEvents = (props: any) => {
         handleAddGroupFromCatalog,
         libraryItems,
         setNodes, // Ensure setNodes is destructured from props
-        setConfirmInfo // Add this
+        setConfirmInfo, // Add this
+        handleRenameTab,
+        activeTabId
     } = props;
 
     const dragCounter = useRef(0);
@@ -322,10 +324,20 @@ export const useCanvasEvents = (props: any) => {
                              
                              if (json.type === 'prompt-modifier-canvas' || json.type === 'prompt-modifier-project' || (Array.isArray(json.nodes) && Array.isArray(json.connections))) {
                                  if (handleLoadCanvasIntoCurrentTab) {
-                                     const performLoad = () => handleLoadCanvasIntoCurrentTab(text);
+                                     // Logic to rename based on filename
+                                     const filenameMatch = file.name.match(/^Prompt_Modifier_(.+?)_\d{4}-\d{2}-\d{2}/);
+                                     const extractedTabName = filenameMatch && filenameMatch[1] ? filenameMatch[1].replace(/_/g, ' ') : null;
+                                     const isProject = json.type === 'prompt-modifier-project';
+
+                                     const performLoad = () => {
+                                         handleLoadCanvasIntoCurrentTab(text);
+                                         // If single canvas load and filename matches pattern, rename current tab
+                                         if (!isProject && extractedTabName && handleRenameTab && activeTabId) {
+                                             handleRenameTab(activeTabId, extractedTabName);
+                                         }
+                                     };
                                      
                                      if (setConfirmInfo) {
-                                         const isProject = json.type === 'prompt-modifier-project';
                                          setConfirmInfo({
                                              title: t('dialog.confirmLoad.title'),
                                              message: t('dialog.confirmLoad.message') + (isProject ? " (Loading Project)" : ""),
@@ -464,7 +476,7 @@ export const useCanvasEvents = (props: any) => {
                  }
              });
         }
-    }, [onAddNode, handleValueChange, handleRenameNode, setFullSizeImage, getTransformedPoint, handleLoadCanvasIntoCurrentTab, setError, pasteGroup, t, handleAddGroupFromCatalog, libraryItems, setNodes, setConfirmInfo]);
+    }, [onAddNode, handleValueChange, handleRenameNode, setFullSizeImage, getTransformedPoint, handleLoadCanvasIntoCurrentTab, setError, pasteGroup, t, handleAddGroupFromCatalog, libraryItems, setNodes, setConfirmInfo, activeTabId, handleRenameTab]);
     
     return { handleDrop, handleDragOver, handleDragLeave, handleDragEnter };
 };

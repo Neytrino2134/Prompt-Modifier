@@ -128,6 +128,17 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
     }
   }, [isOpen, nodeAnimationMode, googleClientId]);
 
+  // Handler for API Key Input changes
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setApiKey(value);
+      
+      // Auto-switch to custom key mode if user types something
+      if (value && useDevKey) {
+          setUseDevKey(false);
+      }
+  };
+
   const handleSave = () => {
     localStorage.setItem('settings_userApiKey', apiKey);
     localStorage.setItem('settings_useDevKey', String(useDevKey));
@@ -269,7 +280,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                  {t('settings.group.api')}
              </h3>
              <div className="bg-gray-900/50 p-4 rounded-lg space-y-3">
-                  <div className={`space-y-2 transition-opacity duration-200 ${useDevKey ? 'opacity-80 pointer-events-none' : 'opacity-100'}`}>
+                  <div className={`space-y-2 transition-opacity duration-200`}>
                     <div className="flex justify-between">
                          <label htmlFor="apiKey" className="block text-xs font-medium text-gray-400">
                            {t('dialog.settings.apiKeyLabel')}
@@ -287,15 +298,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                       type="password"
                       id="apiKey"
                       value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder={useDevKey ? "Locked by free key" : "AIzaSy..."}
+                      onChange={handleApiKeyChange}
+                      placeholder={useDevKey ? "Using Free/Dev Key" : "AIzaSy..."}
                       className={`w-full p-2.5 rounded-md text-sm border focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none placeholder-gray-600 transition-colors
                         ${useDevKey 
                             ? 'bg-gray-800 border-gray-700 text-gray-500' 
                             : 'bg-gray-900 border-gray-600 text-white'
                         }
                       `}
-                      disabled={useDevKey}
                     />
                   </div>
 
@@ -303,7 +313,12 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                     <CustomCheckbox
                         id="useDevKey"
                         checked={useDevKey}
-                        onChange={(checked) => setUseDevKey(checked)}
+                        onChange={(checked) => {
+                             setUseDevKey(checked);
+                             // If re-enabling dev key, clear custom key input visually if needed, 
+                             // but we keep it stored in case they switch back. 
+                             // Actually, keeping it is better UX.
+                        }}
                         label={t('dialog.settings.useDevKeyLabel')}
                         className="text-sm text-gray-400"
                     />

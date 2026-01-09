@@ -72,6 +72,12 @@ export type AppContextType =
   handleRemoveGroup: (groupId: string, e: React.MouseEvent) => void;
   handleUpdateCharacterDescription: (nodeId: string, cardIndex: number) => void;
   isUpdatingDescription: string | null;
+  handleUpdateCharacterPersonality: (nodeId: string, cardIndex: number) => void;
+  isUpdatingPersonality: string | null;
+  handleUpdateCharacterAppearance: (nodeId: string, cardIndex: number) => void;
+  isUpdatingAppearance: string | null;
+  handleUpdateCharacterClothing: (nodeId: string, cardIndex: number) => void;
+  isUpdatingClothing: string | null;
   handleModifyCharacter: (nodeId: string, cardIndex: number, instruction: string) => void;
   isModifyingCharacter: string | null;
   handleSaveGroupToCatalog: (groupId: string) => void;
@@ -216,6 +222,7 @@ export type AppContextType =
   setGlobalMedia: React.Dispatch<React.SetStateAction<GlobalMediaState | null>>;
   onImageToText: (nodeId: string) => void;
   onUpdateCharacterDescription: (nodeId: string, cardIndex: number) => void;
+  onUpdateCharacterPersonality: (nodeId: string, cardIndex: number) => void;
   onModifyCharacter: (nodeId: string, cardIndex: number, instruction: string) => void;
   onGenerateImage: (nodeId: string, cardIndex?: number) => void;
 

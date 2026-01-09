@@ -62,6 +62,18 @@ interface CharacterCardItemProps {
     isUpdatingDescription: string | null;
     onUpdateDescription: () => void;
     
+    // Personality Update
+    isUpdatingPersonality: string | null;
+    onUpdatePersonality: () => void;
+
+    // Appearance Update
+    isUpdatingAppearance: string | null;
+    onUpdateAppearance: () => void;
+    
+    // Clothing Update
+    isUpdatingClothing: string | null;
+    onUpdateClothing: () => void;
+    
     transformingRatio: string | null;
     isGeneratingImage: boolean;
     isUpdatingCharacterPrompt: string | null;
@@ -78,14 +90,11 @@ const SINGLE_CARD_WIDTH = 380;
 const SUFFIX_CHAR = "Full body character concept on a gray background";
 const SUFFIX_OBJ = "Full-length conceptual object on a grey background";
 
-const CollapseToggle: React.FC<{ isCollapsed: boolean; onClick: (e: React.MouseEvent) => void }> = ({ isCollapsed, onClick }) => (
-    <button 
-        onClick={onClick}
-        className="p-0.5 rounded hover:bg-gray-600 text-gray-400 hover:text-white transition-colors focus:outline-none"
-    >
+const CollapseIndicator: React.FC<{ isCollapsed: boolean }> = ({ isCollapsed }) => (
+    <div className={`p-0.5 text-gray-400 transition-transform duration-200 flex items-center justify-center ${isCollapsed ? 'rotate-0' : 'rotate-180'}`}>
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
-            className={`h-3 w-3 transform transition-transform duration-200 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`} 
+            className="h-3 w-3" 
             fill="none" 
             viewBox="0 0 24 24" 
             stroke="currentColor" 
@@ -93,7 +102,7 @@ const CollapseToggle: React.FC<{ isCollapsed: boolean; onClick: (e: React.MouseE
         >
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
-    </button>
+    </div>
 );
 
 const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
@@ -103,6 +112,9 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
     onSyncFromConnection, onLoad, onSave, onSaveToCatalog, onCopySpecific, onPasteSpecific, onDetach, onModify,
     getFullSizeImage, setImageViewer, onCopyImageToClipboard, processNewImage,
     t, deselectAllNodes, languages, secondaryLanguage, isModifyingCharacter, isUpdatingDescription, onUpdateDescription,
+    isUpdatingPersonality, onUpdatePersonality,
+    isUpdatingAppearance, onUpdateAppearance,
+    isUpdatingClothing, onUpdateClothing,
     transformingRatio, isGeneratingImage, isUpdatingCharacterPrompt, modificationRequest, setModificationRequest,
     hasDuplicateIndex
 }) => {
@@ -193,15 +205,31 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                     />
                 </div>
 
-                {/* Collapsible Image Area */}
+                {/* Image Area with Tabs and Collapse */}
                 <div className="flex flex-col flex-shrink-0 mb-1">
                     <div 
-                        className="flex items-center justify-between bg-gray-800/50 px-2 py-1 rounded mb-1 cursor-pointer hover:bg-gray-700/50 transition-colors select-none"
-                        onClick={() => onUpdate({ isImageCollapsed: !isImageCollapsed })}
+                        className="flex items-end justify-between h-7 z-0 mb-[-1px] cursor-pointer hover:bg-gray-800/30 transition-colors rounded-t-md"
+                        onClick={(e) => { e.stopPropagation(); onUpdate({ isImageCollapsed: !isImageCollapsed }); }}
                     >
-                         <div className="flex items-center gap-2">
-                             <CollapseToggle isCollapsed={isImageCollapsed} onClick={(e) => { e.stopPropagation(); onUpdate({ isImageCollapsed: !isImageCollapsed }); }} />
-                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">IMAGE</span>
+                         <div className="flex items-end pl-2 gap-1 h-full" onClick={(e) => e.stopPropagation()}>
+                            {['1:1', '16:9', '9:16'].map(r => (
+                                <button 
+                                    key={r} 
+                                    onClick={(e) => { e.stopPropagation(); onRatioChange(r); }} 
+                                    onDragEnter={(e) => { e.stopPropagation(); onRatioChange(r); }}
+                                    className={`px-3 py-1 text-[10px] font-bold outline-none transition-colors rounded-t-md ${
+                                        char.selectedRatio === r 
+                                            ? 'bg-gray-700/50 text-white h-full shadow-none' 
+                                            : 'bg-gray-900/40 text-gray-500 h-[80%] hover:bg-gray-700/50 hover:text-gray-300'
+                                    }`}
+                                >
+                                    {r}
+                                </button>
+                            ))}
+                         </div>
+                         
+                         <div className="pb-1 pr-1">
+                             <CollapseIndicator isCollapsed={isImageCollapsed} />
                          </div>
                     </div>
                     
@@ -234,17 +262,23 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                 </div>
 
                 {/* Collapsible Prompt Section */}
-                <div className="flex flex-col gap-1 mb-2 shrink-0">
+                <div className="flex flex-col shrink-0 mb-2 border border-gray-700/50 rounded-xl bg-gray-900/20 shadow-inner overflow-hidden">
                     <div 
-                        className="flex justify-between items-center mb-0.5 cursor-pointer select-none"
-                        onClick={() => onUpdate({ isPromptCollapsed: !isPromptCollapsed })}
+                        className="px-4 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between cursor-pointer hover:bg-gray-750 transition-colors select-none"
+                        onClick={(e) => { e.stopPropagation(); onUpdate({ isPromptCollapsed: !isPromptCollapsed }); }}
                     >
-                        <div className="flex items-center gap-1.5">
-                            <CollapseToggle isCollapsed={isPromptCollapsed} onClick={(e) => { e.stopPropagation(); onUpdate({ isPromptCollapsed: !isPromptCollapsed }); }} />
-                            <span className="text-gray-400"><PromptIcon className="h-3 w-3" /></span>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{t('node.content.prompt')}</label>
+                        <div className="flex items-center gap-2">
+                            <div className={`transform transition-transform duration-200 ${isPromptCollapsed ? '-rotate-90' : ''}`}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                             <span className="text-gray-400"><PromptIcon className="h-3 w-3" /></span>
+                            <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{t('node.content.prompt')}</span>
                         </div>
+                        
                         <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                             {/* Actions (Update from Image, Copy) */}
                             <ActionButton 
                                 title={t('node.content.updatePromptFromImage')} 
                                 onClick={() => onSyncFromConnection()} 
@@ -264,18 +298,19 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                     </div>
                     
                     {!isPromptCollapsed && (
-                        <>
+                        <div className="p-2 space-y-2">
                             <textarea 
                                 value={char.prompt} 
                                 onChange={e => onUpdate({ prompt: e.target.value })} 
-                                className="w-full p-2 bg-gray-900/60 border border-gray-700 rounded text-xs text-gray-200 resize-y focus:border-accent outline-none min-h-[60px] max-h-[120px] custom-scrollbar" 
+                                className="w-full p-2 bg-gray-900/60 border border-gray-700 rounded text-xs text-gray-200 resize-y focus:border-accent outline-none min-h-[60px] max-h-[200px] custom-scrollbar" 
+                                placeholder={t('node.content.promptPlaceholder')}
                                 onMouseDown={e => e.stopPropagation()} 
                                 onFocus={deselectAllNodes} 
                             />
                             
                             {/* Additional Prompt Input */}
-                            <div className="flex flex-col gap-1 mb-1 mt-1">
-                                <div className="flex justify-between items-center">
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between items-center px-1">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{t('node.content.additionalPromptSuffix')}</label>
                                     <div className="flex gap-0.5">
                                         <Tooltip content={t('node.action.characterConcept')}>
@@ -311,8 +346,8 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                             </div>
 
                             {/* Modification Request Section */}
-                            <div className="flex flex-col gap-1 border-b border-gray-700/50 pb-3 mb-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{t('node.content.modificationRequest')}</label>
+                            <div className="flex flex-col gap-1 border-t border-gray-700/50 pt-2 mt-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter px-1">{t('node.content.modificationRequest')}</label>
                                 <div className="flex gap-2 h-[32px]">
                                     <input 
                                         value={modificationRequest} 
@@ -357,7 +392,7 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                                     </div>
                                 </div>
                             </div>
-                        </>
+                        </div>
                     )}
                 </div>
 
@@ -422,6 +457,12 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                                 onDescriptionChange={(val) => onUpdate({ fullDescription: val })}
                                 t={t}
                                 onFocus={deselectAllNodes}
+                                isUpdatingPersonality={isUpdatingPersonality === `${cardOpKey}-personality`}
+                                onUpdatePersonality={onUpdatePersonality}
+                                isUpdatingAppearance={isUpdatingAppearance === `${cardOpKey}-appearance`}
+                                onUpdateAppearance={onUpdateAppearance}
+                                isUpdatingClothing={isUpdatingClothing === `${cardOpKey}-clothing`}
+                                onUpdateClothing={onUpdateClothing}
                             />
                         </div>
                     )}

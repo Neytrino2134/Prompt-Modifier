@@ -48,6 +48,7 @@ interface OutputGalleryPanelProps {
     onReportDimensions: (frameNumber: number, width: number, height: number) => void;
     // New prop
     onClearImages?: () => void;
+    onCopyCombinedPrompt?: (frameNumber: number) => void; // New prop
 }
 
 export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
@@ -57,7 +58,7 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
     onFrameSelect, onFrameDoubleClick, onCheckFrame, onOpenRaster, onOpenAI, onReplaceImage,
     onEditPrompt, onEditInSource, readOnlyPrompt, getFullSizeImage, onSelectByAspectRatio, onSelectSceneByAspectRatio,
     onSelectAll, onSelectNone, onInvertSelection, onRunSelected, onDownloadSelected, onForceRefresh,
-    onExpandFrame, onExpandSelected, onReportDimensions, onClearImages
+    onExpandFrame, onExpandSelected, onReportDimensions, onClearImages, onCopyCombinedPrompt
 }) => {
     const framesGridRef = useRef<HTMLDivElement>(null);
     const [framesGridScrollTop, setFramesGridScrollTop] = useState(0);
@@ -358,7 +359,7 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
                                              <div className="w-px h-4 bg-gray-600 mx-1"></div>
                                              <ActionButton title={t('image_sequence.select_scene_frames')} tooltipPosition="left" onClick={(e) => { e.stopPropagation(); const framesInScene = group.prompts.map((p:any) => p.frameNumber); const newChecked = Array.from(new Set([...checkedFrameNumbers, ...framesInScene])); onUpdateState({ checkedFrameNumbers: newChecked }); }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                            </ActionButton>
+                                             </ActionButton>
                                         </div>
                                     </div>
                                 </div>
@@ -417,6 +418,7 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
                                                     onExpandFrame={onExpandFrame}
                                                     shotType={p.shotType}
                                                     onReportDimensions={onReportDimensions}
+                                                    onCopyCombinedPrompt={onCopyCombinedPrompt} // New prop
                                                 />
                                             </div>
                                         );

@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import type { Node, Tab } from '../types';
 import { GoogleGenAI, Chat } from "@google/genai";
+import { getApiKey } from '../services/geminiService'; // Import the key getter
 
 interface UseGeminiConversationProps {
     nodes: Node[];
@@ -137,7 +138,10 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
             
             if (!existingSession || existingSession.style !== style) {
                 // Initialize new session with specific persona
-                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                const apiKey = getApiKey();
+                if (!apiKey) throw new Error("API Key is missing.");
+
+                const ai = new GoogleGenAI({ apiKey });
                 const systemInstruction = PERSONAS[style] || PERSONAS['general'];
                 
                 const chat = ai.chats.create({ 

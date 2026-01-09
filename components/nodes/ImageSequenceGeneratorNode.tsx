@@ -1,6 +1,4 @@
 
-
-
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { NodeContentProps, CharacterConcept } from '../../types';
@@ -24,6 +22,8 @@ const MIN_LEFT_PANE_WIDTH = 640;
 const MIN_RIGHT_PANE_WIDTH = 660; 
 const NORMAL_CONCEPTS_HEIGHT = 390; 
 const HEADER_HEIGHT_PX = 37;
+
+const DEFAULT_INTEGRATION_INSTRUCTION = "Integrate these Entities into the scene, action and pose. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
 
 export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onLoadImageSequenceFile, onGenerateImageSequence, onGenerateSelectedFrames, onStopImageSequence, isGeneratingSequence, onRegenerateFrame, onDownloadImageFromUrl, onCopyImageToClipboard, t, deselectAllNodes, connectedCharacterData, onDetachAndPasteConcept, onDetachImageToNode, onSaveSequenceToCatalog, setError, setImageViewer, getFullSizeImage, setFullSizeImage, connectedInputs, onRefreshUpstreamData, clearImagesForNodeFromCache, getUpstreamNodeValues, addToast, onSaveScriptToDisk, viewTransform }) => {
     
@@ -53,7 +53,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         try {
             return JSON.parse(node.value || '{}');
         } catch {
-            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isSceneContextInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: '', usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {}, sceneContexts: {}, expandedSceneContexts: [] };
+            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isSceneContextInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {}, sceneContexts: {}, expandedSceneContexts: [] };
         }
     }, [node.value]);
 
@@ -67,8 +67,16 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         initialWidth = MIN_LEFT_PANE_WIDTH;
     }
 
-    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isSceneContextInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = '', usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {}, sceneContexts = {}, expandedSceneContexts = [] } = parsedValue;
+    // Default integration prompt handling if missing in JSON
+    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isSceneContextInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {}, sceneContexts = {}, expandedSceneContexts = [] } = parsedValue;
     
+    // Ensure integration prompt is set if it came in empty from older save
+    useEffect(() => {
+        if (!integrationPrompt) {
+            handleValueUpdate({ integrationPrompt: DEFAULT_INTEGRATION_INSTRUCTION });
+        }
+    }, []);
+
     // Sorted Used Characters Logic
     const sortedUsedCharacters = useMemo(() => {
         return [...usedCharacters].map((char: any, originalIndex: number) => ({
@@ -504,6 +512,63 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             if (addToast) addToast("Unlinked from source. Data copied to local.", "info");
         }
     }, [setConnections, node.id, addToast]);
+
+    const resolveCharacterConcept = (charRef: string, concepts: any[]) => {
+        if (!charRef) return null;
+        const normalize = (s: string) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+        const target = normalize(charRef);
+
+        return concepts.find((c: any) => {
+            if (c.index && normalize(c.index) === target) return true;
+            if (c.alias && normalize(c.alias) === target) return true;
+            if (c.name && normalize(c.name) === target) return true;
+            if (c.id && normalize(c.id) === target) return true;
+            return false;
+        });
+    };
+
+    const handleCopyCombinedPrompt = useCallback((frameNumber: number) => {
+        const promptItem = prompts.find((p: any) => p.frameNumber === frameNumber);
+        if (!promptItem) return;
+
+        // 1. Prefix (Integration)
+        const prefix = parsedValue.integrationPrompt || DEFAULT_INTEGRATION_INSTRUCTION;
+
+        // 2. Shot Type
+        const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : "";
+        
+        let fullPrompt = `${prefix}\n${shotInstruction}`;
+
+        // 3. Scene Context
+        if (parsedValue.isSceneContextInserted) {
+            const contextText = sceneContexts[String(promptItem.sceneNumber || 1)];
+            if (contextText && contextText.trim()) {
+                fullPrompt += `\n\n${contextText.trim()}`;
+            }
+        }
+
+        // 4. Base Prompt with Character Replacement
+        let mainPrompt = promptItem.prompt;
+        if (parsedValue.characterPromptCombination === 'replace') {
+             mainPrompt = mainPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
+                 const concept = resolveCharacterConcept(match, allConcepts);
+                 if (concept && concept.prompt) {
+                     return `${match} (${concept.prompt})`;
+                 }
+                 return match;
+            });
+        }
+        fullPrompt += `\n\n${mainPrompt}`;
+
+        // 5. Style
+        if (parsedValue.isStyleInserted && parsedValue.styleOverride) {
+            fullPrompt += `\n\n[Visual Style]: ${parsedValue.styleOverride}`;
+        }
+
+        navigator.clipboard.writeText(fullPrompt);
+        if (addToast) addToast("Combined prompt copied to clipboard", "success");
+
+    }, [prompts, parsedValue, allConcepts, sceneContexts, t, addToast]);
 
     const handleFrameDoubleClick = useCallback((frameNumber: number) => {
         // Try to get Full Res first
@@ -1173,6 +1238,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                             onUpdateSceneContext={handleUpdateSceneContext}
                             expandedSceneContexts={expandedSceneContexts}
                             onToggleSceneContext={handleToggleSceneContext}
+                            onCopyCombinedPrompt={handleCopyCombinedPrompt} // Added
                         />
                     </div>
                 )}

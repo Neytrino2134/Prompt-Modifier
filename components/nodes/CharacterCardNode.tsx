@@ -67,7 +67,18 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     onDeleteNode
 }) => {
     const context = useAppContext();
-    const { setNodes, setSelectedNodeIds, handleUpdateCharacterPromptFromImage, isUpdatingCharacterPrompt } = context || {};
+    const { 
+        setNodes, 
+        setSelectedNodeIds, 
+        handleUpdateCharacterPromptFromImage, 
+        isUpdatingCharacterPrompt, 
+        handleUpdateCharacterPersonality, 
+        isUpdatingPersonality,
+        handleUpdateCharacterAppearance,
+        isUpdatingAppearance,
+        handleUpdateCharacterClothing,
+        isUpdatingClothing
+    } = context || {};
     const addNode = onAddNode || context?.onAddNode;
     const deleteNode = onDeleteNode || context?.deleteNodeAndConnections;
 
@@ -651,6 +662,27 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             handleUpdateCharacterPromptFromImage(node.id, cardIdx);
         }
     };
+    
+    // NEW: Handle Personality Update
+    const handleUpdatePersonalityRequest = (cardIdx: number) => {
+        if (handleUpdateCharacterPersonality) {
+            handleUpdateCharacterPersonality(node.id, cardIdx);
+        }
+    };
+
+    // NEW: Handle Appearance Update
+    const handleUpdateAppearanceRequest = (cardIdx: number) => {
+        if (handleUpdateCharacterAppearance) {
+            handleUpdateCharacterAppearance(node.id, cardIdx);
+        }
+    };
+
+    // NEW: Handle Clothing Update
+    const handleUpdateClothingRequest = (cardIdx: number) => {
+        if (handleUpdateCharacterClothing) {
+            handleUpdateCharacterClothing(node.id, cardIdx);
+        }
+    };
 
     const handleOpenInEditor = (cardIdx: number) => {
         const char = characters[cardIdx];
@@ -818,6 +850,16 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         isUpdatingDescription={isUpdatingDescription}
                         onUpdateDescription={() => onUpdateCharacterDescription && onUpdateCharacterDescription(node.id, idx)}
                         
+                        // Pass new personality update handler
+                        isUpdatingPersonality={isUpdatingPersonality}
+                        onUpdatePersonality={() => handleUpdatePersonalityRequest(idx)}
+
+                        // Pass new appearance/clothing handlers
+                        isUpdatingAppearance={isUpdatingAppearance}
+                        onUpdateAppearance={() => handleUpdateAppearanceRequest(idx)}
+                        isUpdatingClothing={isUpdatingClothing}
+                        onUpdateClothing={() => handleUpdateClothingRequest(idx)}
+
                         transformingRatio={transformingRatio}
                         isGeneratingImage={isGeneratingImage}
                         isUpdatingCharacterPrompt={isUpdatingCharacterPrompt}

@@ -1,9 +1,8 @@
 
-
 /* Fix: Added missing React import to resolve namespace errors */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NodeType, type Node, type Tab, type ActiveOperation, type ToastType } from '../types';
-import { enhancePrompt, enhanceVideoPrompt, translateText, generateScript, generateCharacters, sanitizePrompt, translateScript, modifyPromptSequence, updateCharacterDescription, modifyCharacter, extractTextFromImage } from '../services/geminiService';
+import { enhancePrompt, enhanceVideoPrompt, translateText, generateScript, generateCharacters, sanitizePrompt, translateScript, modifyPromptSequence, updateCharacterDescription, modifyCharacter, extractTextFromImage, updateCharacterPersonality, updateCharacterSection } from '../services/geminiService';
 import { languages } from '../localization';
 
 interface UseGeminiModificationProps {
@@ -30,6 +29,9 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
     const [isGeneratingCharacters, setIsGeneratingCharacters] = useState<string | null>(null);
     const [isModifyingPromptSequence, setIsModifyingPromptSequence] = useState<string | null>(null);
     const [isUpdatingDescription, setIsUpdatingDescription] = useState<string | null>(null);
+    const [isUpdatingPersonality, setIsUpdatingPersonality] = useState<string | null>(null);
+    const [isUpdatingAppearance, setIsUpdatingAppearance] = useState<string | null>(null);
+    const [isUpdatingClothing, setIsUpdatingClothing] = useState<string | null>(null);
     const [isModifyingCharacter, setIsModifyingCharacter] = useState<string | null>(null);
     const [isStopping, setIsStopping] = useState(false);
     const charGenAbortController = useRef<AbortController | null>(null);
@@ -181,8 +183,9 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
                      // Perform OCR
                      const extractedText = await extractTextFromImage(base64, mime);
                      if (extractedText && extractedText !== "No text found") {
-                         // Update source text with extracted
                          textToTranslate = extractedText;
+                         // Update parsed input text to reflect what was extracted
+                         initialParsed.inputText = extractedText;
                      }
                  }
             }
@@ -439,6 +442,136 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
         }
     }, [nodes, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, addToast]);
 
+    const handleUpdateCharacterSection = useCallback(async (nodeId: string, cardIndex: number, sectionName: string, stateSetter: React.Dispatch<React.SetStateAction<string | null>>) => {
+        const currentTabId = activeTabIdRef.current;
+        const opKey = `${nodeId}-${cardIndex}-${sectionName}`;
+        stateSetter(opKey);
+        setError(null);
+        registerOperation({ id: opKey, type: 'generation', description: t('node.content.enhancing'), tabId: activeTabId, tabName: activeTabName });
+
+        try {
+            const node = nodes.find(n => n.id === nodeId);
+            if (!node) return;
+            const parsedArray = JSON.parse(node.value || '[]');
+            const characters = Array.isArray(parsedArray) ? parsedArray : [parsedArray];
+            const charData = characters[cardIndex];
+            
+            if (!charData) throw new Error("Character card not found at specified index.");
+
+            const imagePrompt = charData.prompt;
+            if (!imagePrompt) throw new Error("Image prompt required for update.");
+            
+            const currentFullDescription = charData.fullDescription || '';
+            const langCode = charData.targetLanguage || (localStorage.getItem('settings_secondaryLanguage') || 'en');
+            const targetLanguageName = (languages as any)[langCode]?.name || 'English';
+
+            // Extract Current Section
+            // Regex tailored to match both localized and English headers
+            const sectionRegex = new RegExp(`####\\s*(${sectionName}|${t(`node.content.${sectionName.toLowerCase()}` as any)})\\s*([\\s\\S]*?)(?=####|$)`, 'i');
+            const match = sectionRegex.exec(currentFullDescription);
+            const currentSectionText = match ? match[2].trim() : '';
+
+            const updatedSectionText = await updateCharacterSection(sectionName, imagePrompt, currentSectionText, targetLanguageName);
+
+            // Replace in full description
+            let newFullDescription = currentFullDescription;
+            if (match) {
+                 const fullMatch = match[0];
+                 const header = match[1]; 
+                 const newSection = `#### ${header}\n${updatedSectionText}\n`;
+                 newFullDescription = currentFullDescription.replace(fullMatch, newSection);
+            } else {
+                 // Append if not found
+                 // Use localized header if available
+                 const headerName = t(`node.content.${sectionName.toLowerCase()}` as any) || sectionName;
+                 newFullDescription += `\n\n#### ${headerName}\n${updatedSectionText}`;
+            }
+            
+            updateNodeInStorage(currentTabId, nodeId, (prev) => {
+                const next = Array.isArray(prev) ? [...prev] : [prev];
+                if (next[cardIndex]) {
+                    next[cardIndex] = { ...next[cardIndex], fullDescription: newFullDescription };
+                }
+                return next;
+            });
+            
+            addToast(`${sectionName} updated successfully`, "success");
+
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            stateSetter(null);
+            unregisterOperation(opKey);
+        }
+    }, [nodes, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, addToast]);
+
+    const handleUpdateCharacterAppearance = useCallback((nodeId: string, cardIndex: number) => {
+        handleUpdateCharacterSection(nodeId, cardIndex, 'Appearance', setIsUpdatingAppearance);
+    }, [handleUpdateCharacterSection]);
+
+    const handleUpdateCharacterClothing = useCallback((nodeId: string, cardIndex: number) => {
+        handleUpdateCharacterSection(nodeId, cardIndex, 'Clothing', setIsUpdatingClothing);
+    }, [handleUpdateCharacterSection]);
+
+    const handleUpdateCharacterPersonality = useCallback(async (nodeId: string, cardIndex: number) => {
+        const currentTabId = activeTabIdRef.current;
+        const opKey = `${nodeId}-${cardIndex}-personality`;
+        setIsUpdatingPersonality(opKey);
+        setError(null);
+        registerOperation({ id: opKey, type: 'generation', description: t('node.content.enhancing'), tabId: activeTabId, tabName: activeTabName });
+
+        try {
+            const node = nodes.find(n => n.id === nodeId);
+            if (!node) return;
+            const parsedArray = JSON.parse(node.value || '[]');
+            const characters = Array.isArray(parsedArray) ? parsedArray : [parsedArray];
+            const charData = characters[cardIndex];
+            
+            if (!charData) throw new Error("Character card not found at specified index.");
+
+            const currentFullDescription = charData.fullDescription || '';
+            const langCode = charData.targetLanguage || (localStorage.getItem('settings_secondaryLanguage') || 'en');
+            const targetLanguageName = (languages as any)[langCode]?.name || 'English';
+
+            // Extract Personality Section manually as we don't have the helper here
+            // Simple regex for "#### Personality" (or localized) until next header
+            const personalityRegex = /####\s*(Personality|Личность|Характер|Personalidad)\s*([\s\S]*?)(?=####|$)/i;
+            const match = personalityRegex.exec(currentFullDescription);
+            const currentPersonality = match ? match[2].trim() : '';
+
+            if (!currentPersonality) throw new Error("Personality section is empty or not found.");
+
+            const updatedPersonality = await updateCharacterPersonality(currentPersonality, targetLanguageName);
+
+            // Replace in full description
+            let newFullDescription = currentFullDescription;
+            if (match) {
+                 const fullMatch = match[0];
+                 const header = match[1]; // Keep original header language
+                 const newSection = `#### ${header}\n${updatedPersonality}\n`;
+                 newFullDescription = currentFullDescription.replace(fullMatch, newSection);
+            } else {
+                 newFullDescription += `\n\n#### Personality\n${updatedPersonality}`;
+            }
+            
+            updateNodeInStorage(currentTabId, nodeId, (prev) => {
+                const next = Array.isArray(prev) ? [...prev] : [prev];
+                if (next[cardIndex]) {
+                    next[cardIndex] = { ...next[cardIndex], fullDescription: newFullDescription };
+                }
+                return next;
+            });
+            
+            addToast("Personality updated successfully", "success");
+
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setIsUpdatingPersonality(null);
+            unregisterOperation(opKey);
+        }
+    }, [nodes, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, addToast]);
+
     const handleModifyCharacter = useCallback(async (nodeId: string, cardIndex: number, instruction: string) => {
         const currentTabId = activeTabIdRef.current;
         const opKey = `${nodeId}-${cardIndex}`;
@@ -494,6 +627,9 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
         isGeneratingCharacters,
         isModifyingPromptSequence,
         isUpdatingDescription,
+        isUpdatingPersonality,
+        isUpdatingAppearance,
+        isUpdatingClothing,
         isModifyingCharacter,
         handleEnhance,
         handleEnhanceVideo,
@@ -504,6 +640,9 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
         handleGenerateCharacters,
         onModifyPromptSequence,
         handleUpdateCharacterDescription,
+        handleUpdateCharacterPersonality,
+        handleUpdateCharacterAppearance,
+        handleUpdateCharacterClothing,
         handleModifyCharacter,
         isStopping,
         handleStopGeneration

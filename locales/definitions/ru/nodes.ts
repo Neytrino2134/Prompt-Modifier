@@ -1,9 +1,4 @@
 
-
-
-
-
-
 export const nodes = {
     'node.title.text_input': 'Текстовый узел',
     'node.title.image_input': 'Узел изображения',
@@ -98,6 +93,9 @@ export const nodes = {
     'node.action.pin': 'Закрепить узел сверху',
     'node.action.unpin': 'Открепить узел',
     'node.action.updateDescription': 'Обновить описание из промпта',
+    'node.action.updatePersonality': 'Обновить личность',
+    'node.action.updateAppearance': 'Обновить внешность из промпта',
+    'node.action.updateClothing': 'Обновить одежду из промпта',
     'node.action.modifyCharacter': 'Запросить изменения',
     'node.action.updateDataFormat': 'Обновить формат данных',
     'node.action.expand169': 'Расширить до 16:9',
@@ -131,6 +129,7 @@ export const nodes = {
     'node.content.metadataPromptPlaceholder': 'Промпт в изображении не найден.',
     'node.content.copyPrompt': 'Исп.',
     'node.content.prompt': 'Промпт',
+    'node.content.promptPlaceholder': 'Введите промпт для генерации изображения...',
     'node.content.inputPrompt': 'Входной промпт',
     'node.content.enhancedResult': 'Обработанный результат',
     'node.content.videoPrompt': 'Video Prompt',
@@ -163,7 +162,9 @@ export const nodes = {
     'node.content.characterPlaceholder': 'Описание персонажа появится здесь...',
     'node.content.clothingPlaceholder': 'Описание одежды появится здесь...',
     'node.content.appearance': 'Внешность',
+    'node.content.appearancePlaceholder': 'Опишите физические черты персонажа...',
     'node.content.personality': 'Личность',
+    'node.content.personalityPlaceholder': 'Опишите характер или введите запрос на изменение...',
     'node.content.environment': 'Окружение/Сеттинг',
     'node.content.action': 'Действие',
     'node.content.emotion': 'Эмоция',

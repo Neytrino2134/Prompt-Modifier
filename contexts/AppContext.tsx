@@ -318,7 +318,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         connectingInfo: interactionHook.connectingInfo,
         setFullSizeImage,
         t,
-        handleAddGroupFromCatalog: orchestrationHook.handleAddGroupFromCatalog
+        handleAddGroupFromCatalog: orchestrationHook.handleAddGroupFromCatalog,
+        activeTabId: activeTabId,
+        handleRenameTab: handleRenameTab
     });
     
     const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
@@ -424,6 +426,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
             handleUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
             isUpdatingDescription: geminiModificationHook.isUpdatingDescription,
+            onUpdateCharacterPersonality: geminiModificationHook.handleUpdateCharacterPersonality,
+            handleUpdateCharacterPersonality: geminiModificationHook.handleUpdateCharacterPersonality,
+            isUpdatingPersonality: geminiModificationHook.isUpdatingPersonality,
+            onUpdateCharacterAppearance: geminiModificationHook.handleUpdateCharacterAppearance,
+            handleUpdateCharacterAppearance: geminiModificationHook.handleUpdateCharacterAppearance,
+            isUpdatingAppearance: geminiModificationHook.isUpdatingAppearance,
+            onUpdateCharacterClothing: geminiModificationHook.handleUpdateCharacterClothing,
+            handleUpdateCharacterClothing: geminiModificationHook.handleUpdateCharacterClothing,
+            isUpdatingClothing: geminiModificationHook.isUpdatingClothing,
             onModifyCharacter: geminiModificationHook.handleModifyCharacter,
             handleModifyCharacter: geminiModificationHook.handleModifyCharacter,
             isModifyingCharacter: geminiModificationHook.isModifyingCharacter,
@@ -441,7 +452,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,
         handleResetCanvas, resetCanvasToDefault, nodesHook.handleToggleNodeHandles, nodesHook.handleClearNodeNewFlag,
-        geminiAnalysisHook.handleUpdateCharacterPromptFromImage, geminiAnalysisHook.isUpdatingCharacterPrompt
+        geminiAnalysisHook.handleUpdateCharacterPromptFromImage, geminiAnalysisHook.isUpdatingCharacterPrompt,
+        geminiModificationHook.handleUpdateCharacterPersonality, geminiModificationHook.isUpdatingPersonality,
+        geminiModificationHook.handleUpdateCharacterAppearance, geminiModificationHook.isUpdatingAppearance,
+        geminiModificationHook.handleUpdateCharacterClothing, geminiModificationHook.isUpdatingClothing
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

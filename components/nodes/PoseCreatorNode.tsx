@@ -6,6 +6,7 @@ import CustomSelect from '../CustomSelect';
 import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../icons/AppIcons';
 import { GoogleGenAI, Type } from "@google/genai";
+import { getApiKey } from '../../services/geminiService'; // Import the key getter
 
 export const PoseCreatorNode: React.FC<NodeContentProps> = ({ 
     node, 
@@ -62,7 +63,10 @@ export const PoseCreatorNode: React.FC<NodeContentProps> = ({
         
         setIsGeneratingAI(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = getApiKey();
+            if (!apiKey) throw new Error("API Key is missing. Please check settings.");
+
+            const ai = new GoogleGenAI({ apiKey });
             const response = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
                 contents: `Generate a 2D character pose for the following description: "${state.aiPrompt}".
@@ -96,7 +100,7 @@ export const PoseCreatorNode: React.FC<NodeContentProps> = ({
                 }
             });
 
-            const result = JSON.parse(response.text);
+            const result = JSON.parse(response.text || '{}');
             if (result.joints && Array.isArray(result.joints)) {
                 // Merge AI coordinates with original metadata (colors, names) to maintain rig stability
                 const newJoints = joints.map(original => {

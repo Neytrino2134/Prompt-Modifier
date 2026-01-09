@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, GenerateContentResponse, Modality, Type } from "@google/genai";
 
-const getApiKey = () => {
+export const getApiKey = () => {
   const useDevKey = localStorage.getItem('settings_useDevKey') === 'true';
   const userKey = localStorage.getItem('settings_userApiKey');
   
@@ -289,14 +289,18 @@ export const updateCharacterDescription = async (imagePrompt: string, currentFul
     2. Current Description: A full markdown-formatted description of the character.
 
     GOAL:
-    Rewrite the "Appearance" (Внешность/Apariencia) and "Clothing" (Одежда/Ropa) sections of the description to match the details found in the Image Prompt.
-    KEEP the "Personality" (Личность/Характер/Personalidad) section identical to the original.
+    1. Rewrite the "Appearance" and "Clothing" sections of the description to match the details found in the Image Prompt.
+    2. The "Personality" section must be preserved in meaning but TRANSLATED to ${targetLanguageName}.
+    
+    CRITICAL REQUIREMENT:
+    The entire output (headers AND content) MUST be in the target language: ${targetLanguageName}.
+    If the current description is in a different language, translate everything to ${targetLanguageName}.
     
     OUTPUT FORMAT:
     The output must be a single string in Markdown format, using the following headers in ${targetLanguageName}:
-    - #### Appearance (or translated version)
-    - #### Personality (or translated version)
-    - #### Clothing (or translated version)
+    - #### Appearance (translated header)
+    - #### Personality (translated header)
+    - #### Clothing (translated header)
 
     Output ONLY the updated description text.`;
 
@@ -321,6 +325,77 @@ export const updateCharacterDescription = async (imagePrompt: string, currentFul
       throw error;
     }
   });
+};
+
+export const updateCharacterSection = async (sectionName: string, imagePrompt: string, currentText: string, targetLanguageName: string): Promise<string> => {
+    return callWithRetry(async () => {
+        const ai = createAIClient();
+        
+        const systemInstruction = `You are a creative writer and character designer. 
+        Your task is to generate or rewrite the "${sectionName}" section of a character description based on an image generation prompt.
+        
+        INPUTS:
+        1. Image Prompt: Visual details of the character.
+        2. Current Section Text: The existing text for this section (if any).
+        
+        GOAL:
+        - Analyze the Image Prompt to extract details relevant to "${sectionName}" (e.g. physical features for Appearance, outfit for Clothing).
+        - Rewrite the section text to be descriptive, cohesive, and aligned with the visual prompt.
+        - Output strictly in the target language: ${targetLanguageName}.
+        
+        Output ONLY the new text for the section. Do not include headers.`;
+
+        const contents = `IMAGE PROMPT:
+        ${imagePrompt}
+        
+        CURRENT SECTION TEXT:
+        ${currentText}`;
+
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents,
+                config: { systemInstruction },
+            });
+            return response.text || "";
+        } catch (error: any) {
+            console.error(`Error updating character ${sectionName}:`, error);
+            throw error;
+        }
+    });
+};
+
+export const updateCharacterPersonality = async (currentPersonality: string, targetLanguageName: string): Promise<string> => {
+    return callWithRetry(async () => {
+        const ai = createAIClient();
+        
+        const systemInstruction = `You are a creative writer and character designer. 
+        Your task is to rewrite or improve the provided character personality description.
+        The input may contain the current personality text AND a user request for changes mixed together.
+        
+        GOAL:
+        1. Extract the core personality traits and the user's modification request (if any).
+        2. Rewrite the personality description to incorporate the requested changes or simply improve the writing style if no specific change is requested.
+        3. The output should be a cohesive, well-written paragraph describing the character's personality.
+        4. Output strictly in the target language: ${targetLanguageName}.
+        
+        Output ONLY the new personality text. Do not include headers.`;
+
+        const contents = `Current Personality / Request:
+        ${currentPersonality}`;
+
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents,
+                config: { systemInstruction },
+            });
+            return response.text || "";
+        } catch (error: any) {
+            console.error("Error updating character personality:", error);
+            throw error;
+        }
+    });
 };
 
 export const modifyCharacter = async (instruction: string, currentPrompt: string, currentDescription: string, targetLanguageName: string): Promise<{ newPrompt: string, newDescription: string }> => {

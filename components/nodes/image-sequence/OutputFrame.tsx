@@ -23,6 +23,7 @@ const AspectRatioIcon: React.FC<{ width: number; height: number }> = ({ width, h
     return (
         <div className="flex items-center justify-center w-6 h-6" title={title}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                 <path d="MiconPath" />
                  <path d={iconPath} />
             </svg>
         </div>
@@ -65,9 +66,10 @@ interface OutputFrameProps {
   onExpandFrame?: (frameNumber: number, ratio: string) => void;
   shotType?: string;
   onReportDimensions?: (frameNumber: number, width: number, height: number) => void;
+  onCopyCombinedPrompt?: (frameNumber: number) => void; // New prop
 }
 
-export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, frameNumber, imageUrl, fullSizeImageUrl, status, isSelected, onSelect, onDoubleClick, onRegenerate, onDownload, onCopy, onCopyTextPrompt, onCopyVideo, onStop, isGeneratingSequence, isAnyGenerationInProgress, t, isChecked, onCheck, prompt, videoPrompt, onOpenRaster, onOpenAI, onReplaceImage, onEditPrompt, readOnlyPrompt, onEditInSource, characterIndices, onExpandFrame, shotType, onReportDimensions }) => {
+export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, frameNumber, imageUrl, fullSizeImageUrl, status, isSelected, onSelect, onDoubleClick, onRegenerate, onDownload, onCopy, onCopyTextPrompt, onCopyVideo, onStop, isGeneratingSequence, isAnyGenerationInProgress, t, isChecked, onCheck, prompt, videoPrompt, onOpenRaster, onOpenAI, onReplaceImage, onEditPrompt, readOnlyPrompt, onEditInSource, characterIndices, onExpandFrame, shotType, onReportDimensions, onCopyCombinedPrompt }) => {
     const statusClasses = {
         idle: 'bg-gray-800',
         pending: 'bg-gray-700/50',
@@ -263,6 +265,23 @@ export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, fram
                                 </svg>
                             </ActionButton>
                         )}
+                        
+                        {/* New Combined Prompt Copy Button */}
+                        {onCopyCombinedPrompt && (
+                             <ActionButton 
+                                title="Copy Combined Prompt" 
+                                tooltipPosition="bottom" 
+                                tooltipAlign="center" 
+                                onClick={(e) => { e.stopPropagation(); onCopyCombinedPrompt(frameNumber); }} 
+                                className={commonButtonClass}
+                             >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-400 group-hover:text-orange-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                            </ActionButton>
+                        )}
+
                         <ActionButton title={t('node.action.copyImagePrompt')} tooltipPosition="bottom" tooltipAlign="center" onClick={(e) => { e.stopPropagation(); onCopyTextPrompt(prompt); }} className={commonButtonClass}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         </ActionButton>
