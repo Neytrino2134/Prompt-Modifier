@@ -45,12 +45,13 @@ interface PromptCardProps {
     onEditInSource?: (frameNumber: number) => void;
     onEditPrompt?: (frameNumber: number) => void;
     showVideoPrompts?: boolean;
-    showSceneInfo?: boolean; 
+    showSceneInfo?: boolean;
+    onCopyCombinedPrompt?: (frameNumber: number) => void; // New prop
 }
 
 const SHOT_OPTIONS = ['WS', 'MS', 'CU', 'ECU', 'LS'];
 
-export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameNumber, sceneNumber, prompt, videoPrompt, shotType, characters, duration, isSelected, isCollapsed, onToggleCollapse, onSelect, onChange, onDelete, onAddAfter, onCopy, onCopyVideo, onMoveUp, onMoveDown, onMoveToSource, onMoveToStart, onMoveToEnd, isFirst, isLast, t, readOnly = false, isChecked, onCheck, isModified, style, onRegenerate, isAnyGenerationInProgress, maxCharacters, onEditInSource, onEditPrompt, showVideoPrompts = true, showSceneInfo = true }) => {
+export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameNumber, sceneNumber, prompt, videoPrompt, shotType, characters, duration, isSelected, isCollapsed, onToggleCollapse, onSelect, onChange, onDelete, onAddAfter, onCopy, onCopyVideo, onMoveUp, onMoveDown, onMoveToSource, onMoveToStart, onMoveToEnd, isFirst, isLast, t, readOnly = false, isChecked, onCheck, style, onEditInSource, onEditPrompt, showVideoPrompts = true, showSceneInfo = true, onCopyCombinedPrompt }) => {
     
     const handleUpdateCharacter = useCallback((charIndexInArray: number, newCharNumber: number) => {
         if (readOnly || newCharNumber < 1) return;
@@ -148,7 +149,7 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
     // Updated title: Scene number removed, ShotType added if present
     const title = `FRAME-${frameIndexStr}${shotType ? `, [${shotType}]` : ''}`;
 
-    const shotInstruction = shotType ? t(`image_sequence.shot_type.${shotType}` as any) : undefined;
+    const shotInstruction = shotType ? SHOT_TYPE_INSTRUCTIONS[shotType] : undefined;
 
     return (
         <div
@@ -271,6 +272,21 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                         <ActionButton tooltipPosition="left" title="Add Frame After" onClick={(e) => { e.stopPropagation(); onAddAfter(frameNumber); }} className="p-1 rounded-md text-[#dad5cf] hover:bg-gray-600 hover:text-white transition-colors focus:outline-none">
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                        </ActionButton>
+                    )}
+
+                    {onCopyCombinedPrompt && (
+                         <ActionButton 
+                            title="Copy Combined Prompt" 
+                            tooltipPosition="bottom" 
+                            tooltipAlign="center" 
+                            onClick={(e) => { e.stopPropagation(); onCopyCombinedPrompt(frameNumber); }} 
+                            className="p-1 rounded-md text-[#dad5cf] hover:bg-gray-600 hover:text-white transition-colors focus:outline-none"
+                         >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-400 hover:text-orange-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                             </svg>
                         </ActionButton>
                     )}

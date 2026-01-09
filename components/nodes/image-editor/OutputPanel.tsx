@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ActionButton } from '../../ActionButton';
 import CustomSelect from '../../CustomSelect';
@@ -545,7 +547,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             <div className="flex-shrink-0 flex items-center gap-2 mt-2 pt-2 border-t border-gray-700/50">
                 {/* Model Switch Toggle (Flash / Pro) */}
                 <div className="flex bg-gray-700 rounded-md p-1 space-x-1 h-[36px] flex-shrink-0">
-                     <Tooltip content="Gemini 2.5 image (Nano banana)" className="h-full">
+                     <Tooltip content="Gemini 2.5 Flash Image (Nano Banana)" className="h-full">
                          <button 
                              onClick={() => onUpdateState({ model: 'gemini-2.5-flash-image' })}
                              disabled={isEditing}
@@ -554,7 +556,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                              Flash
                          </button>
                      </Tooltip>
-                     <Tooltip content="Gemini 3.0 image (Nano banana pro)" className="h-full">
+                     <Tooltip content="Gemini 3.0 Image (Nano Banana Pro)" className="h-full">
                          <button 
                              onClick={() => onUpdateState({ model: 'gemini-3-pro-image-preview' })}
                              disabled={isEditing}

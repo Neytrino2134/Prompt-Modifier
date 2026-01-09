@@ -126,14 +126,20 @@ export const useConnectionHandling = ({
                         const fromType = connectingInfo.fromType;
                         if (fromType === 'image') {
                             let isSeqCombo = false;
+                            let isSeqEditPrompts = false;
                             let topPaneHeight = 330;
                             try {
                                 const val = JSON.parse(targetNode.value || '{}');
                                 isSeqCombo = val.isSequenceMode && val.isSequentialCombinationMode;
+                                isSeqEditPrompts = val.isSequenceMode && val.isSequentialEditingWithPrompts;
                                 if (val.topPaneHeight) topPaneHeight = val.topPaneHeight;
                             } catch {}
 
-                            if (isSeqCombo) {
+                            if (isSeqEditPrompts) {
+                                // In Sequential Editing with Prompts, input A is ignored, B is mandatory.
+                                targetHandleId = 'image_b';
+                                isValid = true;
+                            } else if (isSeqCombo) {
                                 const HEADER_HEIGHT = 40; const CONTENT_PADDING = 12;
                                 const realImageSectionTop = HEADER_HEIGHT + CONTENT_PADDING;
                                 const yA = targetNode.position.y + realImageSectionTop + (topPaneHeight * 0.25);

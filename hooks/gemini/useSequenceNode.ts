@@ -175,6 +175,15 @@ export const useSequenceNode = ({
 
                     // 2. Construct Prompt
                     let fullPrompt = promptItem.prompt;
+
+                    // Insert Scene Context (If enabled and exists) - Moved outside of imagesToSend check
+                    if (isSceneContextInserted) {
+                        const sceneNum = promptItem.sceneNumber || 1;
+                        const contextText = sceneContexts[String(sceneNum)];
+                        if (contextText && contextText.trim()) {
+                            fullPrompt = `${contextText.trim()}\n\n${fullPrompt}`;
+                        }
+                    }
                     
                     if (imagesToSend.length > 0) {
                         // Use localized Shot Type instruction
@@ -182,15 +191,6 @@ export const useSequenceNode = ({
                         // Prefix (Integration Instruction) is placed at the beginning as requested
                         fullPrompt = `${prefix}\n${shotInstruction}\n\n${fullPrompt}`;
                         
-                        // Insert Scene Context (If enabled and exists)
-                        if (isSceneContextInserted) {
-                            const sceneNum = promptItem.sceneNumber || 1;
-                            const contextText = sceneContexts[String(sceneNum)];
-                            if (contextText && contextText.trim()) {
-                                fullPrompt = `${contextText.trim()}\n\n${fullPrompt}`;
-                            }
-                        }
-
                         // Replace Tags Logic - Applied only if images (characters) are present
                         if (parsed.characterPromptCombination === 'replace') {
                             fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
@@ -290,7 +290,7 @@ export const useSequenceNode = ({
             const isStyleInserted = parsed.isStyleInserted !== false;
             const isSceneContextInserted = parsed.isSceneContextInserted !== false; // Default true
             const sceneContexts = parsed.sceneContexts || {};
-            const prefix = parsed.integrationPrompt || "Integrate these Entities into the scene and action. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
+            const prefix = parsed.integrationPrompt || "Integrate these Entities into the scene, action and pose. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
 
             updateNodeInStorage(currentTabId, nodeId, (prev) => {
                 const newStatuses = { ...(prev.frameStatuses || {}) };
@@ -339,21 +339,21 @@ export const useSequenceNode = ({
                     }
 
                     let fullPrompt = promptItem.prompt;
+
+                    // Insert Scene Context (Moved outside image check)
+                    if (isSceneContextInserted) {
+                        const sceneNum = promptItem.sceneNumber || 1;
+                        const contextText = sceneContexts[String(sceneNum)];
+                        if (contextText && contextText.trim()) {
+                            fullPrompt = `${contextText.trim()}\n\n${fullPrompt}`;
+                        }
+                    }
                     
                     if (imagesToSend.length > 0) {
                         const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : "";
                         // Prefix (Integration Instruction) is placed at the beginning as requested
                         fullPrompt = `${prefix}\n${shotInstruction}\n\n${fullPrompt}`;
                         
-                        // Insert Scene Context (If enabled and exists)
-                        if (isSceneContextInserted) {
-                            const sceneNum = promptItem.sceneNumber || 1;
-                            const contextText = sceneContexts[String(sceneNum)];
-                            if (contextText && contextText.trim()) {
-                                fullPrompt = `${contextText.trim()}\n\n${fullPrompt}`;
-                            }
-                        }
-
                         // Replace Tags Logic - Applied only if images (characters) are present
                         if (parsed.characterPromptCombination === 'replace') {
                             fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {

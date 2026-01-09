@@ -4,6 +4,7 @@ import { ActionButton } from '../../ActionButton';
 import { OutputFrame } from './OutputFrame';
 import { GRID_ITEM_WIDTH, GRID_ITEM_HEIGHT, GRID_GAP } from './Constants';
 import { InputWithSpinners } from './SharedUI';
+import { CustomCheckbox } from '../../CustomCheckbox';
 
 interface OutputGalleryPanelProps {
     prompts: any[];
@@ -199,6 +200,35 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
         }
     };
 
+    // Toggle Scene Selection (Select All Frames in Scene / Deselect All)
+    const handleToggleSceneSelection = (sceneNum: number) => {
+        const group = groupedPrompts.find(g => g.scene === sceneNum);
+        if (!group) return;
+        const sceneFrameIds = group.prompts.map((p: any) => p.frameNumber);
+        
+        // Check if all frames in this scene are currently selected
+        const allSelected = sceneFrameIds.every(id => checkedFrameNumbers.includes(id));
+        
+        let newChecked;
+        if (allSelected) {
+            // Deselect all frames in this scene
+            newChecked = checkedFrameNumbers.filter(id => !sceneFrameIds.includes(id));
+        } else {
+            // Add all frames in this scene to selection (preserve existing non-scene selections)
+            newChecked = [...new Set([...checkedFrameNumbers, ...sceneFrameIds])];
+        }
+        
+        onUpdateState({ checkedFrameNumbers: newChecked });
+    };
+
+    // Helper to check if ALL frames in a scene are selected
+    const isSceneFullySelected = (sceneNum: number) => {
+        const group = groupedPrompts.find(g => g.scene === sceneNum);
+        if (!group) return false;
+        if (group.prompts.length === 0) return false;
+        return group.prompts.every((p: any) => checkedFrameNumbers.includes(p.frameNumber));
+    };
+
     return (
         <div className="flex-grow flex flex-col space-y-2 min-h-0 pl-1">
              <div className="flex justify-between items-center flex-shrink-0 bg-gray-900/50 p-1 rounded-md border border-gray-700 mb-1">
@@ -206,12 +236,15 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
                      <h3 className="text-sm font-bold text-gray-300 flex-shrink-0">{t('image_sequence.output_images_title')}</h3>
                      <div className="text-[10px] text-gray-400 flex space-x-2 border-l border-gray-600 pl-3">
                          <span>{t('image_sequence.stats.total', { count: totalFrames })}</span>
-                         <span className={generatedFrames > 0 ? "text-cyan-400" : ""}>{t('image_sequence.stats.generated', { count: generatedFrames })}</span>
-                         {queueCount > 0 && <span className="text-cyan-400 animate-pulse">{t('image_sequence.stats.queue', { count: queueCount })}</span>}
+                         {/* Updated to text-accent */}
+                         <span className={generatedFrames > 0 ? "text-accent" : ""}>{t('image_sequence.stats.generated', { count: generatedFrames })}</span>
+                         {/* Updated to text-accent */}
+                         {queueCount > 0 && <span className="text-accent animate-pulse">{t('image_sequence.stats.queue', { count: queueCount })}</span>}
                     </div>
                 </div>
                 <ActionButton title={t('image_sequence.force_refresh')} onClick={onForceRefresh}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    {/* Updated to text-accent */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                 </ActionButton>
@@ -226,7 +259,9 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
                         <span className="text-[10px] text-gray-400 pr-1 whitespace-nowrap">{t('image_sequence.range_to')}</span>
                         <InputWithSpinners value={rangeEnd} placeholder="Last" onChange={setRangeEnd} min={1} className="w-12 border-none" />
                         <ActionButton title={t('image_sequence.select_range')} onClick={(e) => { e.stopPropagation(); handleSelectRange(); }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
                         </ActionButton>
                     </div>
 
@@ -350,16 +385,18 @@ export const OutputGalleryPanel: React.FC<OutputGalleryPanelProps> = ({
                                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
 
                                              <ActionButton title="Focus Scene (Collapse others)" tooltipPosition="left" onClick={(e) => { e.stopPropagation(); handleSelectSpecificScene(group.scene); }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-500 hover:text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
+                                                {/* Updated to text-accent */}
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-accent hover:text-accent-hover" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
                                              </ActionButton>
                                              <div className="w-px h-4 bg-gray-600 mx-1"></div>
-                                             <ActionButton title={t('image_sequence.deselect_scene')} tooltipPosition="left" onClick={(e) => { e.stopPropagation(); const framesInScene = group.prompts.map((p:any) => p.frameNumber); const newChecked = checkedFrameNumbers.filter(id => !framesInScene.includes(id)); onUpdateState({ checkedFrameNumbers: newChecked }); }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 group-hover:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                                             </ActionButton>
-                                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
-                                             <ActionButton title={t('image_sequence.select_scene_frames')} tooltipPosition="left" onClick={(e) => { e.stopPropagation(); const framesInScene = group.prompts.map((p:any) => p.frameNumber); const newChecked = Array.from(new Set([...checkedFrameNumbers, ...framesInScene])); onUpdateState({ checkedFrameNumbers: newChecked }); }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                             </ActionButton>
+                                             
+                                             {/* New Focus/Select Scene Checkbox */}
+                                             <CustomCheckbox
+                                                 checked={isSceneFullySelected(group.scene)}
+                                                 onChange={() => handleToggleSceneSelection(group.scene)}
+                                                 title="Select All Frames in Scene"
+                                                 className="text-accent" // Explicit class for theme control
+                                             />
                                         </div>
                                     </div>
                                 </div>

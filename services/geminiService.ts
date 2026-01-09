@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, GenerateContentResponse, Modality, Type } from "@google/genai";
 
 export const getApiKey = () => {
@@ -786,29 +787,48 @@ export const modifyPromptSequence = async (
     instruction: string, 
     targetLanguage: string = 'en', 
     modelName: string = 'gemini-3-flash-preview',
-    includeVideoPrompts: boolean = false
-): Promise<any[]> => {
+    includeVideoPrompts: boolean = false,
+    sceneContexts: Record<string, string> = {}
+): Promise<{ modifiedFrames: any[], modifiedSceneContexts: { sceneNumber: number, context: string }[] }> => {
   return callWithRetry(async () => {
     const ai = createAIClient();
     const schema = {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          frameNumber: { type: Type.INTEGER },
-          prompt: { type: Type.STRING },
-          videoPrompt: { type: Type.STRING },
-          shotType: { type: Type.STRING, description: 'The type of shot (e.g., WS, CU, ECU, LS, MS).' },
-          characters: { type: Type.ARRAY, items: { type: Type.STRING } },
-          duration: { type: Type.INTEGER }
+      type: Type.OBJECT,
+      properties: {
+        modifiedFrames: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              frameNumber: { type: Type.INTEGER },
+              sceneNumber: { type: Type.INTEGER },
+              prompt: { type: Type.STRING },
+              videoPrompt: { type: Type.STRING },
+              shotType: { type: Type.STRING, description: 'The type of shot (e.g., WS, CU, ECU, LS, MS).' },
+              characters: { type: Type.ARRAY, items: { type: Type.STRING } },
+              duration: { type: Type.INTEGER }
+            },
+            required: ['frameNumber', 'sceneNumber', 'prompt', 'characters', 'duration', 'shotType', ...(includeVideoPrompts ? ['videoPrompt'] : [])]
+          }
         },
-        required: ['frameNumber', 'prompt', 'characters', 'duration', 'shotType', ...(includeVideoPrompts ? ['videoPrompt'] : [])]
-      }
+        modifiedSceneContexts: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              sceneNumber: { type: Type.INTEGER },
+              context: { type: Type.STRING, description: 'The updated scene context description.' }
+            },
+            required: ['sceneNumber', 'context']
+          }
+        }
+      },
+      required: ['modifiedFrames']
     };
 
     const languageInstruction = targetLanguage === 'ru' 
-        ? 'Ensure the response fields (like prompts) are in Russian.' 
-        : 'Ensure the response fields (like prompts) are in English.';
+        ? 'Ensure the response fields (like prompts and context) are in Russian.' 
+        : 'Ensure the response fields (like prompts and context) are in English.';
 
     let videoInstruction = "";
     if (includeVideoPrompts) {
@@ -818,18 +838,39 @@ export const modifyPromptSequence = async (
         - If 'videoPrompt' exists: Modify it according to the user's instruction, while maintaining consistency with the image 'prompt'.
         `;
     }
+    
+    let contextInstruction = "";
+    if (Object.keys(sceneContexts).length > 0) {
+        contextInstruction = `
+        **SCENE CONTEXT**:
+        The input data includes "sceneContexts". This dictionary maps scene numbers to context descriptions.
+        
+        TASK:
+        1. Apply the user's instruction to the frames.
+        2. IF the instruction implies changing the overall setting, mood, or context of a scene (e.g., "Change the weather to snow", "Make it night time"), YOU MUST ALSO MODIFY the Scene Context text for that scene.
+        3. Return the updated scene contexts in the 'modifiedSceneContexts' array. Only include contexts that have changed or are relevant to the modified frames.
+        
+        Context Data: ${JSON.stringify(sceneContexts)}
+        `;
+    }
 
     try {
       const response = await ai.models.generateContent({
         model: modelName, 
-        contents: `Instruction: ${instruction}\nData: ${JSON.stringify(prompts)}`,
+        contents: `Instruction: ${instruction}\n${contextInstruction}\nData: ${JSON.stringify(prompts)}`,
         config: { 
-            systemInstruction: `Modify prompts based on instruction. Return modified array. ${languageInstruction} ${videoInstruction} For every frame, you MUST either preserve or generate a logical 'shotType' value (e.g., WS, MS, CU, etc.) representing the camera angle.`,
+            systemInstruction: `Modify prompts based on instruction. Return a structured object with modified frames and modified scene contexts. ${languageInstruction} ${videoInstruction} For every frame, you MUST either preserve or generate a logical 'shotType' value (e.g., WS, MS, CU, etc.) representing the camera angle. Also, always ensure to return the correct 'sceneNumber' for each frame corresponding to the source.`,
             responseMimeType: "application/json", 
             responseSchema: schema 
         },
       });
-      return JSON.parse(response.text || "[]");
+      
+      const parsed = JSON.parse(response.text || "{}");
+      return {
+          modifiedFrames: parsed.modifiedFrames || [],
+          modifiedSceneContexts: parsed.modifiedSceneContexts || []
+      };
+
     } catch (error: any) {
       console.error("Error modifying sequence:", error);
       throw error;

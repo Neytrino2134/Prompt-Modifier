@@ -1,10 +1,10 @@
-
 import React, { useRef, useState, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { PromptCard } from './PromptCard';
 import { usePromptVirtualization } from './usePromptVirtualization';
 import { InputWithSpinners } from './SharedUI';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
+import { CustomCheckbox } from '../../CustomCheckbox';
 
 interface SourcePromptListProps {
     prompts: any[];
@@ -50,6 +50,11 @@ interface SourcePromptListProps {
     onUpdateSceneContext?: (scene: number, text: string) => void;
     expandedSceneContexts?: number[];
     onToggleSceneContext?: (scene: number) => void;
+    // NEW: Context Checkbox Props
+    checkedContextScenes?: number[];
+    onToggleContextCheck?: (scene: number) => void;
+    // New: Copy Combined Prompt
+    onCopyCombinedPrompt?: (frameNumber: number) => void;
 }
 
 export interface SourcePromptListRef {
@@ -93,7 +98,10 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
     sceneContexts = {},
     onUpdateSceneContext,
     expandedSceneContexts = [],
-    onToggleSceneContext
+    onToggleSceneContext,
+    checkedContextScenes = [],
+    onToggleContextCheck,
+    onCopyCombinedPrompt
 }, ref) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [scrollTop, setScrollTop] = useState(0);
@@ -138,7 +146,8 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
         showVideoPrompts,
         showSceneHeaders,
         sceneContexts,
-        expandedSceneContexts
+        expandedSceneContexts,
+        checkedContextScenes // Pass down
     );
 
     useImperativeHandle(ref, () => ({
@@ -277,7 +286,36 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
             // Fallback to legacy clear all if not provided (should be provided in new implementation)
             onClearAll();
         }
-    }
+    };
+    
+    // Toggle Scene Selection (Select All Frames in Scene / Deselect All)
+    const handleToggleSceneSelection = (sceneNum: number) => {
+        const group = groupedPrompts.find(g => g.scene === sceneNum);
+        if (!group) return;
+        const sceneFrameIds = group.prompts.map((p: any) => p.frameNumber);
+        
+        // Check if all frames in this scene are currently selected
+        const allSelected = sceneFrameIds.every(id => checkedFrameNumbers.includes(id));
+        
+        let newChecked;
+        if (allSelected) {
+            // Deselect all frames in this scene
+            newChecked = checkedFrameNumbers.filter(id => !sceneFrameIds.includes(id));
+        } else {
+            // Add all frames in this scene to selection (preserve existing non-scene selections)
+            newChecked = [...new Set([...checkedFrameNumbers, ...sceneFrameIds])];
+        }
+        
+        onUpdatePrompts({ [selectionKey]: newChecked });
+    };
+
+    // Helper to check if ALL frames in a scene are selected
+    const isSceneFullySelected = (sceneNum: number) => {
+        const group = groupedPrompts.find(g => g.scene === sceneNum);
+        if (!group) return false;
+        if (group.prompts.length === 0) return false;
+        return group.prompts.every((p: any) => checkedFrameNumbers.includes(p.frameNumber));
+    };
 
     return (
         <div className="flex-grow flex flex-col space-y-2 min-h-0">
@@ -445,6 +483,22 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                                                         : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                                                     }
                                                 </div>
+                                                
+                                                {/* Left Group: Checkboxes */}
+                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                    <CustomCheckbox
+                                                        checked={onToggleContextCheck && checkedContextScenes ? checkedContextScenes.includes(group.scene) : false}
+                                                        onChange={() => onToggleContextCheck && onToggleContextCheck(group.scene)}
+                                                        title="Include Context in Modification"
+                                                    />
+                                                    <CustomCheckbox
+                                                        checked={isSceneFullySelected(group.scene)}
+                                                        onChange={() => handleToggleSceneSelection(group.scene)}
+                                                        title="Select All Frames in Scene"
+                                                        className="text-cyan-400" 
+                                                    />
+                                                </div>
+
                                                 <span className="text-xs font-bold text-gray-300 uppercase tracking-wider bg-gray-800 px-2 py-1 rounded">
                                                     {t('image_sequence.scene_input_label')} {group.scene}{group.title ? `: ${group.title}` : ''}
                                                 </span>
@@ -463,21 +517,31 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                                     <div 
                                         key={`context-${sceneNum}`}
                                         style={{ position: 'absolute', top: item.top, left: 0, right: 0, height: item.h }}
-                                        className="pl-2 border-l-2 border-orange-500/50 ml-2 pb-2"
+                                        className="pl-2 border-l-2 border-connection-text ml-2 pb-2"
                                     >
-                                        <div className="bg-gray-800/80 rounded border border-orange-500/30 p-2 h-full flex flex-col">
+                                        <div className="bg-gray-800/80 rounded border border-connection-text p-2 h-full flex flex-col">
                                              <div 
                                                 className="flex justify-between items-center cursor-pointer select-none"
                                                 onClick={(e) => { e.stopPropagation(); onToggleSceneContext && onToggleSceneContext(sceneNum); }}
                                              >
                                                  <div className="flex items-center gap-2">
-                                                    <div className="text-orange-500">
-                                                        {isExpanded 
-                                                            ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                                                            : <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                                                        }
+                                                    <div className="flex items-center gap-2">
+                                                        {/* ADD CHECKBOX HERE */}
+                                                        <div onClick={(e) => e.stopPropagation()}>
+                                                           <CustomCheckbox
+                                                               checked={onToggleContextCheck && checkedContextScenes ? checkedContextScenes.includes(sceneNum) : false}
+                                                               onChange={() => onToggleContextCheck && onToggleContextCheck(sceneNum)}
+                                                               title="Include Context in Modification"
+                                                           />
+                                                        </div>
+                                                        <div className="text-connection-text">
+                                                            {isExpanded 
+                                                                ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                                                : <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                                            }
+                                                        </div>
+                                                        <label className="text-[10px] font-bold text-connection-text uppercase tracking-wider cursor-pointer">SCENE CONTEXT</label>
                                                     </div>
-                                                    <label className="text-[10px] font-bold text-orange-400 uppercase tracking-wider cursor-pointer">SCENE CONTEXT</label>
                                                  </div>
                                              </div>
                                              
@@ -487,7 +551,7 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                                                         value={contextText}
                                                         onDebouncedChange={(val) => onUpdateSceneContext && onUpdateSceneContext(sceneNum, val)}
                                                         readOnly={isLinked}
-                                                        className={`w-full h-full text-xs p-1.5 bg-gray-900/50 rounded resize-none border-none focus:outline-none transition-shadow focus:ring-1 focus:ring-orange-500 ${isLinked ? 'cursor-default' : 'cursor-text'}`}
+                                                        className={`w-full h-full text-xs p-1.5 bg-gray-900/50 rounded resize-none border-none focus:outline-none transition-shadow focus:ring-1 focus:ring-accent ${isLinked ? 'cursor-default' : 'cursor-text'}`}
                                                         placeholder="Describe scene environment and context..."
                                                         onMouseDown={e => e.stopPropagation()}
                                                         onWheel={e => e.stopPropagation()}
@@ -541,6 +605,7 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                                             onEditInSource={onEditInSource}
                                             onEditPrompt={onEditPrompt}
                                             maxCharacters={allConceptsLength}
+                                            onCopyCombinedPrompt={onCopyCombinedPrompt} // Passed
                                         />
                                     </div>
                                 );
@@ -554,12 +619,12 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
              {!isLinked && (
                 <div className="flex-shrink-0 flex space-x-2">
                     <div className="flex-1 flex space-x-1">
-                        <button onClick={onLoadFile} className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md">{t('image_sequence.load_prompts')}</button>
+                        <button onClick={onLoadFile} className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-accent-secondary hover:bg-accent-secondary-hover rounded-md">{t('image_sequence.load_prompts')}</button>
                     </div>
                     <button
                         onClick={onSaveToCatalog}
                         disabled={prompts.length === 0}
-                        className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
+                        className="flex-1 px-3 py-2 text-sm font-semibold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
                         title={t('catalog.saveTo')}
                     >
                         {t('catalog.saveTo')}

@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
 import type { NodeContentProps } from '../../types';
 import { NodeType } from '../../types';
@@ -26,7 +28,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
         try {
             return JSON.parse(node.value || '{}');
         } catch {
-            return { instruction: '', sourcePrompts: [], modifiedPrompts: [], leftPaneWidth: MIN_LEFT_PANE_WIDTH, checkedSourceFrameNumbers: [], selectedFrameNumber: null, styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isUsedCharsCollapsed: true, usedCharacters: [], collapsedSourceScenes: [], collapsedModifiedScenes: [], targetLanguage: 'en', modificationModel: 'gemini-3-flash-preview', includeVideoPrompts: false, sceneContexts: {}, expandedSceneContexts: [] };
+            return { instruction: '', sourcePrompts: [], modifiedPrompts: [], leftPaneWidth: MIN_LEFT_PANE_WIDTH, checkedSourceFrameNumbers: [], selectedFrameNumber: null, styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isUsedCharsCollapsed: true, usedCharacters: [], collapsedSourceScenes: [], collapsedModifiedScenes: [], targetLanguage: 'en', modificationModel: 'gemini-3-flash-preview', includeVideoPrompts: false, sceneContexts: {}, modifiedSceneContexts: {}, expandedSceneContexts: [], checkedContextScenes: [] };
         }
     }, [node.value]);
 
@@ -40,7 +42,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
         initialWidth = MIN_LEFT_PANE_WIDTH;
     }
 
-    const { instruction = '', sourcePrompts = [], modifiedPrompts = [], checkedSourceFrameNumbers = [], selectedFrameNumber = null, styleOverride = '', isStyleCollapsed = true, isUsedCharsCollapsed = true, usedCharacters = [], collapsedSourceScenes = [], collapsedModifiedScenes = [], targetLanguage = 'en', modificationModel = 'gemini-3-flash-preview', includeVideoPrompts = false, sceneContexts = {}, expandedSceneContexts = [] } = parsedValue;
+    const { instruction = '', sourcePrompts = [], modifiedPrompts = [], checkedSourceFrameNumbers = [], selectedFrameNumber = null, styleOverride = '', isStyleCollapsed = true, isUsedCharsCollapsed = true, usedCharacters = [], collapsedSourceScenes = [], collapsedModifiedScenes = [], targetLanguage = 'en', modificationModel = 'gemini-3-flash-preview', includeVideoPrompts = false, sceneContexts = {}, modifiedSceneContexts = {}, expandedSceneContexts = [], checkedContextScenes = [] } = parsedValue;
     const leftPaneWidth = initialWidth;
 
     const handleValueUpdate = useCallback((updates: any) => {
@@ -173,7 +175,13 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
             const mod = modMap.get(p.frameNumber);
             return mod ? { ...(p as any), ...(mod as any) } : p;
         });
-        handleValueUpdate({ sourcePrompts: newSource, modifiedPrompts: [] });
+        
+        // Also update scene contexts if modified
+        const currentContexts = parsedValueRef.current.sceneContexts || {};
+        const modContexts = parsedValueRef.current.modifiedSceneContexts || {};
+        const newContexts = { ...currentContexts, ...modContexts };
+        
+        handleValueUpdate({ sourcePrompts: newSource, modifiedPrompts: [], sceneContexts: newContexts, modifiedSceneContexts: {} });
     }, [handleValueUpdate]);
 
     useEffect(() => {
@@ -277,6 +285,14 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
         handleValueUpdate({ expandedSceneContexts: newExpanded });
     };
 
+    const handleToggleSceneContextCheck = (sceneNum: number) => {
+        const current = checkedContextScenes || [];
+        const newChecked = current.includes(sceneNum)
+            ? current.filter((s: number) => s !== sceneNum)
+            : [...current, sceneNum];
+        handleValueUpdate({ checkedContextScenes: newChecked });
+    };
+
     return (
         <div 
             ref={contentRef} 
@@ -294,9 +310,12 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                     onModelChange={(model) => handleValueUpdate({ modificationModel: model })}
                     includeVideoPrompts={includeVideoPrompts}
                     onToggleVideoPrompts={() => handleValueUpdate({ includeVideoPrompts: !includeVideoPrompts })}
+                    includeSceneContext={false} // Removed global context usage
+                    onToggleSceneContextOption={() => {}} // No-op
                     isModifying={isModifyingPromptSequence}
                     onModify={() => onModifyPromptSequence(node.id)}
                     checkedCount={checkedSourceFrameNumbers.length}
+                    checkedContextCount={checkedContextScenes.length} // Pass checked contexts count
                     totalPrompts={sourcePrompts.length}
                     instructionInputId={instructionInputId}
                     t={t}
@@ -308,7 +327,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                         className="flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group"
                         onClick={handleToggleUsedCharsCollapse}
                      >
-                        <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1 flex-grow">Используемые персонажи</label>
+                        <label className="text-[10px] font-bold text-connection-text uppercase cursor-pointer py-1 flex-grow">Используемые персонажи</label>
                         <div className="text-gray-500 group-hover:text-gray-300 p-1">
                             {isUsedCharsCollapsed 
                                 ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
@@ -321,7 +340,8 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                              {usedCharacters.length > 0 ? usedCharacters.map((char: any, i: number) => (
                                  <div key={i} className="flex items-center gap-1 mb-1 last:mb-0 group/item">
                                      <div className="flex items-center gap-1 min-w-[100px] shrink-0 bg-gray-800/50 rounded px-1 border border-gray-600/50">
-                                         <span className="text-[10px] font-mono text-cyan-400 truncate w-16">{char.index}:</span>
+                                         {/* Updated color to text-connection-text */}
+                                         <span className="text-[10px] font-mono text-connection-text truncate w-16">{char.index}:</span>
                                          <button 
                                             onClick={(e) => { 
                                                 e.stopPropagation(); 
@@ -428,6 +448,9 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                     onUpdateSceneContext={handleUpdateSceneContext}
                     expandedSceneContexts={expandedSceneContexts}
                     onToggleSceneContext={handleToggleSceneContext}
+                    // Pass checked contexts and handler
+                    checkedContextScenes={checkedContextScenes}
+                    onToggleContextCheck={handleToggleSceneContextCheck}
                 />
             </div>
             
@@ -451,6 +474,11 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                          const newCollapsed = collapsedModifiedScenes.includes(scene) ? collapsedModifiedScenes.filter((s: number) => s !== scene) : [...collapsedModifiedScenes, scene];
                         handleValueUpdate({ collapsedModifiedScenes: newCollapsed });
                     }}
+                    sceneContexts={sceneContexts} 
+                    modifiedSceneContexts={modifiedSceneContexts} // Pass modified contexts
+                    expandedSceneContexts={expandedSceneContexts}
+                    onToggleSceneContext={handleToggleSceneContext}
+                    onUpdateSceneContext={handleUpdateSceneContext} 
                 />
             </div>
         </div>

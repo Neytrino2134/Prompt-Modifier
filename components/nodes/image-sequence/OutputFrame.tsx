@@ -23,7 +23,6 @@ const AspectRatioIcon: React.FC<{ width: number; height: number }> = ({ width, h
     return (
         <div className="flex items-center justify-center w-6 h-6" title={title}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                 <path d="MiconPath" />
                  <path d={iconPath} />
             </svg>
         </div>
@@ -196,7 +195,8 @@ export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, fram
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative group border-2 transition-colors h-full w-full ${isDragOver ? 'border-cyan-400 bg-gray-700/50' : (isSelected ? 'border-cyan-400' : 'border-transparent')} ${statusClasses[status]}`}
+            // Updated border-cyan-400 to border-accent
+            className={`relative group border-2 transition-colors h-full w-full ${isDragOver ? 'border-accent bg-gray-700/50' : (isSelected ? 'border-accent' : 'border-transparent')} ${statusClasses[status]}`}
         >
              <div className="absolute top-1 left-1 z-20 pointer-events-auto" title="Select frame for batch generation">
                 <CustomCheckbox
@@ -229,7 +229,8 @@ export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, fram
                         
                         {isProcessingOrGenerating && (
                             <>
-                                <svg className="animate-spin h-6 w-6 text-cyan-400 mt-2 drop-shadow-md" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                {/* Updated spinner to text-accent */}
+                                <svg className="animate-spin h-6 w-6 text-accent mt-2 drop-shadow-md" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
@@ -276,7 +277,7 @@ export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, fram
                                 className={commonButtonClass}
                              >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-400 group-hover:text-orange-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                 </svg>
                             </ActionButton>

@@ -63,7 +63,8 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
         
         return parts.map((part, index) => {
             if (part.match(/^\[(?:Entity|Character)-[^\]]+\]$/)) {
-                return <span key={index} className="text-cyan-400 font-bold">{part}</span>;
+                // Changed to text-connection-text as requested
+                return <span key={index} className="text-connection-text font-bold">{part}</span>;
             }
             return <span key={index}>{part}</span>;
         });
@@ -110,7 +111,7 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
                     // Important: Text color transparent to show backdrop, but caret must be visible
                     color: 'transparent', 
                     caretColor: 'white',
-                    ...props.style 
+                    ...style 
                 }}
                 spellCheck={false}
             />

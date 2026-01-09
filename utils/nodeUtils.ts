@@ -1,5 +1,6 @@
 
 
+
 import { Node, NodeType, Connection, Point } from '../types';
 
 export const HEADER_HEIGHT = 40;
@@ -237,7 +238,7 @@ export const getEmptyValueForNodeType = (node: Node): string => {
         case NodeType.IMAGE_ANALYZER: return JSON.stringify({ image: null, description: '', softPrompt: false });
         case NodeType.IMAGE_SEQUENCE_GENERATOR: return JSON.stringify({ prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, isStyleCollapsed: true, checkedFrameNumbers: [], topPaneHeight: 440, leftPaneWidth: 570, autoCrop169: true });
         case NodeType.PROMPT_SEQUENCE_EDITOR: return JSON.stringify({ instruction: '', sourcePrompts: [], modifiedPrompts: [], leftPaneWidth: 500, checkedSourceFrameNumbers: [], selectedFrameNumber: null, targetLanguage: 'en', modificationModel: 'gemini-3-flash-preview', sceneContexts: {}, expandedSceneContexts: [] });
-        case NodeType.IMAGE_EDITOR: return JSON.stringify({ inputImages: [], prompt: '', outputImage: null, aspectRatio: '1:1', enableAspectRatio: false, enableOutpainting: false, outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: 'gemini-3-flash-preview', autoDownload: true, autoCrop169: false, leftPaneWidth: 360, topPaneHeight: 330 });
+        case NodeType.IMAGE_EDITOR: return JSON.stringify({ inputImages: [], prompt: '', outputImage: null, aspectRatio: '1:1', enableAspectRatio: false, enableOutpainting: false, outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: 'gemini-2.5-flash-image', autoDownload: true, autoCrop169: false, leftPaneWidth: 360, topPaneHeight: 330 });
         case NodeType.GEMINI_CHAT: return JSON.stringify({ messages: [], currentInput: '', lastPrompt: '' });
         case NodeType.TRANSLATOR: return JSON.stringify({ targetLanguage: 'ru', inputText: '', translatedText: '', image: null });
         case NodeType.SCRIPT_GENERATOR: return JSON.stringify({ prompt: '', summary: '', detailedCharacters: [], scenes: [], targetLanguage: 'en' });
@@ -277,7 +278,7 @@ export const getDuplicatedValueForNodeType = (node: Node): string => {
              case NodeType.PROMPT_PROCESSOR: return JSON.stringify({ inputPrompt: parsedOriginal.inputPrompt || '', prompt: '', safePrompt: parsedOriginal.safePrompt !== undefined ? parsedOriginal.safePrompt : true });
              case NodeType.VIDEO_PROMPT_PROCESSOR: return JSON.stringify({ inputPrompt: parsedOriginal.inputPrompt || '', prompt: '' });
              case NodeType.TRANSLATOR: return JSON.stringify({ ...parsedEmpty, targetLanguage: parsedOriginal.targetLanguage || 'ru' });
-             case NodeType.IMAGE_EDITOR: return JSON.stringify({ ...parsedEmpty, aspectRatio: parsedOriginal.aspectRatio || '1:1', enableAspectRatio: parsedOriginal.enableAspectRatio !== undefined ? parsedOriginal.enableAspectRatio : false, enableOutpainting: parsedOriginal.enableOutpainting !== undefined ? parsedOriginal.enableOutpainting : false, outpaintingPrompt: parsedOriginal.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: parsedOriginal.model || 'gemini-3-flash-preview', autoDownload: parsedOriginal.autoDownload !== undefined ? parsedOriginal.autoDownload : true, autoCrop169: parsedOriginal.autoCrop169 !== undefined ? parsedOriginal.autoCrop169 : false, leftPaneWidth: parsedOriginal.leftPaneWidth || 360, topPaneHeight: parsedOriginal.topPaneHeight || 330 });
+             case NodeType.IMAGE_EDITOR: return JSON.stringify({ ...parsedEmpty, aspectRatio: parsedOriginal.aspectRatio || '1:1', enableAspectRatio: parsedOriginal.enableAspectRatio !== undefined ? parsedOriginal.enableAspectRatio : false, enableOutpainting: parsedOriginal.enableOutpainting !== undefined ? parsedOriginal.enableOutpainting : false, outpaintingPrompt: parsedOriginal.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: parsedOriginal.model || 'gemini-2.5-flash-image', autoDownload: parsedOriginal.autoDownload !== undefined ? parsedOriginal.autoDownload : true, autoCrop169: parsedOriginal.autoCrop169 !== undefined ? parsedOriginal.autoCrop169 : false, leftPaneWidth: parsedOriginal.leftPaneWidth || 360, topPaneHeight: parsedOriginal.topPaneHeight || 330 });
              case NodeType.IMAGE_SEQUENCE_GENERATOR: return JSON.stringify({ ...parsedEmpty, prompts: [], characterConcepts: parsedOriginal.characterConcepts || [], aspectRatio: parsedOriginal.aspectRatio || '16:9', autoDownload: parsedOriginal.autoDownload || false, model: parsedOriginal.model || 'gemini-2.5-flash-image', topPaneHeight: parsedOriginal.topPaneHeight || 440, leftPaneWidth: parsedOriginal.leftPaneWidth || 570, enableAspectRatio: parsedOriginal.enableAspectRatio !== undefined ? parsedOriginal.enableAspectRatio : false, isStyleCollapsed: parsedOriginal.isStyleCollapsed !== undefined ? parsedOriginal.isStyleCollapsed : true, autoCrop169: parsedOriginal.autoCrop169 !== undefined ? parsedOriginal.autoCrop169 : true });
              case NodeType.CHARACTER_CARD: return JSON.stringify({ ...parsedEmpty, name: parsedOriginal.name, index: parsedOriginal.index, prompt: parsedOriginal.prompt, fullDescription: parsedOriginal.fullDescription, selectedRatio: parsedOriginal.selectedRatio });
              case NodeType.NOTE: return emptyValue;
@@ -387,11 +388,45 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
             }
         } else {
             if (node.type === NodeType.IMAGE_EDITOR && isInput) {
-                const topH = 330; 
+                // PARSE NODE VALUE FOR MODES
+                let topPaneHeight = 330;
+                let isSeqCombo = false;
+                let isSeqEditPrompts = false;
+                
+                try {
+                     const val = JSON.parse(node.value || '{}');
+                     if (val.topPaneHeight) topPaneHeight = val.topPaneHeight;
+                     isSeqCombo = val.isSequenceMode && val.isSequentialCombinationMode;
+                     isSeqEditPrompts = val.isSequenceMode && val.isSequentialEditingWithPrompts;
+                } catch {}
+
                 const topY = HEADER_HEIGHT + CONTENT_PADDING;
-                if (handleId === 'image') y = topY + (topH * 0.25);
-                else if (handleId === 'image_b') y = topY + (topH * 0.75);
-                else if (handleId === 'text') y = topY + topH + 16 + (h - (topY + topH + 16)) / 2;
+                
+                if (handleId === 'image') {
+                    // Logic MUST match NodeHandles.tsx:
+                    // If SeqCombo: 25%
+                    // If SeqEditPrompts: -1000 (Hidden)
+                    // Else: 50%
+                    if (isSeqEditPrompts) y = h / 2; // Fallback, visually hidden
+                    else if (isSeqCombo) y = topY + (topPaneHeight * 0.25);
+                    else y = topY + (topPaneHeight * 0.5);
+                }
+                else if (handleId === 'image_b') {
+                    // If SeqCombo: 75%
+                    // If SeqEditPrompts: 50%
+                    // Else: Hidden
+                    if (isSeqCombo) y = topY + (topPaneHeight * 0.75);
+                    else if (isSeqEditPrompts) y = topY + (topPaneHeight * 0.5);
+                    else y = h / 2; // Fallback
+                }
+                else if (handleId === 'text') {
+                    // Bottom Section
+                    const resizerHeight = 16;
+                    const textTop = topY + topPaneHeight + resizerHeight;
+                    // Remaining height
+                    const textH = h - textTop - CONTENT_PADDING;
+                    y = textTop + (textH / 2);
+                }
             } else if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR && isInput) {
                 let conceptsMode = 'normal';
                 try {

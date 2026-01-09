@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import { Node, NodeType } from '../../types';
 import { getInputHandleType, getOutputHandleType, COLLAPSED_NODE_HEIGHT, HEADER_HEIGHT, CONTENT_PADDING } from '../../utils/nodeUtils';
@@ -194,6 +195,18 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
              imageHandleY = realImageSectionTop + (topPaneHeight * 0.5);
         }
 
+        // Logic check: if Sequential Editing with Prompts is active, Input A handle is hidden/replaced visually by B being centered or dominant?
+        // Actually, in the coordinate logic (nodeUtils), we said:
+        // if (isSeqEditPrompts) y = topSectionTop + (topH * 0.5); // For B
+        // But if isSeqCombo (which includes SeqEditPrompts in previous logic, but now separated), we used 0.75
+        
+        // Let's align visually:
+        if (isSequentialEditingWithPrompts) {
+             // A is hidden
+             // B takes the center of the top pane (it's the only image list visible)
+             imageBHandleY = realImageSectionTop + (topPaneHeight * 0.5);
+        }
+
         const resizerHeight = 16; 
         const realTextSectionTop = realImageSectionTop + topPaneHeight + resizerHeight; 
         const contentBottom = node.height - CONTENT_PADDING;
@@ -205,7 +218,8 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
                 {/* Hide Input A handle in Sequential Editing With Prompts mode */}
                 {!isSequentialEditingWithPrompts && renderHandle({ type: 'image', handleId: 'image', title: isImageEditorSequential ? 'Image Input A' : 'Image Input' }, `${imageHandleY}px`, 'image')}
                 
-                {isImageEditorSequential && imageBHandleY && renderHandle({ type: 'image', handleId: 'image_b', title: 'Image Input B' }, `${imageBHandleY}px`, 'image_b')}
+                {/* Render Input B if Sequential Combined OR Sequential Editing with Prompts */}
+                {(isImageEditorSequential || isSequentialEditingWithPrompts) && imageBHandleY && renderHandle({ type: 'image', handleId: 'image_b', title: 'Image Input B' }, `${imageBHandleY}px`, 'image_b')}
                 
                 {renderHandle({ type: 'text', handleId: 'text', title: 'Text Input' }, `${textHandleY}px`, 'text')}
             </>
@@ -615,3 +629,4 @@ export const OutputHandles: React.FC<HandleProps> = ({ node, getHandleColor, han
     
     return null;
 };
+

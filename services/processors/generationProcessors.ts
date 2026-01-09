@@ -29,7 +29,16 @@ export const processCharacterGenerator: NodeProcessor = async ({ node, upstreamD
 };
 
 export const processPromptSequenceEditor: NodeProcessor = async ({ node }) => {
-    const { instruction, sourcePrompts = [], checkedSourceFrameNumbers = [] } = JSON.parse(node.value || '{}');
+    const { 
+        instruction, 
+        sourcePrompts = [], 
+        checkedSourceFrameNumbers = [],
+        targetLanguage = 'en',
+        modificationModel = 'gemini-3-flash-preview',
+        includeVideoPrompts = false,
+        checkedContextScenes = [],
+        sceneContexts = {}
+    } = JSON.parse(node.value || '{}');
     
     if (!instruction?.trim()) throw new Error("Modification instruction is empty.");
     if (checkedSourceFrameNumbers.length === 0) throw new Error("No source prompts selected for modification.");
@@ -37,7 +46,23 @@ export const processPromptSequenceEditor: NodeProcessor = async ({ node }) => {
     const promptsToModify = sourcePrompts.filter((p: any) => checkedSourceFrameNumbers.includes(p.frameNumber));
     if (promptsToModify.length === 0) throw new Error("Selected prompts not found.");
     
-    const modifiedPromptsFromApi = await modifyPromptSequence(promptsToModify, instruction);
+    // Prepare Contexts to send
+    let contextsToSend: Record<string, string> = {};
+    const distinctScenes = new Set(promptsToModify.map((p: any) => p.sceneNumber));
+    distinctScenes.forEach((sceneNum: any) => {
+        if (sceneContexts[sceneNum] && checkedContextScenes.includes(sceneNum)) {
+                contextsToSend[String(sceneNum)] = sceneContexts[sceneNum];
+        }
+    });
+
+    const { modifiedFrames, modifiedSceneContexts } = await modifyPromptSequence(
+        promptsToModify, 
+        instruction,
+        targetLanguage,
+        modificationModel,
+        includeVideoPrompts,
+        contextsToSend
+    );
     
     const currentVal = JSON.parse(node.value || '{}');
     const existingModified = currentVal.modifiedPrompts || [];
@@ -46,7 +71,7 @@ export const processPromptSequenceEditor: NodeProcessor = async ({ node }) => {
     // Create a lookup map for source prompts to easily retrieve original data like videoPrompt and sceneTitle
     const sourceMap = new Map(sourcePrompts.map((p: any) => [p.frameNumber, p]));
 
-    modifiedPromptsFromApi.forEach((newPrompt: any) => {
+    modifiedFrames.forEach((newPrompt: any) => {
         // Retrieve original prompt to copy static fields like videoPrompt and sceneTitle if the API didn't return them
         const original = sourceMap.get(newPrompt.frameNumber) as any;
         if (original) {
@@ -70,7 +95,21 @@ export const processPromptSequenceEditor: NodeProcessor = async ({ node }) => {
         modifiedMap.set(newPrompt.frameNumber, newPrompt);
     });
     
+    // Update Scene Contexts if returned
+    let newModifiedSceneContexts = { ...(currentVal.modifiedSceneContexts || {}) };
+    if (modifiedSceneContexts && modifiedSceneContexts.length > 0) {
+        modifiedSceneContexts.forEach((item: any) => {
+            if (item.sceneNumber && item.context) {
+                newModifiedSceneContexts[String(item.sceneNumber)] = item.context;
+            }
+        });
+    }
+
     return {
-        value: { ...currentVal, modifiedPrompts: Array.from(modifiedMap.values()) }
+        value: { 
+            ...currentVal, 
+            modifiedPrompts: Array.from(modifiedMap.values()),
+            modifiedSceneContexts: newModifiedSceneContexts
+        }
     };
 };

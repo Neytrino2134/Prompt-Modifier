@@ -13,12 +13,29 @@ interface ReferenceItem {
     caption: string;
 }
 
+export interface NoteStyle {
+    fontSize: number;
+    color: string;
+    isBold: boolean;
+    isItalic: boolean;
+    textAlign: 'left' | 'center' | 'right';
+}
+
 interface NoteData {
     text: string;
     references: ReferenceItem[];
     activeTab: 'note' | 'reference';
     isMinimal?: boolean;
+    style: NoteStyle;
 }
+
+const DEFAULT_STYLE: NoteStyle = {
+    fontSize: 14,
+    color: '#ffffff',
+    isBold: false,
+    isItalic: false,
+    textAlign: 'left'
+};
 
 export const NoteNode: React.FC<NodeContentProps> = ({ node, onValueChange, t, deselectAllNodes, libraryItems, setImageViewer, addToast, setFullSizeImage, getFullSizeImage, connectedInputs, getUpstreamNodeValues }) => {
     const { setConnections } = useAppContext();
@@ -33,12 +50,14 @@ export const NoteNode: React.FC<NodeContentProps> = ({ node, onValueChange, t, d
                     text: parsed.text || '',
                     references: parsed.references || [],
                     activeTab: parsed.activeTab || 'note',
-                    isMinimal: parsed.isMinimal || false
+                    isMinimal: parsed.isMinimal || false,
+                    style: { ...DEFAULT_STYLE, ...(parsed.style || {}) }
                 };
             }
-            return { text: node.value || '', references: [], activeTab: 'note', isMinimal: false };
+            // Migration for legacy string values
+            return { text: node.value || '', references: [], activeTab: 'note', isMinimal: false, style: DEFAULT_STYLE };
         } catch {
-            return { text: node.value || '', references: [], activeTab: 'note', isMinimal: false };
+            return { text: node.value || '', references: [], activeTab: 'note', isMinimal: false, style: DEFAULT_STYLE };
         }
     }, [node.value]);
     
@@ -49,6 +68,11 @@ export const NoteNode: React.FC<NodeContentProps> = ({ node, onValueChange, t, d
         const newData = { ...data, ...updates };
         onValueChange(node.id, JSON.stringify(newData));
     }, [data, node.id, onValueChange]);
+
+    const handleStyleChange = useCallback((styleUpdates: Partial<NoteStyle>) => {
+        const newStyle = { ...data.style, ...styleUpdates };
+        updateData({ style: newStyle });
+    }, [data.style, updateData]);
 
     // --- Sync Logic from Sequence Editor (Incoming Prompts) ---
     useEffect(() => {
@@ -287,7 +311,9 @@ export const NoteNode: React.FC<NodeContentProps> = ({ node, onValueChange, t, d
                 {data.activeTab === 'note' ? (
                     <NoteTab 
                         text={data.text}
+                        style={data.style}
                         onTextChange={(val) => updateData({ text: val })}
+                        onStyleChange={handleStyleChange}
                         libraryItems={libraryItems}
                         t={t}
                         deselectAllNodes={deselectAllNodes}

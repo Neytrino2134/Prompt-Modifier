@@ -58,6 +58,17 @@ const generateSignature = (val: string) => {
     return `${len}-${hash}`;
 };
 
+// Specialized signature generator for Character Nodes to ensure Index/Name changes are always caught
+const getCharacterIdentitySignature = (val: string) => {
+    if (!val) return 'empty';
+    // Extract key fields that affect logic: index, alias, name, isActive, isOutput
+    // We use a regex that looks for these keys and grabs their immediate values
+    // This avoids parsing the full JSON with massive base64 strings and ensures we catch changes 
+    // even if they are in the middle of a large string.
+    const matches = val.match(/"(index|alias|name|isActive|isOutput)"\s*:\s*("[^"]*"|true|false|null)/g);
+    return matches ? matches.join(',') : 'no-match';
+};
+
 export const useDerivedMemo = (props: UseDerivedMemoProps) => {
     const { connections, nodes, getFullSizeImage } = props;
 
@@ -172,7 +183,15 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
         
         const signatureParts = relevantConnections.map(c => {
             const fromNode = nodes.find(n => n.id === c.fromNodeId);
-            return `${c.id}:${fromNode?.id}:${generateSignature(fromNode?.value || '')}`; 
+            if (!fromNode) return '';
+            
+            // Special handling for Character nodes to ensure updates to Index/Name are caught
+            // even if the JSON is very large (due to images) and would be truncated by generateSignature
+            if (fromNode.type === NodeType.CHARACTER_CARD || fromNode.type === NodeType.CHARACTER_GENERATOR) {
+                return `${c.id}:${fromNode.id}:${getCharacterIdentitySignature(fromNode.value || '')}`;
+            }
+
+            return `${c.id}:${fromNode.id}:${generateSignature(fromNode.value || '')}`; 
         });
         const currentSignature = signatureParts.join('|');
 

@@ -53,7 +53,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         try {
             return JSON.parse(node.value || '{}');
         } catch {
-            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isSceneContextInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {}, sceneContexts: {}, expandedSceneContexts: [] };
+            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isSceneContextInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {}, sceneContexts: {}, expandedSceneContexts: [], checkedContextScenes: [] };
         }
     }, [node.value]);
 
@@ -68,7 +68,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     }
 
     // Default integration prompt handling if missing in JSON
-    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isSceneContextInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {}, sceneContexts = {}, expandedSceneContexts = [] } = parsedValue;
+    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isSceneContextInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {}, sceneContexts = {}, expandedSceneContexts = [], checkedContextScenes = [] } = parsedValue;
     
     // Ensure integration prompt is set if it came in empty from older save
     useEffect(() => {
@@ -810,7 +810,10 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             currentStatuses[frameNumber] = 'generating';
             handleValueUpdate({ frameStatuses: currentStatuses });
             
-            const newImage = await expandImageAspectRatio(fullSize, ratio, p);
+            // Fix: Use parsedValueRef.current.model
+            const modelToUse = parsedValueRef.current.model || 'gemini-2.5-flash-image';
+            
+            const newImage = await expandImageAspectRatio(fullSize, ratio, p, modelToUse);
             const thumb = await generateThumbnail(newImage, 128, 128); 
             
             setFullSizeImage(node.id, 1000 + frameNumber, newImage);
@@ -983,6 +986,14 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         handleValueUpdate({ expandedSceneContexts: newExpanded });
     };
 
+    const handleToggleSceneContextCheck = (sceneNum: number) => {
+        const current = checkedContextScenes || [];
+        const newChecked = current.includes(sceneNum)
+            ? current.filter((s: number) => s !== sceneNum)
+            : [...current, sceneNum];
+        handleValueUpdate({ checkedContextScenes: newChecked });
+    };
+
     return (
         <div className="flex h-full w-full space-x-2" onWheel={(e) => e.stopPropagation()}>
             <ImageEditorModal isOpen={isEditorOpen} onClose={() => { setIsEditorOpen(false); editingFrameRef.current = null; }} onApply={handleApplyEditor} imageSrc={editorImageSrc} />
@@ -1012,21 +1023,21 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                     <div className="flex-grow flex flex-col min-h-0 pt-2"> 
                          <div className="flex flex-col space-y-1 mb-1 flex-shrink-0">
                              <div 
-                                className={`flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group ${validationResults.hasError ? "bg-red-900/30" : validationResults.allValid ? "bg-cyan-900/30" : ""}`}
+                                className={`flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group ${validationResults.hasError ? "bg-red-900/30" : validationResults.allValid ? "bg-accent-secondary/20" : ""}`}
                                 onClick={handleToggleUsedCharsCollapse}
                              >
-                                <label className={`text-[10px] font-bold uppercase cursor-pointer py-1 flex-grow flex items-center gap-2 ${validationResults.hasError ? "text-red-400" : validationResults.allValid ? "text-cyan-400" : "text-gray-400"}`}>
+                                <label className={`text-[10px] font-bold uppercase cursor-pointer py-1 flex-grow flex items-center gap-2 ${validationResults.hasError ? "text-red-400" : validationResults.allValid ? "text-connection-text" : "text-gray-400"}`}>
                                     {validationResults.hasError ? (
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                         </svg>
                                     ) : validationResults.allValid ? (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-connection-text" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                         </svg>
                                     ) : null}
                                     Используемые персонажи
-                                    {validationResults.allValid && <span className="text-[9px] font-normal opacity-70 ml-1">(Все совпадают)</span>}
+                                    {validationResults.allValid && <span className="text-[9px] font-normal text-connection-text ml-1">(Все совпадают)</span>}
                                 </label>
                                 <div className="text-gray-500 group-hover:text-gray-300 p-1">
                                     {isUsedCharsCollapsed 
@@ -1048,8 +1059,9 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                         let tooltip = "";
 
                                         if (result.status === 'match') {
-                                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>;
-                                            textColor = "text-green-400";
+                                            // Changed to use theme accent secondary color
+                                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-accent-secondary" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>;
+                                            textColor = "text-connection-text";
                                             tooltip = "Совпадение имени и индекса";
                                         } else if (result.status === 'mismatch_name') {
                                             icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>;
@@ -1070,6 +1082,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                                 <div className="w-4 flex-shrink-0 flex items-center justify-center">
                                                     {icon}
                                                 </div>
+                                                {/* Updated to text-connection-text */}
                                                 <span className={`text-[10px] font-mono w-20 shrink-0 truncate ${textColor}`}>{char.index}:</span>
                                                 <input 
                                                     type="text" 
@@ -1124,7 +1137,8 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                     <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1 flex-grow">
                                         {t('image_sequence.character_prompt_combination')}
                                         {characterPromptCombination !== 'none' && (
-                                            <span className="text-cyan-400 font-normal ml-1 normal-case">
+                                            // Updated to text-connection-text
+                                            <span className="text-connection-text font-normal ml-1 normal-case">
                                                 ({characterPromptCombination === 'combine' ? t('image_sequence.combination_combine') : t('image_sequence.combination_replace')})
                                             </span>
                                         )}
@@ -1239,6 +1253,9 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                             expandedSceneContexts={expandedSceneContexts}
                             onToggleSceneContext={handleToggleSceneContext}
                             onCopyCombinedPrompt={handleCopyCombinedPrompt} // Added
+                            // Pass checked contexts and handler
+                            checkedContextScenes={checkedContextScenes}
+                            onToggleContextCheck={handleToggleSceneContextCheck}
                         />
                     </div>
                 )}
@@ -1353,6 +1370,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                     onReportDimensions={handleReportDimensions} 
                     // Pass the new specific clear handler
                     onClearImages={handleClearImages}
+                    onCopyCombinedPrompt={handleCopyCombinedPrompt} // NEW PROP
                 />
                  <GenerationControls model={model} autoCrop169={autoCrop169} autoDownload={autoDownload} createZip={createZip} isGeneratingSequence={!!isGeneratingSequence} isAnyFrameGenerating={isAnyFrameBusy} checkedCount={checkedFrameNumbers.length} promptsLength={prompts.length} onUpdateState={handleValueUpdate} onGenerateSelected={() => onGenerateSelectedFrames(node.id)} onDownloadSelected={handleDownloadSelected} onStartQueue={() => onGenerateImageSequence(node.id, 0)} onExpandSelected={handleBatchExpand} t={t} />
             </div>

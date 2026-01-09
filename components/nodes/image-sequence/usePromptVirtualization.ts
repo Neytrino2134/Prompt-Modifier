@@ -22,7 +22,8 @@ export const usePromptVirtualization = (
     showVideoPrompts: boolean = true,
     showSceneHeaders: boolean = true, // New parameter
     sceneContexts: Record<string, string> = {}, // New parameter
-    expandedSceneContexts: number[] = [] // New parameter
+    expandedSceneContexts: number[] = [], // New parameter
+    checkedContextScenes: number[] = [] // Added to fix argument count error
 ) => {
     // 1. Group prompts by Scene
     const groupedPrompts = useMemo(() => {
@@ -80,7 +81,7 @@ export const usePromptVirtualization = (
              }
         });
         return { items: flattenItems, totalHeight: y };
-    }, [groupedPrompts, collapsedScenes, showVideoPrompts, showSceneHeaders, sceneContexts, expandedSceneContexts]);
+    }, [groupedPrompts, collapsedScenes, showVideoPrompts, showSceneHeaders, sceneContexts, expandedSceneContexts, checkedContextScenes]);
 
     // 3. Get Visible Items based on scroll
     const visibleItems = useMemo(() => {

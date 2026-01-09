@@ -271,7 +271,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
       {/* Resizer Logic - Switched to onPointerDown */}
       {!isRerouteDot && !node.isCollapsed && (
           !isDockedWindow && !isFocused ? (
-              <div className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize group" onPointerDown={(e) => gestures.handleResizeMouseDown(e, undefined)}><svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full text-gray-700 group-hover:text-cyan-400 transition-colors"><path d="M12 6L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M14 10L10 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></div>
+              <div className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize group" onPointerDown={(e) => gestures.handleResizeMouseDown(e, undefined)}><svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full text-gray-700 group-hover:text-accent-text transition-colors"><path d="M12 6L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M14 10L10 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></div>
           ) : (
              isDockedWindow && !isFocused && (
                  <>

@@ -5,6 +5,7 @@ import { languages, LanguageCode } from '../../localization';
 import CustomSelect from '../CustomSelect';
 import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
+import { Tooltip } from '../Tooltip';
 
 export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onTranslate, isTranslating, connectedInputs, t, onSelectNode, onPasteImage, getFullSizeImage, setImageViewer }) => {
     const parsedValue = useMemo(() => {
@@ -77,13 +78,15 @@ export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange
                     </svg>
                 </button>
 
-                <button
-                    onClick={() => onTranslate(node.id)}
-                    disabled={isTranslating || (!isInputConnected && !inputText.trim() && !image)}
-                    className="h-[38px] px-4 font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0 shadow-sm"
-                >
-                    {isTranslating ? t('node.content.translating') : t('node.content.translate')}
-                </button>
+                <Tooltip content="Model: gemini-3-flash-preview" position="top">
+                    <button
+                        onClick={() => onTranslate(node.id)}
+                        disabled={isTranslating || (!isInputConnected && !inputText.trim() && !image)}
+                        className="h-[38px] px-4 font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0 shadow-sm"
+                    >
+                        {isTranslating ? t('node.content.translating') : t('node.content.translate')}
+                    </button>
+                </Tooltip>
             </div>
 
             <div className="flex-1 min-h-0 mb-2 flex flex-col gap-2">

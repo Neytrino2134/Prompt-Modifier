@@ -1,6 +1,8 @@
 
+
+
 import { useMemo } from 'react';
-import { SCENE_HEADER_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO, SCENE_CONTEXT_HEIGHT, SCENE_CONTEXT_COLLAPSED_HEIGHT, SHOT_TYPE_INSTRUCTIONS } from './Constants';
+import { SCENE_HEADER_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO, SHOT_TYPE_INSTRUCTIONS, SCENE_CONTEXT_HEIGHT, SCENE_CONTEXT_COLLAPSED_HEIGHT } from './Constants';
 
 export interface PromptItem {
     frameNumber: number;
@@ -11,7 +13,7 @@ export interface PromptItem {
     characters?: string[];
     duration?: number;
     isCollapsed?: boolean;
-    shotType?: string;
+    shotType?: string; // Needed for height calc
 }
 
 export const usePromptVirtualization = (
@@ -22,7 +24,8 @@ export const usePromptVirtualization = (
     showVideoPrompts: boolean = true,
     showSceneHeaders: boolean = true, // New parameter
     sceneContexts: Record<string, string> = {}, // New parameter
-    expandedSceneContexts: number[] = [] // New parameter
+    expandedSceneContexts: number[] = [], // New parameter
+    checkedContextScenes: number[] = [] // New parameter for reactivity
 ) => {
     // 1. Group prompts by Scene
     const groupedPrompts = useMemo(() => {
@@ -70,16 +73,17 @@ export const usePromptVirtualization = (
                      // Check if this prompt has a shot instruction displayed
                      const shotInstruction = p.shotType ? SHOT_TYPE_INSTRUCTIONS[p.shotType] : undefined;
                      const extraHeight = shotInstruction ? 30 : 0;
-
+                     
                      const expandedHeight = (showVideoPrompts ? CARD_EXPANDED_HEIGHT : CARD_EXPANDED_HEIGHT_NO_VIDEO) + extraHeight;
                      const height = (p.isCollapsed ? CARD_COLLAPSED_HEIGHT : expandedHeight) + 8; // + margin bottom
+                     
                      flattenItems.push({ type: 'prompt', h: height, top: y, data: p, scene: g.scene });
                      y += height;
                  });
              }
         });
         return { items: flattenItems, totalHeight: y };
-    }, [groupedPrompts, collapsedScenes, showVideoPrompts, showSceneHeaders, sceneContexts, expandedSceneContexts]);
+    }, [groupedPrompts, collapsedScenes, showVideoPrompts, showSceneHeaders, sceneContexts, expandedSceneContexts, checkedContextScenes]);
 
     // 3. Get Visible Items based on scroll
     const visibleItems = useMemo(() => {

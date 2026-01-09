@@ -1,4 +1,8 @@
 
+
+
+
+
 /* Fix: Added missing React import to resolve namespace errors */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NodeType, type Node, type Tab, type ActiveOperation, type ToastType } from '../types';
@@ -361,7 +365,9 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
                 checkedSourceFrameNumbers = [],
                 targetLanguage = 'en',
                 modificationModel = 'gemini-2.5-flash',
-                includeVideoPrompts = false
+                includeVideoPrompts = false,
+                checkedContextScenes = [], // Array of scene IDs to include context for
+                sceneContexts = {}
             } = JSON.parse(node.value || '{}');
 
             if (!instruction || !instruction.trim()) {
@@ -376,19 +382,63 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
             if (promptsToModify.length === 0) {
                 throw new Error("Selected prompts not found in the source list.");
             }
-
-            const modifiedPromptsFromApi = await modifyPromptSequence(promptsToModify, instruction, targetLanguage, modificationModel, includeVideoPrompts);
             
+            // Build contexts object based on checkedContextScenes array
+            // It maps "SceneNumber" -> "ContextText"
+            let contextsToSend: Record<string, string> = {};
+            const distinctScenes = new Set(promptsToModify.map((p: any) => p.sceneNumber));
+            
+            distinctScenes.forEach((sceneNum: any) => {
+                // If scene context exists AND this scene is checked for context inclusion
+                if (sceneContexts[sceneNum] && checkedContextScenes.includes(sceneNum)) {
+                     contextsToSend[String(sceneNum)] = sceneContexts[sceneNum];
+                }
+            });
+
+            const result = await modifyPromptSequence(
+                promptsToModify, 
+                instruction, 
+                targetLanguage, 
+                modificationModel, 
+                includeVideoPrompts,
+                contextsToSend // Pass context map
+            );
+            
+            const { modifiedFrames, modifiedSceneContexts } = result;
+
             updateNodeInStorage(currentTabId, nodeId, (prev) => {
                 const existingModified = prev.modifiedPrompts || [];
+                const sourcePrompts = prev.sourcePrompts || []; // Get source
+                const sourceMap = new Map(sourcePrompts.map((p: any) => [p.frameNumber, p]));
                 const modifiedMap = new Map(existingModified.map((p: any) => [p.frameNumber, p]));
 
-                modifiedPromptsFromApi.forEach((newPrompt: any) => {
+                modifiedFrames.forEach((newPrompt: any) => {
+                    // Backfill scene info from source to ensure consistency
+                    const original = sourceMap.get(newPrompt.frameNumber) as any;
+                    if (original) {
+                        newPrompt.sceneNumber = original.sceneNumber;
+                        newPrompt.sceneTitle = original.sceneTitle;
+                    }
                     modifiedMap.set(newPrompt.frameNumber, newPrompt);
                 });
 
                 const newModifiedPrompts = Array.from(modifiedMap.values());
-                return { ...prev, modifiedPrompts: newModifiedPrompts };
+                
+                // Update Scene Contexts if returned
+                let newSceneContexts = { ...(prev.modifiedSceneContexts || {}) }; 
+                // Note: We might want to store modified contexts separately from source contexts 
+                // in the node state to visualize them on the right panel.
+                // Let's assume the node state has a `modifiedSceneContexts` property.
+                
+                if (modifiedSceneContexts && modifiedSceneContexts.length > 0) {
+                    modifiedSceneContexts.forEach((item: any) => {
+                        if (item.sceneNumber && item.context) {
+                             newSceneContexts[String(item.sceneNumber)] = item.context;
+                        }
+                    });
+                }
+
+                return { ...prev, modifiedPrompts: newModifiedPrompts, modifiedSceneContexts: newSceneContexts };
             });
 
         } catch (e: any) {

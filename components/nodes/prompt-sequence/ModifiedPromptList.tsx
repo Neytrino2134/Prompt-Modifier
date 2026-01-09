@@ -1,8 +1,9 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { PromptCard } from './PromptCard';
 import { usePromptVirtualization } from './usePromptVirtualization';
+import { DebouncedTextarea } from '../../DebouncedTextarea';
 
 interface ModifiedPromptListProps {
     prompts: any[];
@@ -16,6 +17,12 @@ interface ModifiedPromptListProps {
     onMoveToSource: (frame: number) => void;
     onMoveAllToSource: () => void;
     onClear: () => void;
+    // New Context Props
+    sceneContexts?: Record<string, string>;
+    modifiedSceneContexts?: Record<string, string>; // New prop
+    expandedSceneContexts?: number[];
+    onToggleSceneContext?: (scene: number) => void;
+    onUpdateSceneContext?: (scene: number, text: string) => void;
 }
 
 export const ModifiedPromptList: React.FC<ModifiedPromptListProps> = ({
@@ -28,7 +35,12 @@ export const ModifiedPromptList: React.FC<ModifiedPromptListProps> = ({
     onToggleScene,
     onMoveToSource,
     onMoveAllToSource,
-    onClear
+    onClear,
+    sceneContexts = {},
+    modifiedSceneContexts = {}, // Default empty
+    expandedSceneContexts = [],
+    onToggleSceneContext,
+    onUpdateSceneContext
 }) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [scrollTop, setScrollTop] = useState(0);
@@ -53,11 +65,25 @@ export const ModifiedPromptList: React.FC<ModifiedPromptListProps> = ({
         return () => observer.disconnect();
     }, []);
 
+    // Merge source and modified contexts for display. Modified overrides source.
+    const displayContexts = useMemo(() => {
+        return { ...sceneContexts, ...modifiedSceneContexts };
+    }, [sceneContexts, modifiedSceneContexts]);
+
     const { 
         groupedPrompts, 
         totalHeight, 
         visibleItems 
-    } = usePromptVirtualization(prompts, collapsedScenes, scrollTop, containerHeight);
+    } = usePromptVirtualization(
+        prompts, 
+        collapsedScenes, 
+        scrollTop, 
+        containerHeight,
+        true, // Show video prompts (default behavior in modified)
+        true, // Show headers
+        displayContexts, // Use merged contexts
+        expandedSceneContexts
+    );
 
     // Batch Actions
     const areAllScenesCollapsed = groupedPrompts.length > 0 && groupedPrompts.every(g => collapsedScenes.includes(g.scene));
@@ -139,6 +165,62 @@ export const ModifiedPromptList: React.FC<ModifiedPromptListProps> = ({
                                                 </span>
                                                 <span className="text-[10px] text-gray-500">({group.prompts.length} frames)</span>
                                             </div>
+                                        </div>
+                                    </div>
+                                );
+                            } else if (item.type === 'scene_context') {
+                                // Scene Context Card
+                                const contextText = item.data;
+                                const sceneNum = item.scene;
+                                const isExpanded = expandedSceneContexts?.includes(sceneNum);
+                                const isModifiedContext = modifiedSceneContexts[String(sceneNum)] !== undefined;
+
+                                return (
+                                    <div 
+                                        key={`mod-context-${sceneNum}`}
+                                        style={{ position: 'absolute', top: item.top, left: 0, right: 0, height: item.h }}
+                                        className={`pl-2 border-l-2 border-connection-text ml-2 pb-2`}
+                                    >
+                                        <div className={`bg-gray-800/80 rounded border border-connection-text p-2 h-full flex flex-col`}>
+                                             <div 
+                                                className="flex justify-between items-center cursor-pointer select-none"
+                                                onClick={(e) => { e.stopPropagation(); onToggleSceneContext && onToggleSceneContext(sceneNum); }}
+                                             >
+                                                 <div className="flex items-center gap-2">
+                                                    <div className={isModifiedContext ? 'text-orange-500' : 'text-connection-text'}>
+                                                        {isExpanded 
+                                                            ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                                            : <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                                        }
+                                                    </div>
+                                                    <label className={`text-[10px] font-bold uppercase tracking-wider cursor-pointer ${isModifiedContext ? 'text-orange-400' : 'text-connection-text'}`}>
+                                                        SCENE CONTEXT {isModifiedContext && "(Modified)"}
+                                                    </label>
+                                                 </div>
+                                             </div>
+                                             
+                                             {isExpanded && (
+                                                 <div className="flex-grow min-h-0 mt-2">
+                                                     <DebouncedTextarea 
+                                                        value={contextText}
+                                                        // Note: Typically modified list is read-only for context unless manually edited here
+                                                        // But onUpdateSceneContext updates the MAIN context map usually. 
+                                                        // In Modified list, we might want to update the modified context only?
+                                                        // For simplicity, we assume this edits the "live" view which is the merged view,
+                                                        // but since we don't have a distinct "update modified context" callback passed,
+                                                        // we reuse the general update which typically updates source.
+                                                        // To support editing *modified* context specifically, we would need a dedicated handler.
+                                                        // Given user request was about AI modifying it, read-only display or direct edit of source is acceptable.
+                                                        // Let's make it read-only for now to avoid confusion, or map to source update if desired.
+                                                        // Actually, let's allow editing, it feels more consistent.
+                                                        onDebouncedChange={(val) => onUpdateSceneContext && onUpdateSceneContext(sceneNum, val)}
+                                                        className={`w-full h-full text-xs p-1.5 bg-gray-900/50 rounded resize-none border-none focus:outline-none transition-shadow focus:ring-1 focus:ring-accent cursor-text`}
+                                                        placeholder="Describe scene environment and context..."
+                                                        onMouseDown={e => e.stopPropagation()}
+                                                        onWheel={e => e.stopPropagation()}
+                                                     />
+                                                 </div>
+                                             )}
                                         </div>
                                     </div>
                                 );
