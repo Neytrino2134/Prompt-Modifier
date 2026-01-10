@@ -1,4 +1,5 @@
 
+
 export const nodes = {
     'node.title.text_input': 'Text Input',
     'node.title.image_input': 'Image Input',
@@ -51,7 +52,7 @@ export const nodes = {
     'node.help.video_editor': 'A timeline-based tool for editing video clips and images.',
     'node.help.media_viewer': 'A player for viewing video and audio files with playback controls.',
     'node.help.data_protection': 'An interactive Tower Defense game node. Defend your data stream from corruption.',
-    'node.help.pose_creator': 'Visual rig to define and generate character poses for consistency.',
+    'node.help.pose_creator': 'Visually rig and create character poses for generation guidance.',
     'node.action.expand': 'Expand',
     'node.action.collapse': 'Collapse',
     'node.action.help': 'Help',
@@ -300,6 +301,8 @@ export const nodes = {
     'image_sequence.next_scene': 'Next Scene',
     'image_sequence.frames_hidden': '({count} frames hidden)',
     'image_sequence.frames_count': '({count} frames)',
+    'image_sequence.auto_crop': 'Auto Crop 16:9',
+    'image_sequence.create_zip': 'Create ZIP Archive',
     'node.content.technicalPrompt': 'Technical Prompt',
     
     'node.promptProcessor.safePromptTooltip': 'Rewrites the prompt to comply with safety guidelines and avoid policy violations.',

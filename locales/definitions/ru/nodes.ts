@@ -1,4 +1,5 @@
 
+
 export const nodes = {
     'node.title.text_input': 'Текстовый узел',
     'node.title.image_input': 'Узел изображения',
@@ -255,7 +256,7 @@ export const nodes = {
     'search.node.character_analyzer.title': 'Анализатор персонажа',
     'search.node.character_analyzer.description': 'Разделяет описание на внешность и одежду.',
     'search.node.character_generator.title': 'Генератор персонажей',
-    'search.node.character_generator.description': 'Генерирует одно или несколько подробных описаний персонажей на основе промпта.',
+    'search.node.character_generator.description': 'Генерирует подробные описания персонажей на основе короткого промпта.',
     'search.node.image_analyzer.title': 'Анализатор изображений',
     'search.node.image_analyzer.description': 'Описывает изображение с помощью ИИ.',
     'search.node.image_editor.title': 'Редактор изображений ИИ',
@@ -294,9 +295,21 @@ export const nodes = {
     'geminiChat.mode.prompt': 'Эксперт по промптам',
     'geminiChat.mode.script': 'Сценарист',
     'geminiChat.mode.youtube': 'Ютюб Аналитик',
-    'image_sequence.shot_type.WS': "Интегрируйте Сущность с общим планом (WS) в сцену и действие. Показать окружение.",
-    'image_sequence.shot_type.MS': "Интегрируйте Сущность со средним планом (MS) в сцену. Персонаж по пояс.",
-    'image_sequence.shot_type.CU': "Интегрируйте Сущность с крупным планом (CU) в сцену.",
-    'image_sequence.shot_type.ECU': "Интегрируйте Сущность с экстремально крупным планом (ECU) в сцену. Максимальная детализация.",
-    'image_sequence.shot_type.LS': "Интегрируйте Сущность с дальним планом (LS) в сцену, чтобы показать масштаб."
+    'image_sequence.deselect_scene': 'Deselect all frames in this scene',
+    'image_sequence.clear_prompts_only': 'Очистить только текстовые промпты',
+    'image_sequence.prev_scene': 'Предыдущая сцена',
+    'image_sequence.next_scene': 'Следующая сцена',
+    'image_sequence.frames_hidden': '({count} кадров скрыто)',
+    'image_sequence.frames_count': '({count} кадров)',
+    'image_sequence.auto_crop': 'Авто-кадрирование 16:9',
+    'image_sequence.create_zip': 'Создать Zip архив',
+    'node.content.technicalPrompt': 'Технический промпт',
+    
+    'node.promptProcessor.safePromptTooltip': 'Переписывает промпт для соответствия правилам безопасности и предотвращения нарушений политики.',
+    'node.promptProcessor.technicalPromptTooltip': 'Преобразует промпт в высокодетализированную техническую спецификацию (освещение, камера, настройки рендеринга).',
+    'node.promptProcessor.enhanceTooltip': 'Использует ИИ для расширения и обогащения промпта описательными деталями.',
+    'node.promptProcessor.chainTooltip': 'Выполняет этот узел и запускает все подключенные нижестоящие узлы.',
+    'image_sequence.tooltip.autoCrop': 'Автоматически обрезает сгенерированные изображения до соотношения сторон 16:9.',
+    'image_sequence.tooltip.autoDownload': 'Автоматически сохраняет каждое изображение на ваше устройство после генерации.',
+    'image_sequence.tooltip.createZip': 'Упаковывает все выбранные изображения в один ZIP-архив при скачивании.'
 };

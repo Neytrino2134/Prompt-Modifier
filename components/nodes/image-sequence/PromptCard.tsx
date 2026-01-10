@@ -45,8 +45,8 @@ interface PromptCardProps {
     onEditInSource?: (frameNumber: number) => void;
     onEditPrompt?: (frameNumber: number) => void;
     showVideoPrompts?: boolean;
-    showSceneInfo?: boolean;
-    onCopyCombinedPrompt?: (frameNumber: number) => void; // New prop
+    showSceneInfo?: boolean; 
+    onCopyCombinedPrompt?: (frameNumber: number) => void;
 }
 
 const SHOT_OPTIONS = ['WS', 'MS', 'CU', 'ECU', 'LS'];
@@ -162,7 +162,7 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                         ? (shotInstruction ? `${CARD_EXPANDED_HEIGHT + 30}px` : `${CARD_EXPANDED_HEIGHT}px`)
                         : (shotInstruction ? `${CARD_EXPANDED_HEIGHT_NO_VIDEO + 30}px` : `${CARD_EXPANDED_HEIGHT_NO_VIDEO}px`)),
             }}
-            className={`relative group bg-gray-700 p-2 rounded-lg border-2 overflow-hidden mb-1 ${isSelected ? 'border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'border-transparent hover:border-gray-600'}`}
+            className={`relative group bg-gray-700 p-2 rounded-lg border-2 overflow-hidden mb-1 ${isSelected ? 'border-connection-text shadow-[0_0_15px_var(--color-connection-text)]' : 'border-transparent hover:border-gray-600'}`}
         >
             <div 
                 className="flex justify-between items-center mb-1 h-[28px] gap-2 cursor-pointer"
@@ -284,10 +284,7 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                             onClick={(e) => { e.stopPropagation(); onCopyCombinedPrompt(frameNumber); }} 
                             className="p-1 rounded-md text-[#dad5cf] hover:bg-gray-600 hover:text-white transition-colors focus:outline-none"
                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-400 hover:text-orange-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
+                            <CopyIcon className="h-4 w-4 text-orange-400 hover:text-orange-200" />
                         </ActionButton>
                     )}
 

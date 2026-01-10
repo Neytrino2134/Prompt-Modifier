@@ -156,6 +156,12 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         }
     }, [node.value]);
 
+    // Keep a ref to characters to avoid stale closures in async operations
+    const charactersRef = useRef(characters);
+    useEffect(() => {
+        charactersRef.current = characters;
+    }, [characters]);
+
     // Force migration persistence if indices changed in memo
     useEffect(() => {
         try {
@@ -202,14 +208,14 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     }, [node.id, onValueChange]);
 
     const handleUpdateCard = useCallback((index: number, updates: Partial<CharacterData>) => {
-        // Use functional state update logic relative to current characters
-        // BUT we need access to current characters. 
-        // `characters` is a dependency, so this function is recreated when characters change.
-        // This is fine for the update action itself.
-        const newChars = [...characters];
-        newChars[index] = { ...newChars[index], ...updates };
-        handleValueUpdate(newChars);
-    }, [characters, handleValueUpdate]);
+        // Use the ref to get the absolute latest state when this runs, 
+        // preventing overwrites if called inside async callbacks.
+        const currentChars = [...charactersRef.current];
+        if (currentChars[index]) {
+            currentChars[index] = { ...currentChars[index], ...updates };
+            handleValueUpdate(currentChars);
+        }
+    }, [handleValueUpdate]);
 
     const handleSetAsOutput = (idx: number) => {
         const newChars = characters.map((c, i) => ({
@@ -455,13 +461,13 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         // Calculate next "New Entity N" name
         let nextNameIndex = 1;
         const existingNames = new Set(characters.map(c => c.name));
-        while (existingNames.has(`New Entity ${nextNameIndex}`)) {
+        while (existingNames.has(`New Character ${nextNameIndex}`)) {
             nextNameIndex++;
         }
 
         const newChars = [...characters, {
             id: `char-card-${Date.now()}`,
-            name: `New Entity ${nextNameIndex}`,
+            name: `New Character ${nextNameIndex}`,
             index: `Entity-${characters.length + 1}`, image: null,
             thumbnails: { '1:1': null, '16:9': null, '9:16': null },
             selectedRatio: '1:1', prompt: '', fullDescription: '',
@@ -563,9 +569,9 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 if (loadedSources[ratio] && typeof loadedSources[ratio] === 'string' && loadedSources[ratio].startsWith('data:')) {
                     setFullSizeImage(node.id, cardIdx * 10, loadedSources[ratio]);
                 }
-                const newChars = [...characters];
-                newChars[cardIdx] = {
-                    ...characters[cardIdx],
+                
+                // Using ref implicitly via handleUpdateCard ensures we don't lose other card states
+                handleUpdateCard(cardIdx, {
                     name: cardData.name || '',
                     index: cardData.index || cardData.alias || `Entity-${cardIdx + 1}`,
                     prompt: cardData.prompt || cardData.imagePrompt || '',
@@ -573,8 +579,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                     selectedRatio: ratio,
                     image: newThumbnails[ratio],
                     thumbnails: newThumbnails,
-                };
-                handleValueUpdate(newChars);
+                });
+                
                 addToast?.(t('toast.pastedFromClipboard'), 'success');
             }
         } catch (e) { addToast?.(t('toast.pasteFailed'), 'error'); }
@@ -607,8 +613,10 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     const handleRatioChange = (cardIdx: number, newRatio: string) => {
-        const char = characters[cardIdx];
+        // Safe check using latest state via ref
+        const char = charactersRef.current[cardIdx];
         if (newRatio === char.selectedRatio) return;
+        
         const highRes = getFullSizeImage(node.id, (cardIdx * 10) + (RATIO_INDICES[newRatio] || 1));
         const displayThumb = char.thumbnails[newRatio] || null;
         if (highRes) setFullSizeImage(node.id, cardIdx * 10, highRes);
@@ -617,11 +625,16 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     const processNewImage = async (cardIdx: number, newImageData: string) => {
-        const char = characters[cardIdx];
+        // Use ref to get latest state for calculation
+        const char = charactersRef.current[cardIdx];
+        if (!char) return;
+
         setFullSizeImage(node.id, cardIdx * 10, newImageData);
         setFullSizeImage(node.id, (cardIdx * 10) + (RATIO_INDICES[char.selectedRatio] || 1), newImageData);
         const thumbnail = await generateThumbnail(newImageData, 256, 256);
         const newThumbnails = { ...char.thumbnails, [char.selectedRatio]: thumbnail };
+        
+        // This will merge image update with whatever text state exists NOW
         handleUpdateCard(cardIdx, { thumbnails: newThumbnails, image: thumbnail });
     };
 
@@ -648,7 +661,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             reader.readAsDataURL(file);
         }
         if (e.target) e.target.value = '';
-    }, [editingCardIndex, processNewImage]);
+    }, [editingCardIndex, processNewImage]); // processNewImage is stable-ish but depends on ref
 
     const handleModifyRequest = (cardIdx: number) => {
         const req = modificationRequests[cardIdx];
@@ -685,7 +698,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     const handleOpenInEditor = (cardIdx: number) => {
-        const char = characters[cardIdx];
+        const char = charactersRef.current[cardIdx];
         const fullRes = getFullSizeImage(node.id, (cardIdx * 10) + (RATIO_INDICES[char.selectedRatio] || 1)) || char.image;
         if (!fullRes || !addNode) return;
         const pos = { x: node.position.x + node.width + 50, y: node.position.y };
@@ -709,13 +722,13 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     const handleOpenInRasterEditor = (cardIdx: number) => {
-        const char = characters[cardIdx];
+        const char = charactersRef.current[cardIdx];
         const src = getFullSizeImage(node.id, (cardIdx * 10) + (RATIO_INDICES[char.selectedRatio] || 1)) || char.image;
         if (src) { setEditorImageSrc(src); setEditingCardIndex(cardIdx); setIsEditorOpen(true); }
     };
 
     const handleRatioExpandLocal = async (cardIdx: number, targetRatio: string) => {
-        const char = characters[cardIdx];
+        const char = charactersRef.current[cardIdx];
         const fullSizeSrc = getFullSizeImage(node.id, cardIdx * 10) || char.image;
         if (!fullSizeSrc) return;
         setTransformingRatio(targetRatio);
@@ -739,7 +752,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     const handleCrop1x1Local = async (cardIdx: number) => {
-        const char = characters[cardIdx];
+        const char = charactersRef.current[cardIdx];
         const fullSizeSrc = getFullSizeImage(node.id, cardIdx * 10) || char.image;
         if (!fullSizeSrc) return;
         setTransformingRatio('1:1');
@@ -754,7 +767,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     const handleDetach = (cardIdx: number) => {
-        const char = characters[cardIdx];
+        const char = charactersRef.current[cardIdx];
         if (onDetachCharacter) {
             const fullSources: Record<string, string | null> = { ...char.thumbnails };
             Object.entries(RATIO_INDICES).forEach(([ratio, idx]) => {

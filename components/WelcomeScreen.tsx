@@ -22,35 +22,30 @@ const WelcomeContent: React.FC<{
     onCycleLanguage: (direction: number) => void;
     exitPhase: 'idle' | 'button-exit' | 'window-exit' | 'done';
     isResumable?: boolean;
-}> = ({ language, globalLanguage, apiKey, setApiKey, onSelectLanguage, onStart, onDeveloperStart, onStartNew, measureRef, onCycleLanguage, exitPhase, isResumable }) => {
+    animationStage: number; // 0: Hidden, 1: Title Center, 2: Heartbeat, 3: Title Top, 4: Window In, 5: Extras
+    triggerHeartbeat: boolean;
+}> = ({ language, globalLanguage, apiKey, setApiKey, onSelectLanguage, onStart, onDeveloperStart, onStartNew, measureRef, onCycleLanguage, exitPhase, isResumable, animationStage, triggerHeartbeat }) => {
     
     const t = useCallback((key: TranslationKey, options?: { [key: string]: string | number }) => {
         return getTranslation(language, key, options);
     }, [language]);
 
     const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
-    const [showNavHint, setShowNavHint] = useState(false);
     const langMenuRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Auto-focus input on mount
     useEffect(() => {
-        // Small timeout to ensure render stability and transition start
-        const timer = setTimeout(() => {
-            if (inputRef.current) {
-                inputRef.current.focus();
-            }
-        }, 100);
-        return () => clearTimeout(timer);
-    }, []);
-
-    // Delayed Navigation Hint
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setShowNavHint(true);
-        }, 1000);
-        return () => clearTimeout(timer);
-    }, []);
+        // Only focus if stage is advanced enough to show window (Stage 4 now due to new step)
+        if (animationStage >= 4) {
+            const timer = setTimeout(() => {
+                if (inputRef.current) {
+                    inputRef.current.focus();
+                }
+            }, 300); // Wait for window fade in
+            return () => clearTimeout(timer);
+        }
+    }, [animationStage]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -65,14 +60,45 @@ const WelcomeContent: React.FC<{
 
     const selectedLangInfo = languages[globalLanguage];
 
+    // Animation classes helper for Window
+    // Window only appears at Stage 4
+    const getWindowClass = () => {
+        if (exitPhase === 'window-exit') return '-translate-y-[150vh] scale-75 opacity-0';
+        if (exitPhase === 'button-exit') return 'scale-95';
+        
+        return animationStage >= 4
+            ? 'opacity-100 translate-y-0 scale-100 blur-0' 
+            : 'opacity-0 translate-y-12 scale-95 blur-sm pointer-events-none';
+    };
+
+    // Dynamic Easing for Title
+    // Stage 0->1 (Enter): Elastic Jump
+    // Stage 3 (Move Up): Smooth Ease-In-Out
+    const titleEasing = animationStage <= 1 ? 'ease-[cubic-bezier(0.34,1.56,0.64,1)]' : 'ease-in-out';
+    const titleDuration = animationStage <= 1 ? 'duration-1000' : 'duration-1000'; // Slow slide up
+
     return (
         <div ref={measureRef} className="w-full flex flex-col items-center text-center select-none">
             {/* Title Row with Navigation Arrows */}
-            {/* Added relative positioning to arrows to align them perfectly with the massive text */}
-            <div className={`w-full flex items-center justify-between md:justify-center gap-2 md:gap-12 mb-6 px-1 md:px-4 transition-all duration-500 ${exitPhase !== 'idle' ? 'opacity-0 scale-90 blur-sm' : 'opacity-100 scale-100'}`}>
+            {/* 
+               Animation Logic:
+               Stage 0: Hidden below
+               Stage 1: Moves to Center (via translate-y-[35vh]) and scales up.
+               Stage 2: Heartbeat (Handled by inner div)
+               Stage 3: Moves to Top (translate-y-0) and scales normal. 
+            */}
+            <div className={`
+                w-full flex items-center justify-between md:justify-center gap-2 md:gap-12 mb-6 px-1 md:px-4 
+                transition-all ${titleDuration} ${titleEasing}
+                ${animationStage >= 1 ? 'opacity-100' : 'opacity-0'}
+                ${animationStage <= 2 ? 'translate-y-[35vh] scale-125' : 'translate-y-0 scale-100'}
+                ${exitPhase !== 'idle' ? 'opacity-0 scale-90 blur-sm' : ''}
+            `}>
                  <button 
                     onClick={() => onCycleLanguage(-1)}
-                    className="w-10 h-10 md:w-16 md:h-16 flex-shrink-0 rounded-full border border-cyan-500/30 bg-gray-900/40 backdrop-blur-md text-cyan-400 hover:text-white hover:bg-cyan-500/20 hover:border-cyan-400 transition-all duration-300 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_25px_rgba(6,182,212,0.4)] flex items-center justify-center group z-30"
+                    className={`w-10 h-10 md:w-16 md:h-16 flex-shrink-0 rounded-full border border-cyan-500/30 bg-gray-900/40 backdrop-blur-md text-cyan-400 hover:text-white hover:bg-cyan-500/20 hover:border-cyan-400 transition-all duration-700 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_25px_rgba(6,182,212,0.4)] flex items-center justify-center group z-30 
+                        ${animationStage >= 5 ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}
+                    `}
                     aria-label="Previous Language"
                  >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-8 md:w-8 transform transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -81,8 +107,8 @@ const WelcomeContent: React.FC<{
                  </button>
 
                 {/* Massive Animated Gradient Text - Split into two lines */}
-                {/* Increased gap from gap-2/6 to gap-3/8 for more "air" */}
-                <div className="flex flex-col items-center justify-center z-20 gap-3 md:gap-8 py-2">
+                {/* Heartbeat animation applied here */}
+                <div className={`flex flex-col items-center justify-center z-20 gap-3 md:gap-8 py-2 ${triggerHeartbeat ? 'animate-heartbeat' : ''}`}>
                     <h1 
                         className="font-black tracking-tighter leading-none text-center animate-gradient-x bg-size-200 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-sky-500 to-cyan-400 px-1 md:px-4 whitespace-nowrap"
                         style={{ fontSize: 'clamp(2rem, 7vw, 120px)' }}
@@ -99,7 +125,9 @@ const WelcomeContent: React.FC<{
 
                 <button 
                     onClick={() => onCycleLanguage(1)}
-                    className="w-10 h-10 md:w-16 md:h-16 flex-shrink-0 rounded-full border border-cyan-500/30 bg-gray-900/40 backdrop-blur-md text-cyan-400 hover:text-white hover:bg-cyan-500/20 hover:border-cyan-400 transition-all duration-300 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_25px_rgba(6,182,212,0.4)] flex items-center justify-center group z-30"
+                    className={`w-10 h-10 md:w-16 md:h-16 flex-shrink-0 rounded-full border border-cyan-500/30 bg-gray-900/40 backdrop-blur-md text-cyan-400 hover:text-white hover:bg-cyan-500/20 hover:border-cyan-400 transition-all duration-700 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_25px_rgba(6,182,212,0.4)] flex items-center justify-center group z-30
+                         ${animationStage >= 5 ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'}
+                    `}
                     aria-label="Next Language"
                  >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-8 md:w-8 transform transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -108,16 +136,15 @@ const WelcomeContent: React.FC<{
                  </button>
             </div>
             
-            {/* Navigation Hint */}
-            <div className={`mb-8 h-6 flex items-center justify-center transition-all duration-700 ${showNavHint && exitPhase === 'idle' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+            {/* Navigation Hint - Appears LAST from TOP */}
+            <div className={`mb-8 h-6 flex items-center justify-center transition-all duration-1000 ease-out delay-100 ${animationStage >= 5 ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8'}`}>
                 <p className="text-gray-400 text-sm font-medium tracking-wide bg-gray-900/40 px-3 py-1 rounded-full border border-gray-700/50 backdrop-blur-sm">
                     {t('welcome.navHint')}
                 </p>
             </div>
 
-            {/* Main Card Window Wrapper */}
-            {/* Added animation classes for the 'spring and fly' effect */}
-            <div className={`relative w-full max-w-[860px] mx-auto transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${exitPhase === 'window-exit' ? '-translate-y-[150vh] scale-75 opacity-0' : (exitPhase === 'button-exit' ? 'scale-95' : 'scale-100')}`}>
+            {/* Main Card Window Wrapper - Appears at Stage 4 */}
+            <div className={`relative w-full max-w-[860px] mx-auto transition-all duration-1000 ease-out delay-100 ${getWindowClass()}`}>
                 
                 {/* Animated Ring */}
                 <div className="welcome-ring"></div>
@@ -134,7 +161,7 @@ const WelcomeContent: React.FC<{
                             <div className="h-px w-full bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
                         </div>
 
-                        {/* Language Selection (Stylish Dropdown) */}
+                        {/* Language Selection */}
                         <div className="space-y-2 relative z-50">
                              <label className="block text-xs font-medium text-gray-400 ml-1 uppercase tracking-wide">
                                  {t('welcome.selectLanguage' as TranslationKey) || 'Language'}
@@ -246,13 +273,16 @@ const WelcomeContent: React.FC<{
                                 </div>
                             </button>
 
+                            {/* Start New Button - Always visible if Resumable */}
                             {isResumable && onStartNew && (
-                                <button 
-                                    onClick={onStartNew}
-                                    className="w-full py-3 border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white rounded-xl transition-all duration-200 text-sm font-semibold"
-                                >
-                                    {t('welcome.startNew')}
-                                </button>
+                                <div className="mt-2 w-full">
+                                    <button 
+                                        onClick={onStartNew}
+                                        className="w-full py-3 border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white rounded-xl transition-all duration-200 text-sm font-semibold"
+                                    >
+                                        {t('welcome.startNew')}
+                                    </button>
+                                </div>
                             )}
 
                             <div>
@@ -269,8 +299,8 @@ const WelcomeContent: React.FC<{
                 </div>
             </div>
 
-            {/* External Link Buttons */}
-            <div className={`mt-10 flex flex-col md:flex-row gap-4 transition-all duration-700 delay-100 ${exitPhase !== 'idle' ? 'opacity-0 translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+            {/* External Link Buttons - Appear from bottom */}
+            <div className={`mt-10 flex flex-col md:flex-row gap-4 transition-all duration-1000 ease-out ${animationStage >= 5 ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95 pointer-events-none'}`}>
                 <a 
                     href="https://scriptmodifier2.netlify.app/" 
                     target="_blank" 
@@ -304,6 +334,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
   const [apiKey, setApiKey] = useState('');
   const [isVisible, setIsVisible] = useState(false);
   const [exitPhase, setExitPhase] = useState<'idle' | 'button-exit' | 'window-exit' | 'done'>('idle');
+  const [animationStage, setAnimationStage] = useState(0); 
+  const [triggerHeartbeat, setTriggerHeartbeat] = useState(false);
   
   // Animation states
   const [visualLang, setVisualLang] = useState<LanguageCode>(globalLanguage);
@@ -331,13 +363,31 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
     observer.observe(measureRef.current);
     updateHeight();
     return () => observer.disconnect();
-  }, [visualLang]);
+  }, [visualLang, animationStage]); // Re-measure on stage change
 
   useEffect(() => {
     const storedKey = localStorage.getItem('settings_userApiKey');
     if (storedKey) setApiKey(storedKey);
     
+    // Initial reveal of overlay
     requestAnimationFrame(() => setIsVisible(true));
+
+    // Staged Animation Sequence
+    setTimeout(() => setAnimationStage(1), 100);   // 1. Title floats up to Center (Elastic)
+    
+    // Heartbeat logic
+    // 2. Heartbeat! (Started at 1600ms to center it better in idle time)
+    setTimeout(() => setTriggerHeartbeat(true), 1600); 
+
+    // 3. Exit (Stop heartbeat and move up)
+    // Slower heartbeat needs more time.
+    setTimeout(() => {
+        setTriggerHeartbeat(false);
+        setAnimationStage(3); // 3. Title slides Up (Smoothly)
+    }, 3600); // 3600ms allows for 1.5s animation + buffers
+    
+    setTimeout(() => setAnimationStage(4), 4400);  // 4. Window appears
+    setTimeout(() => setAnimationStage(5), 5000);  // 5. Extras (Links/Hint/Background Icon)
   }, []);
 
   const handleReloadApp = () => {
@@ -386,7 +436,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
       if (newIndex >= langKeys.length) newIndex = 0;
       
       handleSelectLanguage(langKeys[newIndex]);
-  }, [visualLang, globalLanguage]); // Dependencies important for useCallback
+  }, [visualLang, globalLanguage]);
 
   // Keyboard Support
   useEffect(() => {
@@ -438,7 +488,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
     if (apiKey.trim()) {
       localStorage.setItem('settings_userApiKey', apiKey.trim());
     }
-    // If resuming, just close (false), else reset (true). Standard start allows tutorial.
     triggerExit(!isResumable, false);
   };
 
@@ -447,7 +496,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
     if (apiKey.trim()) {
       localStorage.setItem('settings_userApiKey', apiKey.trim());
     }
-    // Force reset, allow tutorial
     triggerExit(true, false); 
   };
 
@@ -466,7 +514,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
 
   return (
     <div 
-        className={`fixed inset-0 bg-gray-900 z-[200] flex flex-col items-center justify-center overflow-hidden text-white px-4 custom-scrollbar transition-opacity duration-700 select-none ${exitPhase === 'window-exit' ? 'opacity-0' : 'opacity-100'}`}
+        className={`fixed inset-0 bg-[#111827] z-[200] flex flex-col items-center justify-center overflow-hidden text-white px-4 custom-scrollbar transition-all duration-700 select-none ${exitPhase === 'window-exit' ? 'opacity-0' : 'opacity-100'}`}
         onMouseDown={(e) => {
             // Prevent default behavior (text selection) unless interacting with the input
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -484,10 +532,20 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
             .animate-gradient-x {
                 animation: gradient-x 3s linear infinite;
             }
+            @keyframes heartbeat {
+                0% { transform: scale(1); }
+                25% { transform: scale(0.95); }
+                50% { transform: scale(1.05); }
+                75% { transform: scale(0.95); }
+                100% { transform: scale(1); }
+            }
+            .animate-heartbeat {
+                animation: heartbeat 1.5s ease-in-out; 
+            }
         `}</style>
         
         {/* Top Right Badges */}
-        <div className="absolute top-4 right-4 z-50 flex items-center gap-4">
+        <div className={`absolute top-4 right-4 z-50 flex items-center gap-4 transition-opacity duration-700 ${animationStage >= 3 ? 'opacity-100' : 'opacity-0'}`}>
             {/* Reload Button */}
             <button 
                 onClick={handleReloadApp}
@@ -520,8 +578,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
             </div>
         </div>
 
-      {/* Background Decoration */}
-      <div className="absolute -bottom-20 -right-20 opacity-5 pointer-events-none fixed">
+      {/* Background Decoration - Now appears at Stage 5 */}
+      <div className={`absolute -bottom-20 -right-20 pointer-events-none fixed transition-all duration-1000 ${animationStage >= 5 ? 'opacity-5 translate-x-0' : 'opacity-0 translate-x-20'}`}>
         <svg xmlns="http://www.w3.org/2000/svg" className="w-[600px] h-[600px] text-white transform rotate-[-15deg]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="0.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
@@ -547,10 +605,12 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
                     onCycleLanguage={handleCycleLanguage}
                     exitPhase={exitPhase}
                     isResumable={isResumable}
+                    animationStage={animationStage}
+                    triggerHeartbeat={triggerHeartbeat}
                 />
             </div>
 
-            {/* Ghost Content */}
+            {/* Ghost Content (Static, fully visible to prevent jumps) */}
             {ghostLang && (
                 <div 
                     className="absolute top-0 left-0 w-full z-20 pointer-events-none transition-opacity duration-200 ease-linear"
@@ -567,6 +627,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
                         onCycleLanguage={handleCycleLanguage}
                         exitPhase='idle'
                         isResumable={isResumable}
+                        animationStage={5} // Force full visibility for ghost
+                        triggerHeartbeat={false}
                     />
                 </div>
             )}

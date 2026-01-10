@@ -54,18 +54,30 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
                 />
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
-                <div className="flex items-center space-x-2">
-                    <input type="checkbox" id={`auto-crop-169`} checked={!!autoCrop169} onChange={(e) => onUpdateState({ autoCrop169: e.target.checked })} className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent bg-gray-700 cursor-pointer" />
-                    <label htmlFor={`auto-crop-169`} className="text-sm text-gray-300 cursor-pointer">Авто-кадрирование 16:9</label>
-                </div>
-                 <div className="flex items-center space-x-2">
-                    <input type="checkbox" id={`auto-download`} checked={autoDownload} onChange={(e) => onUpdateState({ autoDownload: e.target.checked })} className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent bg-gray-700 cursor-pointer" />
-                    <label htmlFor={`auto-download`} className="text-sm text-gray-300 cursor-pointer select-none">{t('node.content.autoDownload')}</label>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <input type="checkbox" id={`create-zip`} checked={!!createZip} onChange={(e) => onUpdateState({ createZip: e.target.checked })} className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent bg-gray-700 cursor-pointer" />
-                    <label htmlFor={`create-zip`} className="text-sm text-gray-300 cursor-pointer select-none">Создать Zip архив</label>
-                </div>
+                <CustomCheckbox 
+                    id="auto-crop-169"
+                    checked={!!autoCrop169}
+                    onChange={(checked) => onUpdateState({ autoCrop169: checked })}
+                    label={t('image_sequence.auto_crop')}
+                    title={t('image_sequence.tooltip.autoCrop')}
+                    className="text-sm text-gray-300"
+                />
+                <CustomCheckbox 
+                    id="auto-download"
+                    checked={autoDownload}
+                    onChange={(checked) => onUpdateState({ autoDownload: checked })}
+                    label={t('node.content.autoDownload')}
+                    title={t('image_sequence.tooltip.autoDownload')}
+                    className="text-sm text-gray-300"
+                />
+                <CustomCheckbox 
+                    id="create-zip"
+                    checked={!!createZip}
+                    onChange={(checked) => onUpdateState({ createZip: checked })}
+                    label={t('image_sequence.create_zip')}
+                    title={t('image_sequence.tooltip.createZip')}
+                    className="text-sm text-gray-300"
+                />
             </div>
             <div className="flex space-x-2 mb-2">
                 <button 

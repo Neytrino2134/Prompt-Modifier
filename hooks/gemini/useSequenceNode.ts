@@ -126,8 +126,14 @@ export const useSequenceNode = ({
             const sceneContexts = parsed.sceneContexts || {};
             const prefix = parsed.integrationPrompt || "Integrate these Entities into the scene, action and pose. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
 
+            // Initialize statuses for the queue
             updateNodeInStorage(currentTabId, nodeId, (prev) => {
                 const newStatuses = { ...(prev.frameStatuses || {}) };
+                // Reset any existing 'generating' to 'idle' to fix stuck animations
+                Object.keys(newStatuses).forEach(k => {
+                    if (newStatuses[k] === 'generating') newStatuses[k] = 'idle';
+                });
+                // Set pending for queue
                 framesToProcess.forEach(p => { newStatuses[p.frameNumber] = 'pending'; });
                 return { ...prev, frameStatuses: newStatuses };
             });
@@ -136,6 +142,7 @@ export const useSequenceNode = ({
                 if (abortControllerRef.current?.signal.aborted) break;
                 const frameNum = promptItem.frameNumber;
                 
+                // Set current frame to generating
                 updateNodeInStorage(currentTabId, nodeId, (prev) => ({
                     ...prev,
                     frameStatuses: { ...(prev.frameStatuses || {}), [frameNum]: 'generating' }
@@ -230,7 +237,8 @@ export const useSequenceNode = ({
                          try { finalUrl = await cropImageTo169(imageUrl); } catch(e) {}
                     }
                     
-                    const thumb = await generateThumbnail(finalUrl, 128, 128);
+                    // Create 256x256 thumbnail
+                    const thumb = await generateThumbnail(finalUrl, 256, 256);
                     
                     updateNodeInStorage(currentTabId, nodeId, (prev) => ({
                         ...prev,
@@ -241,6 +249,10 @@ export const useSequenceNode = ({
                     if (parsed.autoDownload) {
                         triggerDownload(finalUrl, frameNum, promptItem.prompt);
                     }
+                    
+                    // Small delay to allow UI to update state before next heavy operation
+                    // This prevents the 'generating' spinner from getting stuck visually on the previous frame
+                    await new Promise(resolve => setTimeout(resolve, 50));
 
                 } catch (err: any) {
                     if (err.name === 'AbortError' || err.message === 'Aborted') {
@@ -294,6 +306,10 @@ export const useSequenceNode = ({
 
             updateNodeInStorage(currentTabId, nodeId, (prev) => {
                 const newStatuses = { ...(prev.frameStatuses || {}) };
+                // Reset any stale generating statuses
+                Object.keys(newStatuses).forEach(k => {
+                    if (newStatuses[k] === 'generating') newStatuses[k] = 'idle';
+                });
                 framesToProcessIndices.forEach(fNum => { newStatuses[fNum] = 'pending'; });
                 return { ...prev, frameStatuses: newStatuses };
             });
@@ -393,7 +409,8 @@ export const useSequenceNode = ({
                          try { finalUrl = await cropImageTo169(imageUrl); } catch(e) {}
                     }
                     
-                    const thumb = await generateThumbnail(finalUrl, 128, 128);
+                    // Create 256x256 thumbnail
+                    const thumb = await generateThumbnail(finalUrl, 256, 256);
                     
                     updateNodeInStorage(currentTabId, nodeId, (prev) => ({
                         ...prev,
@@ -404,6 +421,9 @@ export const useSequenceNode = ({
                     if (parsed.autoDownload) {
                         triggerDownload(finalUrl, frameNum, promptItem.prompt);
                     }
+
+                    // Small delay to allow UI to update state before next heavy operation
+                    await new Promise(resolve => setTimeout(resolve, 50));
 
                 } catch (err: any) {
                     if (err.name === 'AbortError' && err.message === 'Aborted') {
