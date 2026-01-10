@@ -108,6 +108,8 @@ export const nodes = {
     'node.action.removeCard': 'Удалить карточку',
     'node.action.showOutputs': 'Показать выходы',
     'node.action.hideOutputs': 'Скрыть выходы',
+    'node.action.showImages': 'Показать изображения',
+    'node.action.hideImages': 'Скрыть изображения',
     'node.action.characterConcept': 'Концепт персонажа',
     'node.action.objectConcept': 'Концепт объекта',
     'node.action.downloadTxt': 'Скачать .txt',

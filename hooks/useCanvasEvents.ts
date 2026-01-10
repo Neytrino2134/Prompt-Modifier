@@ -293,7 +293,8 @@ export const useCanvasEvents = (props: any) => {
                      reader.readAsDataURL(file);
                      offsetX += 30; offsetY += 30;
                  } 
-                 else if (file.type === 'application/json' || file.name.endsWith('.json')) {
+                 // Updated check for custom extensions
+                 else if (file.type === 'application/json' || file.name.endsWith('.json') || file.name.endsWith('.PMC') || file.name.endsWith('.PMP') || file.name.endsWith('.CHAR')) {
                      const reader = new FileReader();
                      reader.onload = async (event) => {
                          const text = event.target?.result as string;

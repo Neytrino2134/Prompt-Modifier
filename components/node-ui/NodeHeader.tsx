@@ -1,11 +1,12 @@
 
+
 import React from 'react';
 import { Node, NodeType, ToastType, DockMode } from '../../types';
 import { ActionButton } from '../ActionButton';
 import { Tooltip } from '../Tooltip';
 import { useLanguage } from '../../localization';
 import { HEADER_HEIGHT, isRestrictedDockingNode } from '../../utils/nodeUtils';
-import { CopyIcon, DetachIcon, PinLeftIcon, PinRightIcon, FullScreenIcon, ExitFullScreenIcon, PinIcon, EyeIcon, EyeOffIcon } from '../icons/AppIcons';
+import { CopyIcon, DetachIcon, PinLeftIcon, PinRightIcon, FullScreenIcon, ExitFullScreenIcon, PinIcon, EyeIcon, EyeOffIcon, PhotoIcon } from '../icons/AppIcons';
 import { useAppContext } from '../../contexts/AppContext';
 
 interface NodeHeaderProps {
@@ -44,6 +45,8 @@ interface NodeHeaderProps {
   handleRequestDelete: (e: React.MouseEvent) => void;
   handleDetachNodeFromGroup: (nodeId: string) => void;
   isInstantCloseEnabled?: boolean;
+  onToggleCharacterImages?: () => void;
+  allImagesCollapsed?: boolean;
 }
 
 export const NodeHeader: React.FC<NodeHeaderProps> = ({
@@ -78,7 +81,9 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
   handleUndockNode,
   handleOpenNodeContextMenu,
   handleRequestDelete,
-  isInstantCloseEnabled
+  isInstantCloseEnabled,
+  onToggleCharacterImages,
+  allImagesCollapsed
 }) => {
   const { t } = useLanguage();
   const context = useAppContext();
@@ -286,16 +291,29 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                         </ActionButton>
                   )}
 
-                  {/* Character Card Toggle */}
-                  {node.type === NodeType.CHARACTER_CARD && handleToggleNodeHandles && !isNoteMinimal && (
-                    <ActionButton 
-                        title={node.collapsedHandles ? t('node.action.showOutputs') : t('node.action.hideOutputs')} 
-                        onClick={(e) => { e.stopPropagation(); handleToggleNodeHandles(node.id); }}
-                        // Theme Change: Use dynamic theme color instead of hardcoded cyan
-                        className={`p-1 rounded hover:bg-gray-600 transition-colors border ${node.collapsedHandles ? 'border-accent text-accent-text' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        {node.collapsedHandles ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
-                    </ActionButton>
+                  {/* Character Card Toggles */}
+                  {node.type === NodeType.CHARACTER_CARD && !isNoteMinimal && (
+                    <>
+                        {onToggleCharacterImages && (
+                            <ActionButton
+                                title={allImagesCollapsed ? t('node.action.showImages') : t('node.action.hideImages')}
+                                onClick={(e) => { e.stopPropagation(); onToggleCharacterImages(); }}
+                                className={`p-1 rounded hover:bg-gray-600 transition-colors border ${allImagesCollapsed ? 'border-transparent text-gray-400 hover:text-white' : 'border-accent text-accent-text'}`}
+                            >
+                                <PhotoIcon className="h-4 w-4" />
+                            </ActionButton>
+                        )}
+                        {handleToggleNodeHandles && (
+                            <ActionButton 
+                                title={node.collapsedHandles ? t('node.action.showOutputs') : t('node.action.hideOutputs')} 
+                                onClick={(e) => { e.stopPropagation(); handleToggleNodeHandles(node.id); }}
+                                // Theme Change: Use dynamic theme color instead of hardcoded cyan
+                                className={`p-1 rounded hover:bg-gray-600 transition-colors border ${node.collapsedHandles ? 'border-accent text-accent-text' : 'border-transparent text-gray-400 hover:text-white'}`}
+                            >
+                                {node.collapsedHandles ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                            </ActionButton>
+                        )}
+                    </>
                   )}
 
                   {/* Help Tooltip */}

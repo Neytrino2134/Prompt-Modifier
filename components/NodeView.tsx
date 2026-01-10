@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useCallback } from 'react';
 import type { NodeContentProps, ConnectingInfo } from '../types';
 import { NodeType } from '../types';
@@ -156,6 +157,42 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
         onSelectNode: () => selectNode && selectNode(node.id)
     }), [props, onOutputHandleTouchStart, t, getHandleColor, handleCursor, isGlobalProcessing, selectNode, node.id]);
 
+  // --- Character Card Image Toggle Logic ---
+  const allImagesCollapsed = useMemo(() => {
+      if (node.type !== NodeType.CHARACTER_CARD) return false;
+      try {
+          // Parse value safely
+          const val = JSON.parse(node.value || '[]');
+          const chars = Array.isArray(val) ? val : [val];
+          if (chars.length === 0) return false;
+          // Return true only if ALL are collapsed
+          return chars.every((c: any) => c.isImageCollapsed);
+      } catch { return false; }
+  }, [node.value, node.type]);
+
+  const handleToggleCharacterImages = useCallback(() => {
+      if (node.type !== NodeType.CHARACTER_CARD) return;
+      try {
+          const val = JSON.parse(node.value || '[]');
+          const chars = Array.isArray(val) ? val : [val];
+          
+          // Determine target state:
+          // If all are collapsed -> Expand All (false)
+          // If any is expanded -> Collapse All (true)
+          const targetState = !allImagesCollapsed;
+          
+          const newChars = chars.map((c: any) => ({
+              ...c,
+              isImageCollapsed: targetState
+          }));
+          
+          props.onValueChange(node.id, JSON.stringify(newChars));
+      } catch (e) {
+          console.error("Failed to toggle images", e);
+      }
+  }, [node.value, node.type, node.id, props.onValueChange, allImagesCollapsed]);
+
+
   // --- Render Proxy ---
   if (isProxyMode) {
       return (
@@ -246,6 +283,8 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
         handleRequestDelete={handleRequestDelete}
         handleDetachNodeFromGroup={onDetachNodeFromGroup}
         isInstantCloseEnabled={props.isInstantCloseEnabled}
+        onToggleCharacterImages={handleToggleCharacterImages}
+        allImagesCollapsed={allImagesCollapsed}
       />
 
       {/* Render Node Content */}

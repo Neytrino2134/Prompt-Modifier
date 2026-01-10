@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useCallback, ReactNode, useState, useEffect, useRef } from 'react';
 import { LanguageContext, LanguageCode, getTranslation, TranslationKey } from './localization';
 import { AppProvider, useAppContext } from './contexts/AppContext';
@@ -211,12 +213,12 @@ const Editor: React.FC = () => {
         </div>
 
         {/* 7. Hidden Inputs for File Operations */}
-        <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+        <input type="file" ref={fileInputRef} className="hidden" accept=".json,.PMC,.PMP" onChange={handleFileChange} />
         <input type="file" ref={catalogFileInputRef} className="hidden" accept=".json" onChange={handleCatalogFileChange} />
         <input type="file" ref={libraryFileInputRef} className="hidden" accept=".json,.txt" onChange={handleLibraryFileChange} />
         <input type="file" ref={imageSequenceFileInputRef} className="hidden" accept=".json" onChange={handleImageSequenceFileChange} />
         <input type="file" ref={promptSequenceEditorFileInputRef} className="hidden" accept=".json" onChange={handlePromptSequenceFileChange} />
-        <input type="file" ref={characterCardFileInputRef} className="hidden" accept=".json" onChange={handleCharacterCardFileChange} />
+        <input type="file" ref={characterCardFileInputRef} className="hidden" accept=".json,.CHAR" onChange={handleCharacterCardFileChange} />
         <input type="file" ref={scriptFileInputRef} className="hidden" accept=".json" onChange={handleScriptFileChange} />
       </div>
     </>

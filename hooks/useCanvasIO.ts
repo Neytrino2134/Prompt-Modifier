@@ -78,7 +78,8 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         const a = document.createElement('a');
         a.href = url;
         const sanitizedTitle = activeTabName.trim().replace(/\s+/g, '_');
-        a.download = `Prompt_Modifier_${sanitizedTitle}_${getTimestamp()}.json`;
+        // Changed extension to .PMC (Prompt Modifier Canvas)
+        a.download = `Prompt_Modifier_${sanitizedTitle}_${getTimestamp()}.PMC`;
         a.click();
         URL.revokeObjectURL(url);
         a.remove();
@@ -116,7 +117,8 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Prompt_Modifier_Project_${getTimestamp()}.json`;
+        // Changed extension to .PMP (Prompt Modifier Project)
+        a.download = `Prompt_Modifier_Project_${getTimestamp()}.PMP`;
         a.click();
         URL.revokeObjectURL(url);
         a.remove();
@@ -178,6 +180,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // Try to extract tab name if possible (works for both old .json and new .PMC format naming conventions)
         const filenameMatch = file.name.match(/^Prompt_Modifier_(.+?)_\d{4}-\d{2}-\d{2}/);
         const extractedTabName = filenameMatch && filenameMatch[1] ? filenameMatch[1].replace(/_/g, ' ') : null;
 
@@ -574,7 +577,8 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
             
             const sanitizedTitle = filenameBase.trim().replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
             const timestamp = getTimestamp();
-            a.download = `${sanitizedTitle}_${timestamp}.json`;
+            // Changed extension to .CHAR
+            a.download = `${sanitizedTitle}_${timestamp}.CHAR`;
 
             a.click();
             URL.revokeObjectURL(url);
