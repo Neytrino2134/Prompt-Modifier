@@ -4,7 +4,7 @@ import { ActionButton } from '../../ActionButton';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { SyntaxHighlightedTextarea } from '../../SyntaxHighlightedTextarea';
 import { CARD_EXPANDED_HEIGHT, CARD_COLLAPSED_HEIGHT, CARD_EXPANDED_HEIGHT_NO_VIDEO, SHOT_TYPE_INSTRUCTIONS } from './Constants';
-import { CopyIcon } from '../../icons/AppIcons';
+import { CopyIcon, SparklesIcon } from '../../icons/AppIcons';
 import { InputWithSpinners } from './SharedUI';
 import { CustomCheckbox } from '../../CustomCheckbox';
 
@@ -276,6 +276,16 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                         </ActionButton>
                     )}
 
+                    <ActionButton tooltipPosition="left" title={t('node.action.copyVideoPrompt')} onClick={(e) => { e.stopPropagation(); if (videoPrompt && onCopyVideo) onCopyVideo(videoPrompt); }}>
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                             <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                        </svg>
+                    </ActionButton>
+                    
+                    <ActionButton tooltipPosition="left" title={t('node.action.copyImagePrompt')} onClick={(e) => { e.stopPropagation(); onCopy(prompt); }}>
+                        <CopyIcon className="h-4 w-4" />
+                    </ActionButton>
+                    
                     {onCopyCombinedPrompt && (
                          <ActionButton 
                             title="Copy Combined Prompt" 
@@ -284,19 +294,9 @@ export const PromptCard: React.FC<PromptCardProps> = React.memo(({ index, frameN
                             onClick={(e) => { e.stopPropagation(); onCopyCombinedPrompt(frameNumber); }} 
                             className="p-1 rounded-md text-[#dad5cf] hover:bg-gray-600 hover:text-white transition-colors focus:outline-none"
                          >
-                            <CopyIcon className="h-4 w-4 text-orange-400 hover:text-orange-200" />
+                            <SparklesIcon className="h-4 w-4 text-orange-400 group-hover:text-orange-200" />
                         </ActionButton>
                     )}
-
-                    <ActionButton tooltipPosition="left" title={t('node.action.copyImagePrompt')} onClick={(e) => { e.stopPropagation(); onCopy(prompt); }}>
-                        <CopyIcon className="h-4 w-4" />
-                    </ActionButton>
-                    
-                    <ActionButton tooltipPosition="left" title={t('node.action.copyVideoPrompt')} onClick={(e) => { e.stopPropagation(); if (videoPrompt && onCopyVideo) onCopyVideo(videoPrompt); }}>
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                             <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-                        </svg>
-                    </ActionButton>
                     
                     {!readOnly && onDelete && <ActionButton tooltipPosition="left" title={t('image_sequence.delete_frame')} onClick={(e) => { e.stopPropagation(); onDelete(frameNumber); }} className="p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-gray-600 transition-colors focus:outline-none">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
