@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useCallback, ReactNode, useState, useEffect, useRef } from 'react';
 import { LanguageContext, LanguageCode, getTranslation, TranslationKey } from './localization';
 import { AppProvider, useAppContext } from './contexts/AppContext';
@@ -192,16 +187,17 @@ const Editor: React.FC = () => {
         {/* 6. Toast Notifications */}
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[101] flex flex-col items-center space-y-2 pointer-events-none">
           {toasts.map(toast => {
-            let classes = "backdrop-blur font-bold px-6 py-3 rounded-xl shadow-2xl animate-fade-in-out text-sm flex items-center justify-center text-center border pointer-events-auto";
+            let classes = "font-bold px-6 py-3 rounded-xl shadow-xl animate-fade-in-out text-sm flex items-center justify-center text-center border pointer-events-auto";
             
             if (toast.type === 'success') {
-                // Success uses the theme accent color
-                classes += " bg-accent/95 text-white border-white/20 shadow-accent/20";
+                // Success uses the theme accent color (Opaque)
+                classes += " bg-accent text-white border-accent-hover";
             } else if (toast.type === 'error') {
-                classes += " bg-red-600/95 text-white border-red-400/30 shadow-red-900/30";
+                // Error (Opaque)
+                classes += " bg-red-600 text-white border-red-500";
             } else {
-                // Info
-                classes += " bg-gray-800/95 text-gray-200 border-gray-600/50 shadow-black/30";
+                // Info (Copied, Pasted etc) uses Secondary Accent (Opaque)
+                classes += " bg-accent-secondary text-white border-accent-secondary-hover";
             }
 
             return (

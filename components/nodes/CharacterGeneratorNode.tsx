@@ -142,7 +142,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
     node, onValueChange, onGenerateCharacters, isGeneratingCharacters, isStopping, onStopGeneration, t, deselectAllNodes, 
     connectedInputs, clearSelectionsSignal, onGenerateCharacterImage, 
     isGeneratingCharacterImage, onDetachCharacter, onSaveGeneratedCharacterToCatalog,
-    getUpstreamNodeValues, addToast
+    getUpstreamNodeValues, addToast, setImageViewer
 }) => {
     const { secondaryLanguage } = useLanguage();
     
@@ -325,6 +325,16 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
         }
     };
 
+    const handleImageClick = (e: React.MouseEvent, url: string, charName: string) => {
+        e.stopPropagation();
+        if (setImageViewer) {
+            setImageViewer({
+                sources: [{ src: url, frameNumber: 0, prompt: charName || "Character Concept" }],
+                initialIndex: 0
+            });
+        }
+    };
+
     return (
         <div className="flex flex-col h-full" onWheel={(e) => e.stopPropagation()}>
             <div className="flex-shrink-0 space-y-2 mb-2">
@@ -383,7 +393,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                                 title="Character Concept"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
                             </button>
                             <button
@@ -392,7 +402,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                                 title="Object Concept"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                 </svg>
                             </button>
                         </div>
@@ -507,99 +517,114 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
             
             <div className="flex-grow overflow-y-auto overflow-x-hidden space-y-2 pr-2 custom-scrollbar scrollbar-gutter-stable">
                 {error && <div className="text-red-400 text-xs p-2 bg-red-900/20 rounded border border-red-800">{error}</div>}
-                {characters.map((char: any) => (
-                    <div key={char.id} className={`bg-gray-800 rounded-md border-2 transition-colors ${selectedCharacters.has(char.id) ? 'border-cyan-500' : 'border-gray-700'}`} onClick={(e) => handleCharacterClick(e, char.id)}>
-                         <div 
-                             className="flex justify-between items-center p-2 cursor-pointer bg-gray-700/50 select-none" 
-                             onClick={(e) => { if(e.target === e.currentTarget) handleToggleCharacterCollapse(char.id); }}
-                         >
-                             <div className="flex items-center space-x-2 overflow-hidden" onClick={(e) => handleToggleCharacterCollapse(char.id)}>
-                                 <ActionButton title={collapsedCharacters.has(char.id) ? t('node.action.expand') : t('node.action.collapse')} onClick={(e) => { e.stopPropagation(); handleToggleCharacterCollapse(char.id); }}>
-                                     {collapsedCharacters.has(char.id) ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>}
-                                 </ActionButton>
-                                 <input type="text" value={char.name} onChange={(e) => updateCharacter(char.id, 'name', e.target.value)} className="bg-transparent font-bold text-sm text-white focus:outline-none truncate" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onFocus={deselectAllNodes} />
+                
+                {characters.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-50 select-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <p className="text-sm font-medium">Character cards will appear here</p>
+                    </div>
+                ) : (
+                    characters.map((char: any) => (
+                        <div key={char.id} className={`bg-gray-800 rounded-md border-2 transition-colors ${selectedCharacters.has(char.id) ? 'border-cyan-500' : 'border-gray-700'}`} onClick={(e) => handleCharacterClick(e, char.id)}>
+                             <div 
+                                 className="flex justify-between items-center p-2 cursor-pointer bg-gray-700/50 select-none" 
+                                 onClick={(e) => { if(e.target === e.currentTarget) handleToggleCharacterCollapse(char.id); }}
+                             >
+                                 <div className="flex items-center space-x-2 overflow-hidden" onClick={(e) => handleToggleCharacterCollapse(char.id)}>
+                                     <ActionButton title={collapsedCharacters.has(char.id) ? t('node.action.expand') : t('node.action.collapse')} onClick={(e) => { e.stopPropagation(); handleToggleCharacterCollapse(char.id); }}>
+                                         {collapsedCharacters.has(char.id) ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>}
+                                     </ActionButton>
+                                     <input type="text" value={char.name} onChange={(e) => updateCharacter(char.id, 'name', e.target.value)} className="bg-transparent font-bold text-sm text-white focus:outline-none truncate" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onFocus={deselectAllNodes} />
+                                 </div>
+                                 <div className="flex items-center space-x-1">
+                                     <ActionButton title={t('catalog.saveTo')} tooltipPosition="left" onClick={(e) => { e.stopPropagation(); handleSaveToCatalog(char); }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-3 3-3-3m3 3V3" /></svg>
+                                     </ActionButton>
+                                     <ActionButton title={t('node.action.saveCharacter')} tooltipPosition="left" onClick={(e) => { e.stopPropagation(); handleSaveCharacter(char); }}>
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                     </ActionButton>
+                                     <ActionButton title="Detach and Copy" tooltipPosition="left" onClick={(e) => { e.stopPropagation(); handleDetach(char); }}>
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                     </ActionButton>
+                                     <ActionButton title={t('node.action.deleteItem')} tooltipPosition="left" onClick={(e) => { e.stopPropagation(); deleteCharacter(char.id); }}>
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                     </ActionButton>
+                                 </div>
                              </div>
-                             <div className="flex items-center space-x-1">
-                                 <ActionButton title={t('catalog.saveTo')} tooltipPosition="left" onClick={(e) => { e.stopPropagation(); handleSaveToCatalog(char); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-3 3-3-3m3 3V3" /></svg>
-                                 </ActionButton>
-                                 <ActionButton title={t('node.action.saveCharacter')} tooltipPosition="left" onClick={(e) => { e.stopPropagation(); handleSaveCharacter(char); }}>
-                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                 </ActionButton>
-                                 <ActionButton title="Detach and Copy" tooltipPosition="left" onClick={(e) => { e.stopPropagation(); handleDetach(char); }}>
-                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                                 </ActionButton>
-                                 <ActionButton title={t('node.action.deleteItem')} tooltipPosition="left" onClick={(e) => { e.stopPropagation(); deleteCharacter(char.id); }}>
-                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                 </ActionButton>
-                             </div>
-                         </div>
-                         
-                         {!collapsedCharacters.has(char.id) && (
-                            <div className="p-2 space-y-2 border-t border-gray-700 flex flex-col">
-                                <div className="flex space-x-2 h-[140px] flex-shrink-0">
-                                    <div className="w-1/3 h-full flex-shrink-0">
-                                         <div className="aspect-square bg-gray-900 rounded-md flex items-center justify-center overflow-hidden relative group h-full w-full">
-                                            {char.imageBase64 ? (
-                                                <>
-                                                <img src={`data:image/png;base64,${char.imageBase64}`} alt={char.name} className="w-full h-full object-cover" />
-                                                 <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <ActionButton title={t('node.action.copy')} onClick={(e) => { 
-                                                        e.stopPropagation(); 
-                                                        if (char.imageBase64) {
-                                                            const blob = new Blob([Uint8Array.from(atob(char.imageBase64), c => c.charCodeAt(0))], { type: 'image/png' });
-                                                            navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); 
-                                                        }
-                                                    }}>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                                    </ActionButton>
-                                                 </div>
-                                                </>
-                                            ) : (
-                                                <div className="text-gray-500 text-xs text-center px-2">
-                                                    {isGeneratingCharacterImage === `${node.id}-${char.id}` ? (
-                                                        <svg className="animate-spin h-6 w-6 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                    ) : (
-                                                        <button onClick={(e) => { e.stopPropagation(); onGenerateCharacterImage && onGenerateCharacterImage(node.id, char.id); }} className="text-cyan-400 hover:text-cyan-300 underline">Generate Image</button>
-                                                    )}
-                                                </div>
-                                            )}
+                             
+                             {!collapsedCharacters.has(char.id) && (
+                                <div className="p-2 space-y-2 border-t border-gray-700 flex flex-col">
+                                    <div className="flex space-x-2 h-[140px] flex-shrink-0">
+                                        <div className="w-1/3 h-full flex-shrink-0">
+                                             <div className="aspect-square bg-gray-900 rounded-md flex items-center justify-center overflow-hidden relative group h-full w-full">
+                                                {char.imageBase64 ? (
+                                                    <>
+                                                    <img 
+                                                        src={`data:image/png;base64,${char.imageBase64}`} 
+                                                        alt={char.name} 
+                                                        className="w-full h-full object-cover cursor-pointer" 
+                                                        onClick={(e) => handleImageClick(e, `data:image/png;base64,${char.imageBase64}`, char.name)}
+                                                    />
+                                                     <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <ActionButton title={t('node.action.copy')} onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            if (char.imageBase64) {
+                                                                const blob = new Blob([Uint8Array.from(atob(char.imageBase64), c => c.charCodeAt(0))], { type: 'image/png' });
+                                                                navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); 
+                                                            }
+                                                        }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                                        </ActionButton>
+                                                     </div>
+                                                    </>
+                                                ) : (
+                                                    <div className="text-gray-500 text-xs text-center px-2">
+                                                        {isGeneratingCharacterImage === `${node.id}-${char.id}` ? (
+                                                            <svg className="animate-spin h-6 w-6 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                        ) : (
+                                                            <button onClick={(e) => { e.stopPropagation(); onGenerateCharacterImage && onGenerateCharacterImage(node.id, char.id); }} className="text-cyan-400 hover:text-cyan-300 underline">Generate Image</button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="w-2/3 flex flex-col space-y-1 h-full min-w-0">
+                                            <div className="flex justify-between items-center flex-shrink-0">
+                                                <label className="text-xs text-gray-400 font-medium">{t('node.content.characterIndex')}</label>
+                                                <input type="text" value={char.index || char.alias || ''} onChange={(e) => updateCharacter(char.id, 'index', e.target.value)} className="text-xs bg-gray-900 rounded px-1 border border-gray-600 w-24 focus:ring-1 focus:ring-cyan-500 focus:outline-none" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onFocus={deselectAllNodes} />
+                                            </div>
+                                            <div className="flex justify-between items-center flex-shrink-0">
+                                                <label className="text-xs text-gray-400 font-medium">{t('node.content.imagePrompt')}</label>
+                                                <ActionButton title={t('node.action.copy')} onClick={(e) => { e.stopPropagation(); copyToClipboard(char.prompt || ''); }}>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                                </ActionButton>
+                                            </div>
+                                            <textarea
+                                                value={char.prompt || ''}
+                                                onChange={(e) => updateCharacter(char.id, 'prompt', e.target.value)}
+                                                className="w-full flex-grow h-full min-h-[80px] text-xs p-1 bg-gray-900 rounded resize-none border-none focus:ring-1 focus:ring-cyan-500 focus:outline-none custom-scrollbar"
+                                                onWheel={e => e.stopPropagation()}
+                                                onMouseDown={e => e.stopPropagation()}
+                                                onKeyDown={(e) => e.stopPropagation()} 
+                                                onFocus={deselectAllNodes}
+                                            />
                                         </div>
                                     </div>
-                                    <div className="w-2/3 flex flex-col space-y-1 h-full min-w-0">
-                                        <div className="flex justify-between items-center flex-shrink-0">
-                                            <label className="text-xs text-gray-400 font-medium">{t('node.content.characterIndex')}</label>
-                                            <input type="text" value={char.index || char.alias || ''} onChange={(e) => updateCharacter(char.id, 'index', e.target.value)} className="text-xs bg-gray-900 rounded px-1 border border-gray-600 w-24 focus:ring-1 focus:ring-cyan-500 focus:outline-none" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onFocus={deselectAllNodes} />
-                                        </div>
-                                        <div className="flex justify-between items-center flex-shrink-0">
-                                            <label className="text-xs text-gray-400 font-medium">{t('node.content.imagePrompt')}</label>
-                                            <ActionButton title={t('node.action.copy')} onClick={(e) => { e.stopPropagation(); copyToClipboard(char.prompt || ''); }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                            </ActionButton>
-                                        </div>
-                                        <textarea
-                                            value={char.prompt || ''}
-                                            onChange={(e) => updateCharacter(char.id, 'prompt', e.target.value)}
-                                            className="w-full flex-grow h-full min-h-[80px] text-xs p-1 bg-gray-900 rounded resize-none border-none focus:ring-1 focus:ring-cyan-500 focus:outline-none custom-scrollbar"
-                                            onWheel={e => e.stopPropagation()}
-                                            onMouseDown={e => e.stopPropagation()}
-                                            onKeyDown={(e) => e.stopPropagation()} 
+                                    <div className="flex-grow flex flex-col min-h-[360px]">
+                                        <EditableCharacterDescription 
+                                            fullDescription={char.fullDescription || ''} 
+                                            onDescriptionChange={(val) => updateCharacter(char.id, 'fullDescription', val)}
+                                            t={t}
                                             onFocus={deselectAllNodes}
                                         />
                                     </div>
                                 </div>
-                                <div className="flex-grow flex flex-col min-h-[360px]">
-                                    <EditableCharacterDescription 
-                                        fullDescription={char.fullDescription || ''} 
-                                        onDescriptionChange={(val) => updateCharacter(char.id, 'fullDescription', val)}
-                                        t={t}
-                                        onFocus={deselectAllNodes}
-                                    />
-                                </div>
-                            </div>
-                         )}
-                    </div>
-                ))}
+                             )}
+                        </div>
+                    ))
+                )}
             </div>
         </div>
     );

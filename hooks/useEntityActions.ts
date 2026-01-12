@@ -87,7 +87,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             case NodeType.REROUTE_DOT: newNode.width = 60; newNode.height = 40; break;
             case NodeType.PROMPT_SANITIZER: newNode.width = 460; newNode.height = 280; break;
             case NodeType.DATA_READER: newNode.width = 400; newNode.height = 500; break;
-            case NodeType.CHARACTER_GENERATOR: newNode.width = 500; newNode.height = 840; break;
+            case NodeType.CHARACTER_GENERATOR: newNode.width = 520; newNode.height = 960; break;
             case NodeType.TEXT_INPUT: newNode.width = 460; newNode.height = 300; break;
             case NodeType.MEDIA_VIEWER: newNode.width = 500; newNode.height = 340; break;
             case NodeType.DATA_PROTECTION: newNode.width = 800; newNode.height = 600; break;
@@ -486,7 +486,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                 newPositions.set(lastNode.id, lastNode.position.x);
                 return currentNodes.map(n => {
                      if (newPositions.has(n.id)) {
-                         return { ...n, position: { x: newPositions.get(n.id)!, y: n.position.y } };
+                         return { ...n, position: { x: newPositions.get(n.id)! | 0, y: n.position.y } };
                      }
                      return n;
                 });
@@ -514,7 +514,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                 newPositions.set(lastNode.id, lastNode.position.y);
                 return currentNodes.map(n => {
                      if (newPositions.has(n.id)) {
-                         return { ...n, position: { x: n.position.x, y: newPositions.get(n.id)! } };
+                         return { ...n, position: { x: n.position.x, y: newPositions.get(n.id)! | 0 } };
                      }
                      return n;
                 });
@@ -532,7 +532,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                    case 'center-y': newY = centerY - (n.height / 2); break;
                    case 'bottom': newY = maxY - n.height; break;
                }
-               return { ...n, position: { x: newX, y: newY } };
+               return { ...n, position: { x: newX | 0, y: newY | 0 } };
            });
        });
    }, [setNodes, takeSnapshot, nodes]);

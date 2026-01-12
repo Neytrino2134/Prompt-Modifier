@@ -208,7 +208,7 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                 {/* Image Area with Tabs and Collapse */}
                 <div className="flex flex-col flex-shrink-0 mb-1">
                     <div 
-                        className="flex items-end justify-between h-7 z-0 mb-[-1px] cursor-pointer hover:bg-gray-800/30 transition-colors rounded-t-md"
+                        className="flex items-end justify-between h-7 relative z-30 mb-0 cursor-pointer hover:bg-gray-700 transition-colors rounded-t-md"
                         onClick={(e) => { e.stopPropagation(); onUpdate({ isImageCollapsed: !isImageCollapsed }); }}
                     >
                          <div className="flex items-end pl-2 gap-1 h-full" onClick={(e) => e.stopPropagation()}>
@@ -357,21 +357,24 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                                         onMouseDown={e => e.stopPropagation()} 
                                         onFocus={deselectAllNodes} 
                                     />
-                                    <div className="flex items-center bg-gray-700 rounded p-0.5 h-full space-x-0.5 justify-center min-w-[50px]">
-                                        {/* Language Switcher */}
-                                         {[
-                                            { code: 'en', label: 'EN' },
-                                            { code: secondaryLanguage, label: languages[secondaryLanguage].short }
-                                         ].map((l, idx) => (
-                                            <button 
-                                                key={l.code + idx} 
-                                                onClick={(e) => { e.stopPropagation(); onUpdate({ targetLanguage: l.code }); }} 
-                                                className={`h-full flex-1 rounded px-1.5 text-[10px] font-bold transition-colors flex items-center justify-center ${char.targetLanguage === l.code ? 'bg-accent text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                                            >
-                                                {l.label}
-                                            </button>
-                                         ))}
-                                    </div>
+                                    
+                                     {/* Language Switcher */}
+                                     {[
+                                        { code: 'en', label: 'EN' },
+                                        { code: secondaryLanguage, label: languages[secondaryLanguage].short }
+                                     ].map((l, idx) => (
+                                        <button 
+                                            key={l.code + idx} 
+                                            onClick={(e) => { e.stopPropagation(); onUpdate({ targetLanguage: l.code }); }} 
+                                            className={`h-full w-8 rounded text-[10px] font-bold transition-colors flex items-center justify-center border ${
+                                                char.targetLanguage === l.code 
+                                                ? 'bg-accent text-white border-accent' 
+                                                : 'bg-gray-900/60 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700'
+                                            }`}
+                                        >
+                                            {l.label}
+                                        </button>
+                                     ))}
                                      
                                     <div className="flex gap-1 h-full">
                                         <Tooltip content={t('node.action.modifyCharacter')}>

@@ -319,7 +319,7 @@ const HelpPanel: React.FC = () => {
       {isVisible && (
         <div 
           ref={windowRef}
-          className={`fixed bg-gray-800 rounded-lg shadow-2xl w-[600px] h-[720px] z-[250] flex flex-col overflow-hidden border border-gray-700 transition-opacity duration-200 ease-in-out ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          className={`fixed bg-gray-800 rounded-lg shadow-2xl w-[600px] h-[720px] z-[100] flex flex-col overflow-hidden border border-gray-700 transition-opacity duration-200 ease-in-out ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           style={{ 
              left: position.x, 
              top: position.y

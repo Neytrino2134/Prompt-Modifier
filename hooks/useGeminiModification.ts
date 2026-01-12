@@ -3,6 +3,7 @@
 
 
 
+
 /* Fix: Added missing React import to resolve namespace errors */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NodeType, type Node, type Tab, type ActiveOperation, type ToastType } from '../types';
@@ -282,26 +283,29 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
             const customStyle = initialParsed.customStyle || '';
             const existingCharacters = initialParsed.characters || [];
 
-            const headers = targetLanguage === 'ru' 
-                ? 'Внешность, Личность, Одежда' 
-                : 'Appearance, Personality, Clothing';
-                
-            // Updated Instruction to forbid pose descriptions and request Entity-N format
+            // Explicitly map target language to English header names to avoid parsing issues
+            // We ask Gemini to use English Headers "Appearance, Personality, Clothing" but write CONTENT in target language
+            // This is safer for the regex parser in the UI.
+            
             const instruction = `Generate ${numberOfCharacters} detailed character description(s) based on this prompt: "${prompt}". 
-            Language: ${targetLanguage}. 
+            Language for CONTENT: ${targetLanguage}. 
             Character Type: ${characterType}. 
             Visual Style: ${style === 'custom' ? customStyle : style}.
             
             **CRITICAL REQUIREMENTS:**
             1. **APPEARANCE ONLY**: Focus strictly on physical attributes: physiognomy, hair/fur texture, eye color, body type, clothing details, colors, and materials.
             2. **NEGATIVE CONSTRAINTS**: Do NOT describe the pose, action, gesture, expression (e.g. smiling), background, lighting, or camera angle.
+            3. **FORMAT**: You MUST use the following English Markdown Headers exactly as written, regardless of content language:
+               #### Appearance
+               #### Personality
+               #### Clothing
             
             REQUIRED OUTPUT FORMAT:
             Return a JSON array where each object has:
             - 'name': Character name.
             - 'index': Short identifier (e.g. Entity-1, Entity-2).
             - 'imagePrompt': A highly detailed English image generation prompt describing the character's visual features ONLY.
-            - 'fullDescription': A detailed text description formatted with markdown headers (#### ${headers.split(', ').join(', #### ')}).
+            - 'fullDescription': A detailed text description formatted with the markdown headers specified above.
             `;
 
             const newCharacters = await generateCharacters(instruction);
