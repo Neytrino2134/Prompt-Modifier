@@ -82,7 +82,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                 break;
             case NodeType.SCRIPT_GENERATOR: newNode.width = 500; newNode.height = 1000; break;
             case NodeType.SCRIPT_VIEWER: newNode.width = 500; newNode.height = 600; break;
-            case NodeType.IMAGE_SEQUENCE_GENERATOR: newNode.width = 1300; newNode.height = 920; newNode.aspectRatio = '16:9'; break; 
+            case NodeType.IMAGE_SEQUENCE_GENERATOR: newNode.width = 1400; newNode.height = 920; newNode.aspectRatio = '16:9'; break; 
             case NodeType.PROMPT_SEQUENCE_EDITOR: newNode.width = 1300; newNode.height = 920; break;
             case NodeType.REROUTE_DOT: newNode.width = 60; newNode.height = 40; break;
             case NodeType.PROMPT_SANITIZER: newNode.width = 460; newNode.height = 280; break;

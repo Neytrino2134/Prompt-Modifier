@@ -101,7 +101,7 @@ export const DataReaderNode: React.FC<NodeContentProps> = ({ node, onReadData, t
             </div>
             <button
                 onClick={() => onReadData(node.id)}
-                className="w-full px-4 py-2 font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0"
+                className="w-full px-4 py-2 font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0"
             >
                 {t('node.content.readData')}
             </button>

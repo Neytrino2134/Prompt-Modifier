@@ -208,7 +208,7 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                 {/* Image Area with Tabs and Collapse */}
                 <div className="flex flex-col flex-shrink-0 mb-1">
                     <div 
-                        className="flex items-end justify-between h-7 relative z-30 mb-0 cursor-pointer hover:bg-gray-700 transition-colors rounded-t-md"
+                        className="flex items-end justify-between h-7 relative z-30 mb-0 cursor-pointer hover:bg-gray-800/60 transition-colors rounded-t-md"
                         onClick={(e) => { e.stopPropagation(); onUpdate({ isImageCollapsed: !isImageCollapsed }); }}
                     >
                          <div className="flex items-end pl-2 gap-1 h-full" onClick={(e) => e.stopPropagation()}>

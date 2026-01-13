@@ -44,13 +44,13 @@ const InputWithSpinners: React.FC<{
                 />
                 <div className="flex flex-col h-full border-l border-gray-600 w-5 flex-shrink-0 bg-gray-800">
                     <button 
-                        className="h-1/2 flex items-center justify-center hover:bg-cyan-600 text-gray-400 hover:text-white transition-colors active:bg-cyan-700"
+                        className="h-1/2 flex items-center justify-center hover:bg-accent text-gray-400 hover:text-white transition-colors active:bg-accent-hover"
                         onClick={(e) => { e.stopPropagation(); handleStep(1); }}
                     >
                         <svg width="8" height="4" viewBox="0 0 8 4" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 0L8 4H0L4 0Z" fill="currentColor"/></svg>
                     </button>
                     <button 
-                        className="h-1/2 flex items-center justify-center hover:bg-cyan-600 text-gray-400 hover:text-white transition-colors border-t border-gray-600 active:bg-cyan-700"
+                        className="h-1/2 flex items-center justify-center hover:bg-accent text-gray-400 hover:text-white transition-colors border-t border-gray-600 active:bg-accent-hover"
                         onClick={(e) => { e.stopPropagation(); handleStep(-1); }}
                     >
                         <svg width="8" height="4" viewBox="0 0 8 4" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4L0 0H8L4 4Z" fill="currentColor"/></svg>
@@ -124,7 +124,7 @@ const EditableCharacterDescription: React.FC<{
                     <textarea
                         value={sections[key] || ''}
                         onChange={e => handleSectionChange(key, e.target.value)}
-                        className="w-full text-sm p-2 bg-gray-900/50 border-none rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-cyan-500 custom-scrollbar h-[100px] min-h-[80px]"
+                        className="w-full text-sm p-2 bg-gray-900/50 border-none rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-accent custom-scrollbar h-[100px] min-h-[80px]"
                         onWheel={e => e.stopPropagation()}
                         onKeyDown={e => e.stopPropagation()} 
                         onFocus={onFocus}
@@ -344,7 +344,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                         onChange={(e) => handleValueUpdate({ prompt: e.target.value })}
                         placeholder={isInputConnected ? t('node.content.connectedPlaceholder') : t('node.content.characterPromptPlaceholder')}
                         disabled={isInputConnected || isLoading}
-                        className="w-full p-2 bg-gray-700 border-none rounded-md resize-y min-h-[80px] max-h-[300px] focus:ring-2 focus:ring-cyan-500 focus:outline-none disabled:bg-gray-800 disabled:text-gray-500 custom-scrollbar overflow-y-scroll pb-8"
+                        className="w-full p-2 bg-gray-700 border-none rounded-md resize-y min-h-[80px] max-h-[300px] focus:ring-2 focus:ring-accent focus:outline-none disabled:bg-gray-800 disabled:text-gray-500 custom-scrollbar overflow-y-scroll pb-8"
                         rows={2}
                         onWheel={e => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
@@ -355,7 +355,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                         {isInputConnected && (
                              <button 
                                 onClick={handleSyncFromConnection}
-                                className="p-1 bg-gray-600 hover:bg-cyan-600 text-gray-300 hover:text-white rounded transition-colors"
+                                className="p-1 bg-gray-600 hover:bg-accent text-gray-300 hover:text-white rounded transition-colors"
                                 title="Sync from connection"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -367,7 +367,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                             <button 
                                 onClick={handleTranslatePrompt}
                                 disabled={!prompt || isTranslatingInput}
-                                className="p-1 bg-gray-600 hover:bg-cyan-600 text-gray-300 hover:text-white rounded transition-colors disabled:opacity-50"
+                                className="p-1 bg-gray-600 hover:bg-accent text-gray-300 hover:text-white rounded transition-colors disabled:opacity-50"
                                 title={isTranslatingInput ? t('node.content.translating') : t('node.content.translate')}
                             >
                                 {isTranslatingInput ? (
@@ -389,7 +389,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                         <div className="flex gap-0.5">
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleValueUpdate({ additionalPrompt: SUFFIX_CHAR }); }}
-                                className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${additionalPrompt === SUFFIX_CHAR ? 'text-cyan-400' : 'text-gray-500 hover:text-white'}`}
+                                className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${additionalPrompt === SUFFIX_CHAR ? 'text-accent-text' : 'text-gray-500 hover:text-white'}`}
                                 title="Character Concept"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -398,7 +398,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleValueUpdate({ additionalPrompt: SUFFIX_OBJ }); }}
-                                className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${additionalPrompt === SUFFIX_OBJ ? 'text-cyan-400' : 'text-gray-500 hover:text-white'}`}
+                                className={`p-0.5 rounded hover:bg-gray-700 transition-colors ${additionalPrompt === SUFFIX_OBJ ? 'text-accent-text' : 'text-gray-500 hover:text-white'}`}
                                 title="Object Concept"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -472,7 +472,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                             onKeyDown={e => e.stopPropagation()} 
                             onFocus={deselectAllNodes}
                             rows={2}
-                            className="w-full p-1 bg-gray-800 text-white rounded-md text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none custom-scrollbar"
+                            className="w-full p-1 bg-gray-800 text-white rounded-md text-xs focus:ring-2 focus:ring-accent focus:outline-none custom-scrollbar"
                             placeholder="..."
                         />
                     </div>
@@ -482,7 +482,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                         {/* Dynamic Secondary Language Button */}
                         <button 
                             onClick={() => handleValueUpdate({ targetLanguage: secondaryLanguage })} 
-                            className={`px-2 py-1 rounded text-xs font-bold w-10 h-full transition-colors ${targetLanguage === secondaryLanguage ? 'bg-cyan-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                            className={`px-2 py-1 rounded text-xs font-bold w-10 h-full transition-colors ${targetLanguage === secondaryLanguage ? 'bg-accent text-white' : 'text-gray-300 hover:bg-gray-600'}`}
                             title={languages[secondaryLanguage].name}
                         >
                             {languages[secondaryLanguage].short}
@@ -490,7 +490,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                         
                         <button 
                             onClick={() => handleValueUpdate({ targetLanguage: 'en' })} 
-                            className={`px-2 py-1 rounded text-xs font-bold w-10 h-full transition-colors ${targetLanguage === 'en' ? 'bg-cyan-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                            className={`px-2 py-1 rounded text-xs font-bold w-10 h-full transition-colors ${targetLanguage === 'en' ? 'bg-accent text-white' : 'text-gray-300 hover:bg-gray-600'}`}
                         >
                             EN
                         </button>
@@ -498,7 +498,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                     <button
                         onClick={() => onGenerateCharacters(node.id)}
                         disabled={isLoading || isStopping || (!isInputConnected && !prompt.trim())}
-                        className={`flex-grow h-10 px-4 py-2 font-bold text-white rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 ${isLoading ? 'bg-gray-600 cursor-not-allowed opacity-75' : 'bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed'}`}
+                        className={`flex-grow h-10 px-4 py-2 font-bold text-white rounded-md transition-colors duration-200 flex items-center justify-center space-x-2 ${isLoading ? 'bg-gray-600 cursor-not-allowed opacity-75' : 'bg-accent hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed'}`}
                     >
                          {isLoading ? (
                              <>
@@ -527,7 +527,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                     </div>
                 ) : (
                     characters.map((char: any) => (
-                        <div key={char.id} className={`bg-gray-800 rounded-md border-2 transition-colors ${selectedCharacters.has(char.id) ? 'border-cyan-500' : 'border-gray-700'}`} onClick={(e) => handleCharacterClick(e, char.id)}>
+                        <div key={char.id} className={`bg-gray-800 rounded-md border-2 transition-colors ${selectedCharacters.has(char.id) ? 'border-accent' : 'border-gray-700'}`} onClick={(e) => handleCharacterClick(e, char.id)}>
                              <div 
                                  className="flex justify-between items-center p-2 cursor-pointer bg-gray-700/50 select-none" 
                                  onClick={(e) => { if(e.target === e.currentTarget) handleToggleCharacterCollapse(char.id); }}
@@ -584,7 +584,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                                                         {isGeneratingCharacterImage === `${node.id}-${char.id}` ? (
                                                             <svg className="animate-spin h-6 w-6 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                                         ) : (
-                                                            <button onClick={(e) => { e.stopPropagation(); onGenerateCharacterImage && onGenerateCharacterImage(node.id, char.id); }} className="text-cyan-400 hover:text-cyan-300 underline">Generate Image</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); onGenerateCharacterImage && onGenerateCharacterImage(node.id, char.id); }} className="text-accent-text hover:text-accent-hover underline">Generate Image</button>
                                                         )}
                                                     </div>
                                                 )}
@@ -593,7 +593,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                                         <div className="w-2/3 flex flex-col space-y-1 h-full min-w-0">
                                             <div className="flex justify-between items-center flex-shrink-0">
                                                 <label className="text-xs text-gray-400 font-medium">{t('node.content.characterIndex')}</label>
-                                                <input type="text" value={char.index || char.alias || ''} onChange={(e) => updateCharacter(char.id, 'index', e.target.value)} className="text-xs bg-gray-900 rounded px-1 border border-gray-600 w-24 focus:ring-1 focus:ring-cyan-500 focus:outline-none" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onFocus={deselectAllNodes} />
+                                                <input type="text" value={char.index || char.alias || ''} onChange={(e) => updateCharacter(char.id, 'index', e.target.value)} className="text-xs bg-gray-900 rounded px-1 border border-gray-600 w-24 focus:ring-1 focus:ring-accent focus:outline-none" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onFocus={deselectAllNodes} />
                                             </div>
                                             <div className="flex justify-between items-center flex-shrink-0">
                                                 <label className="text-xs text-gray-400 font-medium">{t('node.content.imagePrompt')}</label>
@@ -604,7 +604,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                                             <textarea
                                                 value={char.prompt || ''}
                                                 onChange={(e) => updateCharacter(char.id, 'prompt', e.target.value)}
-                                                className="w-full flex-grow h-full min-h-[80px] text-xs p-1 bg-gray-900 rounded resize-none border-none focus:ring-1 focus:ring-cyan-500 focus:outline-none custom-scrollbar"
+                                                className="w-full flex-grow h-full min-h-[80px] text-xs p-1 bg-gray-900 rounded resize-none border-none focus:ring-1 focus:ring-accent focus:outline-none custom-scrollbar"
                                                 onWheel={e => e.stopPropagation()}
                                                 onMouseDown={e => e.stopPropagation()}
                                                 onKeyDown={(e) => e.stopPropagation()} 

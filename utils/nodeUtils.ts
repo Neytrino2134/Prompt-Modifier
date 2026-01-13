@@ -1,6 +1,7 @@
 
 
 
+
 import { Node, NodeType, Connection, Point } from '../types';
 
 export const HEADER_HEIGHT = 40;
@@ -309,7 +310,7 @@ export const getMinNodeSize = (nodeType: NodeType): { minWidth: number, minHeigh
         case NodeType.CHARACTER_CARD: return { minWidth: 520, minHeight: 960 };
         case NodeType.IMAGE_ANALYZER: return { minWidth: 460, minHeight: 680 };
         case NodeType.IMAGE_EDITOR: return { minWidth: 1000, minHeight: 920 };
-        case NodeType.IMAGE_SEQUENCE_GENERATOR: return { minWidth: 1300, minHeight: 920 };
+        case NodeType.IMAGE_SEQUENCE_GENERATOR: return { minWidth: 1400, minHeight: 920 };
         case NodeType.PROMPT_SEQUENCE_EDITOR: return { minWidth: 1300, minHeight: 920 };
         case NodeType.GEMINI_CHAT: return { minWidth: 400, minHeight: 640 };
         case NodeType.TRANSLATOR: return { minWidth: 380, minHeight: 640 };
