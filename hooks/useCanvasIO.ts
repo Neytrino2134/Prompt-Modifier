@@ -1,5 +1,4 @@
 
-
 import React, { useCallback, useRef } from 'react';
 import { Node, NodeType, CanvasState, Tab, LibraryItem } from '../types';
 import { getEmptyValueForNodeType, RATIO_INDICES } from '../utils/nodeUtils';
@@ -452,8 +451,18 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                          loadedSources['1:1'] = charData.image;
                     }
                     
+                    // Pre-process sources to fix raw base64
+                    const processedSources: Record<string, string | null> = {};
+                    for (const [ratio, rawSrc] of Object.entries(loadedSources)) {
+                        let src = rawSrc as string | null;
+                        if (typeof src === 'string' && !src.startsWith('data:') && src.length > 100) {
+                             src = `data:image/png;base64,${src}`;
+                        }
+                        processedSources[ratio] = src;
+                    }
+
                     // Process each ratio from the file
-                    for (const [ratio, src] of Object.entries(loadedSources)) {
+                    for (const [ratio, src] of Object.entries(processedSources)) {
                         if (typeof src === 'string' && src.startsWith('data:')) {
                             // Cache High Res - using index mapping (cardIndex * 10 + ratioIndex)
                             const ratioIndex = RATIO_INDICES[ratio];
@@ -470,7 +479,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                     const ratio = charData.selectedRatio || '1:1';
                     
                     // Set Active Output (cardIndex * 10) to High Res of selected ratio
-                    const activeHighRes = (loadedSources as any)[ratio];
+                    const activeHighRes = processedSources[ratio];
                     if (activeHighRes && typeof activeHighRes === 'string' && activeHighRes.startsWith('data:')) {
                         setFullSizeImage(nodeId, i * 10, activeHighRes);
                     }
@@ -487,7 +496,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                         fullDescription: charData.fullDescription || charData.description || '',
                         targetLanguage: charData.targetLanguage || 'en',
                         isOutput: charData.isOutput || (i === 0), // Default first to output if not specified
-                        isDescriptionCollapsed: charData.isDescriptionCollapsed ?? false
+                        isDescriptionCollapsed: charData.isDescriptionCollapsed ?? false // Fixed variable name
                     };
                 }));
                 

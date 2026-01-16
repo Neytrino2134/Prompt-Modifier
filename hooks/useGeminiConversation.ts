@@ -65,8 +65,8 @@ Assist the user with general questions, brainstorming, coding, or any other topi
 
 export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstreamNodeValues, activeTabId, setTabs }: UseGeminiConversationProps) => {
     const [isChatting, setIsChatting] = useState<string | null>(null);
-    // Store both the chat instance and the style it was created with
-    const chatSessions = useRef<Map<string, { chat: Chat; style: string }>>(new Map());
+    // Store both the chat instance, the style, and the model it was created with
+    const chatSessions = useRef<Map<string, { chat: Chat; style: string; model: string }>>(new Map());
 
     const activeTabIdRef = useRef(activeTabId);
     React.useEffect(() => {
@@ -113,7 +113,7 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
         if (!node || node.type !== 'GEMINI_CHAT') return;
     
         const initialParsed = JSON.parse(node.value || '{}');
-        let { messages = [], currentInput, style = 'general' } = initialParsed;
+        let { messages = [], currentInput, style = 'general', model = 'gemini-3-flash-preview' } = initialParsed;
 
         if (!currentInput || !currentInput.trim()) {
             const upstreamTexts = getUpstreamNodeValues(nodeId).filter(v => typeof v === 'string') as string[];
@@ -133,11 +133,11 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
         updateNodeInStorage(currentTabId, nodeId, (prev) => ({ ...prev, messages: newMessages, currentInput: '' }));
     
         try {
-            // Check if session exists AND if the style matches
+            // Check if session exists AND if the style/model matches
             const existingSession = chatSessions.current.get(nodeId);
             
-            if (!existingSession || existingSession.style !== style) {
-                // Initialize new session with specific persona
+            if (!existingSession || existingSession.style !== style || existingSession.model !== model) {
+                // Initialize new session with specific persona and model
                 const apiKey = getApiKey();
                 if (!apiKey) throw new Error("API Key is missing.");
 
@@ -145,17 +145,17 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
                 const systemInstruction = PERSONAS[style] || PERSONAS['general'];
                 
                 const chat = ai.chats.create({ 
-                    model: 'gemini-3-flash-preview',
+                    model: model,
                     config: {
                         systemInstruction: systemInstruction,
                     },
                 });
                 
-                // If switching styles, we might want to provide context from previous messages manually,
+                // If switching styles/models, we might want to provide context from previous messages manually,
                 // but usually switching personas implies a context switch. 
                 // For now, we start fresh context-wise for the model, but keep history in UI.
                 
-                chatSessions.current.set(nodeId, { chat, style });
+                chatSessions.current.set(nodeId, { chat, style, model });
             }
 
             const session = chatSessions.current.get(nodeId)!;
@@ -186,7 +186,13 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
         if (chatSessions.current.has(nodeId)) {
             chatSessions.current.delete(nodeId);
         }
-        updateNodeInStorage(activeTabIdRef.current, nodeId, (prev) => ({ messages: [], currentInput: '', lastPrompt: '', style: prev.style || 'general' }));
+        updateNodeInStorage(activeTabIdRef.current, nodeId, (prev) => ({ 
+            messages: [], 
+            currentInput: '', 
+            lastPrompt: '', 
+            style: prev.style || 'general',
+            model: prev.model || 'gemini-3-flash-preview' // Preserve model
+        }));
     }, [updateNodeInStorage]);
 
     return {

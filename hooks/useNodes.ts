@@ -121,8 +121,19 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                             if (cardData.image && !cardData.imageSources) {
                                  loadedSources['1:1'] = cardData.image;
                             }
+                            
+                            // Pre-process sources to fix raw base64
+                            const processedSources: Record<string, string | null> = {};
+                            for (const [ratio, rawSrc] of Object.entries(loadedSources)) {
+                                let src = rawSrc as string | null;
+                                if (typeof src === 'string' && !src.startsWith('data:') && src.length > 20) {
+                                    // Fix missing prefix
+                                    src = `data:image/png;base64,${src}`;
+                                }
+                                processedSources[ratio] = src;
+                            }
 
-                            for (const [ratio, src] of Object.entries(loadedSources)) {
+                            for (const [ratio, src] of Object.entries(processedSources)) {
                                 if (typeof src === 'string' && src.startsWith('data:')) {
                                     const index = RATIO_INDICES[ratio];
                                     // Set full size image using correct offset for this character index
@@ -140,7 +151,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                             }
 
                             const ratio = cardData.selectedRatio || '1:1';
-                            const activeHighRes = (loadedSources as any)[ratio];
+                            const activeHighRes = processedSources[ratio];
                             
                             // Set base index for active image
                             if (activeHighRes && typeof activeHighRes === 'string' && activeHighRes.startsWith('data:')) {

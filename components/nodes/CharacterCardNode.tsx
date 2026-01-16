@@ -74,7 +74,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         isUpdatingCharacterPrompt, 
         handleUpdateCharacterPersonality, 
         isUpdatingPersonality,
-        handleUpdateCharacterAppearance,
+        handleUpdateCharacterAppearance, 
         isUpdatingAppearance,
         handleUpdateCharacterClothing,
         isUpdatingClothing
@@ -558,16 +558,29 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 const loadedSources = cardData.imageSources || { '1:1': null, '16:9': null, '9:16': null };
                 const newThumbnails: Record<string, string | null> = { '1:1': null, '16:9': null, '9:16': null };
                 if (cardData.image && !cardData.imageSources) loadedSources['1:1'] = cardData.image;
-                for (const [ratio, src] of Object.entries(loadedSources)) {
+                
+                // Pre-process sources to fix raw base64
+                const processedSources: Record<string, string | null> = {};
+                for (const [ratio, rawSrc] of Object.entries(loadedSources)) {
+                    let src = rawSrc as string | null;
+                    if (typeof src === 'string' && !src.startsWith('data:') && src.length > 100) {
+                        src = `data:image/png;base64,${src}`;
+                    }
+                    processedSources[ratio] = src;
+                }
+
+                for (const [ratio, src] of Object.entries(processedSources)) {
                     if (typeof src === 'string' && src.startsWith('data:')) {
                         const idx = (cardIdx * 10) + (RATIO_INDICES[ratio] || 1);
                         setFullSizeImage(node.id, idx, src);
                         newThumbnails[ratio] = await generateThumbnail(src, 256, 256);
                     } else newThumbnails[ratio] = src as string | null;
                 }
+
                 const ratio = cardData.selectedRatio || '1:1';
-                if (loadedSources[ratio] && typeof loadedSources[ratio] === 'string' && loadedSources[ratio].startsWith('data:')) {
-                    setFullSizeImage(node.id, cardIdx * 10, loadedSources[ratio]);
+                const activeHighRes = processedSources[ratio];
+                if (activeHighRes && typeof activeHighRes === 'string' && activeHighRes.startsWith('data:')) {
+                    setFullSizeImage(node.id, cardIdx * 10, activeHighRes);
                 }
                 
                 // Using ref implicitly via handleUpdateCard ensures we don't lose other card states

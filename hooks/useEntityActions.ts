@@ -2,7 +2,8 @@
 import React, { useCallback } from 'react';
 import type { Node, Connection, Point, Group, ToastType, Alignment, DockMode } from '../types';
 import { NodeType } from '../types';
-import { getEmptyValueForNodeType, getOutputHandleType, getMinNodeSize } from '../utils/nodeUtils';
+import { getEmptyValueForNodeType, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
+import { generateThumbnail } from '../utils/imageUtils';
 
 // Constants for Character Card layout (matching CharacterCardNode logic)
 export const CARD_NODE_WIDTH_STEP = 410;

@@ -1,6 +1,4 @@
 
-
-
 import React, { useCallback, useRef, useEffect } from 'react';
 import { NodeType, Node, Connection, Point, ConnectingInfo } from '../types';
 import { addMetadataToPNG } from '../utils/pngMetadata';
@@ -778,7 +776,7 @@ export const useAppOrchestration = (
                                       enableAspectRatio: true, // Usually good default for pasted
                                       enableOutpainting: false,
                                       outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.',
-                                      model: 'gemini-3-flash-preview', // Default model
+                                      model: 'gemini-2.5-flash-image', // Default model
                                       autoDownload: true,
                                       autoCrop169: false,
                                       leftPaneWidth: 360,
@@ -862,7 +860,17 @@ export const useAppOrchestration = (
                         // Legacy single image support
                         if (charData.image && !charData.imageSources) loadedSources['1:1'] = charData.image;
 
-                        for (const [ratio, src] of Object.entries(loadedSources)) {
+                        // Pre-process sources to fix raw base64
+                        const processedSources: Record<string, string | null> = {};
+                        for (const [ratio, rawSrc] of Object.entries(loadedSources)) {
+                            let src = rawSrc as string | null;
+                            if (typeof src === 'string' && !src.startsWith('data:') && src.length > 100) {
+                                src = `data:image/png;base64,${src}`;
+                            }
+                            processedSources[ratio] = src;
+                        }
+
+                        for (const [ratio, src] of Object.entries(processedSources)) {
                            if (typeof src === 'string' && src.startsWith('data:')) {
                                const index = RATIO_INDICES[ratio];
                                if (index) {
@@ -881,7 +889,7 @@ export const useAppOrchestration = (
 
                         const ratio = charData.selectedRatio || '1:1';
                         // Restore active high res slot (index 0 for this char)
-                        const activeHighRes = (loadedSources as any)[ratio];
+                        const activeHighRes = processedSources[ratio];
                         if (activeHighRes && typeof activeHighRes === 'string' && activeHighRes.startsWith('data:')) {
                             setFullSizeImage(newNodeId, i * 10, activeHighRes);
                         }
@@ -988,13 +996,35 @@ export const useAppOrchestration = (
             } else if (node.type === NodeType.IMAGE_EDITOR) {
                  imageUrl = getFullSizeImage(nodeId, 0) || parsed.outputImage;
                  prompt = parsed.prompt || '';
+            } else if (node.type === NodeType.GEMINI_CHAT) {
+                // EXPORT CHAT HISTORY
+                const dataToSave = {
+                    type: 'gemini-chat-history',
+                    messages: parsed.messages || [],
+                    currentInput: parsed.currentInput || '',
+                    style: parsed.style || 'general',
+                    attachment: parsed.attachment || null
+                };
+                
+                const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const timestamp = getTimestamp();
+                a.download = `Gemini_Chat_History_${timestamp}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                addToast(t('toast.scriptSaved'));
+                return;
             }
         } catch (e) {}
 
         if (imageUrl) {
             onDownloadImageFromUrl(imageUrl, 0, prompt);
         }
-    }, [nodes, getFullSizeImage, entityActionsHook]);
+    }, [nodes, getFullSizeImage, entityActionsHook, addToast, t]); // Added addToast, t
     
     const handleNavigateToNodeFrame = useCallback((targetNodeId: string, frameNumber: number) => {
         setNodes(nds => nds.map(n => {

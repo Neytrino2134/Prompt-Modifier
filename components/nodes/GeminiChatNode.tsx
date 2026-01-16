@@ -1,12 +1,15 @@
 
 
 
+
+
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import type { NodeContentProps } from '../../types';
 import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { useAppContext } from '../../contexts/AppContext';
 import { Tooltip } from '../Tooltip';
+import CustomSelect from '../CustomSelect';
 
 // Helper function to format inline text (bold, code)
 const formatText = (text: string) => {
@@ -257,11 +260,11 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
         try {
             return JSON.parse(node.value || '{}');
         } catch {
-            return { messages: [], currentInput: '', style: 'general', attachment: null };
+            return { messages: [], currentInput: '', style: 'general', attachment: null, model: 'gemini-3-flash-preview' };
         }
     }, [node.value]);
 
-    const { messages = [], currentInput = '', style = 'general', attachment = null } = chatValue;
+    const { messages = [], currentInput = '', style = 'general', attachment = null, model = 'gemini-3-flash-preview' } = chatValue;
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const isUserAtBottomRef = useRef(true); // Track if user is at bottom
     
@@ -278,13 +281,13 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
         if (!textarea) return;
 
         // Reset height to allow shrinking if text is deleted
-        textarea.style.height = '80px';
+        textarea.style.height = '120px';
         
         // Calculate new height based on content
         const scrollHeight = textarea.scrollHeight;
         
-        // Clamp height between 80px and 200px
-        const newHeight = Math.min(Math.max(80, scrollHeight), 200);
+        // Clamp height between 120px and 200px
+        const newHeight = Math.min(Math.max(120, scrollHeight), 200);
         
         textarea.style.height = `${newHeight}px`;
         
@@ -339,6 +342,10 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
 
     const handleStyleChange = (newStyle: string) => {
         onValueChange(node.id, JSON.stringify({ ...chatValue, style: newStyle }));
+    };
+
+    const handleModelChange = (newModel: string) => {
+        onValueChange(node.id, JSON.stringify({ ...chatValue, model: newModel }));
     };
     
     const handleFileClick = () => {
@@ -514,6 +521,11 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
         e.stopPropagation();
     };
 
+    const modelOptions = [
+        { value: 'gemini-3-flash-preview', label: 'Flash 3.0' },
+        { value: 'gemini-3-pro-preview', label: 'Pro 3.0' }
+    ];
+
     return (
         <div className="flex flex-col h-full relative" ref={rootRef}>
             <input 
@@ -526,8 +538,8 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
             
             {selection && <FloatingCopyButton selection={selection} onCopy={handleFloatingCopy} rootRef={rootRef} scale={viewScale} />}
 
-            {/* Top Bar with Style Switcher */}
-            <div className="flex items-center bg-gray-900/50 p-1 rounded-md mb-2 shrink-0 justify-between" onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}>
+            {/* Top Bar with Style Switcher and Model Selector */}
+            <div className="flex items-center bg-gray-900/50 p-1 rounded-md mb-2 shrink-0 justify-between gap-2" onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}>
                 <div className="flex space-x-1 flex-1">
                     {styles.map(s => (
                         <StyleButton
@@ -539,6 +551,16 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                             onClick={() => handleStyleChange(s.id)}
                         />
                     ))}
+                </div>
+                
+                {/* Model Selector - Compact */}
+                <div className="w-[100px] flex-shrink-0">
+                    <CustomSelect
+                        value={model}
+                        onChange={handleModelChange}
+                        options={modelOptions}
+                        disabled={isChatting}
+                    />
                 </div>
             </div>
 
@@ -557,6 +579,7 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                     <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-2 opacity-50 select-none pointer-events-none">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                         <span className="text-xs font-medium">{activeLabel}</span>
+                        <span className="text-[10px] text-gray-600">{model === 'gemini-3-pro-preview' ? 'Pro 3.0' : 'Flash 3.0'}</span>
                     </div>
                 )}
                 {messages.map((msg: { role: string, content: string }, index: number) => (
@@ -669,25 +692,26 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                     onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}
                     onMouseMove={stopPropagation}
                     onMouseUp={stopPropagation}
-                    // Styles for auto-grow behavior (min-h: 80px, max-h: 200px)
-                    className="w-full p-2 pr-20 bg-transparent border-none rounded-md resize-none focus:outline-none text-sm text-white placeholder-gray-400"
-                    style={{ minHeight: '80px', maxHeight: '200px', overflowY: 'hidden' }}
+                    // Styles for auto-grow behavior (min-h: 120px, max-h: 200px)
+                    className="w-full p-2 pr-12 bg-transparent border-none rounded-md resize-none focus:outline-none text-sm text-white placeholder-gray-400"
+                    style={{ minHeight: '120px', maxHeight: '200px', overflowY: 'hidden' }}
                 />
                 
-                <div className="absolute bottom-2 right-2 flex gap-1">
-                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Tooltip content="Вставить из буфера" position="top">
+                {/* Actions (Vertical Column) */}
+                <div className="absolute bottom-2 right-2 flex flex-col gap-2 items-center">
+                     <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Tooltip content="Вставить из буфера" position="left">
                              <button 
                                 onClick={handlePasteClipboard} 
                                 className="p-1.5 rounded-md transition-colors duration-200 bg-gray-600 hover:bg-gray-500 text-gray-300 hover:text-white"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 14l2 2 4-4" />
                                 </svg>
                             </button>
                         </Tooltip>
                         
-                        <Tooltip content="Прикрепить файл" position="top">
+                        <Tooltip content="Прикрепить файл" position="left">
                             <button 
                                 onClick={handleFileClick} 
                                 className={`p-1.5 rounded-md transition-colors duration-200 ${attachment ? 'bg-accent/20 text-accent-text border border-accent/50' : 'bg-gray-600 hover:bg-gray-500 text-gray-300 hover:text-white'}`}
@@ -699,11 +723,11 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                         </Tooltip>
                      </div>
                     
-                    <Tooltip content="Отправить" position="top">
+                    <Tooltip content="Отправить" position="left">
                         <button 
                             onClick={handleSend} 
                             disabled={isChatting || (!currentInput.trim() && !attachment)} 
-                            className="p-1.5 bg-accent hover:bg-accent-hover rounded-md text-white disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
+                            className="p-1.5 bg-accent hover:bg-accent-hover rounded-md text-white disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200 shadow-md"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
