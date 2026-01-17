@@ -1,3 +1,4 @@
+
 import React, { useCallback, ReactNode, useState, useEffect, useRef } from 'react';
 import { LanguageContext, LanguageCode, getTranslation, TranslationKey } from './localization';
 import { AppProvider, useAppContext } from './contexts/AppContext';
@@ -81,6 +82,21 @@ const Editor: React.FC = () => {
       window.addEventListener('beforeunload', handleBeforeUnload);
       return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
+
+  // Handle external file load (e.g. from Nativefier double-click)
+  useEffect(() => {
+    const handleExternalFileLoad = (event: CustomEvent) => {
+        const content = event.detail;
+        // Use handleLoadFromExternal to properly manage new tabs for incoming files
+        if (content && context?.handleLoadFromExternal) {
+            console.log("Received external file content");
+            context.handleLoadFromExternal(content);
+        }
+    };
+
+    window.addEventListener('prompt-modifier-open-file', handleExternalFileLoad as EventListener);
+    return () => window.removeEventListener('prompt-modifier-open-file', handleExternalFileLoad as EventListener);
+  }, [context]);
 
   // Deferred loading effect for Canvas
   useEffect(() => {

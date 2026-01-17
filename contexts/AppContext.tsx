@@ -31,6 +31,7 @@ import { useGoogleDrive } from '../hooks/useGoogleDrive'; // Import new hook
 import { useGlobalState } from '../hooks/useGlobalState';
 import { useAppOrchestration } from '../hooks/useAppOrchestration';
 import { useTutorial } from '../hooks/useTutorial';
+import { addMetadataToPNG } from '../utils/pngMetadata';
 
 const AppContext = createContext<AppContextType | null>(null);
 
@@ -348,6 +349,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [resetCurrentTab, language, t, dialogsHook, getLocalizedCanvasState, loadCanvasState]);
 
+    const onDownloadImageFromUrl = useCallback((imageUrl: string, frameNumber: number, prompt: string, filenameOverride?: string) => {
+        let assetUrl = imageUrl;
+        if (imageUrl.startsWith('data:image/png')) {
+             assetUrl = addMetadataToPNG(imageUrl, 'prompt', prompt);
+        }
+        const link = document.createElement('a');
+        link.href = assetUrl;
+        
+        if (filenameOverride) {
+            link.download = filenameOverride;
+        } else {
+             const now = new Date();
+             const date = now.toISOString().split('T')[0];
+             const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+             const padded = String(frameNumber).padStart(3, '0');
+             link.download = `Image_${padded}_${date}_${time}.png`;
+        }
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }, []);
+
     const value = useMemo(() => {
         const { replaceAllItems: libReplaceAll, importItemsData: libImport, ...restLibrary } = libraryHook;
         const { replaceAllItems: catReplaceAll, importItemsData: catImport, ...restCatalog } = catalogHook;
@@ -390,6 +414,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onEditImage: geminiGenerationHook.handleEditImage,
             onImageToText: geminiAnalysisHook.handleImageToText, 
             handleRegenerateFrame, 
+            handleLoadFromExternal: canvasIOHook.handleLoadFromExternal, // Export new method
 
             replaceAllItems: libReplaceAll,
             importItemsData: libImport,
@@ -407,7 +432,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 nodesHook,
                 isAlternativeMode // Pass the flag
             ),
-            handleDownloadImage: (id: string) => orchestrationHook.handleDownloadImage(id, orchestrationHook.onDownloadImageFromUrl),
+            handleDownloadImage: (id: string) => orchestrationHook.handleDownloadImage(id, onDownloadImageFromUrl),
             setLibraryItems: libReplaceAll,
             activeTool: interactionHook.effectiveTool,
             setActiveTool: interactionHook.setActiveTool,
@@ -448,7 +473,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             isModifyingCharacter: geminiModificationHook.isModifyingCharacter,
             onGenerateImage: geminiGenerationHook.handleGenerateImage,
             handleUpdateCharacterPromptFromImage: geminiAnalysisHook.handleUpdateCharacterPromptFromImage,
-            isUpdatingCharacterPrompt: geminiAnalysisHook.isUpdatingCharacterPrompt
+            isUpdatingCharacterPrompt: geminiAnalysisHook.isUpdatingCharacterPrompt,
+            onDownloadImageFromUrl // Export to context
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,
@@ -463,7 +489,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiAnalysisHook.handleUpdateCharacterPromptFromImage, geminiAnalysisHook.isUpdatingCharacterPrompt,
         geminiModificationHook.handleUpdateCharacterPersonality, geminiModificationHook.isUpdatingPersonality,
         geminiModificationHook.handleUpdateCharacterAppearance, geminiModificationHook.isUpdatingAppearance,
-        geminiModificationHook.handleUpdateCharacterClothing, geminiModificationHook.isUpdatingClothing
+        geminiModificationHook.handleUpdateCharacterClothing, geminiModificationHook.isUpdatingClothing,
+        onDownloadImageFromUrl
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

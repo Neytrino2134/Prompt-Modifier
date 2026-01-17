@@ -22,6 +22,7 @@ export * from './useNodePositionHistory';
 export * from './useTutorial';
 export { CatalogItemType, ContentCatalogItemType } from './useCatalog';
 export * from '../utils/nodeUtils';
+export * from './useAppOrchestration';
 
 // Interactions
 export * from './interactions/useCanvasGestures';

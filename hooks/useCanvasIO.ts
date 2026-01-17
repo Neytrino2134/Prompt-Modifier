@@ -175,6 +175,53 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         }
     }, [setTabs, setActiveTabId, setLanguage, setIsSnapToGrid, setLineStyle, setCatalogItems, setLibraryItems, characterCatalog, scriptCatalog, sequenceCatalog, loadCanvasState, setError, addToast, t]);
 
+    // Handles loading from external sources (OS file association)
+    // Canvas files (.PMC) open in a NEW tab to prevent data loss
+    // Project files (.PMP) prompt for overwrite
+    const handleLoadFromExternal = useCallback((text: string) => {
+        try {
+            const data = JSON.parse(text);
+
+            if (data.type === 'script-modifier-project' || data.type === 'script-modifier-canvas') {
+                setError(t('error.scriptModifierCanvas'));
+                return;
+            }
+
+            if (data.type === 'prompt-modifier-project') {
+                // Project file: Needs confirmation as it replaces everything
+                setConfirmInfo({
+                    title: t('dialog.confirmLoad.title'),
+                    message: t('dialog.confirmLoad.message') + " (Project)",
+                    onConfirm: () => handleLoadCanvasIntoCurrentTab(text)
+                });
+            } else if (data.nodes && data.connections) {
+                // Canvas file: Open in NEW tab safely
+                const newTabId = `tab-${Date.now()}`;
+                const newTab: Tab = {
+                    id: newTabId,
+                    name: `Ext ${getTimestamp()}`,
+                    state: {
+                        nodes: data.nodes || [],
+                        connections: data.connections || [],
+                        groups: data.groups || [],
+                        viewTransform: data.viewTransform || { scale: 1, translate: { x: 0, y: 0 } },
+                        nodeIdCounter: data.nodeIdCounter || 100,
+                        fullSizeImageCache: data.fullSizeImageCache || {}
+                    }
+                };
+                
+                setTabs(prev => [...prev, newTab]);
+                setActiveTabId(newTabId);
+                addToast(t('toast.downloadStarted'), 'success');
+            } else {
+                 throw new Error("Unknown file format");
+            }
+
+        } catch (err: any) {
+            setError(`Failed to open external file: ${err.message}`);
+        }
+    }, [handleLoadCanvasIntoCurrentTab, setConfirmInfo, t, setTabs, setActiveTabId, setError, addToast]);
+
     const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -751,6 +798,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         handleSaveCanvas,
         handleSaveProject,
         handleLoadCanvasIntoCurrentTab,
+        handleLoadFromExternal, // EXPORTED THIS NEW FUNCTION
         
         imageSequenceFileInputRef,
         handleImageSequenceFileChange,

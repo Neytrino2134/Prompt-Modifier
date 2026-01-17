@@ -55,6 +55,8 @@ export type AppContextType =
   importItemsData: (data: any) => Promise<void>;
   
   handleLoadCanvasIntoCurrentTab: (text: string) => void; 
+  handleLoadFromExternal: (text: string) => void; // New method
+
   t: (key: string, options?: { [key: string]: string | number }) => string;
   isSnapToGrid: boolean;
   setIsSnapToGrid: React.Dispatch<React.SetStateAction<boolean>>;
