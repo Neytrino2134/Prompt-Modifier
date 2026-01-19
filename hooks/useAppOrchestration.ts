@@ -178,17 +178,78 @@ export const useAppOrchestration = (
                      const text = await navigator.clipboard.readText();
                      try {
                          const json = JSON.parse(text);
+                         const pos = canvasHook.pointerPosition || { x: 0, y: 0 };
                          
                          // Paste Group/Nodes
                          if (json.type === 'prompModifierGroup' || (json.nodes && json.connections)) {
-                             const pos = canvasHook.pointerPosition || { x: 0, y: 0 };
                              entityActionsHook.pasteGroup(json, pos);
+                             return;
+                         }
+
+                         // Paste Script Analyzer Data (Script Viewer Node)
+                         if (json.type === 'script-analyzer-data' || (json.scenes && Array.isArray(json.scenes) && json.scenes[0]?.frames)) {
+                             const newNodeId = entityActionsHook.onAddNode(NodeType.SCRIPT_VIEWER, pos);
+                             nodesHook.handleValueChange(newNodeId, text);
+                             addToast(t('toast.pastedFromClipboard'));
+                             return;
+                         }
+
+                         // Paste Script Prompt Modifier Data (Finalizer format)
+                         if (json.type === 'script-prompt-modifier-data' || (json.finalPrompts && Array.isArray(json.finalPrompts))) {
+                             
+                             const promptsToLoad = json.finalPrompts || json.prompts || [];
+                             const videoPromptsToLoad = json.videoPrompts || [];
+                             const videoMap = new Map(videoPromptsToLoad.map((vp: any) => [vp.frameNumber, vp]));
+ 
+                             const sourcePrompts = promptsToLoad.map((p: any, i: number) => {
+                                 const frameNum = p.frameNumber !== undefined ? p.frameNumber : i + 1;
+                                 const vData: any = videoMap.get(frameNum);
+                                 
+                                 let characters = p.characters || [];
+                                 const promptText = p.prompt || '';
+                                 if (characters.length === 0 && promptText) {
+                                    const foundTags = promptText.match(/(?:character|entity)-\d+/gi) || [];
+                                    characters = [...new Set(foundTags.map((t: string) => t.toLowerCase().replace(/character-/i, 'Entity-').replace(/entity-/i, 'Entity-')))];
+                                 }
+ 
+                                 return {
+                                     frameNumber: frameNum,
+                                     sceneNumber: p.sceneNumber || 1,
+                                     sceneTitle: p.sceneTitle || '',
+                                     prompt: promptText,
+                                     videoPrompt: vData?.videoPrompt || p.videoPrompt || '',
+                                     shotType: p.shotType || p.ShotType || vData?.shotType || 'WS',
+                                     characters: characters,
+                                     duration: p.duration || 3,
+                                     isCollapsed: true
+                                 };
+                             });
+ 
+                             const emptyNodeForValue = { id: '', type: NodeType.PROMPT_SEQUENCE_EDITOR, position: {x:0,y:0}, title: '', value: '', width: 0, height: 0 };
+                             const emptyValue = getEmptyValueForNodeType(emptyNodeForValue as any);
+                             const parsedEmptyValue = JSON.parse(emptyValue);
+ 
+                             const nodeValue = JSON.stringify({
+                                 ...parsedEmptyValue,
+                                 instruction: '',
+                                 sourcePrompts: sourcePrompts,
+                                 modifiedPrompts: [],
+                                 checkedSourceFrameNumbers: [],
+                                 selectedFrameNumber: null,
+                                 styleOverride: json.visualStyle || json.styleOverride || '',
+                                 usedCharacters: json.usedCharacters || [],
+                                 sceneContexts: json.sceneContexts || {},
+                                 leftPaneRatio: 0.5
+                             });
+                             
+                             const newNodeId = entityActionsHook.onAddNode(NodeType.PROMPT_SEQUENCE_EDITOR, pos);
+                             nodesHook.handleValueChange(newNodeId, nodeValue);
+                             addToast(t('toast.pastedFromClipboard'));
                              return;
                          }
                          
                          // Paste Character Card (Array or Single)
                          if (Array.isArray(json) && json[0]?.imageSources) {
-                             const pos = canvasHook.pointerPosition || { x: 0, y: 0 };
                              const newNodeId = entityActionsHook.onAddNode(NodeType.CHARACTER_CARD, pos, json[0].nodeTitle || 'Character Card');
                              
                              // Restore images to cache

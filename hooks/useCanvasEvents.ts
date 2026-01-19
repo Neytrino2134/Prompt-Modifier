@@ -1,5 +1,4 @@
 
-
 import React, { useCallback, useRef, useEffect } from 'react';
 import { NodeType, Point, Connection } from '../types';
 import { getEmptyValueForNodeType, RATIO_INDICES, getOutputHandleType } from '../utils/nodeUtils';
@@ -454,9 +453,17 @@ export const useCanvasEvents = (props: any) => {
                                      return;
                                  }
 
-                                 if (json.type === 'script-generator-data' || json.type === 'script-analyzer-data' || (json.characters && json.scenes)) {
+                                 if (json.type === 'script-generator-data' || json.type === 'script-analyzer-data' || (json.characters && json.scenes && Array.isArray(json.scenes) && (json.scenes[0]?.frames || json.type === 'script-analyzer-data'))) {
                                      const newNodeId = onAddNode(NodeType.SCRIPT_VIEWER, pos);
-                                     if (!json.type) json.type = 'script-analyzer-data';
+                                     // Ensure type is preserved or inferred
+                                     if (!json.type) {
+                                         // Heuristic: has frames = analyzer, else generator
+                                         if (json.scenes && json.scenes[0] && json.scenes[0].frames) {
+                                              json.type = 'script-analyzer-data';
+                                         } else {
+                                              json.type = 'script-generator-data';
+                                         }
+                                     }
                                      handleValueChange(newNodeId, JSON.stringify(json));
                                      return;
                                  }

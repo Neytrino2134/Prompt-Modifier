@@ -47,6 +47,7 @@ interface ScriptAnalyzerData {
         sceneNumber: number;
         title?: string;
         description?: string;
+        sceneContext?: string; // Added sceneContext
         narratorText?: string;
         frames: {
             frameNumber: number;
@@ -54,8 +55,9 @@ interface ScriptAnalyzerData {
             duration?: number;
             description?: string;
             imagePrompt?: string;
-            environmentPrompt?: string;
-            videoPrompt?: string;
+            environmentPrompt?: string; // Added environmentPrompt
+            videoPrompt?: string; // Added videoPrompt
+            shotType?: string; // Added shotType
         }[];
     }[];
 }
@@ -94,11 +96,6 @@ export const ScriptViewerNode: React.FC<NodeContentProps> = ({ node, onValueChan
 
     // State for tracking collapsed items (Sections, Characters, Scenes, Frames)
     // We use a set of strings ID.
-    // IDs: 
-    // Sections: 'section-characters', 'section-scenes'
-    // Characters: 'char-{index}'
-    // Scenes: 'scene-{sceneNumber}'
-    // Frames: 'frame-{sceneNumber}-{frameNumber}'
     const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
 
     const toggleCollapse = (id: string) => {
@@ -209,7 +206,7 @@ export const ScriptViewerNode: React.FC<NodeContentProps> = ({ node, onValueChan
                                 const val = item.id === 'full-json' ? item.copyVal : (item.id === 'all-image-prompts' ? getPrompts('img') : getPrompts('vid'));
                                 navigator.clipboard.writeText(val || ''); 
                             }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                             </ActionButton>
                         </div>
                     </div>
@@ -233,12 +230,13 @@ export const ScriptViewerNode: React.FC<NodeContentProps> = ({ node, onValueChan
                         <h4 className="font-bold text-cyan-400 truncate">
                             {char.name} 
                             {char.alias && <span className="text-xs font-mono text-gray-400 ml-2">({char.alias})</span>}
+                            {char.index && <span className="text-xs font-mono text-gray-500 ml-2">[{char.index}]</span>}
                         </h4>
                     </div>
                     <div className="flex flex-col items-end space-y-2 flex-shrink-0">
                         <div className="opacity-100">
                             <ActionButton title={t('node.action.copy')} onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(char.fullDescription); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                             </ActionButton>
                         </div>
                     </div>
@@ -259,7 +257,7 @@ export const ScriptViewerNode: React.FC<NodeContentProps> = ({ node, onValueChan
     };
 
     const renderFrameCard = (frame: any, sceneNumber: number) => {
-        const frameTitle = `Frame ${frame.frameNumber} (${frame.duration ? `${frame.duration}s` : 'Duration N/A'})`;
+        const frameTitle = `Frame ${frame.frameNumber} ${frame.duration ? `(${frame.duration}s)` : ''} ${frame.shotType ? `[${frame.shotType}]` : ''}`;
         const characterList = frame.characters?.join(', ') || '';
         const frameId = `frame-${sceneNumber}-${frame.frameNumber}`;
         const isCollapsed = collapsedItems.has(frameId);
@@ -293,7 +291,7 @@ export const ScriptViewerNode: React.FC<NodeContentProps> = ({ node, onValueChan
                                     <div className="flex items-center space-x-1 flex-shrink-0">
                                         <div>
                                             <ActionButton title={t('node.action.copy')} onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.value); }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                                             </ActionButton>
                                         </div>
                                     </div>
@@ -466,8 +464,17 @@ export const ScriptViewerNode: React.FC<NodeContentProps> = ({ node, onValueChan
                                                         onClick={() => toggleCollapse(sceneId)}
                                                     >
                                                         <CollapseToggle isCollapsed={isSceneCollapsed} onClick={(e) => {e.stopPropagation(); toggleCollapse(sceneId);}} />
-                                                        <div className="ml-2">
-                                                            <h4 className="font-bold text-lg text-white">{scene.title ? scene.title : `Scene ${scene.sceneNumber}`}</h4>
+                                                        <div className="ml-2 w-full">
+                                                            <div className="flex justify-between items-center">
+                                                                <h4 className="font-bold text-lg text-white">{scene.title ? scene.title : `Scene ${scene.sceneNumber}`}</h4>
+                                                            </div>
+                                                            {/* Display Scene Context if available */}
+                                                            {scene.sceneContext && (
+                                                                <div className="mt-2 text-xs text-gray-400 italic bg-black/20 p-1.5 rounded border border-gray-700/50">
+                                                                    <span className="font-bold text-gray-500 uppercase mr-1">Context:</span>
+                                                                    {scene.sceneContext}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                     {!isSceneCollapsed && (
