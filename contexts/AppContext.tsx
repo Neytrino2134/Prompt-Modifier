@@ -4,28 +4,28 @@ import type { AppContextType } from './AppContextTypes';
 import { useLanguage, LanguageCode } from '../localization';
 import { NodeType } from '../types';
 import {
-  useNodes,
-  useConnections,
-  useCanvas,
-  useInteraction,
-  useCanvasIO,
-  useDialogsAndUI,
-  useGroups,
-  useCatalog,
-  usePermissions,
-  usePromptLibrary,
-  useTabs,
-  useEntityActions,
-  useDerivedMemo,
-  useCanvasEvents,
-  useGeminiAnalysis,
-  useGeminiConversation,
-  useGeminiChainExecution,
-  useGeminiGeneration,
-  useGeminiModification,
-  useNodePositionHistory,
-  useContentCatalog,
-  calculateGroupBounds,
+    useNodes,
+    useConnections,
+    useCanvas,
+    useInteraction,
+    useCanvasIO,
+    useDialogsAndUI,
+    useGroups,
+    useCatalog,
+    usePermissions,
+    usePromptLibrary,
+    useTabs,
+    useEntityActions,
+    useDerivedMemo,
+    useCanvasEvents,
+    useGeminiAnalysis,
+    useGeminiConversation,
+    useGeminiChainExecution,
+    useGeminiGeneration,
+    useGeminiModification,
+    useNodePositionHistory,
+    useContentCatalog,
+    calculateGroupBounds,
 } from '../hooks';
 import { useGoogleDrive } from '../hooks/useGoogleDrive'; // Import new hook
 import { useGlobalState } from '../hooks/useGlobalState';
@@ -38,7 +38,7 @@ const AppContext = createContext<AppContextType | null>(null);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { t, language, setLanguage } = useLanguage();
     const permissionsHook = usePermissions('clipboard-read');
-    
+
     // Core Hooks
     const tabsHook = useTabs();
     const { tabs, setTabs, activeTabId, setActiveTabId, handleAddTab, handleSwitchTab, handleRenameTab, handleCloseTab, resetTabs, resetCurrentTab, getLocalizedCanvasState } = tabsHook;
@@ -47,16 +47,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const found = tabs.find(t => t.id === activeTabId);
         if (found) return found;
         if (tabs.length > 0) return tabs[0];
-        return { 
-            id: 'fallback', name: 'Loading...', 
-            state: { nodes: [], connections: [], groups: [], viewTransform: { scale: 1, translate: { x: 0, y: 0 } }, nodeIdCounter: 0, fullSizeImageCache: {} } 
+        return {
+            id: 'fallback', name: 'Loading...',
+            state: { nodes: [], connections: [], groups: [], viewTransform: { scale: 1, translate: { x: 0, y: 0 } }, nodeIdCounter: 0, fullSizeImageCache: {} }
         };
     }, [tabs, activeTabId]);
-    
+
     // Global State Atoms
     const globalState = useGlobalState(activeTab.state.nodes);
-    const { 
-        toasts, addToast, fullSizeImageCache, setFullSizeImageCache, setFullSizeImage, getFullSizeImage, 
+    const {
+        toasts, addToast, fullSizeImageCache, setFullSizeImageCache, setFullSizeImage, getFullSizeImage,
         clearImagesForNodeFromCache, clearUnusedFullSizeImages, registerOperation, unregisterOperation, activeOperations,
         selectedNodeIds, setSelectedNodeIds, draggingInfo, setDraggingInfo,
         showWelcome, setShowWelcome
@@ -67,7 +67,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const canvasHook = useCanvas(activeTab.state.viewTransform);
     const groupsHook = useGroups(activeTab.state.groups);
     const positionHistoryHook = useNodePositionHistory(nodesHook.setNodes);
-    
+
     // Tutorial Hook
     const tutorialHook = useTutorial({ nodes: nodesHook.nodes });
 
@@ -76,7 +76,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         connections: connectionsHook.connections,
         nodes: nodesHook.nodes,
         selectedNodeIds: selectedNodeIds,
-        getFullSizeImage, 
+        getFullSizeImage,
     });
     const { getUpstreamNodeValues } = derivedMemoHook;
 
@@ -84,7 +84,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const getCurrentCanvasState = useCallback(() => ({
         nodes: nodesHook.nodes,
         connections: connectionsHook.connections,
-        groups: groupsHook.groups, 
+        groups: groupsHook.groups,
         viewTransform: canvasHook.viewTransform,
         nodeIdCounter: nodesHook.nodeIdCounter.current,
         fullSizeImageCache: fullSizeImageCache,
@@ -111,7 +111,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const stateToSave = getCurrentCanvasState();
         setTabs(prevTabs => prevTabs.map(tab => tab.id === activeTabId ? { ...tab, state: stateToSave } : tab));
     }, [getCurrentCanvasState, activeTabId, setTabs]);
-    
+
     const resetCanvasToDefault = useCallback((lang: LanguageCode) => {
         resetTabs(lang);
     }, [resetTabs]);
@@ -119,17 +119,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Derived Action Hooks
     const activeTabIdRef = useRef(activeTabId);
     useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
-    
-    const entityActionsHook = useEntityActions({ 
+
+    const entityActionsHook = useEntityActions({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, connections: connectionsHook.connections, setConnections: connectionsHook.setConnections, nodeIdCounter: nodesHook.nodeIdCounter, groups: groupsHook.groups, setGroups: groupsHook.setGroups, t, clearImagesForNodeFromCache, tabId: activeTabId, addToast, getFullSizeImage, setFullSizeImage, takeSnapshot: positionHistoryHook.takeSnapshot
     });
 
     // Catalogs & Library
-    const orchestrationRef = useRef<any>(null); 
+    const orchestrationRef = useRef<any>(null);
     const onRedirectImportProxy = (d: any) => {
-         if (orchestrationRef.current && orchestrationRef.current.onRedirectImport) {
-             orchestrationRef.current.onRedirectImport(d);
-         }
+        if (orchestrationRef.current && orchestrationRef.current.onRedirectImport) {
+            orchestrationRef.current.onRedirectImport(d);
+        }
     };
 
     const catalogHook = useCatalog(t, onRedirectImportProxy);
@@ -156,23 +156,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     // Gemini Hooks
-    const geminiAnalysisHook = useGeminiAnalysis({ 
+    const geminiAnalysisHook = useGeminiAnalysis({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, t, setFullSizeImage, getFullSizeImage, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, addToast
     });
 
-    const geminiModificationHook = useGeminiModification({ 
+    const geminiModificationHook = useGeminiModification({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, t, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, addToast
     });
 
-    const geminiConversationHook = useGeminiConversation({ 
+    const geminiConversationHook = useGeminiConversation({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, setError: globalState.setError, t, getUpstreamNodeValues, activeTabId, setTabs
     });
 
-    const geminiGenerationHook = useGeminiGeneration({ 
+    const geminiGenerationHook = useGeminiGeneration({
         nodes: nodesHook.nodes, connections: connectionsHook.connections, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, showApiKeyDialog: (cb) => dialogsHook.showApiKeyDialog(cb), t, setFullSizeImage, getFullSizeImage, connectedCharacterData: derivedMemoHook.connectedCharacterData, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, isGlobalProcessing: activeOperations.size > 0, addToast
     });
-    
-    const geminiChainExecutionHook = useGeminiChainExecution({ 
+
+    const geminiChainExecutionHook = useGeminiChainExecution({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, connections: connectionsHook.connections, setError: globalState.setError, getUpstreamNodeValues, t, setFullSizeImage, getFullSizeImage, activeTabId, activeTabName: activeTab.name, registerOperation, unregisterOperation, isGlobalProcessing: activeOperations.size > 0, setTabs
     });
 
@@ -183,7 +183,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const dialogsHook = useDialogsAndUI({
         setGroups: groupsHook.setGroups, renameCatalogItem: catalogHook.renameCatalogItem, updateLibraryItem: libraryHook.updateLibraryItem, handleRenameTab: handleRenameTab, handleCloseTab: handleCloseTab, handleRenameNode: nodesHook.handleRenameNode, getCurrentCanvasState: getCurrentCanvasState, loadCanvasState, tabs, activeTabId, t, characterCatalog: characterCatalogHook, scriptCatalog: scriptCatalogHook, sequenceCatalog: sequenceCatalogHook,
     });
-    
+
     // Orchestration Hook
     const orchestrationHook = useAppOrchestration(
         nodesHook.nodes, nodesHook.setNodes, connectionsHook.connections, connectionsHook.setConnections, groupsHook.groups, groupsHook.setGroups, fullSizeImageCache, setFullSizeImage, getFullSizeImage, getUpstreamNodeValues, activeTabIdRef,
@@ -191,18 +191,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         libraryHook, catalogHook, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook, entityActionsHook, nodesHook, connectionsHook, canvasHook, geminiGenerationHook,
         addToast, globalState.setError, t, clearImagesForNodeFromCache
     );
-    
+
     useEffect(() => {
         orchestrationRef.current = orchestrationHook;
     }, [orchestrationHook]);
 
     const handleAddNodeAndConnectWrapper = useCallback((nodeType: NodeType) => {
         if (dialogsHook.connectionQuickAddInfo) {
-             orchestrationHook.handleAddNodeAndConnect(
-                 nodeType, 
-                 dialogsHook.connectionQuickAddInfo, 
-                 dialogsHook.handleCloseConnectionQuickAdd
-             );
+            orchestrationHook.handleAddNodeAndConnect(
+                nodeType,
+                dialogsHook.connectionQuickAddInfo,
+                dialogsHook.handleCloseConnectionQuickAdd
+            );
         }
     }, [dialogsHook.connectionQuickAddInfo, dialogsHook.handleCloseConnectionQuickAdd, orchestrationHook]);
 
@@ -236,8 +236,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         pasteImageToNode: orchestrationHook.pasteImageToNode,
         addConnection: connectionsHook.addConnection,
         isSnapToGrid: globalState.isSnapToGrid, setIsSnapToGrid: globalState.setIsSnapToGrid, setLineStyle: globalState.setLineStyle, activeTool: globalState.activeTool, setActiveTool: globalState.setActiveTool, setSpawnLine: globalState.setSpawnLine,
-        setError: globalState.setError, 
-        handleLoadCanvasIntoCurrentTab: canvasIOHook.handleLoadCanvasIntoCurrentTab, 
+        setError: globalState.setError,
+        handleLoadCanvasIntoCurrentTab: canvasIOHook.handleLoadCanvasIntoCurrentTab,
         t,
         draggingInfo, setDraggingInfo,
         handleDetachNodeFromGroup,
@@ -277,10 +277,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         dialogsHook.handleOpenNodeContextMenu(e, nodeId);
     }, [nodesHook.nodes, selectedNodeIds, setSelectedNodeIds, dialogsHook.handleOpenNodeContextMenu]);
-    
+
     const handleToggleNodeCollapse = useCallback((nodeId: string) => {
         nodesHook.handleToggleNodeCollapse(nodeId);
-        
+
         const node = nodesHook.nodes.find(n => n.id === nodeId);
         if (node) {
             const parentGroup = groupsHook.groups.find(g => g.nodeIds.includes(nodeId));
@@ -288,7 +288,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const updatedNodes = nodesHook.nodes.map(n => n.id === nodeId ? { ...n, isCollapsed: !n.isCollapsed } : n);
                 const groupNodes = updatedNodes.filter(n => parentGroup.nodeIds.includes(n.id));
                 const newBounds = calculateGroupBounds(groupNodes);
-                
+
                 if (newBounds) {
                     groupsHook.setGroups(prev => prev.map(g => g.id === parentGroup.id ? { ...g, ...newBounds } : g));
                 }
@@ -299,9 +299,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const handleRegenerateFrame = useCallback((nodeId: string, frameNumber: number) => {
         const node = nodesHook.nodes.find(n => n.id === nodeId);
         if (node?.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {
-             geminiGenerationHook.handleGenerateSelectedFrames(nodeId, [frameNumber]);
+            geminiGenerationHook.handleGenerateSelectedFrames(nodeId, [frameNumber]);
         } else {
-             geminiGenerationHook.handleEditImage(nodeId, [frameNumber]);
+            geminiGenerationHook.handleEditImage(nodeId, [frameNumber]);
         }
     }, [geminiGenerationHook, nodesHook.nodes]);
 
@@ -323,7 +323,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activeTabId: activeTabId,
         handleRenameTab: handleRenameTab
     });
-    
+
     const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
         const target = e.target as Element;
         if (target.closest('.node-view') || target.closest('.group-view') || target.closest('.connection-view') || target.closest('input, textarea, button, a, select')) return;
@@ -352,19 +352,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const onDownloadImageFromUrl = useCallback((imageUrl: string, frameNumber: number, prompt: string, filenameOverride?: string) => {
         let assetUrl = imageUrl;
         if (imageUrl.startsWith('data:image/png')) {
-             assetUrl = addMetadataToPNG(imageUrl, 'prompt', prompt);
+            assetUrl = addMetadataToPNG(imageUrl, 'prompt', prompt);
         }
         const link = document.createElement('a');
         link.href = assetUrl;
-        
+
         if (filenameOverride) {
             link.download = filenameOverride;
         } else {
-             const now = new Date();
-             const date = now.toISOString().split('T')[0];
-             const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-             const padded = String(frameNumber).padStart(3, '0');
-             link.download = `Image_${padded}_${date}_${time}.png`;
+            const now = new Date();
+            const date = now.toISOString().split('T')[0];
+            const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+            const padded = String(frameNumber).padStart(3, '0');
+            link.download = `Image_${padded}_${date}_${time}.png`;
         }
 
         document.body.appendChild(link);
@@ -372,63 +372,98 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         document.body.removeChild(link);
     }, []);
 
+    const onCopyImageToClipboard = useCallback(async (imageUrl: string): Promise<void> => {
+        try {
+            if (imageUrl && imageUrl.startsWith('data:image')) {
+                const response = await fetch(imageUrl);
+                let blob = await response.blob();
+
+                // Convert to PNG if not already PNG
+                if (blob.type !== 'image/png') {
+                    try {
+                        const imageBitmap = await createImageBitmap(blob);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = imageBitmap.width;
+                        canvas.height = imageBitmap.height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.drawImage(imageBitmap, 0, 0);
+                            const pngBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+                            if (pngBlob) blob = pngBlob;
+                        }
+                    } catch (e) {
+                        console.error('Failed to convert image to PNG:', e);
+                    }
+                }
+
+                await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+                addToast(t('toast.copiedToClipboard'));
+            } else {
+                addToast(t('toast.pasteFailed'), 'error');
+            }
+        } catch (err) {
+            console.error('Failed to copy image to clipboard:', err);
+            addToast(t('toast.pasteFailed'), 'error');
+        }
+    }, [addToast, t]);
+
     const value = useMemo(() => {
         const { replaceAllItems: libReplaceAll, importItemsData: libImport, ...restLibrary } = libraryHook;
         const { replaceAllItems: catReplaceAll, importItemsData: catImport, ...restCatalog } = catalogHook;
 
         return {
             ...tabsHook, ...nodesHook, ...connectionsHook, ...groupsHook, ...canvasHook,
-            ...dialogsHook, 
-            ...restCatalog, 
-            ...restLibrary, 
+            ...dialogsHook,
+            ...restCatalog,
+            ...restLibrary,
             ...permissionsHook, ...canvasIOHook,
             ...entityActionsHook, ...interactionHook, ...derivedMemoHook, ...canvasEventsHook,
             ...geminiAnalysisHook, ...geminiConversationHook, ...geminiChainExecutionHook, ...geminiGenerationHook, ...geminiModificationHook,
             ...positionHistoryHook, ...globalState, ...orchestrationHook, ...googleDriveHook,
-            
+
             tutorialStep: tutorialHook.tutorialStep,
             advanceTutorial: tutorialHook.advanceTutorial,
             setTutorialStep: tutorialHook.setTutorialStep,
             tutorialTargetId: tutorialHook.tutorialTargetId,
             startTutorial: tutorialHook.startTutorial,
             skipTutorial: tutorialHook.skipTutorial,
-            
+
             t,
             onSanitize: geminiModificationHook.handleSanitizePrompt,
             characterCatalog: characterCatalogHook,
             scriptCatalog: scriptCatalogHook,
             sequenceCatalog: sequenceCatalogHook,
-            
+
             onRenameCharacter: (id: string, name: string) => dialogsHook.setRenameInfo({ type: 'character', id, currentTitle: name }),
             onRenameScript: (id: string, name: string) => dialogsHook.setRenameInfo({ type: 'script', id, currentTitle: name }),
             onRenameSequence: (id: string, name: string) => dialogsHook.setRenameInfo({ type: 'sequence', id, currentTitle: name }),
             onGenerateSelectedFrames: geminiGenerationHook.handleGenerateSelectedFrames,
             onTranslateScript: geminiModificationHook.handleTranslateScript,
-            onRefreshUpstreamData: (nodeId: string, handleId?: string) => {},
-            
+            onRefreshUpstreamData: (nodeId: string, handleId?: string) => { },
+
             handleDetachNodeFromGroup,
             onSaveScriptToDisk: canvasIOHook.handleSaveScriptFile,
-            onSaveMediaToDisk: orchestrationHook.onSaveMediaToDisk, 
+            onSaveMediaToDisk: orchestrationHook.onSaveMediaToDisk,
             onGenerateCharacterImage: geminiGenerationHook.handleGenerateCharacterImage,
             onStopGeneration: geminiModificationHook.handleStopGeneration,
             onEditImage: geminiGenerationHook.handleEditImage,
-            onImageToText: geminiAnalysisHook.handleImageToText, 
-            handleRegenerateFrame, 
+            onImageToText: geminiAnalysisHook.handleImageToText,
+            handleRegenerateFrame,
             handleLoadFromExternal: canvasIOHook.handleLoadFromExternal, // Export new method
 
             replaceAllItems: libReplaceAll,
             importItemsData: libImport,
 
             handleToggleNodeCollapse,
-            handleNodeContextMenuLogic, 
+            handleNodeContextMenuLogic,
             handleCanvasContextMenu,
             isGlobalProcessing: activeOperations.size > 0,
             handlePaste: (isAlternativeMode = false) => orchestrationHook.handlePaste(
-                selectedNodeIds, 
-                orchestrationHook.pasteNodeValue, 
-                orchestrationHook.pasteImageToNode, 
-                canvasHook, 
-                entityActionsHook, 
+                selectedNodeIds,
+                orchestrationHook.pasteNodeValue,
+                orchestrationHook.pasteImageToNode,
+                canvasHook,
+                entityActionsHook,
                 nodesHook,
                 isAlternativeMode // Pass the flag
             ),
@@ -437,22 +472,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             activeTool: interactionHook.effectiveTool,
             setActiveTool: interactionHook.setActiveTool,
             dragOverNodeId: interactionHook.hoveredNodeId,
-            isDraggingOverCanvas: false, 
+            isDraggingOverCanvas: false,
             handleOpenNodeContextMenu: handleNodeContextMenuLogic,
             onRefreshChat: geminiConversationHook.handleRefreshChat,
             isStopping: geminiModificationHook.isStopping || geminiGenerationHook.isStoppingEdit,
             isStoppingSequence: geminiGenerationHook.isStoppingEdit,
             selectNode: (nodeId: string) => setSelectedNodeIds([nodeId]),
-            handleAddNodeAndConnect: handleAddNodeAndConnectWrapper, 
+            handleAddNodeAndConnect: handleAddNodeAndConnectWrapper,
             handleToggleNodePin: nodesHook.handleToggleNodePin,
             handleToggleNodeHandles: nodesHook.handleToggleNodeHandles,
             handleClearNodeNewFlag: nodesHook.handleClearNodeNewFlag,
             handleResetCanvas: handleResetCanvas,
-            resetCanvasToDefault: resetCanvasToDefault, 
-            
+            resetCanvasToDefault: resetCanvasToDefault,
+
             showWelcome: globalState.showWelcome,
             setShowWelcome: globalState.setShowWelcome,
-            
+
             nextAutoSaveTime: tabsHook.nextAutoSaveTime,
             isAutoSaving: tabsHook.isAutoSaving,
 
@@ -474,7 +509,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onGenerateImage: geminiGenerationHook.handleGenerateImage,
             handleUpdateCharacterPromptFromImage: geminiAnalysisHook.handleUpdateCharacterPromptFromImage,
             isUpdatingCharacterPrompt: geminiAnalysisHook.isUpdatingCharacterPrompt,
-            onDownloadImageFromUrl // Export to context
+            onDownloadImageFromUrl, // Export to context
+            onCopyImageToClipboard // Export to context
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,
@@ -490,7 +526,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiModificationHook.handleUpdateCharacterPersonality, geminiModificationHook.isUpdatingPersonality,
         geminiModificationHook.handleUpdateCharacterAppearance, geminiModificationHook.isUpdatingAppearance,
         geminiModificationHook.handleUpdateCharacterClothing, geminiModificationHook.isUpdatingClothing,
-        onDownloadImageFromUrl
+        onDownloadImageFromUrl, onCopyImageToClipboard
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
