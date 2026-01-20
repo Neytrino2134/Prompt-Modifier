@@ -306,7 +306,9 @@ export const nodes = {
     'image_sequence.auto_crop': 'Auto Crop 16:9',
     'image_sequence.create_zip': 'Create ZIP Archive',
     'node.content.technicalPrompt': 'Technical Prompt',
-    
+    'node.content.usedCharacters': 'Used Characters',
+    'node.content.insertStyle': 'Insert Style',
+
     'node.promptProcessor.safePromptTooltip': 'Rewrites the prompt to comply with safety guidelines and avoid policy violations.',
     'node.promptProcessor.technicalPromptTooltip': 'Converts the prompt into a highly detailed technical specification (lighting, camera, render settings).',
     'node.promptProcessor.enhanceTooltip': 'Uses AI to expand and enrich the prompt with descriptive details.',
