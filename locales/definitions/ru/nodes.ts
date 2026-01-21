@@ -235,7 +235,6 @@ export const nodes = {
     'node.content.fullDescriptionTitle': 'Полное описание персонажа',
     'node.content.integrationInstruction': 'Инструкция интеграции',
     'node.content.additionalPromptSuffix': 'Доп. Промпт (Суффикс)',
-    'node.content.suffix': 'Суффикс',
     'node.content.insertSceneContext': 'Вставлять окружение сцены',
     'node.content.modificationRequest': 'Запрос на модификацию',
     'search.node.text_input.title': 'Текстовый ввод',
@@ -307,9 +306,7 @@ export const nodes = {
     'image_sequence.auto_crop': 'Авто-кадрирование 16:9',
     'image_sequence.create_zip': 'Создать Zip архив',
     'node.content.technicalPrompt': 'Технический промпт',
-    'node.content.usedCharacters': 'Используемые персонажи',
-    'node.content.insertStyle': 'Вставлять стиль',
-
+    
     'node.promptProcessor.safePromptTooltip': 'Переписывает промпт для соответствия правилам безопасности и предотвращения нарушений политики.',
     'node.promptProcessor.technicalPromptTooltip': 'Преобразует промпт в высокодетализированную техническую спецификацию (освещение, камера, настройки рендеринга).',
     'node.promptProcessor.enhanceTooltip': 'Использует ИИ для расширения и обогащения промпта описательными деталями.',

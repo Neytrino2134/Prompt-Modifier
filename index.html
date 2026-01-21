@@ -300,12 +300,6 @@
       ::-webkit-scrollbar-thumb:hover {
         background-color: #6B7280; /* gray-500 */
       }
-      
-      /* Fix for white corner in Nativefier/Electron */
-      ::-webkit-scrollbar-corner {
-        background: transparent;
-      }
-
       /* For Firefox */
       * {
         scrollbar-width: thin;
@@ -324,7 +318,7 @@
         appearance: none;
         width: 16px;
         height: 16px;
-        background-color: transparent !important; /* Fix for white background in nativefier */
+        background-color: transparent; /* Fix for white background in nativefier */
         background-image: url('data:image/svg+xml,%3Csvg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M12 6L6 12" stroke="%23374151" stroke-width="2" stroke-linecap="round"/%3E%3Cpath d="M14 10L10 14" stroke="%23374151" stroke-width="2" stroke-linecap="round"/%3E%3C/svg%3E');
         background-repeat: no-repeat;
         background-position: center;

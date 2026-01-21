@@ -32,7 +32,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
     const onAddNode = useCallback((type: NodeType, position: Point, title?: string, options: { centerNode?: boolean; alignToInput?: boolean; initialValue?: string } = { centerNode: true }): string => {
         nodeIdCounter.current++;
         const newNodeId = `node-${nodeIdCounter.current}-${Date.now()}`;
-
+        
         const titles: Record<NodeType, string> = {
             [NodeType.TEXT_INPUT]: t('node.title.text_input'), [NodeType.IMAGE_INPUT]: t('node.title.image_input'),
             [NodeType.PROMPT_PROCESSOR]: t('node.title.prompt_processor'), [NodeType.VIDEO_PROMPT_PROCESSOR]: t('node.title.video_prompt_processor'),
@@ -57,9 +57,9 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             id: newNodeId, type, position, title: title || titles[type] || 'New Node', value: '',
             width: 400, height: 300, isNewlyCreated: true
         };
-
+        
         newNode.value = options.initialValue !== undefined ? options.initialValue : getEmptyValueForNodeType(newNode);
-
+        
         switch (type) {
             case NodeType.IMAGE_EDITOR: newNode.width = 1000; newNode.height = 920; break;
             case NodeType.PROMPT_ANALYZER: newNode.width = 460; newNode.height = 1000; break;
@@ -67,23 +67,23 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             case NodeType.IMAGE_ANALYZER: case NodeType.VIDEO_OUTPUT: newNode.width = 460; newNode.height = 680; break;
             case NodeType.PROMPT_PROCESSOR: newNode.width = 460; newNode.height = 410; break;
             case NodeType.VIDEO_PROMPT_PROCESSOR: newNode.width = 460; newNode.height = 410; break;
-            case NodeType.IMAGE_OUTPUT:
-                newNode.width = 460;
-                newNode.height = 700;
+            case NodeType.IMAGE_OUTPUT: 
+                newNode.width = 460; 
+                newNode.height = 700; 
                 newNode.model = 'gemini-2.5-flash-image';
                 newNode.autoDownload = true;
                 break;
             case NodeType.GEMINI_CHAT: case NodeType.TRANSLATOR: newNode.width = 400; newNode.height = 640; break;
             case NodeType.NOTE: newNode.width = 460; newNode.height = 660; break;
             case NodeType.CHARACTER_ANALYZER: newNode.width = 460; newNode.height = 500; break;
-            case NodeType.CHARACTER_CARD:
-                newNode.width = 520;
-                newNode.height = 960;
+            case NodeType.CHARACTER_CARD: 
+                newNode.width = 520; 
+                newNode.height = 960; 
                 newNode.collapsedHandles = true; // Default to collapsed outputs
                 break;
             case NodeType.SCRIPT_GENERATOR: newNode.width = 500; newNode.height = 1000; break;
             case NodeType.SCRIPT_VIEWER: newNode.width = 500; newNode.height = 600; break;
-            case NodeType.IMAGE_SEQUENCE_GENERATOR: newNode.width = 1400; newNode.height = 920; newNode.aspectRatio = '16:9'; break;
+            case NodeType.IMAGE_SEQUENCE_GENERATOR: newNode.width = 1400; newNode.height = 920; newNode.aspectRatio = '16:9'; break; 
             case NodeType.PROMPT_SEQUENCE_EDITOR: newNode.width = 1300; newNode.height = 920; break;
             case NodeType.REROUTE_DOT: newNode.width = 60; newNode.height = 40; break;
             case NodeType.PROMPT_SANITIZER: newNode.width = 460; newNode.height = 280; break;
@@ -96,7 +96,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             case NodeType.POSE_CREATOR: newNode.width = 600; newNode.height = 800; break;
             default: newNode.width = 460; newNode.height = 280;
         }
-
+        
         if (options.alignToInput) {
             newNode.position = { x: position.x, y: position.y - newNode.height / 2 };
         } else if (options.centerNode) {
@@ -109,27 +109,27 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         setNodes(nds => [...nds, newNode]);
         return newNodeId;
     }, [nodeIdCounter, setNodes, t]);
-
+    
     const deleteNodeAndConnections = useCallback((nodeId: string) => {
-        const nodeToDelete = nodes.find(n => n.id === nodeId);
-        if (nodeToDelete && nodeToDelete.type === NodeType.REROUTE_DOT) {
-            const incomingConn = connections.find(c => c.toNodeId === nodeId);
-            const outgoingConns = connections.filter(c => c.fromNodeId === nodeId);
-            if (incomingConn && outgoingConns.length > 0) {
-                const newConnections = outgoingConns.map(outConn => ({ fromNodeId: incomingConn.fromNodeId, fromHandleId: incomingConn.fromHandleId, toNodeId: outConn.toNodeId, toHandleId: outConn.toHandleId, id: `conn-${Date.now()}-${Math.random()}` }));
-                setConnections(conns => [...conns.filter(c => c.toNodeId !== nodeId && c.fromNodeId !== nodeId), ...newConnections]);
-            }
-        }
-        setNodes(nds => nds.filter(n => n.id !== nodeId));
-        setConnections(conns => conns.filter(c => c.fromNodeId !== nodeId && c.toNodeId !== nodeId));
+      const nodeToDelete = nodes.find(n => n.id === nodeId);
+      if (nodeToDelete && nodeToDelete.type === NodeType.REROUTE_DOT) {
+          const incomingConn = connections.find(c => c.toNodeId === nodeId);
+          const outgoingConns = connections.filter(c => c.fromNodeId === nodeId);
+          if (incomingConn && outgoingConns.length > 0) {
+              const newConnections = outgoingConns.map(outConn => ({ fromNodeId: incomingConn.fromNodeId, fromHandleId: incomingConn.fromHandleId, toNodeId: outConn.toNodeId, toHandleId: outConn.toHandleId, id: `conn-${Date.now()}-${Math.random()}` }));
+              setConnections(conns => [...conns.filter(c => c.toNodeId !== nodeId && c.fromNodeId !== nodeId), ...newConnections]);
+          }
+      }
+      setNodes(nds => nds.filter(n => n.id !== nodeId));
+      setConnections(conns => conns.filter(c => c.fromNodeId !== nodeId && c.toNodeId !== nodeId));
         setGroups(currentGroups => {
             return currentGroups
                 .map(g => ({ ...g, nodeIds: g.nodeIds.filter(id => id !== nodeId) }))
                 .filter(g => g.nodeIds.length > 0);
         });
-        clearImagesForNodeFromCache(nodeId);
+      clearImagesForNodeFromCache(nodeId);
     }, [nodes, connections, setNodes, setConnections, setGroups, clearImagesForNodeFromCache, tabId]);
-
+    
     const handleDockNode = useCallback((nodeId: string, mode: DockMode, capturePosition?: Point) => {
         setNodes(currentNodes => currentNodes.map(node => {
             if (node.id === nodeId) {
@@ -152,7 +152,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                 const quarterWidth = (windowWidth - doubleMargin) / 4;
 
                 if (mode === 'left' || mode === 'right') {
-                    newWidth = (windowWidth / 2) - (margin * 1.5);
+                    newWidth = (windowWidth / 2) - (margin * 1.5); 
                     newHeight = windowHeight - doubleMargin;
                 } else if (mode === 'full') {
                     newWidth = windowWidth - doubleMargin;
@@ -164,14 +164,14 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                     newWidth = (windowWidth / 2) - (margin * 1.5);
                     newHeight = (windowHeight / 2) - (margin * 1.5);
                 }
-
+                
                 newWidth = Math.max(newWidth, minSize.minWidth);
                 newHeight = Math.max(newHeight, minSize.minHeight);
 
                 return {
                     ...node,
                     isCollapsed: false,
-                    position: finalCanvasPosition,
+                    position: finalCanvasPosition, 
                     width: newWidth,
                     height: newHeight,
                     dockState: {
@@ -197,8 +197,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                     return {
                         ...n,
                         dockState: undefined,
-                        isPinned: false, // Ensure unpinned
-                        position: { x: original.x, y: original.y }, // Restore to original position (before dock)
+                        position: { x: n.position.x, y: n.position.y },
                         width: Math.max(minSize.minWidth, original.width),
                         height: Math.max(minSize.minHeight, original.height)
                     };
@@ -208,67 +207,67 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         });
 
         setTimeout(() => {
-            setNodes(nds => nds.map(n => {
-                if (n.id === nodeId) {
-                    return { ...n, width: n.width + 1, height: n.height + 1 };
-                }
-                return n;
-            }));
-            setTimeout(() => {
-                setNodes(nds => nds.map(n => {
-                    if (n.id === nodeId) {
-                        return { ...n, width: n.width - 1, height: n.height - 1 };
-                    }
-                    return n;
-                }));
-            }, 50);
+             setNodes(nds => nds.map(n => {
+                 if (n.id === nodeId) {
+                     return { ...n, width: n.width + 1, height: n.height + 1 };
+                 }
+                 return n;
+             }));
+             setTimeout(() => {
+                 setNodes(nds => nds.map(n => {
+                     if (n.id === nodeId) {
+                         return { ...n, width: n.width - 1, height: n.height - 1 };
+                     }
+                     return n;
+                 }));
+             }, 50);
         }, 50);
     }, [setNodes]);
 
     const getPromptForNode = useCallback((nodeId: string): string => {
-        const node = nodes.find(n => n.id === nodeId);
-        if (!node) return '';
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) return '';
 
-        const upstreamValues = (connections: Connection[], allNodes: Node[]): string[] => {
-            const inputConnections = connections.filter(c => c.toNodeId === nodeId);
-            const parts: string[] = [];
-            for (const conn of inputConnections) {
-                const fromNode = allNodes.find(n => n.id === conn.fromNodeId);
-                if (!fromNode) continue;
-                let value = '';
-                try {
-                    const parsed = JSON.parse(fromNode.value || '{}');
-                    if (fromNode.type === NodeType.PROMPT_ANALYZER && conn.fromHandleId) {
-                        if (conn.fromHandleId.startsWith('character-')) {
-                            const index = parseInt(conn.fromHandleId.split('-')[1], 10);
-                            if (parsed.characters && Array.isArray(parsed.characters)) {
-                                value = parsed.characters[index] || '';
-                            }
-                        } else {
-                            value = parsed[conn.fromHandleId] || '';
-                        }
-                    } else if (fromNode.type === NodeType.IMAGE_INPUT && conn.fromHandleId === 'text') {
-                        value = parsed.prompt || '';
-                    } else if (fromNode.type === NodeType.IMAGE_ANALYZER) {
-                        value = parsed.description || '';
-                    } else {
-                        value = fromNode.value;
-                    }
-                } catch {
-                    value = fromNode.value;
-                }
-                parts.push(value);
-            }
-            return parts.filter(p => p && p.trim() !== '');
-        };
-
-        if (node.type === NodeType.IMAGE_EDITOR) {
-            try { return JSON.parse(node.value).prompt || ''; } catch { return ''; }
-        }
-        if (node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.VIDEO_OUTPUT) {
-            return upstreamValues(connections, nodes).join(', ');
-        }
-        return '';
+      const upstreamValues = (connections: Connection[], allNodes: Node[]): string[] => {
+          const inputConnections = connections.filter(c => c.toNodeId === nodeId);
+          const parts: string[] = [];
+          for (const conn of inputConnections) {
+              const fromNode = allNodes.find(n => n.id === conn.fromNodeId);
+              if (!fromNode) continue;
+              let value = '';
+              try {
+                  const parsed = JSON.parse(fromNode.value || '{}');
+                  if (fromNode.type === NodeType.PROMPT_ANALYZER && conn.fromHandleId) {
+                      if (conn.fromHandleId.startsWith('character-')) {
+                          const index = parseInt(conn.fromHandleId.split('-')[1], 10);
+                          if (parsed.characters && Array.isArray(parsed.characters)) {
+                              value = parsed.characters[index] || '';
+                          }
+                      } else {
+                          value = parsed[conn.fromHandleId] || '';
+                      }
+                  } else if (fromNode.type === NodeType.IMAGE_INPUT && conn.fromHandleId === 'text') {
+                      value = parsed.prompt || '';
+                  } else if (fromNode.type === NodeType.IMAGE_ANALYZER) {
+                      value = parsed.description || '';
+                  } else {
+                      value = fromNode.value;
+                  }
+              } catch {
+                  value = fromNode.value;
+              }
+              parts.push(value);
+          }
+          return parts.filter(p => p && p.trim() !== '');
+      };
+      
+      if (node.type === NodeType.IMAGE_EDITOR) {
+          try { return JSON.parse(node.value).prompt || ''; } catch { return ''; }
+      }
+      if (node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.VIDEO_OUTPUT) {
+          return upstreamValues(connections, nodes).join(', ');
+      }
+      return '';
     }, [nodes, connections]);
 
     const copyGroup = useCallback(async (groupId: string) => {
@@ -281,10 +280,10 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
 
         const fullSizeImages: Record<string, Record<number, string>> = {};
         groupNodes.forEach(n => {
-            for (let i = 0; i < 20; i++) {
+            for(let i=0; i<20; i++) {
                 const img = getFullSizeImage(n.id, i);
-                if (img) {
-                    if (!fullSizeImages[n.id]) fullSizeImages[n.id] = {};
+                if(img) {
+                    if(!fullSizeImages[n.id]) fullSizeImages[n.id] = {};
                     fullSizeImages[n.id][i] = img;
                 }
             }
@@ -297,10 +296,10 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             connections: internalConnections,
             fullSizeImages
         };
-
+        
         try {
-            await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-            addToast(t('toast.copiedToClipboard'));
+             await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+             addToast(t('toast.copiedToClipboard'));
         } catch (e) {
             console.error("Failed to copy group to clipboard", e);
             addToast(t('toast.copyFailed') + " (Check console)", 'error');
@@ -323,10 +322,10 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             nodeIdCounter.current++;
             const newId = `node-${nodeIdCounter.current}-${timestamp}-${index}`;
             idMap.set(node.id, newId);
-
-            for (let i = 0; i < 20; i++) {
+            
+            for(let i=0; i<20; i++) {
                 const img = getFullSizeImage(node.id, i);
-                if (img) setFullSizeImage(newId, i, img);
+                if(img) setFullSizeImage(newId, i, img);
             }
 
             return {
@@ -356,7 +355,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         setNodes(prev => [...prev, ...newNodes]);
         setGroups(prev => [...prev, newGroup]);
         setConnections(prev => [...prev, ...newConnections]);
-
+        
         addToast(t('toast.nodeDuplicated'));
     }, [groups, nodes, connections, nodeIdCounter, setNodes, setGroups, setConnections, t, addToast, getFullSizeImage, setFullSizeImage]);
 
@@ -370,7 +369,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
 
         const idMap = new Map<string, string>();
         const timestamp = Date.now();
-
+        
         let minX = Infinity, minY = Infinity;
         let maxX = -Infinity, maxY = -Infinity;
 
@@ -381,92 +380,92 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             maxY = Math.max(maxY, n.position.y + n.height);
         });
 
-        let offsetX = 50;
+        let offsetX = 50; 
         let offsetY = 50;
 
         if (position) {
             offsetX = position.x - minX;
             offsetY = position.y - minY;
         } else {
-            offsetX = 50 - minX;
-            offsetY = 50 - minY;
+             offsetX = 50 - minX;
+             offsetY = 50 - minY;
         }
 
         const newNodes = nodesSource.map((node: Node, index: number) => {
-            nodeIdCounter.current++;
-            const newId = `node-${nodeIdCounter.current}-${timestamp}-${index}`;
-            idMap.set(node.id, newId);
-
-            if (imagesSource && imagesSource[node.id]) {
-                Object.entries(imagesSource[node.id]).forEach(([frame, url]) => {
+           nodeIdCounter.current++;
+           const newId = `node-${nodeIdCounter.current}-${timestamp}-${index}`;
+           idMap.set(node.id, newId);
+           
+           if (imagesSource && imagesSource[node.id]) {
+               Object.entries(imagesSource[node.id]).forEach(([frame, url]) => {
                     setFullSizeImage(newId, Number(frame), url as string);
-                });
-            }
+               });
+           }
 
-            return {
-                ...node,
-                id: newId,
-                position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
-                isNewlyCreated: true
-            };
-        });
+           return {
+               ...node,
+               id: newId,
+               position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
+               isNewlyCreated: true
+           };
+       });
 
-        const newGroupId = `group-${timestamp}-${Math.random().toString(36).substr(2, 5)}`;
-        const padding = 30;
-        const paddingTop = 70;
+       const newGroupId = `group-${timestamp}-${Math.random().toString(36).substr(2, 5)}`;
+       const padding = 30;
+       const paddingTop = 70;
+       
+       const groupWidth = maxX - minX + padding * 2;
+       const groupHeight = (maxY - minY) + paddingTop + padding;
+       const groupX = (minX + offsetX) - padding;
+       const groupY = (minY + offsetY) - paddingTop;
 
-        const groupWidth = maxX - minX + padding * 2;
-        const groupHeight = (maxY - minY) + paddingTop + padding;
-        const groupX = (minX + offsetX) - padding;
-        const groupY = (minY + offsetY) - paddingTop;
+       const newGroup: Group = {
+           id: newGroupId,
+           title: groupName,
+           position: { x: groupX, y: groupY },
+           width: groupWidth,
+           height: groupHeight,
+           nodeIds: newNodes.map((n: any) => n.id),
+       };
+       
+       const newConnections = connectionsSource.map((conn: Connection, index: number) => ({
+           ...conn,
+           id: `conn-${timestamp}-${index}`,
+           fromNodeId: idMap.get(conn.fromNodeId)!,
+           toNodeId: idMap.get(conn.toNodeId)!
+       }));
 
-        const newGroup: Group = {
-            id: newGroupId,
-            title: groupName,
-            position: { x: groupX, y: groupY },
-            width: groupWidth,
-            height: groupHeight,
-            nodeIds: newNodes.map((n: any) => n.id),
-        };
+       setNodes(prev => [...prev, ...newNodes]);
+       setGroups(prev => [...prev, newGroup]);
+       setConnections(prev => [...prev, ...newConnections]);
+       
+       addToast(t('toast.pastedFromClipboard'));
+   }, [nodeIdCounter, setNodes, setGroups, setConnections, setFullSizeImage, t, addToast]);
 
-        const newConnections = connectionsSource.map((conn: Connection, index: number) => ({
-            ...conn,
-            id: `conn-${timestamp}-${index}`,
-            fromNodeId: idMap.get(conn.fromNodeId)!,
-            toNodeId: idMap.get(conn.toNodeId)!
-        }));
+   const handleAlignNodes = useCallback((selectedNodeIds: string[], type: Alignment) => {
+       if (selectedNodeIds.length < 2) return;
+       if ((type === 'distribute-horizontal' || type === 'distribute-vertical') && selectedNodeIds.length < 3) return;
 
-        setNodes(prev => [...prev, ...newNodes]);
-        setGroups(prev => [...prev, newGroup]);
-        setConnections(prev => [...prev, ...newConnections]);
+       if (takeSnapshot) takeSnapshot(nodes); 
+       
+       setNodes(currentNodes => {
+           const selected = currentNodes.filter(n => selectedNodeIds.includes(n.id));
+           if (selected.length < 2) return currentNodes;
 
-        addToast(t('toast.pastedFromClipboard'));
-    }, [nodeIdCounter, setNodes, setGroups, setConnections, setFullSizeImage, t, addToast]);
+           let minX = Infinity, maxX = -Infinity;
+           let minY = Infinity, maxY = -Infinity;
+           
+           selected.forEach(n => {
+               minX = Math.min(minX, n.position.x);
+               maxX = Math.max(maxX, n.position.x + n.width);
+               minY = Math.min(minY, n.position.y);
+               maxY = Math.max(maxY, n.position.y + n.height);
+           });
 
-    const handleAlignNodes = useCallback((selectedNodeIds: string[], type: Alignment) => {
-        if (selectedNodeIds.length < 2) return;
-        if ((type === 'distribute-horizontal' || type === 'distribute-vertical') && selectedNodeIds.length < 3) return;
-
-        if (takeSnapshot) takeSnapshot(nodes);
-
-        setNodes(currentNodes => {
-            const selected = currentNodes.filter(n => selectedNodeIds.includes(n.id));
-            if (selected.length < 2) return currentNodes;
-
-            let minX = Infinity, maxX = -Infinity;
-            let minY = Infinity, maxY = -Infinity;
-
-            selected.forEach(n => {
-                minX = Math.min(minX, n.position.x);
-                maxX = Math.max(maxX, n.position.x + n.width);
-                minY = Math.min(minY, n.position.y);
-                maxY = Math.max(maxY, n.position.y + n.height);
-            });
-
-            const centerX = (minX + maxX) / 2;
-            const centerY = (minY + maxY) / 2;
-
-            if (type === 'distribute-horizontal') {
+           const centerX = (minX + maxX) / 2;
+           const centerY = (minY + maxY) / 2;
+           
+           if (type === 'distribute-horizontal') {
                 selected.sort((a, b) => a.position.x - b.position.x);
                 const firstNode = selected[0];
                 const lastNode = selected[selected.length - 1];
@@ -487,14 +486,14 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                 }
                 newPositions.set(lastNode.id, lastNode.position.x);
                 return currentNodes.map(n => {
-                    if (newPositions.has(n.id)) {
-                        return { ...n, position: { x: newPositions.get(n.id)! | 0, y: n.position.y } };
-                    }
-                    return n;
+                     if (newPositions.has(n.id)) {
+                         return { ...n, position: { x: newPositions.get(n.id)! | 0, y: n.position.y } };
+                     }
+                     return n;
                 });
-            }
+           }
 
-            if (type === 'distribute-vertical') {
+           if (type === 'distribute-vertical') {
                 selected.sort((a, b) => a.position.y - b.position.y);
                 const firstNode = selected[0];
                 const lastNode = selected[selected.length - 1];
@@ -515,33 +514,33 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                 }
                 newPositions.set(lastNode.id, lastNode.position.y);
                 return currentNodes.map(n => {
-                    if (newPositions.has(n.id)) {
-                        return { ...n, position: { x: n.position.x, y: newPositions.get(n.id)! | 0 } };
-                    }
-                    return n;
+                     if (newPositions.has(n.id)) {
+                         return { ...n, position: { x: n.position.x, y: newPositions.get(n.id)! | 0 } };
+                     }
+                     return n;
                 });
-            }
-
-            return currentNodes.map(n => {
-                if (!selectedNodeIds.includes(n.id)) return n;
-                let newX = n.position.x;
-                let newY = n.position.y;
-                switch (type) {
-                    case 'left': newX = minX; break;
-                    case 'center-x': newX = centerX - (n.width / 2); break;
-                    case 'right': newX = maxX - n.width; break;
-                    case 'top': newY = minY; break;
-                    case 'center-y': newY = centerY - (n.height / 2); break;
-                    case 'bottom': newY = maxY - n.height; break;
-                }
-                return { ...n, position: { x: newX | 0, y: newY | 0 } };
-            });
-        });
-    }, [setNodes, takeSnapshot, nodes]);
-
+           }
+           
+           return currentNodes.map(n => {
+               if (!selectedNodeIds.includes(n.id)) return n;
+               let newX = n.position.x;
+               let newY = n.position.y;
+               switch(type) {
+                   case 'left': newX = minX; break;
+                   case 'center-x': newX = centerX - (n.width / 2); break;
+                   case 'right': newX = maxX - n.width; break;
+                   case 'top': newY = minY; break;
+                   case 'center-y': newY = centerY - (n.height / 2); break;
+                   case 'bottom': newY = maxY - n.height; break;
+               }
+               return { ...n, position: { x: newX | 0, y: newY | 0 } };
+           });
+       });
+   }, [setNodes, takeSnapshot, nodes]);
+   
     const getTimestamp = () => new Date().toISOString().replace(/:/g, '-').replace('T', '_').split('.')[0];
 
-    const handleDownloadImage = useCallback((nodeId: string, onDownloadImageFromUrl: any) => {
+   const handleDownloadImage = useCallback((nodeId: string, onDownloadImageFromUrl: any) => {
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
 
@@ -552,14 +551,14 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             const parsed = JSON.parse(node.value || '{}');
 
             if (node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.VIDEO_OUTPUT) {
-                imageUrl = getFullSizeImage(nodeId, 0) || node.value;
-                prompt = getPromptForNode(nodeId);
+                 imageUrl = getFullSizeImage(nodeId, 0) || node.value;
+                 prompt = getPromptForNode(nodeId);
             } else if (node.type === NodeType.IMAGE_INPUT) {
-                imageUrl = getFullSizeImage(nodeId, 0) || parsed.image;
-                prompt = parsed.prompt || '';
+                 imageUrl = getFullSizeImage(nodeId, 0) || parsed.image;
+                 prompt = parsed.prompt || '';
             } else if (node.type === NodeType.IMAGE_EDITOR) {
-                imageUrl = getFullSizeImage(nodeId, 0) || parsed.outputImage;
-                prompt = parsed.prompt || '';
+                 imageUrl = getFullSizeImage(nodeId, 0) || parsed.outputImage;
+                 prompt = parsed.prompt || '';
             } else if (node.type === NodeType.GEMINI_CHAT) {
                 // EXPORT CHAT HISTORY
                 const dataToSave = {
@@ -569,7 +568,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                     style: parsed.style || 'general',
                     attachment: parsed.attachment || null
                 };
-
+                
                 const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -583,7 +582,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                 addToast(t('toast.scriptSaved'));
                 return;
             }
-        } catch (e) { }
+        } catch (e) {}
 
         if (imageUrl) {
             onDownloadImageFromUrl(imageUrl, 0, prompt);

@@ -1,11 +1,11 @@
 
-import { useState, useCallback, WheelEvent, useRef, useEffect } from 'react';
+import { useState, useCallback, WheelEvent, useRef } from 'react';
 import { Point } from '../types';
 
 // Define the new state shape for panning information, making it more robust.
 interface PanInfo {
-    startPoint: Point;
-    startTranslate: Point;
+  startPoint: Point;
+  startTranslate: Point;
 }
 
 export const useCanvas = (initialTransform?: { scale: number; translate: Point }) => {
@@ -14,17 +14,14 @@ export const useCanvas = (initialTransform?: { scale: number; translate: Point }
     const [pointerPosition, setPointerPosition] = useState<Point>({ x: 0, y: 0 });
     // Initialize client pointer to center of screen to ensure menus open in a visible location
     // even if the user hasn't moved the mouse yet.
-    const [clientPointerPosition, setClientPointerPosition] = useState<Point>(() => ({
-        x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0,
-        y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0
+    const [clientPointerPosition, setClientPointerPosition] = useState<Point>(() => ({ 
+        x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0, 
+        y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0 
     }));
     const canvasRef = useRef<HTMLDivElement | null>(null);
 
-    const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(null);
-
     const setCanvasRef = useCallback((node: HTMLDivElement | null) => {
         canvasRef.current = node;
-        setCanvasElement(node);
     }, []);
 
     const getCanvasRelativePoint = useCallback((point: Point): Point => {
@@ -39,7 +36,7 @@ export const useCanvas = (initialTransform?: { scale: number; translate: Point }
     const getTransformedPoint = useCallback((point: Point): Point => {
         const canvasPoint = getCanvasRelativePoint(point);
         // Safety check for NaN values to prevent UI freeze
-        if (!Number.isFinite(viewTransform.scale) || viewTransform.scale === 0 ||
+        if (!Number.isFinite(viewTransform.scale) || viewTransform.scale === 0 || 
             !Number.isFinite(viewTransform.translate.x) || !Number.isFinite(viewTransform.translate.y)) {
             return { x: 0, y: 0 };
         }
@@ -56,12 +53,12 @@ export const useCanvas = (initialTransform?: { scale: number; translate: Point }
 
         setViewTransform(prev => {
             let clampedScale = Math.max(0.1, Math.min(newScale, 2.0)); // Safely clamp
-
+            
             // Protection against corrupt state
             if (!Number.isFinite(clampedScale) || Number.isNaN(clampedScale)) {
                 clampedScale = 1;
             }
-
+            
             // Fallback for corrupted previous state
             const safePrevScale = (Number.isFinite(prev.scale) && prev.scale > 0) ? prev.scale : 1;
             const safePrevTx = Number.isFinite(prev.translate.x) ? prev.translate.x : 0;
@@ -88,67 +85,50 @@ export const useCanvas = (initialTransform?: { scale: number; translate: Point }
     }, [getCanvasRelativePoint]);
 
     const handleZoomChange = useCallback((newScale: number) => {
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
-        setZoom(newScale, { x: centerX, y: centerY });
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      setZoom(newScale, { x: centerX, y: centerY });
     }, [setZoom]);
 
-    const handleWheel = useCallback((e: WheelEvent<HTMLDivElement> | globalThis.WheelEvent) => {
-        const target = e.target as HTMLElement;
-        // Allow default scrolling behavior inside nodes and specific UI elements
-        if (target.closest && (target.closest('.node-view') || target.closest('.no-drag') || target.closest('textarea') || target.closest('.custom-scrollbar'))) {
-            return;
-        }
-
+    const handleWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
-
+        
         // Calculate scale factor based on delta
-        const zoomFactor = Math.pow(1.001, -e.deltaY);
-
+        const zoomFactor = Math.pow(1.001, -e.deltaY); 
+        
         setViewTransform(prev => {
-            const safePrevScale = (Number.isFinite(prev.scale) && prev.scale > 0) ? prev.scale : 1;
-            const safePrevTx = Number.isFinite(prev.translate.x) ? prev.translate.x : 0;
-            const safePrevTy = Number.isFinite(prev.translate.y) ? prev.translate.y : 0;
+             const safePrevScale = (Number.isFinite(prev.scale) && prev.scale > 0) ? prev.scale : 1;
+             const safePrevTx = Number.isFinite(prev.translate.x) ? prev.translate.x : 0;
+             const safePrevTy = Number.isFinite(prev.translate.y) ? prev.translate.y : 0;
+             
+             const newScale = Math.max(0.1, Math.min(2.0, safePrevScale * zoomFactor));
+             
+             if (!Number.isFinite(newScale)) return prev;
 
-            const newScale = Math.max(0.1, Math.min(2.0, safePrevScale * zoomFactor));
+             const canvasPivot = getCanvasRelativePoint({ x: e.clientX, y: e.clientY });
+             const worldX = (canvasPivot.x - safePrevTx) / safePrevScale;
+             const worldY = (canvasPivot.y - safePrevTy) / safePrevScale;
 
-            if (!Number.isFinite(newScale)) return prev;
+             const newTranslateX = canvasPivot.x - worldX * newScale;
+             const newTranslateY = canvasPivot.y - worldY * newScale;
 
-            const canvasPivot = getCanvasRelativePoint({ x: e.clientX, y: e.clientY });
-            const worldX = (canvasPivot.x - safePrevTx) / safePrevScale;
-            const worldY = (canvasPivot.y - safePrevTy) / safePrevScale;
+             if (!Number.isFinite(newTranslateX) || !Number.isFinite(newTranslateY)) {
+                 return prev;
+             }
 
-            const newTranslateX = canvasPivot.x - worldX * newScale;
-            const newTranslateY = canvasPivot.y - worldY * newScale;
-
-            if (!Number.isFinite(newTranslateX) || !Number.isFinite(newTranslateY)) {
-                return prev;
-            }
-
-            return {
-                scale: newScale,
-                translate: { x: newTranslateX, y: newTranslateY }
-            };
+             return {
+                 scale: newScale,
+                 translate: { x: newTranslateX, y: newTranslateY }
+             };
         });
     }, [getCanvasRelativePoint]);
 
-    useEffect(() => {
-        if (!canvasElement) return;
-
-        const onWheel = (e: globalThis.WheelEvent) => handleWheel(e);
-
-        canvasElement.addEventListener('wheel', onWheel, { passive: false });
-        return () => {
-            canvasElement.removeEventListener('wheel', onWheel);
-        };
-    }, [canvasElement, handleWheel]);
-
     const startPanning = useCallback((point: Point) => {
         setViewTransform(current => {
-            if (!Number.isFinite(current.translate.x) || !Number.isFinite(current.translate.y)) {
-                return { scale: 1, translate: { x: window.innerWidth / 2, y: window.innerHeight / 2 } };
-            }
+             if (!Number.isFinite(current.translate.x) || !Number.isFinite(current.translate.y)) {
+                  return { scale: 1, translate: { x: window.innerWidth / 2, y: window.innerHeight / 2 } };
+             }
             setPanInfo({
                 startPoint: point,
                 startTranslate: { ...current.translate },
@@ -156,14 +136,14 @@ export const useCanvas = (initialTransform?: { scale: number; translate: Point }
             return current;
         });
     }, []);
-
+    
     const stopPanning = useCallback(() => setPanInfo(null), []);
-
+    
     const pan = useCallback((point: Point) => {
         if (!panInfo) return;
         const dx = point.x - panInfo.startPoint.x;
         const dy = point.y - panInfo.startPoint.y;
-
+        
         setViewTransform(current => {
             const newX = panInfo.startTranslate.x + dx;
             const newY = panInfo.startTranslate.y + dy;
@@ -176,9 +156,9 @@ export const useCanvas = (initialTransform?: { scale: number; translate: Point }
             };
         });
     }, [panInfo]);
-
+    
     const updatePointerPosition = useCallback((e: { clientX: number, clientY: number }) => {
-        const viewportPoint = { x: e.clientX, y: e.clientY };
+         const viewportPoint = { x: e.clientX, y: e.clientY };
         const transformedPointerPos = getTransformedPoint(viewportPoint);
         setPointerPosition(transformedPointerPos);
         setClientPointerPosition(viewportPoint);
