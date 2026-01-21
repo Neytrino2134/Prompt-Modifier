@@ -109,8 +109,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     useEffect(() => {
         const stateToSave = getCurrentCanvasState();
+        const currentTab = tabs.find(t => t.id === activeTabId);
+
+        // Prevent infinite loops by checking reference equality
+        if (currentTab) {
+            const prevState = currentTab.state;
+            const isIdentical =
+                prevState.nodes === stateToSave.nodes &&
+                prevState.connections === stateToSave.connections &&
+                prevState.groups === stateToSave.groups &&
+                prevState.viewTransform === stateToSave.viewTransform &&
+                prevState.fullSizeImageCache === stateToSave.fullSizeImageCache &&
+                prevState.nodeIdCounter === stateToSave.nodeIdCounter;
+
+            if (isIdentical) return;
+        }
+
         setTabs(prevTabs => prevTabs.map(tab => tab.id === activeTabId ? { ...tab, state: stateToSave } : tab));
-    }, [getCurrentCanvasState, activeTabId, setTabs]);
+    }, [getCurrentCanvasState, activeTabId, setTabs, tabs]);
 
     const resetCanvasToDefault = useCallback((lang: LanguageCode) => {
         resetTabs(lang);
@@ -414,6 +430,55 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const viewTransformRef = useRef(canvasHook.viewTransform);
     viewTransformRef.current = canvasHook.viewTransform;
 
+    const onReadData = useCallback((nodeId: string) => {
+        const currentNodes = nodesRef.current;
+        const node = currentNodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        const values = getUpstreamNodeValues(nodeId, undefined, currentNodes, false);
+
+        let text = '';
+        let image: string | null = null;
+        let mediaUrl: string | null = null;
+        let mediaType: 'video' | 'audio' = 'video';
+
+        values.forEach(val => {
+            if (typeof val === 'string') {
+                if (val.startsWith('data:image')) {
+                    if (!image) image = val;
+                } else if (val.startsWith('data:video') || val.startsWith('data:audio') || val.match(/^https?:\/\/.*\.(mp4|webm|ogg|mp3|wav)$/i)) {
+                    if (!mediaUrl) {
+                        mediaUrl = val;
+                        mediaType = val.startsWith('data:audio') || val.match(/\.(mp3|wav)$/i) ? 'audio' : 'video';
+                    }
+                } else {
+                    if (text) text += (text ? '\n\n' : '') + val;
+                    else text = val;
+                }
+            } else if (typeof val === 'object' && val !== null) {
+                if (val.base64ImageData) {
+                    if (!image) image = `data:${val.mimeType};base64,${val.base64ImageData}`;
+                } else {
+                    const str = JSON.stringify(val, null, 2);
+                    if (text) text += (text ? '\n\n' : '') + str;
+                    else text = str;
+                }
+            }
+        });
+
+        try {
+            const current = JSON.parse(node.value || '{}');
+            const newData = { text, image, mediaUrl, mediaType };
+
+            if (JSON.stringify(current) !== JSON.stringify(newData)) {
+                nodesHook.handleValueChange(nodeId, JSON.stringify(newData));
+            }
+        } catch {
+            nodesHook.handleValueChange(nodeId, JSON.stringify({ text, image, mediaUrl, mediaType }));
+        }
+
+    }, [getUpstreamNodeValues, nodesHook.handleValueChange]);
+
     const handleNavigateToNodeFrame = useCallback((nodeId: string, frameNumber: number) => {
         const targetNode = nodesRef.current.find(n => n.id === nodeId);
         if (!targetNode) return;
@@ -487,6 +552,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onRenameSequence: (id: string, name: string) => dialogsHook.setRenameInfo({ type: 'sequence', id, currentTitle: name }),
             onGenerateSelectedFrames: geminiGenerationHook.handleGenerateSelectedFrames,
             onTranslateScript: geminiModificationHook.handleTranslateScript,
+            onReadData,
             onRefreshUpstreamData: (nodeId: string, handleId?: string) => { },
 
             handleDetachNodeFromGroup,
