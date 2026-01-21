@@ -12,28 +12,29 @@ import { expandImageAspectRatio } from '../../services/imageActions';
 import { ActionButton } from '../ActionButton';
 import JSZip from 'jszip';
 import { CustomCheckbox } from '../CustomCheckbox';
+import { getTranslation } from '../../localization';
 
 import { CharacterConceptsPanel } from './image-sequence/CharacterConceptsPanel';
 import { SourcePromptList } from './image-sequence/SourcePromptList';
 import { OutputGalleryPanel } from './image-sequence/OutputGalleryPanel';
 import { GenerationControls } from './image-sequence/GenerationControls';
 
-const MIN_LEFT_PANE_WIDTH = 640; 
-const MIN_RIGHT_PANE_WIDTH = 660; 
-const NORMAL_CONCEPTS_HEIGHT = 390; 
+const MIN_LEFT_PANE_WIDTH = 640;
+const MIN_RIGHT_PANE_WIDTH = 660;
+const NORMAL_CONCEPTS_HEIGHT = 390;
 const HEADER_HEIGHT_PX = 37;
 
 const DEFAULT_INTEGRATION_INSTRUCTION = "Integrate these Entities into the scene, action and pose. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
 
 export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onLoadImageSequenceFile, onGenerateImageSequence, onGenerateSelectedFrames, onStopImageSequence, isGeneratingSequence, onRegenerateFrame, onDownloadImageFromUrl, onCopyImageToClipboard, t, deselectAllNodes, connectedCharacterData, onDetachAndPasteConcept, onDetachImageToNode, onSaveSequenceToCatalog, setError, setImageViewer, getFullSizeImage, setFullSizeImage, connectedInputs, onRefreshUpstreamData, clearImagesForNodeFromCache, getUpstreamNodeValues, addToast, onSaveScriptToDisk, viewTransform }) => {
-    
+
     const isPromptInputConnected = connectedInputs?.has('prompt_input');
     const context = useAppContext();
     const { nodes: allNodes, onAddNode, connections, handleNavigateToNodeFrame, setConnections, setSelectedNodeIds } = context || {};
-    
+
     const contentRef = useRef<HTMLDivElement>(null);
     const leftPaneRef = useRef<HTMLDivElement>(null);
-    const sourceListRef = useRef<any>(null); 
+    const sourceListRef = useRef<any>(null);
     const dragStartRef = useRef<{ startX: number, startWidth: number } | null>(null);
 
     // Track the last opened editor to append images if it's still open
@@ -42,10 +43,10 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editorImageSrc, setEditorImageSrc] = useState<string | null>(null);
     const editingFrameRef = useRef<number | null>(null);
-    
+
     // ZIP Progress State
     const [zipProgress, setZipProgress] = useState<number | null>(null);
-    
+
     // Permission Guide Overlay State
     const [showPermissionOverlay, setShowPermissionOverlay] = useState(false);
 
@@ -69,7 +70,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
 
     // Default integration prompt handling if missing in JSON
     const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isSceneContextInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {}, sceneContexts = {}, expandedSceneContexts = [], checkedContextScenes = [] } = parsedValue;
-    
+
     // Ensure integration prompt is set if it came in empty from older save
     useEffect(() => {
         if (!integrationPrompt) {
@@ -83,20 +84,20 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             ...char,
             originalIndex
         })).sort((a: any, b: any) => {
-             const getNum = (str: string) => parseInt((str || '0').replace(/[^0-9]/g, ''), 10);
-             return getNum(a.index) - getNum(b.index);
+            const getNum = (str: string) => parseInt((str || '0').replace(/[^0-9]/g, ''), 10);
+            return getNum(a.index) - getNum(b.index);
         });
     }, [usedCharacters]);
-    
+
     const isAnyFrameBusy = useMemo(() => Object.values(frameStatuses).some((s: any) => s === 'pending' || s === 'generating'), [frameStatuses]);
     const isGlobalBusy = !!isGeneratingSequence || isAnyFrameBusy;
     const conceptsPaneHeight = useMemo(() => {
         if (conceptsMode === 'collapsed') return HEADER_HEIGHT_PX;
-        if (conceptsMode === 'expanded') return '100%'; 
+        if (conceptsMode === 'expanded') return '100%';
         return NORMAL_CONCEPTS_HEIGHT;
     }, [conceptsMode]);
 
-    const sortedPrompts = useMemo(() => [...prompts].sort((a:any,b:any) => a.frameNumber - b.frameNumber), [prompts]);
+    const sortedPrompts = useMemo(() => [...prompts].sort((a: any, b: any) => a.frameNumber - b.frameNumber), [prompts]);
     const groupedPrompts = useMemo(() => {
         const sorted = [...prompts].sort((a, b) => a.frameNumber - b.frameNumber);
         const grouped: { scene: number, title: string, prompts: any[] }[] = [];
@@ -129,31 +130,31 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         else if (leftPaneWidth < MIN_LEFT_PANE_WIDTH) handleValueUpdate({ leftPaneWidth: MIN_LEFT_PANE_WIDTH });
     }, [node.width, leftPaneWidth, handleValueUpdate]);
 
-    const upstreamChars = connectedCharacterData || []; 
+    const upstreamChars = connectedCharacterData || [];
     const sortedUpstream = useMemo(() => [...upstreamChars].sort((a, b) => {
-             const idxA = parseInt((a.alias || '0').replace(/[^0-9]/g, ''), 10);
-             const idxB = parseInt((b.alias || '0').replace(/[^0-9]/g, ''), 10);
-             return idxA - idxB;
+        const idxA = parseInt((a.alias || '0').replace(/[^0-9]/g, ''), 10);
+        const idxB = parseInt((b.alias || '0').replace(/[^0-9]/g, ''), 10);
+        return idxA - idxB;
     }), [upstreamChars]);
     const upstreamCount = sortedUpstream.length;
-    
+
     const allConcepts = useMemo(() => {
         // Use deterministic IDs for upstream items to prevent duplicates/flashing on re-renders
-        const mappedUpstream = sortedUpstream.map((c: any, idx: number) => ({ 
-            ...c, 
-            id: c.index || c.alias || c.name || `upstream-stable-${idx}`, 
+        const mappedUpstream = sortedUpstream.map((c: any, idx: number) => ({
+            ...c,
+            id: c.index || c.alias || c.name || `upstream-stable-${idx}`,
             index: c.index || c.alias,
             image: c.image || c.imageSources?.['1:1'] || null,
-            isConnected: true, 
+            isConnected: true,
             uniqueKey: `upstream-${c.index || idx}`, // Stable key
             _connectionId: c._connectionId,
             _sourceNodeId: c._sourceNodeId
         }));
-        const mappedLocal = characterConcepts.map((c: any) => ({ 
-            ...c, 
+        const mappedLocal = characterConcepts.map((c: any) => ({
+            ...c,
             index: c.id,
-            isConnected: false, 
-            uniqueKey: `local-${c.id}` 
+            isConnected: false,
+            uniqueKey: `local-${c.id}`
         }));
         return [...mappedUpstream, ...mappedLocal];
     }, [sortedUpstream, characterConcepts]);
@@ -167,12 +168,12 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         const results = sortedUsedCharacters.map((char: any) => {
             const uName = normalize(char.name);
             const uIndex = normalize(char.index);
-            
+
             if (!uName && !uIndex) return { status: 'empty' };
 
             // 1. Find by Index (ID/Alias/Index)
             const indexMatch = allConcepts.find(c => normalize(c.index || c.id || c.alias) === uIndex);
-            
+
             // 2. Find by Name
             const nameMatch = allConcepts.find(c => normalize(c.name) === uName);
 
@@ -195,11 +196,11 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             if (nameMatch) {
                 const actualIndex = nameMatch.index || nameMatch.id || nameMatch.alias;
                 if (normalize(actualIndex) !== uIndex) {
-                     hasError = true;
-                     return { status: 'mismatch_index', expectedIndex: actualIndex, conceptName: nameMatch.name };
+                    hasError = true;
+                    return { status: 'mismatch_index', expectedIndex: actualIndex, conceptName: nameMatch.name };
                 }
             }
-            
+
             // Case 4: No match found
             return { status: 'missing' };
         });
@@ -230,8 +231,8 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const reindexLocalConcepts = (currentLocal: CharacterConcept[]) => {
         let maxUpstreamIndex = 0;
         sortedUpstream.forEach(c => {
-             const idx = parseInt((c.index || c.alias || '0').replace(/[^0-9]/g, ''), 10);
-             if (!isNaN(idx)) maxUpstreamIndex = Math.max(maxUpstreamIndex, idx);
+            const idx = parseInt((c.index || c.alias || '0').replace(/[^0-9]/g, ''), 10);
+            if (!isNaN(idx)) maxUpstreamIndex = Math.max(maxUpstreamIndex, idx);
         });
         if (maxUpstreamIndex === 0 && upstreamCount > 0) maxUpstreamIndex = upstreamCount;
         return currentLocal.map((c, i) => {
@@ -265,15 +266,15 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         const reindexed = reindexLocalConcepts(newConcepts);
         handleValueUpdate({ characterConcepts: reindexed });
     }, [characterConcepts, handleValueUpdate, reindexLocalConcepts]);
-    
+
     // NEW: Clear Concepts Button Logic - Removes Local AND Cuts Upstream
     const handleClearConcepts = useCallback(() => {
         // 1. Clear Local State
         handleValueUpdate({ characterConcepts: [] });
-        
+
         // 2. Clear Upstream Connections (Specific handle)
         if (setConnections) {
-            setConnections(prev => prev.filter(c => 
+            setConnections(prev => prev.filter(c =>
                 !(c.toNodeId === node.id && c.toHandleId === 'character_data')
             ));
         }
@@ -288,55 +289,55 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const handleDetachConcept = useCallback((concept: any) => {
         // 1. Identify source and connection
         if (concept._sourceNodeId && setConnections && allNodes && connections) {
-             const sourceNode = allNodes.find(n => n.id === concept._sourceNodeId);
-             
-             // Try to find the specific connection that feeds character data
-             const incomingConnections = connections.filter(c => c.toNodeId === node.id && c.toHandleId === 'character_data');
-             
-             // 2. Check if it's a Character Card connected specifically
-             if (sourceNode && sourceNode.type === NodeType.CHARACTER_CARD) {
-                 
-                  // Retrieve ALL characters from the card
-                  let cardData = [];
-                  try { cardData = JSON.parse(sourceNode.value || '[]'); } catch {}
-                  if (!Array.isArray(cardData)) cardData = [cardData];
+            const sourceNode = allNodes.find(n => n.id === concept._sourceNodeId);
 
-                  // Determine next available ID index
-                  let maxId = 0;
-                  characterConcepts.forEach((c: any) => {
-                      const match = (c.id || '').match(/(?:Character|Entity)-(\d+)/i); // Updated Regex
-                      if (match) maxId = Math.max(maxId, parseInt(match[1], 10));
-                  });
-                  
-                  // Map all characters to concepts
-                  const newConcepts = cardData.map((c: any, i: number) => ({
-                      id: `Entity-${maxId + i + 1}`, // Updated to Entity
-                      name: c.name || `Entity ${maxId + i + 1}`,
-                      prompt: c.prompt || '',
-                      image: c.thumbnails?.['1:1'] || c.image || null, // Use thumbnail
-                      fullDescription: c.fullDescription || ''
-                  }));
+            // Try to find the specific connection that feeds character data
+            const incomingConnections = connections.filter(c => c.toNodeId === node.id && c.toHandleId === 'character_data');
 
-                  // Append to local state
-                  handleValueUpdate({ characterConcepts: [...characterConcepts, ...newConcepts] });
+            // 2. Check if it's a Character Card connected specifically
+            if (sourceNode && sourceNode.type === NodeType.CHARACTER_CARD) {
 
-                  // Cut ALL incoming character connections to ensure no duplicates
-                  setConnections(prev => prev.filter(c => !(c.toNodeId === node.id && c.toHandleId === 'character_data')));
-                  
-                  if (addToast) addToast(t('toast.pastedFromClipboard'), "success");
-                  return;
-             }
+                // Retrieve ALL characters from the card
+                let cardData = [];
+                try { cardData = JSON.parse(sourceNode.value || '[]'); } catch { }
+                if (!Array.isArray(cardData)) cardData = [cardData];
+
+                // Determine next available ID index
+                let maxId = 0;
+                characterConcepts.forEach((c: any) => {
+                    const match = (c.id || '').match(/(?:Character|Entity)-(\d+)/i); // Updated Regex
+                    if (match) maxId = Math.max(maxId, parseInt(match[1], 10));
+                });
+
+                // Map all characters to concepts
+                const newConcepts = cardData.map((c: any, i: number) => ({
+                    id: `Entity-${maxId + i + 1}`, // Updated to Entity
+                    name: c.name || `Entity ${maxId + i + 1}`,
+                    prompt: c.prompt || '',
+                    image: c.thumbnails?.['1:1'] || c.image || null, // Use thumbnail
+                    fullDescription: c.fullDescription || ''
+                }));
+
+                // Append to local state
+                handleValueUpdate({ characterConcepts: [...characterConcepts, ...newConcepts] });
+
+                // Cut ALL incoming character connections to ensure no duplicates
+                setConnections(prev => prev.filter(c => !(c.toNodeId === node.id && c.toHandleId === 'character_data')));
+
+                if (addToast) addToast(t('toast.pastedFromClipboard'), "success");
+                return;
+            }
         }
 
         // Fallback to standard single detach if it wasn't a Card node via 'all_data' or other logic applied
         if (onDetachAndPasteConcept) {
-             onDetachAndPasteConcept(node.id, concept);
+            onDetachAndPasteConcept(node.id, concept);
         }
     }, [allNodes, connections, setConnections, characterConcepts, handleValueUpdate, onDetachAndPasteConcept, node.id, addToast, t]);
 
     const handleMoveConcept = useCallback((index: number, direction: 'up' | 'down') => {
         const localIndex = index - upstreamCount;
-        if (localIndex < 0) return; 
+        if (localIndex < 0) return;
         const newConcepts = [...characterConcepts];
         const targetLocalIndex = direction === 'up' ? localIndex - 1 : localIndex + 1;
         if (targetLocalIndex >= 0 && targetLocalIndex < newConcepts.length) {
@@ -352,13 +353,13 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
 
     const handleDetachToEditorWithToast = useCallback(() => {
         if (prompts.length === 0 || !onAddNode) return;
-        
+
         // Position to the LEFT of the current node
-        const offsetLeft = 1350; 
+        const offsetLeft = 1350;
         const pos = { x: node.position.x - offsetLeft, y: node.position.y };
-        
+
         const editorId = onAddNode(NodeType.PROMPT_SEQUENCE_EDITOR, pos);
-        
+
         const editorValue = {
             instruction: '',
             sourcePrompts: prompts,
@@ -369,13 +370,13 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             usedCharacters: usedCharacters,
             leftPaneRatio: 0.5
         };
-        
+
         onValueChange(editorId, JSON.stringify(editorValue));
-        
+
         if (setSelectedNodeIds) {
             setSelectedNodeIds([editorId]);
         }
-        
+
         if (addToast) addToast("Prompts detached to Prompt Sequence Editor (Left)", "success");
     }, [prompts, onAddNode, node, styleOverride, usedCharacters, onValueChange, addToast, setSelectedNodeIds]);
 
@@ -393,22 +394,22 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
 
     // NEW: Clear Text Prompts Only
     const handleClearTextOnly = useCallback(() => {
-         const currentPrompts = [...(parsedValueRef.current.prompts || [])];
-         const newPrompts = currentPrompts.map((p: any) => ({
-             ...p,
-             prompt: '',
-             videoPrompt: '',
-             shotType: 'WS'
-         }));
-         handleValueUpdate({ prompts: newPrompts });
-         if (addToast) addToast("Text prompts cleared", "info");
+        const currentPrompts = [...(parsedValueRef.current.prompts || [])];
+        const newPrompts = currentPrompts.map((p: any) => ({
+            ...p,
+            prompt: '',
+            videoPrompt: '',
+            shotType: 'WS'
+        }));
+        handleValueUpdate({ prompts: newPrompts });
+        if (addToast) addToast("Text prompts cleared", "info");
     }, [handleValueUpdate, addToast]);
 
     const handleAddPrompt = useCallback((afterFrame?: number) => {
         const currentPrompts = [...(parsedValueRef.current.prompts || [])];
         const nextFrame = currentPrompts.length > 0 ? Math.max(...currentPrompts.map((p: any) => p.frameNumber)) + 1 : 1;
         const nextScene = currentPrompts.length > 0 ? currentPrompts[currentPrompts.length - 1].sceneNumber : 1;
-        
+
         const newPrompt = {
             frameNumber: nextFrame,
             sceneNumber: nextScene,
@@ -430,7 +431,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 return;
             }
         }
-        
+
         handleValueUpdate({ prompts: [...currentPrompts, newPrompt] });
         setTimeout(() => sourceListRef.current?.scrollToBottom(), 100);
     }, [handleValueUpdate]);
@@ -440,7 +441,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         const lastScene = currentPrompts.length > 0 ? Math.max(...currentPrompts.map((p: any) => p.sceneNumber || 1)) : 0;
         const nextScene = lastScene + 1;
         const nextFrame = currentPrompts.length > 0 ? Math.max(...currentPrompts.map((p: any) => p.frameNumber)) + 1 : 1;
-        
+
         const newPrompt = {
             frameNumber: nextFrame,
             sceneNumber: nextScene,
@@ -452,7 +453,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             duration: 3,
             isCollapsed: false
         };
-        
+
         handleValueUpdate({ prompts: [...currentPrompts, newPrompt] });
         setTimeout(() => sourceListRef.current?.scrollToBottom(), 100);
     }, [handleValueUpdate]);
@@ -461,7 +462,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         if (!isPromptInputConnected || !handleNavigateToNodeFrame) return;
         const sourceConn = connections?.find(c => c.toNodeId === node.id && c.toHandleId === 'prompt_input');
         if (sourceConn) {
-             handleNavigateToNodeFrame(sourceConn.fromNodeId, frameNumber);
+            handleNavigateToNodeFrame(sourceConn.fromNodeId, frameNumber);
         }
     }, [isPromptInputConnected, handleNavigateToNodeFrame, connections, node.id]);
 
@@ -485,13 +486,13 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         // Ensure specific prompt card is expanded
         let newPrompts = currentPrompts;
         if (targetPrompt.isCollapsed) {
-             newPrompts = currentPrompts.map((p: any) => 
+            newPrompts = currentPrompts.map((p: any) =>
                 p.frameNumber === frameNumber ? { ...p, isCollapsed: false } : p
-             );
-             stateUpdated = true;
+            );
+            stateUpdated = true;
         }
 
-        handleValueUpdate({ 
+        handleValueUpdate({
             collapsedScenes: newCollapsed,
             prompts: newPrompts,
             selectedFrameNumber: frameNumber
@@ -534,9 +535,11 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         // 1. Prefix (Integration)
         const prefix = parsedValue.integrationPrompt || DEFAULT_INTEGRATION_INSTRUCTION;
 
-        // 2. Shot Type
-        const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : "";
-        
+        // 2. Shot Type (Always in English for AI compatibility)
+        const shotInstruction = promptItem.shotType
+            ? getTranslation('en', `image_sequence.shot_type.${promptItem.shotType}` as any)
+            : "";
+
         let fullPrompt = `${prefix}\n${shotInstruction}`;
 
         // 3. Scene Context
@@ -550,12 +553,12 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         // 4. Base Prompt with Character Replacement
         let mainPrompt = promptItem.prompt;
         if (parsedValue.characterPromptCombination === 'replace') {
-             mainPrompt = mainPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
-                 const concept = resolveCharacterConcept(match, allConcepts);
-                 if (concept && concept.prompt) {
-                     return `${match} (${concept.prompt})`;
-                 }
-                 return match;
+            mainPrompt = mainPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
+                const concept = resolveCharacterConcept(match, allConcepts);
+                if (concept && concept.prompt) {
+                    return `${match} (${concept.prompt})`;
+                }
+                return match;
             });
         }
         fullPrompt += `\n\n${mainPrompt}`;
@@ -574,11 +577,11 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         // Try to get Full Res first
         const fullRes = getFullSizeImage(node.id, 1000 + frameNumber);
         const src = fullRes || images[frameNumber];
-        
+
         if (src) {
             // Filter frames that actually have images to prevent viewer errors
             const validPrompts = prompts.filter(p => (getFullSizeImage(node.id, 1000 + p.frameNumber) || images[p.frameNumber]));
-            
+
             // Map to viewer source format
             const viewerSources = validPrompts.map(p => ({
                 src: getFullSizeImage(node.id, 1000 + p.frameNumber) || images[p.frameNumber],
@@ -600,7 +603,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
 
     const handleOpenAI = useCallback((imageUrl: string) => {
         if (!onAddNode) return;
-        
+
         let targetNodeId = null;
 
         // Check if we already have an opened editor for this generator (via ref)
@@ -619,7 +622,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             const pos = { x: node.position.x + node.width + 100, y: node.position.y };
             targetNodeId = onAddNode(NodeType.IMAGE_EDITOR, pos);
             lastOpenedEditorIdRef.current = targetNodeId;
-            
+
             // Init new node with image
             onValueChange(targetNodeId, JSON.stringify({
                 inputImages: [imageUrl],
@@ -628,43 +631,43 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 enableAspectRatio: true,
                 model: 'gemini-2.5-flash-image'
             }));
-            
+
             // Also cache full res for the new node (Input 0 -> index 1)
             // Note: Since we are in the generator logic, we need to manually trigger cache set for the new ID
             setFullSizeImage(targetNodeId, 1, imageUrl);
             generateThumbnail(imageUrl, 256, 256).then(thumb => {
-                 onValueChange(targetNodeId!, JSON.stringify({
+                onValueChange(targetNodeId!, JSON.stringify({
                     inputImages: [thumb],
                     prompt: '',
                     aspectRatio: aspectRatio,
                     enableAspectRatio: true,
                     model: 'gemini-2.5-flash-image'
-                 }));
+                }));
             });
-            
+
         } else {
             // Append to existing editor
             const targetNode = allNodes?.find(n => n.id === targetNodeId);
             if (targetNode) {
                 const currentVal = JSON.parse(targetNode.value || '{}');
                 const currentImages = currentVal.inputImages || [];
-                
+
                 // Add to list
                 // We need thumbnail for the list, full res for cache
                 generateThumbnail(imageUrl, 256, 256).then(thumb => {
                     const newImages = [...currentImages, thumb];
                     onValueChange(targetNodeId!, JSON.stringify({ ...currentVal, inputImages: newImages }));
-                    
+
                     // Set full res cache for the new slot (index = length before add + 1)
                     setFullSizeImage(targetNodeId!, currentImages.length + 1, imageUrl);
                 });
             }
         }
-        
+
         if (targetNodeId && setSelectedNodeIds) {
             setSelectedNodeIds([targetNodeId]);
         }
-        
+
     }, [onAddNode, node, allNodes, onValueChange, setFullSizeImage, setSelectedNodeIds, aspectRatio]);
 
     const handleSelectByAspectRatio = useCallback((type: 'square' | 'landscape' | 'portrait') => {
@@ -730,7 +733,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 const now = new Date();
                 const date = now.toISOString().split('T')[0];
                 const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-                
+
                 let fileCount = 0;
                 for (const frameNum of sorted) {
                     const src = getFullSizeImage(node.id, 1000 + frameNum) || images[frameNum];
@@ -751,9 +754,9 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 }
 
                 // USE 'STORE' compression (no compression) to speed up archiving
-                const content = await zip.generateAsync({ 
+                const content = await zip.generateAsync({
                     type: 'blob',
-                    compression: 'STORE' 
+                    compression: 'STORE'
                 }, (metadata: any) => {
                     setZipProgress(metadata.percent);
                 });
@@ -766,9 +769,9 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 document.body.removeChild(link);
                 URL.revokeObjectURL(link.href);
                 if (addToast) addToast("ZIP archive downloaded", "success");
-            } catch (e) { 
+            } catch (e) {
                 console.error("ZIP Error:", e);
-                if (addToast) addToast("Failed to create ZIP", "error"); 
+                if (addToast) addToast("Failed to create ZIP", "error");
             } finally {
                 setZipProgress(null); // Reset progress
             }
@@ -779,7 +782,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             for (const frameNum of sorted) {
                 const src = getFullSizeImage(node.id, 1000 + frameNum) || images[frameNum];
                 if (src) {
-                    const p = prompts.find((p:any) => p.frameNumber === frameNum)?.prompt || '';
+                    const p = prompts.find((p: any) => p.frameNumber === frameNum)?.prompt || '';
                     const padded = String(frameNum).padStart(3, '0');
                     const filename = `Frame_${padded}_seq_gen_${date}_${time}.png`;
                     onDownloadImageFromUrl(src, frameNum, p, filename);
@@ -802,22 +805,22 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const handleExpandFrame = useCallback(async (frameNumber: number, ratio: string) => {
         const fullSize = getFullSizeImage(node.id, 1000 + frameNumber) || images[frameNumber];
         if (!fullSize) return;
-        
+
         const p = prompts.find((p: any) => p.frameNumber === frameNumber)?.prompt || '';
-        
+
         try {
             const currentStatuses = { ...parsedValueRef.current.frameStatuses };
             currentStatuses[frameNumber] = 'generating';
             handleValueUpdate({ frameStatuses: currentStatuses });
-            
+
             // Fix: Use parsedValueRef.current.model
             const modelToUse = parsedValueRef.current.model || 'gemini-2.5-flash-image';
-            
+
             const newImage = await expandImageAspectRatio(fullSize, ratio, p, modelToUse);
-            const thumb = await generateThumbnail(newImage, 128, 128); 
-            
+            const thumb = await generateThumbnail(newImage, 128, 128);
+
             setFullSizeImage(node.id, 1000 + frameNumber, newImage);
-            
+
             const nextImages = { ...parsedValueRef.current.images, [frameNumber]: thumb };
             const nextStatuses = { ...parsedValueRef.current.frameStatuses, [frameNumber]: 'done' };
             handleValueUpdate({
@@ -832,9 +835,9 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     }, [getFullSizeImage, node.id, images, prompts, handleValueUpdate, addToast, setFullSizeImage]);
 
     const handleBatchExpand = useCallback(async (ratio: string) => {
-        const targetFrames = [...checkedFrameNumbers].sort((a,b) => a-b);
+        const targetFrames = [...checkedFrameNumbers].sort((a, b) => a - b);
         if (targetFrames.length === 0) return;
-        
+
         for (const frameNum of targetFrames) {
             await handleExpandFrame(frameNum, ratio);
         }
@@ -853,12 +856,12 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             const clampedWidth = Math.max(MIN_LEFT_PANE_WIDTH, Math.min(newWidth, maxLeftWidth));
             handleValueUpdate({ leftPaneWidth: clampedWidth });
         };
-        const handleMouseUp = () => { 
-            dragStartRef.current = null; 
-            window.removeEventListener('mousemove', handleMouseMove); 
-            window.removeEventListener('mouseup', handleMouseUp); 
+        const handleMouseUp = () => {
+            dragStartRef.current = null;
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
         };
-        window.addEventListener('mousemove', handleMouseMove); 
+        window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
     }, [handleValueUpdate, viewTransform, node.width]);
 
@@ -882,8 +885,8 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         if (parsed.usedCharacters) usedCharactersFromUpstream = parsed.usedCharacters;
                         if (parsed.sceneContexts) sceneContextsFromUpstream = parsed.sceneContexts;
                         if (parsed.videoPrompts) {
-                             const videoMap = new Map(parsed.videoPrompts.map((vp: any) => [vp.frameNumber, vp]));
-                             extractedPrompts = extractedPrompts.map((p: any) => ({...p, videoPrompt: p.videoPrompt || videoMap.get(p.frameNumber) || ''}));
+                            const videoMap = new Map(parsed.videoPrompts.map((vp: any) => [vp.frameNumber, vp]));
+                            extractedPrompts = extractedPrompts.map((p: any) => ({ ...p, videoPrompt: p.videoPrompt || videoMap.get(p.frameNumber) || '' }));
                         }
                     } else if (parsed.sourcePrompts || parsed.modifiedPrompts) {
                         const source = parsed.sourcePrompts || [];
@@ -896,7 +899,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         if (parsed.usedCharacters) usedCharactersFromUpstream = parsed.usedCharacters;
                         if (parsed.sceneContexts) sceneContextsFromUpstream = parsed.sceneContexts;
                     } else if (Array.isArray(parsed)) { extractedPrompts = parsed; }
-                    
+
                     if (extractedPrompts.length > 0) {
                         extractedPrompts.forEach((p: any) => {
                             const frameNum = p.frameNumber !== undefined ? p.frameNumber : implicitFrameCounter++;
@@ -924,7 +927,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 const newUsedChars = JSON.stringify(updates.usedCharacters);
                 const currentContexts = JSON.stringify(parsedValueRef.current.sceneContexts);
                 const newContexts = JSON.stringify(updates.sceneContexts);
-                
+
                 if (currentPromptsStr !== newPromptsStr || currentStyle !== updates.styleOverride || currentUsedChars !== newUsedChars || currentContexts !== newContexts) handleValueUpdate(updates);
             }
         }
@@ -933,8 +936,8 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const handleApplyEditor = (imageDataUrl: string) => {
         const frameNumber = editingFrameRef.current;
         if (frameNumber !== null) {
-             setFullSizeImage(node.id, 1000 + frameNumber, imageDataUrl);
-             generateThumbnail(imageDataUrl, 128, 128).then(thumb => handleValueUpdate({ images: { ...images, [frameNumber]: thumb } })); 
+            setFullSizeImage(node.id, 1000 + frameNumber, imageDataUrl);
+            generateThumbnail(imageDataUrl, 128, 128).then(thumb => handleValueUpdate({ images: { ...images, [frameNumber]: thumb } }));
         }
     };
 
@@ -942,11 +945,11 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         // Find the character by originalIndex to update correctly
         // We use the original index to update the main array, regardless of sort order
         const targetOriginalIndex = sortedUsedCharacters[idx].originalIndex;
-        
+
         const newChars = [...usedCharacters];
         if (newChars[targetOriginalIndex]) {
-             newChars[targetOriginalIndex] = { ...newChars[targetOriginalIndex], name: newName };
-             handleValueUpdate({ usedCharacters: newChars });
+            newChars[targetOriginalIndex] = { ...newChars[targetOriginalIndex], name: newName };
+            handleValueUpdate({ usedCharacters: newChars });
         }
     };
 
@@ -999,33 +1002,33 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             <ImageEditorModal isOpen={isEditorOpen} onClose={() => { setIsEditorOpen(false); editingFrameRef.current = null; }} onApply={handleApplyEditor} imageSrc={editorImageSrc} />
 
             <div ref={leftPaneRef} className="h-full flex flex-col flex-shrink-0" style={{ width: `${leftPaneWidth}px` }}>
-                 <div className="flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out relative z-10" style={{ height: typeof conceptsPaneHeight === 'string' ? conceptsPaneHeight : `${conceptsPaneHeight}px` }}>
-                    <CharacterConceptsPanel 
-                        allConcepts={allConcepts} 
-                        characterConcepts={characterConcepts} 
-                        conceptSortOrder={[]} 
-                        onUpdateConcept={handleUpdateConcept} 
-                        onDeleteConcept={handleDeleteConcept} 
-                        onMoveConcept={handleMoveConcept} 
-                        onAddConcept={handleAddConcept} 
-                        onDetachConnectedConcept={(concept) => handleDetachConcept(concept)} 
+                <div className="flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out relative z-10" style={{ height: typeof conceptsPaneHeight === 'string' ? conceptsPaneHeight : `${conceptsPaneHeight}px` }}>
+                    <CharacterConceptsPanel
+                        allConcepts={allConcepts}
+                        characterConcepts={characterConcepts}
+                        conceptSortOrder={[]}
+                        onUpdateConcept={handleUpdateConcept}
+                        onDeleteConcept={handleDeleteConcept}
+                        onMoveConcept={handleMoveConcept}
+                        onAddConcept={handleAddConcept}
+                        onDetachConnectedConcept={(concept) => handleDetachConcept(concept)}
                         onClearConcepts={handleClearConcepts} // Added
-                        handleViewImage={(url) => setImageViewer({ sources: [{ src: url, frameNumber: 0 }], initialIndex: 0 })} 
-                        t={t} 
-                        deselectAllNodes={deselectAllNodes} 
-                        conceptsMode={conceptsMode} 
+                        handleViewImage={(url) => setImageViewer({ sources: [{ src: url, frameNumber: 0 }], initialIndex: 0 })}
+                        t={t}
+                        deselectAllNodes={deselectAllNodes}
+                        conceptsMode={conceptsMode}
                         onToggleMode={handleToggleConceptsMode}
                         duplicateIndices={duplicateIndices} // Pass validation result
                     />
                 </div>
-                
-                 {conceptsMode !== 'expanded' && (
-                    <div className="flex-grow flex flex-col min-h-0 pt-2"> 
-                         <div className="flex flex-col space-y-1 mb-1 flex-shrink-0">
-                             <div 
+
+                {conceptsMode !== 'expanded' && (
+                    <div className="flex-grow flex flex-col min-h-0 pt-2">
+                        <div className="flex flex-col space-y-1 mb-1 flex-shrink-0">
+                            <div
                                 className={`flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group ${validationResults.hasError ? "bg-red-900/30" : validationResults.allValid ? "bg-accent-secondary/20" : ""}`}
                                 onClick={handleToggleUsedCharsCollapse}
-                             >
+                            >
                                 <label className={`text-[10px] font-bold uppercase cursor-pointer py-1 flex-grow flex items-center gap-2 ${validationResults.hasError ? "text-red-400" : validationResults.allValid ? "text-connection-text" : "text-gray-400"}`}>
                                     {validationResults.hasError ? (
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -1036,24 +1039,24 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                         </svg>
                                     ) : null}
-                                    Используемые персонажи
+                                    {t('node.content.usedCharacters')}
                                     {validationResults.allValid && <span className="text-[9px] font-normal text-connection-text ml-1">(Все совпадают)</span>}
                                 </label>
                                 <div className="text-gray-500 group-hover:text-gray-300 p-1">
-                                    {isUsedCharsCollapsed 
+                                    {isUsedCharsCollapsed
                                         ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                                         : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
                                     }
                                 </div>
-                             </div>
-                             {!isUsedCharsCollapsed && (
-                                <div 
+                            </div>
+                            {!isUsedCharsCollapsed && (
+                                <div
                                     onWheel={e => e.stopPropagation()}
                                     className="bg-gray-700/50 p-2 rounded-md border border-gray-600 max-h-32 overflow-y-auto custom-scrollbar"
                                 >
                                     {sortedUsedCharacters.length > 0 ? sortedUsedCharacters.map((char: any, i: number) => {
                                         const result = validationResults.results[i] || { status: 'missing' };
-                                        
+
                                         let icon = null;
                                         let textColor = "text-gray-400";
                                         let tooltip = "";
@@ -1072,9 +1075,9 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                             textColor = "text-red-400";
                                             tooltip = `Имя совпадает ("${char.name}"), но индекс отличается. Исправьте индекс на: ${result.expectedIndex}`;
                                         } else {
-                                             // Missing or Empty
-                                             icon = <span className="text-gray-600 text-[10px]">•</span>;
-                                             tooltip = "Персонаж не найден в концептах";
+                                            // Missing or Empty
+                                            icon = <span className="text-gray-600 text-[10px]">•</span>;
+                                            tooltip = "Персонаж не найден в концептах";
                                         }
 
                                         return (
@@ -1084,9 +1087,9 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                                 </div>
                                                 {/* Updated to text-connection-text */}
                                                 <span className={`text-[10px] font-mono w-20 shrink-0 truncate ${textColor}`}>{char.index}:</span>
-                                                <input 
-                                                    type="text" 
-                                                    value={char.name} 
+                                                <input
+                                                    type="text"
+                                                    value={char.name}
                                                     onChange={(e) => handleUpdateUsedCharacterName(i, e.target.value)}
                                                     className={`flex-grow bg-gray-800 border-none rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-cyan-500 ${result.status.startsWith('mismatch') ? 'text-red-200 bg-red-900/20' : 'text-gray-200'}`}
                                                     onMouseDown={e => e.stopPropagation()}
@@ -1095,42 +1098,42 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                         );
                                     }) : <div className="text-[10px] text-gray-500 italic">Персонажи не указаны.</div>}
                                 </div>
-                             )}
+                            )}
                         </div>
 
                         {/* Integration Instruction Panel */}
                         <div className="flex flex-col space-y-1 mb-2 flex-shrink-0">
-                            <div 
+                            <div
                                 className="flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group"
                                 onClick={handleToggleIntegrationSettings}
                             >
-                                <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1 flex-grow">Инструкция интеграции</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1 flex-grow">{t('node.content.integrationInstruction')}</label>
                                 <div className="text-gray-500 group-hover:text-gray-300 p-1">
-                                    {isIntegrationSettingsCollapsed 
+                                    {isIntegrationSettingsCollapsed
                                         ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                                         : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
                                     }
                                 </div>
                             </div>
                             {!isIntegrationSettingsCollapsed && (
-                                <DebouncedTextarea 
-                                    value={integrationPrompt} 
-                                    onDebouncedChange={(v) => handleValueUpdate({ integrationPrompt: v })} 
+                                <DebouncedTextarea
+                                    value={integrationPrompt}
+                                    onDebouncedChange={(v) => handleValueUpdate({ integrationPrompt: v })}
                                     placeholder="Integrate these Entities into the scene..."
-                                    className="w-full p-2 bg-gray-700 border-none rounded-md resize-none focus:outline-none text-xs" 
-                                    style={{ minHeight: '60px' }} 
-                                    onMouseDown={e => e.stopPropagation()} 
-                                    onWheel={(e) => e.stopPropagation()} 
+                                    className="w-full p-2 bg-gray-700 border-none rounded-md resize-none focus:outline-none text-xs"
+                                    style={{ minHeight: '60px' }}
+                                    onMouseDown={e => e.stopPropagation()}
+                                    onWheel={(e) => e.stopPropagation()}
                                 />
                             )}
                         </div>
 
-                         <div 
+                        <div
                             onWheel={e => e.stopPropagation()}
                             className="flex-shrink-0 flex flex-col space-y-2 mb-2"
-                         >
+                        >
                             <div className="flex flex-col space-y-1">
-                                <div 
+                                <div
                                     className="flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group"
                                     onClick={handleToggleCharacterPromptCombinationCollapse}
                                 >
@@ -1153,13 +1156,13 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
 
                                 {!isCharacterPromptCombinationCollapsed && (
                                     <div className="flex items-center space-x-4 bg-gray-800/50 p-2 rounded-md border border-gray-700">
-                                        <CustomCheckbox 
+                                        <CustomCheckbox
                                             checked={characterPromptCombination === 'combine'}
                                             onChange={(checked) => handleValueUpdate({ characterPromptCombination: checked ? 'combine' : 'none' })}
                                             label={t('image_sequence.combination_combine')}
                                             title="Добавляет описание персонажа к промпту кадра."
                                         />
-                                        <CustomCheckbox 
+                                        <CustomCheckbox
                                             checked={characterPromptCombination === 'replace'}
                                             onChange={(checked) => handleValueUpdate({ characterPromptCombination: checked ? 'replace' : 'none' })}
                                             label={t('image_sequence.combination_replace')}
@@ -1172,20 +1175,20 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
 
                         {/* Style Panel */}
                         <div className="flex flex-col space-y-1 mb-2 flex-shrink-0">
-                             <div 
+                            <div
                                 className="flex justify-between items-center cursor-pointer hover:bg-gray-700/50 rounded-md px-1 transition-colors group"
                                 onClick={handleToggleStyleCollapse}
-                             >
+                            >
                                 <div className="flex items-center gap-2 flex-grow">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1">{t('node.content.style')}</label>
-                                    
+
                                     {/* Insert Style Checkbox */}
                                     <div onClick={(e) => e.stopPropagation()}>
                                         <CustomCheckbox
                                             checked={isStyleInserted}
                                             onChange={handleToggleInsertStyle}
                                             title="Автоматически добавляет описание стиля ко всем кадрам."
-                                            label="Вставлять стиль"
+                                            label={t('node.content.insertStyle')}
                                         />
                                     </div>
 
@@ -1201,50 +1204,50 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                 </div>
 
                                 <div className="text-gray-500 group-hover:text-gray-300 p-1">
-                                    {isStyleCollapsed 
+                                    {isStyleCollapsed
                                         ? <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                                         : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
                                     }
                                 </div>
-                             </div>
-                             {!isStyleCollapsed && <DebouncedTextarea value={styleOverride} onDebouncedChange={(v) => handleValueUpdate({ styleOverride: v })} className="w-full p-2 bg-gray-700 border-none rounded-md resize-none focus:outline-none text-xs" style={{ minHeight: '60px' }} onMouseDown={e => e.stopPropagation()} onWheel={(e) => e.stopPropagation()} />}
+                            </div>
+                            {!isStyleCollapsed && <DebouncedTextarea value={styleOverride} onDebouncedChange={(v) => handleValueUpdate({ styleOverride: v })} className="w-full p-2 bg-gray-700 border-none rounded-md resize-none focus:outline-none text-xs" style={{ minHeight: '60px' }} onMouseDown={e => e.stopPropagation()} onWheel={(e) => e.stopPropagation()} />}
                         </div>
 
                         {/* Visible Divider */}
                         <div className="w-full h-0.5 bg-gray-600/80 my-3 flex-shrink-0"></div>
 
-                        <SourcePromptList 
-                            ref={sourceListRef} 
-                            prompts={prompts} 
-                            collapsedScenes={collapsedScenes} 
-                            checkedFrameNumbers={checkedFrameNumbers} 
-                            selectionKey="checkedFrameNumbers" 
-                            selectedFrameNumber={selectedFrameNumber} 
-                            isLinked={!!isPromptInputConnected} 
-                            onUpdatePrompts={handleValueUpdate} 
-                            onLoadFile={() => onLoadImageSequenceFile(node.id)} 
-                            onSaveToCatalog={() => onSaveSequenceToCatalog(node.id)} 
-                            onSaveToDisk={() => onSaveScriptToDisk(node.id)} 
-                            t={t} 
-                            onSelect={(f) => handleValueUpdate({ selectedFrameNumber: f })} 
-                            onToggleCollapse={(f) => { const newPrompts = prompts.map((p: any) => p.frameNumber === f ? {...p, isCollapsed: !p.isCollapsed} : p); handleValueUpdate({ prompts: newPrompts }); }} 
-                            onToggleScene={(scene) => { const newCollapsed = collapsedScenes.includes(scene) ? collapsedScenes.filter((s: number) => s !== scene) : [...collapsedScenes, scene]; handleValueUpdate({ collapsedScenes: newCollapsed }); }} 
-                            onDetachToEditor={handleDetachToEditorWithToast} 
+                        <SourcePromptList
+                            ref={sourceListRef}
+                            prompts={prompts}
+                            collapsedScenes={collapsedScenes}
+                            checkedFrameNumbers={checkedFrameNumbers}
+                            selectionKey="checkedFrameNumbers"
+                            selectedFrameNumber={selectedFrameNumber}
+                            isLinked={!!isPromptInputConnected}
+                            onUpdatePrompts={handleValueUpdate}
+                            onLoadFile={() => onLoadImageSequenceFile(node.id)}
+                            onSaveToCatalog={() => onSaveSequenceToCatalog(node.id)}
+                            onSaveToDisk={() => onSaveScriptToDisk(node.id)}
+                            t={t}
+                            onSelect={(f) => handleValueUpdate({ selectedFrameNumber: f })}
+                            onToggleCollapse={(f) => { const newPrompts = prompts.map((p: any) => p.frameNumber === f ? { ...p, isCollapsed: !p.isCollapsed } : p); handleValueUpdate({ prompts: newPrompts }); }}
+                            onToggleScene={(scene) => { const newCollapsed = collapsedScenes.includes(scene) ? collapsedScenes.filter((s: number) => s !== scene) : [...collapsedScenes, scene]; handleValueUpdate({ collapsedScenes: newCollapsed }); }}
+                            onDetachToEditor={handleDetachToEditorWithToast}
                             onClearAll={handleClearAllWithToast}
-                            onAddPrompt={handleAddPrompt} 
-                            onAddScene={handleAddScene} 
-                            onDeletePrompt={(frame) => { const rem = prompts.filter((p:any) => p.frameNumber !== frame); handleValueUpdate({prompts: rem}); }} 
-                            onMovePromptUp={() => {}} 
-                            onMovePromptDown={() => {}} 
-                            onMoveToStart={() => {}} 
-                            onMoveToEnd={() => {}} 
-                            onRegenerate={(f) => onRegenerateFrame(node.id, f)} 
-                            isAnyGenerationInProgress={isGlobalBusy} 
-                            onEditInSource={handleEditInSource} 
-                            onEditPrompt={handleEditPrompt} 
-                            isGeneratingSequence={!!isGeneratingSequence} 
-                            allConceptsLength={allConcepts.length} 
-                            onUnlink={handleUnlink} 
+                            onAddPrompt={handleAddPrompt}
+                            onAddScene={handleAddScene}
+                            onDeletePrompt={(frame) => { const rem = prompts.filter((p: any) => p.frameNumber !== frame); handleValueUpdate({ prompts: rem }); }}
+                            onMovePromptUp={() => { }}
+                            onMovePromptDown={() => { }}
+                            onMoveToStart={() => { }}
+                            onMoveToEnd={() => { }}
+                            onRegenerate={(f) => onRegenerateFrame(node.id, f)}
+                            isAnyGenerationInProgress={isGlobalBusy}
+                            onEditInSource={handleEditInSource}
+                            onEditPrompt={handleEditPrompt}
+                            isGeneratingSequence={!!isGeneratingSequence}
+                            allConceptsLength={allConcepts.length}
+                            onUnlink={handleUnlink}
                             addToast={addToast}
                             onClearTextOnly={handleClearTextOnly}
                             // New props passed down
@@ -1264,40 +1267,40 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             <div onMouseDown={handleHorizontalResize} className="w-2 h-full bg-gray-700/50 hover:bg-cyan-600 cursor-col-resize rounded transition-colors flex-shrink-0"></div>
 
             <div className="flex-grow flex flex-col space-y-2 min-w-0" style={{ width: '0', flexGrow: 1, position: 'relative' }}>
-                 {/* Progress Overlay */}
-                 {zipProgress !== null && (
+                {/* Progress Overlay */}
+                {zipProgress !== null && (
                     <div className="absolute inset-0 z-50 bg-gray-900/90 backdrop-blur-sm flex flex-col items-center justify-center rounded-md">
                         <div className="text-cyan-400 font-bold text-lg mb-4 animate-pulse">Archiving Sequence...</div>
                         <div className="w-64 h-4 bg-gray-700 rounded-full overflow-hidden border border-gray-600 shadow-inner">
-                            <div 
+                            <div
                                 className="h-full bg-gradient-to-r from-cyan-600 to-blue-500 transition-all duration-100 ease-out relative"
                                 style={{ width: `${zipProgress}%` }}
                             >
-                                <div className="absolute inset-0 bg-white/20 animate-[progress-bar-stripes_1s_linear_infinite]" style={{backgroundImage: 'linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent)', backgroundSize: '1rem 1rem'}}></div>
+                                <div className="absolute inset-0 bg-white/20 animate-[progress-bar-stripes_1s_linear_infinite]" style={{ backgroundImage: 'linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent)', backgroundSize: '1rem 1rem' }}></div>
                             </div>
                         </div>
                         <div className="text-gray-300 font-mono mt-2">{zipProgress.toFixed(0)}%</div>
                     </div>
-                 )}
-                 
-                 {/* Permission Guide Overlay */}
-                 {showPermissionOverlay && createPortal(
+                )}
+
+                {/* Permission Guide Overlay */}
+                {showPermissionOverlay && createPortal(
                     <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-start pt-20 text-center animate-fade-in" onClick={(e) => e.stopPropagation()}>
                         <div className="bg-gray-800 p-6 rounded-xl border border-cyan-500 shadow-2xl max-w-md mx-4 relative">
                             {/* Arrow pointing up */}
                             <div className="absolute -top-12 right-4 md:right-1/4 animate-bounce text-cyan-400">
-                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
                                 </svg>
                             </div>
-                            
+
                             <h3 className="text-xl font-bold text-white mb-2">Разрешите скачивание</h3>
                             <p className="text-gray-300 mb-6 text-sm leading-relaxed">
-                                Браузер заблокировал скачивание нескольких файлов.<br/>
+                                Браузер заблокировал скачивание нескольких файлов.<br />
                                 Пожалуйста, обратите внимание на значок в адресной строке или всплывающее окно и выберите <b>"Разрешить всегда"</b> (Allow automatic downloads).
                             </p>
-                            
-                            <button 
+
+                            <button
                                 onClick={() => {
                                     setShowPermissionOverlay(false);
                                     sessionStorage.setItem('download_permission_shown', 'true');
@@ -1309,70 +1312,70 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         </div>
                     </div>,
                     document.body
-                 )}
+                )}
 
-                 <OutputGalleryPanel 
-                    prompts={prompts} 
-                    images={images} 
-                    frameStatuses={frameStatuses} 
-                    selectedFrameNumber={selectedFrameNumber} 
-                    checkedFrameNumbers={checkedFrameNumbers} 
-                    collapsedOutputScenes={collapsedOutputScenes} 
-                    isGeneratingSequence={!!isGeneratingSequence} 
-                    isAnyFrameGenerating={isAnyFrameBusy} 
-                    t={t} 
-                    onUpdateState={(updates) => { 
+                <OutputGalleryPanel
+                    prompts={prompts}
+                    images={images}
+                    frameStatuses={frameStatuses}
+                    selectedFrameNumber={selectedFrameNumber}
+                    checkedFrameNumbers={checkedFrameNumbers}
+                    collapsedOutputScenes={collapsedOutputScenes}
+                    isGeneratingSequence={!!isGeneratingSequence}
+                    isAnyFrameGenerating={isAnyFrameBusy}
+                    t={t}
+                    onUpdateState={(updates) => {
                         // If output panel requests a clear of sequenceOutputs (which is old logic), route it to handleClearImages
-                        if (updates.sequenceOutputs && updates.sequenceOutputs.length === 0) { 
-                            handleClearImages(); 
-                        } else { 
-                            handleValueUpdate(updates); 
-                        } 
-                    }} 
-                    groupedPrompts={groupedPrompts} 
-                    onRegenerate={(f) => onRegenerateFrame(node.id, f)} 
+                        if (updates.sequenceOutputs && updates.sequenceOutputs.length === 0) {
+                            handleClearImages();
+                        } else {
+                            handleValueUpdate(updates);
+                        }
+                    }}
+                    groupedPrompts={groupedPrompts}
+                    onRegenerate={(f) => onRegenerateFrame(node.id, f)}
                     onDownload={(f, p) => {
                         const src = getFullSizeImage(node.id, 1000 + f) || images[f];
                         if (src) {
-                             const now = new Date();
-                             const date = now.toISOString().split('T')[0];
-                             const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-                             const paddedFrame = String(f).padStart(3, '0');
-                             const filename = `Frame_${paddedFrame}_seq_gen_${date}_${time}.png`;
-                             onDownloadImageFromUrl(src, f, p, filename);
-                             if (addToast) addToast(t('toast.downloadStarted'), 'success');
+                            const now = new Date();
+                            const date = now.toISOString().split('T')[0];
+                            const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+                            const paddedFrame = String(f).padStart(3, '0');
+                            const filename = `Frame_${paddedFrame}_seq_gen_${date}_${time}.png`;
+                            onDownloadImageFromUrl(src, f, p, filename);
+                            if (addToast) addToast(t('toast.downloadStarted'), 'success');
                         }
-                    }} 
-                    onCopy={(f) => onCopyImageToClipboard(getFullSizeImage(node.id, 1000 + f) || images[f])} 
-                    onCopyPrompt={onCopyPrompt} 
-                    onCopyVideoPrompt={onCopyVideoPrompt} 
-                    onStopFrame={(f) => onStopImageSequence()} 
-                    onFrameSelect={(f) => handleValueUpdate({ selectedFrameNumber: f })} 
-                    onFrameDoubleClick={handleFrameDoubleClick} 
-                    onCheckFrame={(f, shift) => { if (shift) { handleValueUpdate({ checkedFrameNumbers: [f] }); } else { const current = parsedValueRef.current.checkedFrameNumbers || []; const newChecked = current.includes(f) ? current.filter((n: number) => n !== f) : [...current, f]; handleValueUpdate({ checkedFrameNumbers: newChecked }); } }} 
-                    onOpenRaster={(f, url) => { setEditorImageSrc(url); editingFrameRef.current = f; setIsEditorOpen(true); }} 
-                    onOpenAI={handleOpenAI} 
-                    onReplaceImage={(f, url) => { setFullSizeImage(node.id, 1000 + f, url); handleValueUpdate({ images: { ...images, [f]: url } }); }} 
-                    onEditPrompt={handleEditPrompt} 
-                    onEditInSource={handleEditInSource} 
-                    readOnlyPrompt={!!isPromptInputConnected} 
-                    getFullSizeImage={(f) => getFullSizeImage(node.id, f)} 
-                    onSelectByAspectRatio={handleSelectByAspectRatio} 
+                    }}
+                    onCopy={(f) => onCopyImageToClipboard(getFullSizeImage(node.id, 1000 + f) || images[f])}
+                    onCopyPrompt={onCopyPrompt}
+                    onCopyVideoPrompt={onCopyVideoPrompt}
+                    onStopFrame={(f) => onStopImageSequence()}
+                    onFrameSelect={(f) => handleValueUpdate({ selectedFrameNumber: f })}
+                    onFrameDoubleClick={handleFrameDoubleClick}
+                    onCheckFrame={(f, shift) => { if (shift) { handleValueUpdate({ checkedFrameNumbers: [f] }); } else { const current = parsedValueRef.current.checkedFrameNumbers || []; const newChecked = current.includes(f) ? current.filter((n: number) => n !== f) : [...current, f]; handleValueUpdate({ checkedFrameNumbers: newChecked }); } }}
+                    onOpenRaster={(f, url) => { setEditorImageSrc(url); editingFrameRef.current = f; setIsEditorOpen(true); }}
+                    onOpenAI={handleOpenAI}
+                    onReplaceImage={(f, url) => { setFullSizeImage(node.id, 1000 + f, url); handleValueUpdate({ images: { ...images, [f]: url } }); }}
+                    onEditPrompt={handleEditPrompt}
+                    onEditInSource={handleEditInSource}
+                    readOnlyPrompt={!!isPromptInputConnected}
+                    getFullSizeImage={(f) => getFullSizeImage(node.id, f)}
+                    onSelectByAspectRatio={handleSelectByAspectRatio}
                     onSelectSceneByAspectRatio={handleSelectSceneByAspectRatio}
-                    onSelectAll={() => handleValueUpdate({ checkedFrameNumbers: prompts.map((p:any) => p.frameNumber) })} 
-                    onSelectNone={() => handleValueUpdate({ checkedFrameNumbers: [] })} 
-                    onInvertSelection={() => { const current = parsedValueRef.current.checkedFrameNumbers || []; const all = prompts.map((p:any) => p.frameNumber); const newChecked = all.filter((n: number) => !current.includes(n)); handleValueUpdate({ checkedFrameNumbers: newChecked }); }} 
-                    onRunSelected={() => onGenerateSelectedFrames(node.id)} 
-                    onDownloadSelected={handleDownloadSelected} 
-                    onForceRefresh={handleForceRefresh} 
-                    onExpandFrame={handleExpandFrame} 
-                    onExpandSelected={handleBatchExpand} 
-                    onReportDimensions={handleReportDimensions} 
+                    onSelectAll={() => handleValueUpdate({ checkedFrameNumbers: prompts.map((p: any) => p.frameNumber) })}
+                    onSelectNone={() => handleValueUpdate({ checkedFrameNumbers: [] })}
+                    onInvertSelection={() => { const current = parsedValueRef.current.checkedFrameNumbers || []; const all = prompts.map((p: any) => p.frameNumber); const newChecked = all.filter((n: number) => !current.includes(n)); handleValueUpdate({ checkedFrameNumbers: newChecked }); }}
+                    onRunSelected={() => onGenerateSelectedFrames(node.id)}
+                    onDownloadSelected={handleDownloadSelected}
+                    onForceRefresh={handleForceRefresh}
+                    onExpandFrame={handleExpandFrame}
+                    onExpandSelected={handleBatchExpand}
+                    onReportDimensions={handleReportDimensions}
                     // Pass the new specific clear handler
                     onClearImages={handleClearImages}
                     onCopyCombinedPrompt={handleCopyCombinedPrompt} // NEW PROP
                 />
-                 <GenerationControls model={model} autoCrop169={autoCrop169} autoDownload={autoDownload} createZip={createZip} isGeneratingSequence={!!isGeneratingSequence} isAnyFrameGenerating={isAnyFrameBusy} checkedCount={checkedFrameNumbers.length} promptsLength={prompts.length} onUpdateState={handleValueUpdate} onGenerateSelected={() => onGenerateSelectedFrames(node.id)} onDownloadSelected={handleDownloadSelected} onStartQueue={() => onGenerateImageSequence(node.id, 0)} onExpandSelected={handleBatchExpand} t={t} />
+                <GenerationControls model={model} autoCrop169={autoCrop169} autoDownload={autoDownload} createZip={createZip} isGeneratingSequence={!!isGeneratingSequence} isAnyFrameGenerating={isAnyFrameBusy} checkedCount={checkedFrameNumbers.length} promptsLength={prompts.length} onUpdateState={handleValueUpdate} onGenerateSelected={() => onGenerateSelectedFrames(node.id)} onDownloadSelected={handleDownloadSelected} onStartQueue={() => onGenerateImageSequence(node.id, 0)} onExpandSelected={handleBatchExpand} t={t} />
             </div>
         </div>
     );

@@ -29,18 +29,18 @@ export const languages = {
 export type LanguageCode = keyof typeof languages;
 
 const translationData: Record<string, any> = {
-    en,
-    ru,
-    es,
-    uz,
-    fr,
-    de,
-    it,
-    pt,
-    zh,
-    ja,
-    ko
-    // Other languages fall back to EN for now as we don't have full translation files yet
+  en,
+  ru,
+  es,
+  uz,
+  fr,
+  de,
+  it,
+  pt,
+  zh,
+  ja,
+  ko
+  // Other languages fall back to EN for now as we don't have full translation files yet
 };
 
 export type TranslationKey = keyof typeof en;
@@ -48,10 +48,10 @@ export type TranslationKey = keyof typeof en;
 export const getTranslation = (lang: LanguageCode, key: TranslationKey, options?: { [key: string]: string | number }) => {
   const langData = translationData[lang] || translationData['en'];
   const enData = translationData['en'];
-  
+
   // Fallback to EN if key is missing in selected language
   let text = langData[key] || enData[key] || key;
-  
+
   if (options) {
     Object.entries(options).forEach(([k, v]) => {
       text = text.replace(`{${k}}`, String(v));
@@ -64,12 +64,12 @@ export interface LanguageContextType {
   // The language currently being displayed in the UI (either EN or Secondary)
   language: LanguageCode;
   setLanguage: Dispatch<SetStateAction<LanguageCode>>;
-  
+
   // The user's preferred non-English language (e.g. RU or ES)
   secondaryLanguage: LanguageCode;
   setSecondaryLanguage: Dispatch<SetStateAction<LanguageCode>>;
-  
-  t: (key: TranslationKey, options?: { [key: string]: string | number }) => string;
+
+  t: (key: TranslationKey | string, options?: { [key: string]: string | number }) => string;
 }
 
 export const LanguageContext = createContext<LanguageContextType | undefined>(undefined);

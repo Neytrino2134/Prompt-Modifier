@@ -32,6 +32,7 @@ import { useGlobalState } from '../hooks/useGlobalState';
 import { useAppOrchestration } from '../hooks/useAppOrchestration';
 import { useTutorial } from '../hooks/useTutorial';
 import { addMetadataToPNG } from '../utils/pngMetadata';
+import { getConnectionPoints, getOutputHandleType, getMinNodeSize } from '../utils/nodeUtils';
 
 const AppContext = createContext<AppContextType | null>(null);
 
@@ -109,8 +110,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     useEffect(() => {
         const stateToSave = getCurrentCanvasState();
+        const currentTab = tabs.find(t => t.id === activeTabId);
+
+        // Prevent infinite loops by checking reference equality
+        if (currentTab) {
+            const prevState = currentTab.state;
+            const isIdentical =
+                prevState.nodes === stateToSave.nodes &&
+                prevState.connections === stateToSave.connections &&
+                prevState.groups === stateToSave.groups &&
+                prevState.viewTransform === stateToSave.viewTransform &&
+                prevState.fullSizeImageCache === stateToSave.fullSizeImageCache &&
+                prevState.nodeIdCounter === stateToSave.nodeIdCounter;
+
+            if (isIdentical) return;
+        }
+
         setTabs(prevTabs => prevTabs.map(tab => tab.id === activeTabId ? { ...tab, state: stateToSave } : tab));
-    }, [getCurrentCanvasState, activeTabId, setTabs]);
+    }, [getCurrentCanvasState, activeTabId, setTabs, tabs]);
 
     const resetCanvasToDefault = useCallback((lang: LanguageCode) => {
         resetTabs(lang);
@@ -407,6 +424,157 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [addToast, t]);
 
+    // Refs to avoid frequent context updates when these change
+    const nodesRef = useRef(nodesHook.nodes);
+    nodesRef.current = nodesHook.nodes;
+
+    const viewTransformRef = useRef(canvasHook.viewTransform);
+    viewTransformRef.current = canvasHook.viewTransform;
+
+    const onReadData = useCallback((nodeId: string) => {
+        const currentNodes = nodesRef.current;
+        const node = currentNodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        const values = getUpstreamNodeValues(nodeId, undefined, currentNodes, false);
+
+        let text = '';
+        let image: string | null = null;
+        let mediaUrl: string | null = null;
+        let mediaType: 'video' | 'audio' = 'video';
+
+        values.forEach(val => {
+            if (typeof val === 'string') {
+                if (val.startsWith('data:image')) {
+                    if (!image) image = val;
+                } else if (val.startsWith('data:video') || val.startsWith('data:audio') || val.match(/^https?:\/\/.*\.(mp4|webm|ogg|mp3|wav)$/i)) {
+                    if (!mediaUrl) {
+                        mediaUrl = val;
+                        mediaType = val.startsWith('data:audio') || val.match(/\.(mp3|wav)$/i) ? 'audio' : 'video';
+                    }
+                } else {
+                    if (text) text += (text ? '\n\n' : '') + val;
+                    else text = val;
+                }
+            } else if (typeof val === 'object' && val !== null) {
+                if (val.base64ImageData) {
+                    if (!image) image = `data:${val.mimeType};base64,${val.base64ImageData}`;
+                } else {
+                    const str = JSON.stringify(val, null, 2);
+                    if (text) text += (text ? '\n\n' : '') + str;
+                    else text = str;
+                }
+            }
+        });
+
+        try {
+            const current = JSON.parse(node.value || '{}');
+            const newData = { text, image, mediaUrl, mediaType };
+
+            if (JSON.stringify(current) !== JSON.stringify(newData)) {
+                nodesHook.handleValueChange(nodeId, JSON.stringify(newData));
+            }
+        } catch {
+            nodesHook.handleValueChange(nodeId, JSON.stringify({ text, image, mediaUrl, mediaType }));
+        }
+
+    }, [getUpstreamNodeValues, nodesHook.handleValueChange]);
+
+    const handleSplitConnection = useCallback((connectionId: string) => {
+        const connection = connectionsHook.connections.find(c => c.id === connectionId);
+        if (!connection) return;
+
+        const fromNode = nodesHook.nodes.find(n => n.id === connection.fromNodeId);
+        const toNode = nodesHook.nodes.find(n => n.id === connection.toNodeId);
+        if (!fromNode || !toNode) return;
+
+        // Calculate Midpoint
+        const { start, end } = getConnectionPoints(fromNode, toNode, connection);
+
+        const { minWidth, minHeight } = getMinNodeSize(NodeType.REROUTE_DOT);
+        const midPoint = {
+            x: (start.x + end.x) / 2 - (minWidth / 2),
+            y: (start.y + end.y) / 2 - (minHeight / 2)
+        };
+
+        // Determine Connection Type
+        const fromType = getOutputHandleType(fromNode, connection.fromHandleId);
+
+        // Create Reroute Dot
+        const newNodeId = entityActionsHook.onAddNode(NodeType.REROUTE_DOT, midPoint);
+
+        // Apply Type for Color
+        const newValue = JSON.stringify({ type: fromType, direction: 'LR' });
+        nodesHook.handleValueChange(newNodeId, newValue);
+
+        // Update Connections
+        connectionsHook.setConnections(prev => {
+            // Remove old connection
+            const filtered = prev.filter(c => c.id !== connectionId);
+
+            // Add two new connections
+            const conn1 = {
+                id: `conn-split-1-${Date.now()}`,
+                fromNodeId: connection.fromNodeId,
+                fromHandleId: connection.fromHandleId,
+                toNodeId: newNodeId,
+                toHandleId: undefined // Reroute input is generic
+            };
+
+            const conn2 = {
+                id: `conn-split-2-${Date.now()}`,
+                fromNodeId: newNodeId,
+                fromHandleId: undefined, // Reroute output is generic
+                toNodeId: connection.toNodeId,
+                toHandleId: connection.toHandleId
+            };
+
+            return [...filtered, conn1, conn2];
+        });
+
+    }, [connectionsHook, nodesHook, entityActionsHook]);
+
+    const handleNavigateToNodeFrame = useCallback((nodeId: string, frameNumber: number) => {
+        const targetNode = nodesRef.current.find(n => n.id === nodeId);
+        if (!targetNode) return;
+
+        // 1. Select the node
+        setSelectedNodeIds([nodeId]);
+
+        // 2. Center Canvas on Node
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight;
+
+        // Target world position (center of node)
+        // Assume centered relative to its width, and set a comfortable top margin
+        const targetX = targetNode.position.x + (targetNode.width / 2);
+        const targetY = targetNode.position.y + 300;
+
+        // Current scale
+        const scale = viewTransformRef.current.scale;
+
+        // Calculate new translation
+        const newTx = (screenW / 2) - (targetX * scale);
+        const newTy = (screenH / 2) - (targetY * scale);
+
+        canvasHook.setViewTransform(prev => ({
+            scale: prev.scale, // Keep current zoom
+            translate: { x: newTx, y: newTy }
+        }));
+
+        // 3. Trigger selection in the node (PromptSequenceEditor logic)
+        try {
+            const currentVal = JSON.parse(targetNode.value || '{}');
+            // Only update if actually different to avoid unnecessary updates
+            if (currentVal.selectedFrameNumber !== frameNumber) {
+                nodesHook.handleValueChange(nodeId, JSON.stringify({ ...currentVal, selectedFrameNumber: frameNumber }));
+            }
+        } catch (e) {
+            console.error("Failed to update node selection frame", e);
+        }
+
+    }, [nodesHook.handleValueChange, canvasHook.setViewTransform, setSelectedNodeIds]);
+
     const value = useMemo(() => {
         const { replaceAllItems: libReplaceAll, importItemsData: libImport, ...restLibrary } = libraryHook;
         const { replaceAllItems: catReplaceAll, importItemsData: catImport, ...restCatalog } = catalogHook;
@@ -439,9 +607,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onRenameSequence: (id: string, name: string) => dialogsHook.setRenameInfo({ type: 'sequence', id, currentTitle: name }),
             onGenerateSelectedFrames: geminiGenerationHook.handleGenerateSelectedFrames,
             onTranslateScript: geminiModificationHook.handleTranslateScript,
+            onReadData,
             onRefreshUpstreamData: (nodeId: string, handleId?: string) => { },
 
             handleDetachNodeFromGroup,
+            onDetachCharacter: orchestrationHook.handleDetachCharacterFromGenerator,
             onSaveScriptToDisk: canvasIOHook.handleSaveScriptFile,
             onSaveMediaToDisk: orchestrationHook.onSaveMediaToDisk,
             onGenerateCharacterImage: geminiGenerationHook.handleGenerateCharacterImage,
@@ -450,6 +620,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onImageToText: geminiAnalysisHook.handleImageToText,
             handleRegenerateFrame,
             handleLoadFromExternal: canvasIOHook.handleLoadFromExternal, // Export new method
+
+            handleNavigateToNodeFrame,
+            handleSplitConnection,
 
             replaceAllItems: libReplaceAll,
             importItemsData: libImport,
@@ -510,8 +683,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleUpdateCharacterPromptFromImage: geminiAnalysisHook.handleUpdateCharacterPromptFromImage,
             isUpdatingCharacterPrompt: geminiAnalysisHook.isUpdatingCharacterPrompt,
             onDownloadImageFromUrl, // Export to context
-            onCopyImageToClipboard, // Export to context
-            onDetachCharacter: orchestrationHook.handleDetachCharacterFromGenerator // Export the new detach handler
+            onCopyImageToClipboard // Export to context
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,
@@ -527,7 +699,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiModificationHook.handleUpdateCharacterPersonality, geminiModificationHook.isUpdatingPersonality,
         geminiModificationHook.handleUpdateCharacterAppearance, geminiModificationHook.isUpdatingAppearance,
         geminiModificationHook.handleUpdateCharacterClothing, geminiModificationHook.isUpdatingClothing,
-        onDownloadImageFromUrl, onCopyImageToClipboard
+        onDownloadImageFromUrl, onCopyImageToClipboard, handleNavigateToNodeFrame, handleSplitConnection
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
