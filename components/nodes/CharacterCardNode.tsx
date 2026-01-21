@@ -155,11 +155,13 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         }
     }, [node.value]);
 
+    const safeCharacters = useMemo(() => Array.isArray(characters) ? characters : [], [characters]);
+
     // Keep a ref to characters to avoid stale closures in async operations
-    const charactersRef = useRef(characters);
+    const charactersRef = useRef(safeCharacters);
     useEffect(() => {
-        charactersRef.current = characters;
-    }, [characters]);
+        charactersRef.current = safeCharacters;
+    }, [safeCharacters]);
 
     // Force migration persistence if indices changed in memo
     useEffect(() => {
@@ -170,23 +172,23 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
 
             if (hasCharacterPrefix) {
                 // If migration needed, trigger update
-                onValueChange(node.id, JSON.stringify(characters));
+                onValueChange(node.id, JSON.stringify(safeCharacters));
             }
         } catch { }
-    }, [node.value, characters, onValueChange, node.id]);
+    }, [node.value, safeCharacters, onValueChange, node.id]);
 
     // Reset drag state if characters array changes size (prevents visual glitches on remove/transfer)
     useEffect(() => {
         setDraggedCardIndex(null);
         setDropInsertionIndex(null);
         setActiveDropZone(null);
-    }, [characters.length]);
+    }, [safeCharacters.length]);
 
     const duplicateIndices = useMemo(() => {
         const counts: Record<string, number> = {};
         const duplicates = new Set<string>();
 
-        characters.forEach(char => {
+        safeCharacters.forEach(char => {
             const idx = (char.index || '').trim();
             if (idx) {
                 counts[idx] = (counts[idx] || 0) + 1;
@@ -200,7 +202,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         });
 
         return duplicates;
-    }, [characters]);
+    }, [safeCharacters]);
 
     const handleValueUpdate = useCallback((newCharacters: CharacterData[]) => {
         onValueChange(node.id, JSON.stringify(newCharacters));
@@ -217,7 +219,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     }, [handleValueUpdate]);
 
     const handleSetAsOutput = (idx: number) => {
-        const newChars = characters.map((c, i) => ({
+        const newChars = safeCharacters.map((c, i) => ({
             ...c,
             isOutput: i === idx
         }));
@@ -226,14 +228,14 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     const handleToggleActive = (idx: number) => {
-        const newChars = [...characters];
+        const newChars = [...safeCharacters];
         newChars[idx] = { ...newChars[idx], isActive: !newChars[idx].isActive };
         handleValueUpdate(newChars);
     };
 
     const handleCardDragStart = (e: React.DragEvent, index: number) => {
         setDraggedCardIndex(index);
-        const char = characters[index];
+        const char = safeCharacters[index];
         const fullSources: Record<string, string | null> = { ...char.thumbnails };
         Object.entries(RATIO_INDICES).forEach(([ratio, idx]) => {
             const fullRes = getFullSizeImage(node.id, (index * 10) + idx);
@@ -310,14 +312,14 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             if (dragData.type !== 'prompt-modifier-character-card-transfer') return;
 
             const { sourceNodeId, sourceIndex, character } = dragData;
-            const insertionIndex = targetIndex !== null ? targetIndex : characters.length;
+            const insertionIndex = targetIndex !== null ? targetIndex : safeCharacters.length;
 
             // --- INTERNAL REORDER ---
             if (sourceNodeId === node.id) {
                 // If dropping adjacent to self, do nothing
                 if (sourceIndex === insertionIndex || sourceIndex === insertionIndex - 1) return;
 
-                const newChars = [...characters];
+                const newChars = [...safeCharacters];
                 const [moved] = newChars.splice(sourceIndex, 1);
                 let adjustedTarget = insertionIndex;
                 // If moving from a lower index to higher index, the target index shifts down by 1 after removal
@@ -327,17 +329,17 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
 
                 // Re-map Cache Indices
                 const tempCache: Record<number, string> = {};
-                characters.forEach((_, i) => {
+                safeCharacters.forEach((_, i) => {
                     for (let j = 0; j < 10; j++) {
                         const img = getFullSizeImage(node.id, (i * 10) + j);
                         if (img) tempCache[(i * 10) + j] = img;
                     }
                 });
 
-                for (let i = 0; i < characters.length * 10; i++) setFullSizeImage(node.id, i, null as any);
+                for (let i = 0; i < safeCharacters.length * 10; i++) setFullSizeImage(node.id, i, null as any);
 
                 newChars.forEach((char, newIdx) => {
-                    const oldIdx = characters.findIndex(c => c.id === char.id);
+                    const oldIdx = safeCharacters.findIndex(c => c.id === char.id);
                     if (oldIdx !== -1) {
                         for (let j = 0; j < 10; j++) {
                             const img = tempCache[(oldIdx * 10) + j];
@@ -350,7 +352,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             }
             // --- EXTERNAL TRANSFER ---
             else {
-                const newChars = [...characters];
+                const newChars = [...safeCharacters];
                 // Remove default empty card if it's the only one and has no data
                 if (newChars.length === 1 && !newChars[0].name && !newChars[0].image && !newChars[0].prompt) {
                     newChars.splice(0, 1);
@@ -459,15 +461,15 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
 
         // Calculate next "New Entity N" name
         let nextNameIndex = 1;
-        const existingNames = new Set(characters.map(c => c.name));
+        const existingNames = new Set(safeCharacters.map(c => c.name));
         while (existingNames.has(`New Character ${nextNameIndex}`)) {
             nextNameIndex++;
         }
 
-        const newChars = [...characters, {
+        const newChars = [...safeCharacters, {
             id: `char-card-${Date.now()}`,
             name: `New Character ${nextNameIndex}`,
-            index: `Entity-${characters.length + 1}`, image: null,
+            index: `Entity-${safeCharacters.length + 1}`, image: null,
             thumbnails: { '1:1': null, '16:9': null, '9:16': null },
             selectedRatio: '1:1', prompt: '', fullDescription: '',
             targetLanguage: 'en',
@@ -490,7 +492,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     const handleRemoveCard = (index: number) => {
-        if (characters.length <= 1) {
+        if (safeCharacters.length <= 1) {
             handleValueUpdate([{
                 id: `char-card-${Date.now()}`,
                 name: 'New Entity 1', index: 'Entity-1', image: null,
@@ -506,15 +508,15 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             }]);
             return;
         }
-        for (let i = index; i < characters.length - 1; i++) {
+        for (let i = index; i < safeCharacters.length - 1; i++) {
             for (let j = 0; j < 10; j++) {
                 const nextImg = getFullSizeImage(node.id, ((i + 1) * 10) + j);
                 setFullSizeImage(node.id, (i * 10) + j, nextImg || (null as any));
             }
         }
-        const lastIdx = characters.length - 1;
+        const lastIdx = safeCharacters.length - 1;
         for (let j = 0; j < 10; j++) setFullSizeImage(node.id, (lastIdx * 10) + j, null as any);
-        const newChars = characters.filter((_, i) => i !== index);
+        const newChars = safeCharacters.filter((_, i) => i !== index);
 
         if (!newChars.some(c => c.isOutput)) {
             newChars[0].isOutput = true;
@@ -533,7 +535,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     const handleCopySpecificCard = async (cardIdx: number) => {
-        const char = characters[cardIdx];
+        const char = safeCharacters[cardIdx];
         const fullSources: Record<string, string | null> = { ...char.thumbnails };
         Object.entries(RATIO_INDICES).forEach(([ratio, idx]) => {
             const fullRes = getFullSizeImage(node.id, (cardIdx * 10) + idx);
@@ -576,6 +578,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                     }
                     processedSources[ratio] = src;
                 }
+
+                const newThumbnails: Record<string, string | null> = { '1:1': null, '16:9': null, '9:16': null };
 
                 for (const [ratio, src] of Object.entries(processedSources)) {
                     if (typeof src === 'string' && src.startsWith('data:')) {
@@ -827,7 +831,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             <ImageEditorModal isOpen={isEditorOpen} onClose={() => { setIsEditorOpen(false); }} onApply={img => processNewImage(editingCardIndex, img)} imageSrc={editorImageSrc} />
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
 
-            {characters.map((char, idx) => (
+            {safeCharacters.map((char, idx) => (
                 <React.Fragment key={char.id}>
                     <DropZone
                         index={idx}
@@ -910,7 +914,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             ))}
 
             <DropZone
-                index={characters.length}
+                index={safeCharacters.length}
                 activeDropZone={activeDropZone}
                 onDragOver={handleZoneDragOver}
                 onDrop={handleDrop}

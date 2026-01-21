@@ -1,292 +1,25 @@
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Toast, ToastType, LineStyle, Point, DraggingInfo, SmartGuide, ActiveOperation, DockMode, Tool, NodeType, GlobalMediaState, Theme, LogEntry, LogLevel } from '../types';
-import { useLanguage } from '../localization';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode } from '../types';
 
-export const useGlobalState = (nodes: any[]) => {
-    const { t } = useLanguage();
-
-    // UI State
-    const [showWelcome, setShowWelcome] = useState(true);
+export const useGlobalState = (currentNodes: Node[]) => {
+    // Toasts
     const [toasts, setToasts] = useState<Toast[]>([]);
     const toastIdCounter = useRef(0);
-    const [isSnapToGrid, setIsSnapToGrid] = useState(false);
-    const [lineStyle, setLineStyle] = useState<LineStyle>('orthogonal');
-    const [spawnLine, setSpawnLine] = useState<{ start: Point; end: Point; fading: boolean; } | null>(null);
-    const [activeTool, setActiveTool] = useState<Tool>('edit');
-    const [draggingInfo, setDraggingInfo] = useState<DraggingInfo | null>(null);
-    const [error, setErrorState] = useState<string | null>(null);
-    const [fullSizeImageCache, setFullSizeImageCache] = useState<Record<string, Record<number, string>>>({});
-    const [clearSelectionsSignal, setClearSelectionsSignal] = useState(0);
-    const [globalImageEditor, setGlobalImageEditor] = useState<{ src: string } | null>(null);
-    const [isSmartGuidesEnabled, setIsSmartGuidesEnabled] = useState(false);
-    const [smartGuides, setSmartGuides] = useState<SmartGuide[]>([]);
-    const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
-    const [isInstantCloseEnabled, setIsInstantCloseEnabled] = useState(false);
-    const [isHoverHighlightEnabled, setIsHoverHighlightEnabled] = useState(true);
-    const [nodeAnimationMode, setNodeAnimationMode] = useState<string>('pulse');
-    const [dockHoverMode, setDockHoverMode] = useState<DockMode | null>(null);
-    const [isDockingMenuVisible, setIsDockingMenuVisible] = useState(false);
-    const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
 
-    // Debug Logs
-    const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [isDebugConsoleOpen, setIsDebugConsoleOpen] = useState(false);
-
-    // Connection Settings
-    const [isConnectionAnimationEnabled, setIsConnectionAnimationEnabled] = useState(true);
-    const [connectionOpacity, setConnectionOpacity] = useState(0.4);
-
-    // NEW: Theme State
-    const [currentTheme, setCurrentTheme] = useState<Theme>('cyan');
-
-    // NEW: Global Media State (for background play)
-    const [globalMedia, setGlobalMedia] = useState<GlobalMediaState | null>(null);
-
-    // Active Operations Tracking
-    const [activeOperations, setActiveOperations] = useState<Map<string, ActiveOperation>>(new Map());
-
-    useEffect(() => {
-        const storedInstant = localStorage.getItem('settings_instantNodeClose');
-        setIsInstantCloseEnabled(storedInstant === 'true');
-
-        const storedHoverHighlight = localStorage.getItem('settings_hoverHighlight');
-        if (storedHoverHighlight !== null) {
-            setIsHoverHighlightEnabled(storedHoverHighlight === 'true');
-        }
-
-        const storedConnAnim = localStorage.getItem('settings_connectionAnimation');
-        if (storedConnAnim !== null) {
-            setIsConnectionAnimationEnabled(storedConnAnim === 'true');
-        }
-
-        const storedConnOpacity = localStorage.getItem('settings_connectionOpacity');
-        if (storedConnOpacity !== null) {
-            const parsed = parseFloat(storedConnOpacity);
-            if (!isNaN(parsed)) setConnectionOpacity(parsed);
-        }
-
-        const storedAnimMode = localStorage.getItem('settings_nodeAnimationMode');
-        // Handle legacy boolean migration if necessary, default to 'pulse' if not set
-        if (storedAnimMode) {
-            setNodeAnimationMode(storedAnimMode);
-        } else {
-            // Check legacy boolean
-            const legacyAnim = localStorage.getItem('settings_nodeAnimation');
-            if (legacyAnim === 'false') {
-                setNodeAnimationMode('none');
-            } else {
-                setNodeAnimationMode('pulse');
-            }
-        }
-
-        // Initialize Theme from storage or default
-        const storedTheme = localStorage.getItem('settings_theme') as Theme;
-        if (storedTheme && ['cyan', 'orange', 'pink', 'gray'].includes(storedTheme)) {
-            setCurrentTheme(storedTheme);
-        }
-    }, []);
-
-    // Effect to apply theme to document body
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        localStorage.setItem('settings_theme', currentTheme);
-    }, [currentTheme]);
-
-    const setTheme = useCallback((theme: Theme) => {
-        setCurrentTheme(theme);
-    }, []);
-
-    const setConnectionAnimation = useCallback((enabled: boolean) => {
-        setIsConnectionAnimationEnabled(enabled);
-        localStorage.setItem('settings_connectionAnimation', String(enabled));
-    }, []);
-
-    const setOpacity = useCallback((opacity: number) => {
-        setConnectionOpacity(opacity);
-        localStorage.setItem('settings_connectionOpacity', String(opacity));
-    }, []);
-
-    const addToast = useCallback((message: string, type: ToastType = 'success') => {
+    const addToast = useCallback((message: string, type: ToastType = 'info') => {
         const id = toastIdCounter.current++;
-        setToasts(current => [...current, { id, message, type }]);
+        setToasts(prev => [...prev, { id, message, type }]);
         setTimeout(() => {
-            setToasts(current => current.filter(t => t.id !== id));
+            setToasts(prev => prev.filter(t => t.id !== id));
         }, 3000);
     }, []);
 
-    // Enhanced Logging
-    const addLog = useCallback((level: LogLevel, message: string, details?: any) => {
-        setLogs(prev => {
-            const newEntry: LogEntry = {
-                id: `log-${Date.now()}-${Math.random()}`,
-                timestamp: Date.now(),
-                level,
-                message,
-                details
-            };
-            // Keep last 100 logs
-            const updated = [newEntry, ...prev];
-            return updated.slice(0, 100);
-        });
-
-        // Auto-open console on error if critical
-        if (level === 'error') {
-            // Optional: setIsDebugConsoleOpen(true); 
-        }
-    }, []);
-
-    const clearLogs = useCallback(() => {
-        setLogs([]);
-    }, []);
-
-    // Intercept setError to log it
-    const setError = useCallback((msg: string | null) => {
-        setErrorState(msg);
-        if (msg) {
-            // Attempt to parse if it looks like JSON to store details separately
-            if (msg.trim().startsWith('{') || msg.trim().includes('{"error":')) {
-                try {
-                    // Extract JSON part if mixed with text
-                    const jsonStart = msg.indexOf('{');
-                    const jsonEnd = msg.lastIndexOf('}');
-                    if (jsonStart !== -1 && jsonEnd !== -1) {
-                        const jsonStr = msg.substring(jsonStart, jsonEnd + 1);
-                        const parsed = JSON.parse(jsonStr);
-                        const textMsg = msg.substring(0, jsonStart).trim() || parsed.error?.message || "API Error";
-                        addLog('error', textMsg, parsed);
-                        return;
-                    }
-                } catch { }
-            }
-            addLog('error', msg);
-        }
-    }, [addLog]);
-
-    // Initialize Global Error Listeners & Console Override
-    useEffect(() => {
-        // Safe stringify helper to avoid circular reference errors in logs
-        const safeStringify = (obj: any) => {
-            try {
-                return JSON.parse(JSON.stringify(obj, (key, value) => {
-                    if (key === 'children' || key === 'internalInstance' || key === '_owner') return '[React Internal]';
-                    return value;
-                }));
-            } catch {
-                return '[Circular/Unserializable]';
-            }
-        };
-
-        const originalConsole = {
-            log: console.log,
-            info: console.info,
-            warn: console.warn,
-            error: console.error
-        };
-
-        const formatArgs = (args: any[]) => {
-            return args.map(arg => {
-                if (typeof arg === 'object') return safeStringify(arg);
-                return String(arg);
-            }).join(' ');
-        };
-
-        // 1. Console Overrides
-        console.log = (...args) => {
-            originalConsole.log(...args);
-            // Optional: Don't flood valid logs, or filter specific overly verbose ones
-            addLog('info', formatArgs(args));
-        };
-        console.info = (...args) => {
-            originalConsole.info(...args);
-            addLog('info', formatArgs(args));
-        };
-        console.warn = (...args) => {
-            originalConsole.warn(...args);
-            addLog('warning', formatArgs(args));
-        };
-        console.error = (...args) => {
-            originalConsole.error(...args);
-            addLog('error', formatArgs(args));
-        };
-
-        // 2. Window Error Listener
-        const handleWindowError = (event: ErrorEvent) => {
-            addLog('error', `Uncaught Exception: ${event.message}`, {
-                filename: event.filename,
-                lineno: event.lineno,
-                colno: event.colno,
-                error: event.error ? event.error.stack : undefined
-            });
-        };
-        window.addEventListener('error', handleWindowError);
-
-        // 3. Unhandled Rejection Listener
-        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-            addLog('error', `Unhandled Promise Rejection: ${event.reason}`, {
-                reason: event.reason
-            });
-        };
-        window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-        // 4. Fetch Interceptor for Network Errors
-        const originalFetch = window.fetch;
-        window.fetch = async (...args) => {
-            try {
-                const response = await originalFetch(...args);
-                if (!response.ok) {
-                    addLog('error', `Network Request Failed: ${response.status} ${response.statusText}`, {
-                        url: args[0],
-                        status: response.status
-                    });
-                }
-                return response;
-            } catch (error: any) {
-                addLog('error', `Network Error: ${error.message}`, {
-                    url: args[0],
-                    error: error
-                });
-                throw error;
-            }
-        };
-
-        return () => {
-            // Restore originals
-            console.log = originalConsole.log;
-            console.info = originalConsole.info;
-            console.warn = originalConsole.warn;
-            console.error = originalConsole.error;
-            window.removeEventListener('error', handleWindowError);
-            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-            window.fetch = originalFetch;
-        };
-    }, [addLog]);
-
-    const registerOperation = useCallback((op: ActiveOperation) => {
-        setActiveOperations(prev => {
-            const newMap = new Map(prev);
-            newMap.set(op.id, op);
-            return newMap;
-        });
-    }, []);
-
-    const unregisterOperation = useCallback((id: string) => {
-        setActiveOperations(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(id);
-            return newMap;
-        });
-    }, []);
-
-    const clearImagesForNodeFromCache = useCallback((nodeId: string) => {
-        setFullSizeImageCache(prev => {
-            const newCache = { ...prev };
-            delete newCache[nodeId];
-            return newCache;
-        });
-    }, []);
+    // Full Size Image Cache (In-Memory + React State for reactivity if needed)
+    const [fullSizeImageCache, setFullSizeImageCache] = useState<Record<string, Record<number, string>>>({});
 
     const setFullSizeImage = useCallback((nodeId: string, frameNumber: number, dataUrl: string) => {
+        // Update local state (for save/export)
         setFullSizeImageCache(prev => ({
             ...prev,
             [nodeId]: {
@@ -300,69 +33,186 @@ export const useGlobalState = (nodes: any[]) => {
         return fullSizeImageCache[nodeId]?.[frameNumber];
     }, [fullSizeImageCache]);
 
-    const clearUnusedFullSizeImages = useCallback(() => {
-        setFullSizeImageCache(prevCache => {
-            const currentNodesSet = new Set(nodes.map(n => n.id));
-            const newCache: typeof prevCache = {};
-            let clearedCount = 0;
+    const clearImagesForNodeFromCache = useCallback((nodeId: string) => {
+        setFullSizeImageCache(prev => {
+            const next = { ...prev };
+            delete next[nodeId];
+            return next;
+        });
+    }, []);
 
-            Object.keys(prevCache).forEach(nodeId => {
-                if (currentNodesSet.has(nodeId)) {
-                    newCache[nodeId] = prevCache[nodeId];
-                } else {
-                    clearedCount++;
+    const clearUnusedFullSizeImages = useCallback(() => {
+        setFullSizeImageCache(prev => {
+            const newCache: Record<string, Record<number, string>> = {};
+            currentNodes.forEach(node => {
+                if (prev[node.id]) {
+                    newCache[node.id] = prev[node.id];
                 }
             });
-
-            if (clearedCount > 0) {
-                addToast(t('toast.cacheCleared', { count: clearedCount }));
-            } else {
-                addToast(t('toast.cacheEmpty'));
-            }
+            const removedCount = Object.keys(prev).length - Object.keys(newCache).length;
+            if (removedCount > 0) addToast(`Cleared ${removedCount} unused items from cache`, 'info');
+            else addToast('Cache is already optimized', 'info');
             return newCache;
         });
-    }, [nodes, addToast, t]);
+    }, [currentNodes, addToast]);
 
-    const openGlobalImageEditor = useCallback((src: string) => {
-        setGlobalImageEditor({ src });
+    // Active Operations
+    const [activeOperations, setActiveOperations] = useState<Map<string, ActiveOperation>>(new Map());
+
+    const registerOperation = useCallback((op: ActiveOperation) => {
+        setActiveOperations(prev => new Map(prev).set(op.id, op));
     }, []);
 
-    const closeGlobalImageEditor = useCallback(() => {
-        setGlobalImageEditor(null);
+    const unregisterOperation = useCallback((id: string) => {
+        setActiveOperations(prev => {
+            const next = new Map(prev);
+            next.delete(id);
+            return next;
+        });
     }, []);
 
-    const toggleNodeFullScreen = useCallback((nodeId: string | null) => {
-        setFocusedNodeId(nodeId);
+    // Selection & Dragging
+    const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+    const [draggingInfo, setDraggingInfo] = useState<DraggingInfo | null>(null);
+
+    // Welcome Screen
+    const [showWelcome, setShowWelcome] = useState(false);
+
+    // Error
+    const [error, setError] = useState<string | null>(null);
+
+    // Global Media Player
+    const [globalMedia, setGlobalMedia] = useState<GlobalMediaState | null>(null);
+
+    // Logs & Debug Console
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [isDebugConsoleOpen, setIsDebugConsoleOpen] = useState(false);
+
+    const addLog = useCallback((level: LogLevel, message: string, details?: any) => {
+        setLogs(prev => [...prev, {
+            id: `log-${Date.now()}-${Math.random()}`,
+            timestamp: Date.now(),
+            level,
+            message,
+            details
+        }].slice(-100)); // Keep last 100 logs
     }, []);
+
+    const clearLogs = useCallback(() => setLogs([]), []);
+
+    // View Settings
+    const [isSnapToGrid, setIsSnapToGrid] = useState(false);
+    const [lineStyle, setLineStyle] = useState<LineStyle>('spaghetti');
+    const [isSmartGuidesEnabled, setIsSmartGuidesEnabled] = useState(true);
+    const [smartGuides, setSmartGuides] = useState<SmartGuide[]>([]);
+    
+    // Tools
+    const [activeTool, setActiveTool] = useState<Tool>('edit');
+    const [spawnLine, setSpawnLine] = useState<{ start: Point; end: Point; fading: boolean; } | null>(null);
+
+    // Docking
+    const [dockHoverMode, setDockHoverMode] = useState<DockMode | null>(null);
+    const [isDockingMenuVisible, setIsDockingMenuVisible] = useState(false);
+
+    // App Settings (Initialize from localStorage where appropriate)
+    const [isInstantCloseEnabled, setIsInstantCloseEnabled] = useState(() => localStorage.getItem('settings_instantNodeClose') === 'true');
+    const [isHoverHighlightEnabled, setIsHoverHighlightEnabled] = useState(() => {
+        const stored = localStorage.getItem('settings_hoverHighlight');
+        return stored === null ? true : stored === 'true';
+    });
+    const [nodeAnimationMode, setNodeAnimationMode] = useState(() => localStorage.getItem('settings_nodeAnimationMode') || 'pulse');
+    const [isConnectionAnimationEnabled, setIsConnectionAnimationEnabled] = useState(true);
+    const [connectionOpacity, setConnectionOpacity] = useState(0.4);
+
+    // Capture Console Logs
+    useEffect(() => {
+        const originalConsole = {
+            log: console.log,
+            info: console.info,
+            warn: console.warn,
+            error: console.error,
+        };
+
+        console.log = (...args) => {
+            originalConsole.log(...args);
+        };
+        
+        console.warn = (...args) => {
+            originalConsole.warn(...args);
+            addLog('warning', args.map(String).join(' '));
+        };
+
+        console.error = (...args) => {
+            originalConsole.error(...args);
+            addLog('error', args.map(String).join(' '));
+        };
+
+        const handleWindowError = (event: ErrorEvent) => {
+            addLog('error', event.message, {
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error
+            });
+        };
+        window.addEventListener('error', handleWindowError);
+
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            addLog('error', `Unhandled Promise Rejection: ${event.reason}`, {
+                reason: event.reason
+            });
+        };
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+        return () => {
+            console.log = originalConsole.log;
+            console.info = originalConsole.info;
+            console.warn = originalConsole.warn;
+            console.error = originalConsole.error;
+            window.removeEventListener('error', handleWindowError);
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+        };
+    }, [addLog]);
 
     return {
-        showWelcome, setShowWelcome,
-        toasts, addToast,
+        toasts,
+        addToast,
+        fullSizeImageCache,
+        setFullSizeImageCache,
+        setFullSizeImage,
+        getFullSizeImage,
+        clearImagesForNodeFromCache,
+        clearUnusedFullSizeImages,
+        activeOperations,
+        registerOperation,
+        unregisterOperation,
+        selectedNodeIds,
+        setSelectedNodeIds,
+        draggingInfo,
+        setDraggingInfo,
+        showWelcome,
+        setShowWelcome,
+        error,
+        setError,
+        globalMedia,
+        setGlobalMedia,
+        logs,
+        addLog,
+        clearLogs,
+        isDebugConsoleOpen,
+        setIsDebugConsoleOpen,
         isSnapToGrid, setIsSnapToGrid,
         lineStyle, setLineStyle,
-        spawnLine, setSpawnLine,
-        activeTool, setActiveTool,
-        draggingInfo, setDraggingInfo,
-        error, setError,
-        logs, addLog, clearLogs, isDebugConsoleOpen, setIsDebugConsoleOpen,
-        fullSizeImageCache, setFullSizeImageCache,
-        clearSelectionsSignal, setClearSelectionsSignal,
-        globalImageEditor, openGlobalImageEditor, closeGlobalImageEditor,
         isSmartGuidesEnabled, setIsSmartGuidesEnabled,
         smartGuides, setSmartGuides,
-        selectedNodeIds, setSelectedNodeIds,
+        activeTool, setActiveTool,
+        spawnLine, setSpawnLine,
+        dockHoverMode, setDockHoverMode,
+        isDockingMenuVisible, setIsDockingMenuVisible,
         isInstantCloseEnabled, setIsInstantCloseEnabled,
         isHoverHighlightEnabled, setIsHoverHighlightEnabled,
         nodeAnimationMode, setNodeAnimationMode,
-        dockHoverMode, setDockHoverMode,
-        isDockingMenuVisible, setIsDockingMenuVisible,
-        activeOperations, registerOperation, unregisterOperation,
-        setFullSizeImage, getFullSizeImage, clearImagesForNodeFromCache, clearUnusedFullSizeImages,
-        t,
-        focusedNodeId, toggleNodeFullScreen,
-        globalMedia, setGlobalMedia,
-        currentTheme, setTheme,
-        isConnectionAnimationEnabled, setIsConnectionAnimationEnabled: setConnectionAnimation,
-        connectionOpacity, setConnectionOpacity: setOpacity
+        isConnectionAnimationEnabled, setIsConnectionAnimationEnabled,
+        connectionOpacity, setConnectionOpacity,
     };
 };
