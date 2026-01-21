@@ -506,24 +506,9 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
     const handleToggleNodePin = (nodeId: string) => {
         setNodes(nds => nds.map(n => {
             if (n.id === nodeId) {
-                if (n.dockState) {
-                    const { dockState, ...rest } = n;
-                    return { ...rest, isPinned: false };
-                } else {
-                    return {
-                        ...n,
-                        isPinned: true,
-                        dockState: {
-                            mode: 'tr',
-                            original: {
-                                x: n.position.x,
-                                y: n.position.y,
-                                width: n.width,
-                                height: n.height
-                            }
-                        }
-                    };
-                }
+                // Simply toggle the boolean flag. 
+                // Do NOT touch dockState here. Docking is handled by handleDockNode.
+                return { ...n, isPinned: !n.isPinned };
             }
             return n;
         }));

@@ -38,7 +38,7 @@ export const getNodeStyles = (
     // --- Z-Index Hierarchy ---
     // 1000: Fullscreen / Focused (Handled above)
     // 500: Nodes inside a Group that is currently being Dragged (Active Group)
-    // 100: Pinned Nodes
+    // 100: Pinned Nodes (Always on Top in Canvas)
     // 90: Selected / Dragging Nodes (Individual)
     // 80: Hovered Nodes
     // 10: Loose Nodes (Resting)

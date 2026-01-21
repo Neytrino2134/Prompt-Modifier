@@ -102,8 +102,8 @@ export const useGlobalState = (currentNodes: Node[]) => {
 
     // View Settings
     const [isSnapToGrid, setIsSnapToGrid] = useState(false);
-    const [lineStyle, setLineStyle] = useState<LineStyle>('spaghetti');
-    const [isSmartGuidesEnabled, setIsSmartGuidesEnabled] = useState(true);
+    const [lineStyle, setLineStyle] = useState<LineStyle>('orthogonal');
+    const [isSmartGuidesEnabled, setIsSmartGuidesEnabled] = useState(false);
     const [smartGuides, setSmartGuides] = useState<SmartGuide[]>([]);
     
     // Tools
