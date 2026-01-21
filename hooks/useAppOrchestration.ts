@@ -323,7 +323,15 @@ export const useAppOrchestration = (
 
     const handleAddNodeAndConnect = useCallback((nodeType: NodeType, info: any, onClose: () => void) => {
         const { position, connectingInfo } = info;
-        const newNodeId = entityActionsHook.onAddNode(nodeType, position);
+        const { scale, translate } = canvasHook.viewTransform;
+
+        const worldPos = {
+            x: (position.x - translate.x) / scale,
+            y: (position.y - translate.y) / scale
+        };
+
+        // Use alignToInput: true to place node to the right of cursor (x = cursor.x) and vertically centered
+        const newNodeId = entityActionsHook.onAddNode(nodeType, worldPos, undefined, { alignToInput: true });
 
         // Auto-connect
         const targetNode = nodes.find(n => n.id === newNodeId); // It won't be in 'nodes' yet due to closure, but we know its ID
@@ -360,6 +368,11 @@ export const useAppOrchestration = (
 
         // Generic fallback for Data Reader / Reroute
         if (nodeType === NodeType.DATA_READER || nodeType === NodeType.REROUTE_DOT) targetHandleId = undefined;
+
+        // Apply coloring for Reroute Dot
+        if (nodeType === NodeType.REROUTE_DOT) {
+            nodesHook.handleValueChange(newNodeId, JSON.stringify({ type: connectingInfo.fromType, direction: 'LR' }));
+        }
 
         connectionsHook.addConnection({
             fromNodeId: connectingInfo.fromNodeId,

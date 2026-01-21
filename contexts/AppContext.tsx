@@ -32,6 +32,7 @@ import { useGlobalState } from '../hooks/useGlobalState';
 import { useAppOrchestration } from '../hooks/useAppOrchestration';
 import { useTutorial } from '../hooks/useTutorial';
 import { addMetadataToPNG } from '../utils/pngMetadata';
+import { getConnectionPoints, getOutputHandleType, getMinNodeSize } from '../utils/nodeUtils';
 
 const AppContext = createContext<AppContextType | null>(null);
 
@@ -479,6 +480,60 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     }, [getUpstreamNodeValues, nodesHook.handleValueChange]);
 
+    const handleSplitConnection = useCallback((connectionId: string) => {
+        const connection = connectionsHook.connections.find(c => c.id === connectionId);
+        if (!connection) return;
+
+        const fromNode = nodesHook.nodes.find(n => n.id === connection.fromNodeId);
+        const toNode = nodesHook.nodes.find(n => n.id === connection.toNodeId);
+        if (!fromNode || !toNode) return;
+
+        // Calculate Midpoint
+        const { start, end } = getConnectionPoints(fromNode, toNode, connection);
+
+        const { minWidth, minHeight } = getMinNodeSize(NodeType.REROUTE_DOT);
+        const midPoint = {
+            x: (start.x + end.x) / 2 - (minWidth / 2),
+            y: (start.y + end.y) / 2 - (minHeight / 2)
+        };
+
+        // Determine Connection Type
+        const fromType = getOutputHandleType(fromNode, connection.fromHandleId);
+
+        // Create Reroute Dot
+        const newNodeId = entityActionsHook.onAddNode(NodeType.REROUTE_DOT, midPoint);
+
+        // Apply Type for Color
+        const newValue = JSON.stringify({ type: fromType, direction: 'LR' });
+        nodesHook.handleValueChange(newNodeId, newValue);
+
+        // Update Connections
+        connectionsHook.setConnections(prev => {
+            // Remove old connection
+            const filtered = prev.filter(c => c.id !== connectionId);
+
+            // Add two new connections
+            const conn1 = {
+                id: `conn-split-1-${Date.now()}`,
+                fromNodeId: connection.fromNodeId,
+                fromHandleId: connection.fromHandleId,
+                toNodeId: newNodeId,
+                toHandleId: undefined // Reroute input is generic
+            };
+
+            const conn2 = {
+                id: `conn-split-2-${Date.now()}`,
+                fromNodeId: newNodeId,
+                fromHandleId: undefined, // Reroute output is generic
+                toNodeId: connection.toNodeId,
+                toHandleId: connection.toHandleId
+            };
+
+            return [...filtered, conn1, conn2];
+        });
+
+    }, [connectionsHook, nodesHook, entityActionsHook]);
+
     const handleNavigateToNodeFrame = useCallback((nodeId: string, frameNumber: number) => {
         const targetNode = nodesRef.current.find(n => n.id === nodeId);
         if (!targetNode) return;
@@ -567,6 +622,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleLoadFromExternal: canvasIOHook.handleLoadFromExternal, // Export new method
 
             handleNavigateToNodeFrame,
+            handleSplitConnection,
 
             replaceAllItems: libReplaceAll,
             importItemsData: libImport,
@@ -643,7 +699,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiModificationHook.handleUpdateCharacterPersonality, geminiModificationHook.isUpdatingPersonality,
         geminiModificationHook.handleUpdateCharacterAppearance, geminiModificationHook.isUpdatingAppearance,
         geminiModificationHook.handleUpdateCharacterClothing, geminiModificationHook.isUpdatingClothing,
-        onDownloadImageFromUrl, onCopyImageToClipboard, handleNavigateToNodeFrame
+        onDownloadImageFromUrl, onCopyImageToClipboard, handleNavigateToNodeFrame, handleSplitConnection
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
