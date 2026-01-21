@@ -71,6 +71,7 @@ interface CharacterCardItemProps {
     onUpdateAppearance: () => void;
 
     // Clothing Update
+    // Clothing Update
     isUpdatingClothing: string | null;
     onUpdateClothing: () => void;
 
@@ -82,6 +83,7 @@ interface CharacterCardItemProps {
     modificationRequest: string;
     setModificationRequest: (val: string) => void;
     hasDuplicateIndex?: boolean; // New prop for duplicate validation
+    onCopyIndex: () => void;
 }
 
 // Optimized width to fit node (380px card as requested)
@@ -116,7 +118,7 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
     isUpdatingAppearance, onUpdateAppearance,
     isUpdatingClothing, onUpdateClothing,
     transformingRatio, isGeneratingImage, isUpdatingCharacterPrompt, modificationRequest, setModificationRequest,
-    hasDuplicateIndex
+    hasDuplicateIndex, onCopyIndex
 }) => {
 
     const [isDragOver, setIsDragOver] = useState(false);
@@ -202,6 +204,7 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                         onFocus={deselectAllNodes}
                         readOnly={true}
                         className={`w-28 shrink-0 ${hasDuplicateIndex ? 'border-red-500 hover:border-red-500' : ''}`}
+                        onCopy={onCopyIndex}
                     />
                 </div>
 
@@ -218,8 +221,8 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                                     onClick={(e) => { e.stopPropagation(); onRatioChange(r); }}
                                     onDragEnter={(e) => { e.stopPropagation(); onRatioChange(r); }}
                                     className={`px-3 py-1 text-[10px] font-bold outline-none transition-colors rounded-t-md ${char.selectedRatio === r
-                                            ? 'bg-gray-700/50 text-white h-full shadow-none'
-                                            : 'bg-gray-900/40 text-gray-500 h-[80%] hover:bg-gray-700/50 hover:text-gray-300'
+                                        ? 'bg-gray-700/50 text-white h-full shadow-none'
+                                        : 'bg-gray-900/40 text-gray-500 h-[80%] hover:bg-gray-700/50 hover:text-gray-300'
                                         }`}
                                 >
                                     {r}
@@ -366,8 +369,8 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                                             key={l.code + idx}
                                             onClick={(e) => { e.stopPropagation(); onUpdate({ targetLanguage: l.code }); }}
                                             className={`h-full w-8 rounded text-[10px] font-bold transition-colors flex items-center justify-center border ${char.targetLanguage === l.code
-                                                    ? 'bg-accent text-white border-accent'
-                                                    : 'bg-gray-900/60 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700'
+                                                ? 'bg-accent text-white border-accent'
+                                                : 'bg-gray-900/60 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700'
                                                 }`}
                                         >
                                             {l.label}

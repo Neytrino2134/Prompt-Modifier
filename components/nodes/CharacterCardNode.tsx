@@ -31,8 +31,8 @@ const DropZone: React.FC<{
         >
             <div
                 className={`h-[90%] rounded-full transition-all duration-200 pointer-events-none ${activeDropZone === index
-                        ? 'w-1 bg-accent shadow-[0_0_10px_var(--color-accent)] opacity-100 scale-y-100'
-                        : 'w-[1px] bg-gray-700/30 opacity-50 scale-y-90'
+                    ? 'w-1 bg-accent shadow-[0_0_10px_var(--color-accent)] opacity-100 scale-y-100'
+                    : 'w-[1px] bg-gray-700/30 opacity-50 scale-y-90'
                     }`}
             />
         </div>
@@ -901,6 +901,10 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         modificationRequest={modificationRequests[idx] || ''}
                         setModificationRequest={(val) => setModificationRequests(prev => ({ ...prev, [idx]: val }))}
                         hasDuplicateIndex={duplicateIndices.has((char.index || '').trim())}
+                        onCopyIndex={() => {
+                            navigator.clipboard.writeText(`[${char.index}]`);
+                            if (addToast) addToast(t('toast.copiedToClipboard'), 'success');
+                        }}
                     />
                 </React.Fragment>
             ))}
