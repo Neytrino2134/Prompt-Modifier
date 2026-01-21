@@ -235,6 +235,7 @@ export const nodes = {
     'node.content.fullDescriptionTitle': 'Полное описание персонажа',
     'node.content.integrationInstruction': 'Инструкция интеграции',
     'node.content.additionalPromptSuffix': 'Доп. Промпт (Суффикс)',
+    'node.content.suffix': 'Суффикс',
     'node.content.insertSceneContext': 'Вставлять окружение сцены',
     'node.content.modificationRequest': 'Запрос на модификацию',
     'search.node.text_input.title': 'Текстовый ввод',

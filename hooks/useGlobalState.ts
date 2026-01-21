@@ -5,9 +5,9 @@ import { useLanguage } from '../localization';
 
 export const useGlobalState = (nodes: any[]) => {
     const { t } = useLanguage();
-    
+
     // UI State
-    const [showWelcome, setShowWelcome] = useState(true); 
+    const [showWelcome, setShowWelcome] = useState(true);
     const [toasts, setToasts] = useState<Toast[]>([]);
     const toastIdCounter = useRef(0);
     const [isSnapToGrid, setIsSnapToGrid] = useState(false);
@@ -23,16 +23,16 @@ export const useGlobalState = (nodes: any[]) => {
     const [smartGuides, setSmartGuides] = useState<SmartGuide[]>([]);
     const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
     const [isInstantCloseEnabled, setIsInstantCloseEnabled] = useState(false);
-    const [isHoverHighlightEnabled, setIsHoverHighlightEnabled] = useState(true); 
-    const [nodeAnimationMode, setNodeAnimationMode] = useState<string>('pulse'); 
+    const [isHoverHighlightEnabled, setIsHoverHighlightEnabled] = useState(true);
+    const [nodeAnimationMode, setNodeAnimationMode] = useState<string>('pulse');
     const [dockHoverMode, setDockHoverMode] = useState<DockMode | null>(null);
     const [isDockingMenuVisible, setIsDockingMenuVisible] = useState(false);
     const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-    
+
     // Debug Logs
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [isDebugConsoleOpen, setIsDebugConsoleOpen] = useState(false);
-    
+
     // Connection Settings
     const [isConnectionAnimationEnabled, setIsConnectionAnimationEnabled] = useState(true);
     const [connectionOpacity, setConnectionOpacity] = useState(0.4);
@@ -42,7 +42,7 @@ export const useGlobalState = (nodes: any[]) => {
 
     // NEW: Global Media State (for background play)
     const [globalMedia, setGlobalMedia] = useState<GlobalMediaState | null>(null);
-    
+
     // Active Operations Tracking
     const [activeOperations, setActiveOperations] = useState<Map<string, ActiveOperation>>(new Map());
 
@@ -54,7 +54,7 @@ export const useGlobalState = (nodes: any[]) => {
         if (storedHoverHighlight !== null) {
             setIsHoverHighlightEnabled(storedHoverHighlight === 'true');
         }
-        
+
         const storedConnAnim = localStorage.getItem('settings_connectionAnimation');
         if (storedConnAnim !== null) {
             setIsConnectionAnimationEnabled(storedConnAnim === 'true');
@@ -69,17 +69,17 @@ export const useGlobalState = (nodes: any[]) => {
         const storedAnimMode = localStorage.getItem('settings_nodeAnimationMode');
         // Handle legacy boolean migration if necessary, default to 'pulse' if not set
         if (storedAnimMode) {
-             setNodeAnimationMode(storedAnimMode);
+            setNodeAnimationMode(storedAnimMode);
         } else {
-             // Check legacy boolean
-             const legacyAnim = localStorage.getItem('settings_nodeAnimation');
-             if (legacyAnim === 'false') {
-                 setNodeAnimationMode('none');
-             } else {
-                 setNodeAnimationMode('pulse');
-             }
+            // Check legacy boolean
+            const legacyAnim = localStorage.getItem('settings_nodeAnimation');
+            if (legacyAnim === 'false') {
+                setNodeAnimationMode('none');
+            } else {
+                setNodeAnimationMode('pulse');
+            }
         }
-        
+
         // Initialize Theme from storage or default
         const storedTheme = localStorage.getItem('settings_theme') as Theme;
         if (storedTheme && ['cyan', 'orange', 'pink', 'gray'].includes(storedTheme)) {
@@ -96,7 +96,7 @@ export const useGlobalState = (nodes: any[]) => {
     const setTheme = useCallback((theme: Theme) => {
         setCurrentTheme(theme);
     }, []);
-    
+
     const setConnectionAnimation = useCallback((enabled: boolean) => {
         setIsConnectionAnimationEnabled(enabled);
         localStorage.setItem('settings_connectionAnimation', String(enabled));
@@ -129,7 +129,7 @@ export const useGlobalState = (nodes: any[]) => {
             const updated = [newEntry, ...prev];
             return updated.slice(0, 100);
         });
-        
+
         // Auto-open console on error if critical
         if (level === 'error') {
             // Optional: setIsDebugConsoleOpen(true); 
@@ -151,16 +151,115 @@ export const useGlobalState = (nodes: any[]) => {
                     const jsonStart = msg.indexOf('{');
                     const jsonEnd = msg.lastIndexOf('}');
                     if (jsonStart !== -1 && jsonEnd !== -1) {
-                         const jsonStr = msg.substring(jsonStart, jsonEnd + 1);
-                         const parsed = JSON.parse(jsonStr);
-                         const textMsg = msg.substring(0, jsonStart).trim() || parsed.error?.message || "API Error";
-                         addLog('error', textMsg, parsed);
-                         return;
+                        const jsonStr = msg.substring(jsonStart, jsonEnd + 1);
+                        const parsed = JSON.parse(jsonStr);
+                        const textMsg = msg.substring(0, jsonStart).trim() || parsed.error?.message || "API Error";
+                        addLog('error', textMsg, parsed);
+                        return;
                     }
-                } catch {}
+                } catch { }
             }
             addLog('error', msg);
         }
+    }, [addLog]);
+
+    // Initialize Global Error Listeners & Console Override
+    useEffect(() => {
+        // Safe stringify helper to avoid circular reference errors in logs
+        const safeStringify = (obj: any) => {
+            try {
+                return JSON.parse(JSON.stringify(obj, (key, value) => {
+                    if (key === 'children' || key === 'internalInstance' || key === '_owner') return '[React Internal]';
+                    return value;
+                }));
+            } catch {
+                return '[Circular/Unserializable]';
+            }
+        };
+
+        const originalConsole = {
+            log: console.log,
+            info: console.info,
+            warn: console.warn,
+            error: console.error
+        };
+
+        const formatArgs = (args: any[]) => {
+            return args.map(arg => {
+                if (typeof arg === 'object') return safeStringify(arg);
+                return String(arg);
+            }).join(' ');
+        };
+
+        // 1. Console Overrides
+        console.log = (...args) => {
+            originalConsole.log(...args);
+            // Optional: Don't flood valid logs, or filter specific overly verbose ones
+            addLog('info', formatArgs(args));
+        };
+        console.info = (...args) => {
+            originalConsole.info(...args);
+            addLog('info', formatArgs(args));
+        };
+        console.warn = (...args) => {
+            originalConsole.warn(...args);
+            addLog('warning', formatArgs(args));
+        };
+        console.error = (...args) => {
+            originalConsole.error(...args);
+            addLog('error', formatArgs(args));
+        };
+
+        // 2. Window Error Listener
+        const handleWindowError = (event: ErrorEvent) => {
+            addLog('error', `Uncaught Exception: ${event.message}`, {
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error ? event.error.stack : undefined
+            });
+        };
+        window.addEventListener('error', handleWindowError);
+
+        // 3. Unhandled Rejection Listener
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            addLog('error', `Unhandled Promise Rejection: ${event.reason}`, {
+                reason: event.reason
+            });
+        };
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+        // 4. Fetch Interceptor for Network Errors
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            try {
+                const response = await originalFetch(...args);
+                if (!response.ok) {
+                    addLog('error', `Network Request Failed: ${response.status} ${response.statusText}`, {
+                        url: args[0],
+                        status: response.status
+                    });
+                }
+                return response;
+            } catch (error: any) {
+                addLog('error', `Network Error: ${error.message}`, {
+                    url: args[0],
+                    error: error
+                });
+                throw error;
+            }
+        };
+
+        return () => {
+            // Restore originals
+            console.log = originalConsole.log;
+            console.info = originalConsole.info;
+            console.warn = originalConsole.warn;
+            console.error = originalConsole.error;
+            window.removeEventListener('error', handleWindowError);
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+            window.fetch = originalFetch;
+        };
     }, [addLog]);
 
     const registerOperation = useCallback((op: ActiveOperation) => {
@@ -181,7 +280,7 @@ export const useGlobalState = (nodes: any[]) => {
 
     const clearImagesForNodeFromCache = useCallback((nodeId: string) => {
         setFullSizeImageCache(prev => {
-            const newCache = {...prev};
+            const newCache = { ...prev };
             delete newCache[nodeId];
             return newCache;
         });
@@ -196,7 +295,7 @@ export const useGlobalState = (nodes: any[]) => {
             }
         }));
     }, []);
-    
+
     const getFullSizeImage = useCallback((nodeId: string, frameNumber: number) => {
         return fullSizeImageCache[nodeId]?.[frameNumber];
     }, [fullSizeImageCache]);
@@ -237,7 +336,7 @@ export const useGlobalState = (nodes: any[]) => {
     }, []);
 
     return {
-        showWelcome, setShowWelcome, 
+        showWelcome, setShowWelcome,
         toasts, addToast,
         isSnapToGrid, setIsSnapToGrid,
         lineStyle, setLineStyle,

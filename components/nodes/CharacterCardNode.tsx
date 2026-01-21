@@ -15,9 +15,9 @@ const NODE_WIDTH_STEP = 410;
 const BASE_WIDTH_OFFSET = 90; // Reduced from 110 to fit tighter layout
 
 // Extracted DropZone component to prevent re-renders of the entire node content
-const DropZone: React.FC<{ 
-    index: number; 
-    activeDropZone: number | null; 
+const DropZone: React.FC<{
+    index: number;
+    activeDropZone: number | null;
     onDragOver: (e: React.DragEvent, index: number) => void;
     onDrop: (e: React.DragEvent) => void;
     onDragLeave: () => void;
@@ -29,29 +29,28 @@ const DropZone: React.FC<{
             onDragLeave={onDragLeave}
             onDrop={onDrop}
         >
-            <div 
-                className={`h-[90%] rounded-full transition-all duration-200 pointer-events-none ${
-                    activeDropZone === index 
-                        ? 'w-1 bg-accent shadow-[0_0_10px_var(--color-accent)] opacity-100 scale-y-100' 
+            <div
+                className={`h-[90%] rounded-full transition-all duration-200 pointer-events-none ${activeDropZone === index
+                        ? 'w-1 bg-accent shadow-[0_0_10px_var(--color-accent)] opacity-100 scale-y-100'
                         : 'w-[1px] bg-gray-700/30 opacity-50 scale-y-90'
-                }`} 
+                    }`}
             />
         </div>
     );
 });
 
-export const CharacterCardNode: React.FC<NodeContentProps> = ({ 
-    node, 
-    onValueChange, 
-    onSaveCharacterCard, 
-    onLoadCharacterCard, 
-    t, 
-    deselectAllNodes, 
-    onSaveCharacterToCatalog, 
-    setFullSizeImage, 
-    getFullSizeImage, 
-    setImageViewer, 
-    onCopyImageToClipboard, 
+export const CharacterCardNode: React.FC<NodeContentProps> = ({
+    node,
+    onValueChange,
+    onSaveCharacterCard,
+    onLoadCharacterCard,
+    t,
+    deselectAllNodes,
+    onSaveCharacterToCatalog,
+    setFullSizeImage,
+    getFullSizeImage,
+    setImageViewer,
+    onCopyImageToClipboard,
     onDownloadImage,
     addToast,
     onUpdateCharacterDescription,
@@ -67,14 +66,14 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     onDeleteNode
 }) => {
     const context = useAppContext();
-    const { 
-        setNodes, 
-        setSelectedNodeIds, 
-        handleUpdateCharacterPromptFromImage, 
-        isUpdatingCharacterPrompt, 
-        handleUpdateCharacterPersonality, 
+    const {
+        setNodes,
+        setSelectedNodeIds,
+        handleUpdateCharacterPromptFromImage,
+        isUpdatingCharacterPrompt,
+        handleUpdateCharacterPersonality,
         isUpdatingPersonality,
-        handleUpdateCharacterAppearance, 
+        handleUpdateCharacterAppearance,
         isUpdatingAppearance,
         handleUpdateCharacterClothing,
         isUpdatingClothing
@@ -91,7 +90,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
 
     const [draggedCardIndex, setDraggedCardIndex] = useState<number | null>(null);
     const [dropInsertionIndex, setDropInsertionIndex] = useState<number | null>(null);
-    
+
     const [activeDropZone, setActiveDropZone] = useState<number | null>(null);
     const [isExternalDragOver, setIsExternalDragOver] = useState(false);
 
@@ -106,11 +105,11 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 else parsed = [];
             }
             if (parsed.length === 0) {
-                parsed = [{ 
+                parsed = [{
                     id: `char-card-${Date.now()}`,
                     name: 'New Entity 1',
-                    index: 'Entity-1', image: null, 
-                    thumbnails: { '1:1': null, '16:9': null, '9:16': null }, 
+                    index: 'Entity-1', image: null,
+                    thumbnails: { '1:1': null, '16:9': null, '9:16': null },
                     selectedRatio: '1:1', prompt: '', fullDescription: '',
                     targetLanguage: 'en',
                     isOutput: true,
@@ -139,11 +138,11 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 isPromptCollapsed: char.isPromptCollapsed ?? false
             }));
         } catch {
-            return [{ 
+            return [{
                 id: `char-card-${Date.now()}`,
-                name: 'New Entity 1', 
-                index: 'Entity-1', image: null, 
-                thumbnails: { '1:1': null, '16:9': null, '9:16': null }, 
+                name: 'New Entity 1',
+                index: 'Entity-1', image: null,
+                thumbnails: { '1:1': null, '16:9': null, '9:16': null },
                 selectedRatio: '1:1', prompt: '', fullDescription: '',
                 targetLanguage: 'en',
                 isOutput: true,
@@ -167,13 +166,13 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         try {
             const rawParsed = JSON.parse(node.value || '[]');
             const rawArray = Array.isArray(rawParsed) ? rawParsed : [rawParsed];
-            const hasCharacterPrefix = rawArray.some((c:any) => c.index && c.index.startsWith('Character-'));
-            
+            const hasCharacterPrefix = rawArray.some((c: any) => c.index && c.index.startsWith('Character-'));
+
             if (hasCharacterPrefix) {
                 // If migration needed, trigger update
                 onValueChange(node.id, JSON.stringify(characters));
             }
-        } catch {}
+        } catch { }
     }, [node.value, characters, onValueChange, node.id]);
 
     // Reset drag state if characters array changes size (prevents visual glitches on remove/transfer)
@@ -259,17 +258,17 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     // --- Smart Dragging Logic ---
     const handleSmartCardDragOver = (e: React.DragEvent, cardIndex: number) => {
         if (!e.dataTransfer.types.includes('application/prompt-modifier-card')) return;
-        
+
         e.preventDefault();
         e.stopPropagation();
 
         const rect = e.currentTarget.getBoundingClientRect();
         // Mouse X relative to the card's left edge
         const offsetX = e.clientX - rect.left;
-        
+
         // Determine if mouse is on left or right half
         const isRightHalf = offsetX > rect.width / 2;
-        
+
         // If left half, insert before current card (index). 
         // If right half, insert after current card (index + 1).
         const insertionIndex = cardIndex + (isRightHalf ? 1 : 0);
@@ -299,7 +298,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         setActiveDropZone(null);
         setDraggedCardIndex(null);
         setIsExternalDragOver(false);
-        
+
         const targetIndex = dropInsertionIndex;
         setDropInsertionIndex(null);
 
@@ -317,38 +316,38 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             if (sourceNodeId === node.id) {
                 // If dropping adjacent to self, do nothing
                 if (sourceIndex === insertionIndex || sourceIndex === insertionIndex - 1) return;
-                
+
                 const newChars = [...characters];
                 const [moved] = newChars.splice(sourceIndex, 1);
                 let adjustedTarget = insertionIndex;
                 // If moving from a lower index to higher index, the target index shifts down by 1 after removal
                 if (insertionIndex > sourceIndex) adjustedTarget -= 1;
-                
+
                 newChars.splice(adjustedTarget, 0, moved);
-                
+
                 // Re-map Cache Indices
                 const tempCache: Record<number, string> = {};
                 characters.forEach((_, i) => {
-                    for(let j=0; j<10; j++) {
+                    for (let j = 0; j < 10; j++) {
                         const img = getFullSizeImage(node.id, (i * 10) + j);
                         if (img) tempCache[(i * 10) + j] = img;
                     }
                 });
-                
-                for(let i=0; i<characters.length * 10; i++) setFullSizeImage(node.id, i, null as any);
-                
+
+                for (let i = 0; i < characters.length * 10; i++) setFullSizeImage(node.id, i, null as any);
+
                 newChars.forEach((char, newIdx) => {
                     const oldIdx = characters.findIndex(c => c.id === char.id);
                     if (oldIdx !== -1) {
-                        for(let j=0; j<10; j++) {
+                        for (let j = 0; j < 10; j++) {
                             const img = tempCache[(oldIdx * 10) + j];
                             if (img) setFullSizeImage(node.id, (newIdx * 10) + j, img);
                         }
                     }
                 });
-                
+
                 handleValueUpdate(newChars);
-            } 
+            }
             // --- EXTERNAL TRANSFER ---
             else {
                 const newChars = [...characters];
@@ -356,11 +355,11 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 if (newChars.length === 1 && !newChars[0].name && !newChars[0].image && !newChars[0].prompt) {
                     newChars.splice(0, 1);
                 }
-                
+
                 const isFirstCard = newChars.length === 0;
 
-                const newCard = { 
-                    ...character, 
+                const newCard = {
+                    ...character,
                     id: `char-card-${Date.now()}`,
                     // Ensure only one card is marked as output. If it's the first card, make it output.
                     // Otherwise force false to prevent multiple primaries.
@@ -370,11 +369,11 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                     isImageCollapsed: false,
                     isPromptCollapsed: false
                 };
-                
+
                 // Insert at specific position or append
                 const finalInsertion = Math.min(insertionIndex, newChars.length);
                 newChars.splice(finalInsertion, 0, newCard);
-                
+
                 // Copy Images to this Node's Cache
                 if (newCard.imageSources) {
                     Object.entries(newCard.imageSources).forEach(([ratio, src]) => {
@@ -385,14 +384,14 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 if (newCard._fullResActive) {
                     setFullSizeImage(node.id, finalInsertion * 10, newCard._fullResActive);
                 }
-                
+
                 // Expand Node Width if needed
                 if (setNodes) {
                     setNodes(nds => nds.map(n => n.id === node.id ? { ...n, width: newChars.length * NODE_WIDTH_STEP + BASE_WIDTH_OFFSET } : n));
                 }
 
                 handleValueUpdate(newChars);
-                
+
                 // Remove from Source Node
                 if (setNodes && context?.setFullSizeImage && context?.getFullSizeImage) {
                     setNodes(nds => nds.map(n => {
@@ -400,7 +399,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                             try {
                                 const sourceChars = JSON.parse(n.value);
                                 let nextSourceChars = sourceChars.filter((_: any, i: number) => i !== sourceIndex);
-                                
+
                                 // FIX: If source becomes empty, reset it to default empty card
                                 if (nextSourceChars.length === 0) {
                                     nextSourceChars = [{
@@ -439,7 +438,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                                     const lastIdx = sourceChars.length - 1;
                                     for (let j = 0; j < 10; j++) context.setFullSizeImage(sourceNodeId, (lastIdx * 10) + j, null as any);
                                 }
-                                
+
                                 const nextWidth = Math.max(NODE_WIDTH_STEP + BASE_WIDTH_OFFSET, nextSourceChars.length * NODE_WIDTH_STEP + BASE_WIDTH_OFFSET);
                                 return { ...n, value: JSON.stringify(nextSourceChars), width: nextWidth };
                             } catch { return n; }
@@ -449,8 +448,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 }
                 addToast?.("Card transferred", "success");
             }
-        } catch (err) { 
-            console.error("Drop failed", err); 
+        } catch (err) {
+            console.error("Drop failed", err);
             addToast?.("Drop failed: " + (err instanceof Error ? err.message : "Unknown error"), "error");
         }
     };
@@ -492,10 +491,10 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
 
     const handleRemoveCard = (index: number) => {
         if (characters.length <= 1) {
-            handleValueUpdate([{ 
+            handleValueUpdate([{
                 id: `char-card-${Date.now()}`,
-                name: 'New Entity 1', index: 'Entity-1', image: null, 
-                thumbnails: { '1:1': null, '16:9': null, '9:16': null }, 
+                name: 'New Entity 1', index: 'Entity-1', image: null,
+                thumbnails: { '1:1': null, '16:9': null, '9:16': null },
                 selectedRatio: '1:1', prompt: '', fullDescription: '',
                 targetLanguage: 'en',
                 isOutput: true,
@@ -516,13 +515,13 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         const lastIdx = characters.length - 1;
         for (let j = 0; j < 10; j++) setFullSizeImage(node.id, (lastIdx * 10) + j, null as any);
         const newChars = characters.filter((_, i) => i !== index);
-        
+
         if (!newChars.some(c => c.isOutput)) {
             newChars[0].isOutput = true;
         }
 
         handleValueUpdate(newChars);
-        
+
         if (setNodes) {
             setNodes(nds => nds.map(n => {
                 if (n.id === node.id) {
@@ -555,16 +554,25 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             const parsed = JSON.parse(text);
             let cardData = Array.isArray(parsed) ? parsed[0] : parsed;
             if (cardData && (cardData.type === 'character-card' || cardData.name || cardData.prompt)) {
-                const loadedSources = cardData.imageSources || { '1:1': null, '16:9': null, '9:16': null };
-                const newThumbnails: Record<string, string | null> = { '1:1': null, '16:9': null, '9:16': null };
-                if (cardData.image && !cardData.imageSources) loadedSources['1:1'] = cardData.image;
-                
+                const loadedSources = cardData.imageSources || {};
+                const hasAnySource = Object.values(loadedSources).some(v => !!v);
+
+                // If no sources found in imageSources, try to use legacy 'image' field
+                if (cardData.image && !hasAnySource) {
+                    loadedSources['1:1'] = cardData.image;
+                }
+
                 // Pre-process sources to fix raw base64
                 const processedSources: Record<string, string | null> = {};
                 for (const [ratio, rawSrc] of Object.entries(loadedSources)) {
                     let src = rawSrc as string | null;
                     if (typeof src === 'string' && !src.startsWith('data:') && src.length > 100) {
-                        src = `data:image/png;base64,${src}`;
+                        // Check for JPEG signature (/9j/)
+                        if (src.trim().startsWith('/9j/')) {
+                            src = `data:image/jpeg;base64,${src}`;
+                        } else {
+                            src = `data:image/png;base64,${src}`;
+                        }
                     }
                     processedSources[ratio] = src;
                 }
@@ -582,7 +590,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                 if (activeHighRes && typeof activeHighRes === 'string' && activeHighRes.startsWith('data:')) {
                     setFullSizeImage(node.id, cardIdx * 10, activeHighRes);
                 }
-                
+
                 // Using ref implicitly via handleUpdateCard ensures we don't lose other card states
                 handleUpdateCard(cardIdx, {
                     name: cardData.name || '',
@@ -593,7 +601,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                     image: newThumbnails[ratio],
                     thumbnails: newThumbnails,
                 });
-                
+
                 addToast?.(t('toast.pastedFromClipboard'), 'success');
             }
         } catch (e) { addToast?.(t('toast.pasteFailed'), 'error'); }
@@ -629,7 +637,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         // Safe check using latest state via ref
         const char = charactersRef.current[cardIdx];
         if (newRatio === char.selectedRatio) return;
-        
+
         const highRes = getFullSizeImage(node.id, (cardIdx * 10) + (RATIO_INDICES[newRatio] || 1));
         const displayThumb = char.thumbnails[newRatio] || null;
         if (highRes) setFullSizeImage(node.id, cardIdx * 10, highRes);
@@ -646,7 +654,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         setFullSizeImage(node.id, (cardIdx * 10) + (RATIO_INDICES[char.selectedRatio] || 1), newImageData);
         const thumbnail = await generateThumbnail(newImageData, 256, 256);
         const newThumbnails = { ...char.thumbnails, [char.selectedRatio]: thumbnail };
-        
+
         // This will merge image update with whatever text state exists NOW
         handleUpdateCard(cardIdx, { thumbnails: newThumbnails, image: thumbnail });
     };
@@ -688,7 +696,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             handleUpdateCharacterPromptFromImage(node.id, cardIdx);
         }
     };
-    
+
     // NEW: Handle Personality Update
     const handleUpdatePersonalityRequest = (cardIdx: number) => {
         if (handleUpdateCharacterPersonality) {
@@ -716,19 +724,19 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
         if (!fullRes || !addNode) return;
         const pos = { x: node.position.x + node.width + 50, y: node.position.y };
         const newNodeId = addNode(NodeType.IMAGE_EDITOR, pos);
-        const defaultEditorState = { 
-            inputImages: [char.thumbnails[char.selectedRatio] || char.image], 
-            prompt: char.prompt || '', 
-            outputImage: null, 
-            aspectRatio: char.selectedRatio, 
-            enableAspectRatio: true, 
-            enableOutpainting: false, 
-            outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', 
+        const defaultEditorState = {
+            inputImages: [char.thumbnails[char.selectedRatio] || char.image],
+            prompt: char.prompt || '',
+            outputImage: null,
+            aspectRatio: char.selectedRatio,
+            enableAspectRatio: true,
+            enableOutpainting: false,
+            outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.',
             model: 'gemini-2.5-flash-image',
-            autoDownload: true, 
-            autoCrop169: false, 
-            leftPaneWidth: 360, 
-            topPaneHeight: 330 
+            autoDownload: true,
+            autoCrop169: false,
+            leftPaneWidth: 360,
+            topPaneHeight: 330
         };
         onValueChange(newNodeId, JSON.stringify(defaultEditorState));
         setFullSizeImage(newNodeId, 1, fullRes);
@@ -754,13 +762,13 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             }
 
             // We pass the expansion instruction as the main prompt, and an empty suffix
-            const newImage = await expandImageAspectRatio(fullSizeSrc, targetRatio, expansionPrompt, 'gemini-2.5-flash-image', ""); 
-            
+            const newImage = await expandImageAspectRatio(fullSizeSrc, targetRatio, expansionPrompt, 'gemini-2.5-flash-image', "");
+
             await processNewImage(cardIdx, newImage);
             if (addToast) addToast(`Converted to ${targetRatio} successfully`, 'success');
-        } catch (error: any) { 
+        } catch (error: any) {
             console.error(error);
-            if (addToast) addToast(`Failed to convert: ${error.message}`, 'error'); 
+            if (addToast) addToast(`Failed to convert: ${error.message}`, 'error');
         } finally { setTransformingRatio(null); }
     };
 
@@ -773,9 +781,9 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             const newImage = await cropImageTo1x1(fullSizeSrc);
             await processNewImage(cardIdx, newImage);
             if (addToast) addToast(`Cropped to 1:1 successfully`, 'success');
-        } catch (error: any) { 
+        } catch (error: any) {
             console.error(error);
-            if (addToast) addToast(`Failed to crop: ${error.message}`, 'error'); 
+            if (addToast) addToast(`Failed to crop: ${error.message}`, 'error');
         } finally { setTransformingRatio(null); }
     };
 
@@ -807,9 +815,9 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     };
 
     return (
-        <div 
-            className={`flex h-full w-full overflow-x-scroll custom-scrollbar p-0 gap-0 pb-2 transition-colors ${isExternalDragOver ? 'bg-accent-dim' : ''}`} 
-            onWheel={e => e.stopPropagation()} 
+        <div
+            className={`flex h-full w-full overflow-x-scroll custom-scrollbar p-0 gap-0 pb-2 transition-colors ${isExternalDragOver ? 'bg-accent-dim' : ''}`}
+            onWheel={e => e.stopPropagation()}
             style={{ scrollbarGutter: 'stable', overscrollBehaviorY: 'contain' }}
             onDrop={handleDrop}
             onDragOver={handleContainerDragOver}
@@ -818,14 +826,14 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
             <style>{`.custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; } .custom-scrollbar::-webkit-scrollbar-track { background: rgba(31, 41, 45, 0.5); border-radius: 4px; margin: 0 4px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-scrollbar); border-radius: 4px; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6b7280; }`}</style>
             <ImageEditorModal isOpen={isEditorOpen} onClose={() => { setIsEditorOpen(false); }} onApply={img => processNewImage(editingCardIndex, img)} imageSrc={editorImageSrc} />
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-            
+
             {characters.map((char, idx) => (
                 <React.Fragment key={char.id}>
-                    <DropZone 
-                        index={idx} 
-                        activeDropZone={activeDropZone} 
-                        onDragOver={handleZoneDragOver} 
-                        onDrop={handleDrop} 
+                    <DropZone
+                        index={idx}
+                        activeDropZone={activeDropZone}
+                        onDragOver={handleZoneDragOver}
+                        onDrop={handleDrop}
                         onDragLeave={handleZoneDragLeave}
                     />
                     <CharacterCardItemMemoized
@@ -833,7 +841,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         index={idx}
                         nodeId={node.id}
                         isDragging={draggedCardIndex === idx}
-                        
+
                         onUpdate={(updates) => handleUpdateCard(idx, updates)}
                         onRemove={() => handleRemoveCard(idx)}
                         onSetAsOutput={() => handleSetAsOutput(idx)}
@@ -841,23 +849,23 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         onDragStart={(e) => handleCardDragStart(e, idx)}
                         onDragEnd={() => { setDraggedCardIndex(null); setDropInsertionIndex(null); setActiveDropZone(null); }}
                         onSmartDragOver={(e) => handleSmartCardDragOver(e, idx)}
-                        
+
                         onRatioChange={(r) => handleRatioChange(idx, r)}
                         onPasteImage={() => handlePasteImageToSlot(idx)}
                         onClearImage={() => handleUpdateCard(idx, { thumbnails: { ...char.thumbnails, [char.selectedRatio]: null }, image: null })}
-                        onCopyImage={() => { const src = getFullSizeImage(node.id, idx * 10) || char.image; if(src) onCopyImageToClipboard(src); }}
+                        onCopyImage={() => { const src = getFullSizeImage(node.id, idx * 10) || char.image; if (src) onCopyImageToClipboard(src); }}
                         onGenerateImage={() => { setEditingCardIndex(idx); onGenerateImage(node.id, idx); }}
                         onEditRaster={() => handleOpenInRasterEditor(idx)}
                         onEditAI={() => handleOpenInEditor(idx)}
                         onCrop1x1={() => handleCrop1x1Local(idx)}
                         onExpandRatio={(r) => handleRatioExpandLocal(idx, r)}
                         onSetEditingIndex={() => { setEditingCardIndex(idx); fileInputRef.current?.click(); }}
-                        
-                        onSyncFromConnection={() => handleUpdatePromptFromImage(idx)} 
-                        
+
+                        onSyncFromConnection={() => handleUpdatePromptFromImage(idx)}
+
                         onLoad={() => onLoadCharacterCard(node.id)}
-                        onSave={() => onSaveCharacterCard(node.id, idx)} 
-                        onSaveToCatalog={() => onSaveCharacterToCatalog(node.id, idx)} 
+                        onSave={() => onSaveCharacterCard(node.id, idx)}
+                        onSaveToCatalog={() => onSaveCharacterToCatalog(node.id, idx)}
                         onCopySpecific={() => handleCopySpecificCard(idx)}
                         onPasteSpecific={() => handlePasteToSpecificCard(idx)}
                         onDetach={() => handleDetach(idx)}
@@ -867,7 +875,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         setImageViewer={setImageViewer}
                         onCopyImageToClipboard={onCopyImageToClipboard}
                         processNewImage={(data) => processNewImage(idx, data)}
-                        
+
                         t={t}
                         deselectAllNodes={deselectAllNodes}
                         languages={languages}
@@ -875,7 +883,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         isModifyingCharacter={isModifyingCharacter}
                         isUpdatingDescription={isUpdatingDescription}
                         onUpdateDescription={() => onUpdateCharacterDescription && onUpdateCharacterDescription(node.id, idx)}
-                        
+
                         // Pass new personality update handler
                         isUpdatingPersonality={isUpdatingPersonality}
                         onUpdatePersonality={() => handleUpdatePersonalityRequest(idx)}
@@ -889,34 +897,34 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         transformingRatio={transformingRatio}
                         isGeneratingImage={isGeneratingImage}
                         isUpdatingCharacterPrompt={isUpdatingCharacterPrompt}
-                        
+
                         modificationRequest={modificationRequests[idx] || ''}
-                        setModificationRequest={(val) => setModificationRequests(prev => ({...prev, [idx]: val}))}
+                        setModificationRequest={(val) => setModificationRequests(prev => ({ ...prev, [idx]: val }))}
                         hasDuplicateIndex={duplicateIndices.has((char.index || '').trim())}
                     />
                 </React.Fragment>
             ))}
-            
-            <DropZone 
-                index={characters.length} 
-                activeDropZone={activeDropZone} 
-                onDragOver={handleZoneDragOver} 
-                onDrop={handleDrop} 
+
+            <DropZone
+                index={characters.length}
+                activeDropZone={activeDropZone}
+                onDragOver={handleZoneDragOver}
+                onDrop={handleDrop}
                 onDragLeave={handleZoneDragLeave}
             />
-            
-            <div className="flex items-center justify-start pl-2 min-w-[60px] h-full"> 
-                 <Tooltip content={t('node.action.addCard')}>
-                    <button 
-                        onClick={handleAddCard} 
+
+            <div className="flex items-center justify-start pl-2 min-w-[60px] h-full">
+                <Tooltip content={t('node.action.addCard')}>
+                    <button
+                        onClick={handleAddCard}
                         className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-cyan-900 border border-gray-600 hover:border-cyan-500 text-gray-400 hover:text-cyan-400 rounded-full transition-all shadow-lg group relative"
                     >
-                        <svg 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            className="h-6 w-6 transform transition-transform duration-200 group-hover:scale-110" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            stroke="currentColor" 
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-6 w-6 transform transition-transform duration-200 group-hover:scale-110"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
                             strokeWidth={3}
                         >
                             <path d="M12 4v16m8-8H4" />

@@ -407,6 +407,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [addToast, t]);
 
+    // Refs to avoid frequent context updates when these change
+    const nodesRef = useRef(nodesHook.nodes);
+    nodesRef.current = nodesHook.nodes;
+
+    const viewTransformRef = useRef(canvasHook.viewTransform);
+    viewTransformRef.current = canvasHook.viewTransform;
+
+    const handleNavigateToNodeFrame = useCallback((nodeId: string, frameNumber: number) => {
+        const targetNode = nodesRef.current.find(n => n.id === nodeId);
+        if (!targetNode) return;
+
+        // 1. Select the node
+        setSelectedNodeIds([nodeId]);
+
+        // 2. Center Canvas on Node
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight;
+
+        // Target world position (center of node)
+        // Assume centered relative to its width, and set a comfortable top margin
+        const targetX = targetNode.position.x + (targetNode.width / 2);
+        const targetY = targetNode.position.y + 300;
+
+        // Current scale
+        const scale = viewTransformRef.current.scale;
+
+        // Calculate new translation
+        const newTx = (screenW / 2) - (targetX * scale);
+        const newTy = (screenH / 2) - (targetY * scale);
+
+        canvasHook.setViewTransform(prev => ({
+            scale: prev.scale, // Keep current zoom
+            translate: { x: newTx, y: newTy }
+        }));
+
+        // 3. Trigger selection in the node (PromptSequenceEditor logic)
+        try {
+            const currentVal = JSON.parse(targetNode.value || '{}');
+            // Only update if actually different to avoid unnecessary updates
+            if (currentVal.selectedFrameNumber !== frameNumber) {
+                nodesHook.handleValueChange(nodeId, JSON.stringify({ ...currentVal, selectedFrameNumber: frameNumber }));
+            }
+        } catch (e) {
+            console.error("Failed to update node selection frame", e);
+        }
+
+    }, [nodesHook.handleValueChange, canvasHook.setViewTransform, setSelectedNodeIds]);
+
     const value = useMemo(() => {
         const { replaceAllItems: libReplaceAll, importItemsData: libImport, ...restLibrary } = libraryHook;
         const { replaceAllItems: catReplaceAll, importItemsData: catImport, ...restCatalog } = catalogHook;
@@ -442,6 +490,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onRefreshUpstreamData: (nodeId: string, handleId?: string) => { },
 
             handleDetachNodeFromGroup,
+            onDetachCharacter: orchestrationHook.handleDetachCharacterFromGenerator,
             onSaveScriptToDisk: canvasIOHook.handleSaveScriptFile,
             onSaveMediaToDisk: orchestrationHook.onSaveMediaToDisk,
             onGenerateCharacterImage: geminiGenerationHook.handleGenerateCharacterImage,
@@ -450,6 +499,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onImageToText: geminiAnalysisHook.handleImageToText,
             handleRegenerateFrame,
             handleLoadFromExternal: canvasIOHook.handleLoadFromExternal, // Export new method
+
+            handleNavigateToNodeFrame,
 
             replaceAllItems: libReplaceAll,
             importItemsData: libImport,
@@ -526,7 +577,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiModificationHook.handleUpdateCharacterPersonality, geminiModificationHook.isUpdatingPersonality,
         geminiModificationHook.handleUpdateCharacterAppearance, geminiModificationHook.isUpdatingAppearance,
         geminiModificationHook.handleUpdateCharacterClothing, geminiModificationHook.isUpdatingClothing,
-        onDownloadImageFromUrl, onCopyImageToClipboard
+        onDownloadImageFromUrl, onCopyImageToClipboard, handleNavigateToNodeFrame
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

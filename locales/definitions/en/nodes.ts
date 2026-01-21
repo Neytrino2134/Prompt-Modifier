@@ -235,6 +235,7 @@ export const nodes = {
     'node.content.fullDescriptionTitle': 'Full character description',
     'node.content.integrationInstruction': 'Integration Instruction',
     'node.content.additionalPromptSuffix': 'Additional Prompt (Suffix)',
+    'node.content.suffix': 'Suffix',
     'node.content.insertSceneContext': 'Insert Scene Context',
     'node.content.modificationRequest': 'Modification Request',
     'search.node.text_input.title': 'Text Input',
