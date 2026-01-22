@@ -32,7 +32,8 @@ import { useGlobalState } from '../hooks/useGlobalState';
 import { useAppOrchestration } from '../hooks/useAppOrchestration';
 import { useTutorial } from '../hooks/useTutorial';
 import { addMetadataToPNG } from '../utils/pngMetadata';
-import { getConnectionPoints, getOutputHandleType, getMinNodeSize } from '../utils/nodeUtils';
+import { getConnectionPoints, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
+import { generateThumbnail } from '../utils/imageUtils';
 
 const AppContext = createContext<AppContextType | null>(null);
 
@@ -242,6 +243,111 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
     }, [groupsHook.setGroups, nodesHook.nodes]);
 
+    // --- Missing Handlers Implementation ---
+    
+    const handleRemoveGroup = useCallback((groupId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (e.shiftKey) {
+            const group = groupsHook.groups.find(g => g.id === groupId);
+            if (group) {
+                group.nodeIds.forEach(id => entityActionsHook.deleteNodeAndConnections(id));
+            }
+            groupsHook.removeGroup(groupId);
+            addToast(t('toast.groupDeleted'), 'info');
+        } else {
+            groupsHook.removeGroup(groupId);
+        }
+    }, [groupsHook, entityActionsHook, addToast, t]);
+
+    const handleSaveGroupToCatalog = useCallback((groupId: string) => {
+        const group = groupsHook.groups.find(g => g.id === groupId);
+        if (!group) return;
+        catalogHook.saveGroupToCatalog(group, nodesHook.nodes, connectionsHook.connections, globalState.fullSizeImageCache);
+        addToast(t('alert.groupSaved', { groupTitle: group.title }), 'success');
+    }, [groupsHook, nodesHook, connectionsHook, globalState.fullSizeImageCache, catalogHook, addToast, t]);
+
+    const handleSaveGroupToDisk = useCallback((groupId: string) => {
+         const group = groupsHook.groups.find(g => g.id === groupId);
+         if (!group) return;
+         
+         const groupNodes = nodesHook.nodes.filter(n => group.nodeIds.includes(n.id));
+         const groupNodeIds = new Set(groupNodes.map(n => n.id));
+         const groupConnections = connectionsHook.connections.filter(c => groupNodeIds.has(c.fromNodeId) && groupNodeIds.has(c.toNodeId));
+         
+         const images: Record<string, Record<number, string>> = {};
+         groupNodes.forEach(n => {
+             if (globalState.fullSizeImageCache[n.id]) {
+                 images[n.id] = globalState.fullSizeImageCache[n.id];
+             }
+         });
+
+         const data = {
+             type: 'prompModifierGroup',
+             name: group.title,
+             nodes: groupNodes,
+             connections: groupConnections,
+             fullSizeImages: images
+         };
+         
+         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+         const url = URL.createObjectURL(blob);
+         const a = document.createElement('a');
+         a.href = url;
+         a.download = `${group.title.replace(/\s+/g, '_')}_Group.json`;
+         a.click();
+         URL.revokeObjectURL(url);
+         addToast(t('toast.groupSavedToDisk', { groupTitle: group.title }), 'success');
+    }, [groupsHook, nodesHook, connectionsHook, globalState.fullSizeImageCache, addToast, t]);
+
+    const handleDetachAndPasteConcept = useCallback((sequenceNodeId: string, conceptToPaste: any) => {
+        const sourceNode = nodesHook.nodes.find(n => n.id === sequenceNodeId);
+        const position = sourceNode 
+            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y } 
+            : { x: 0, y: 0 };
+            
+        const newNodeId = entityActionsHook.onAddNode(NodeType.CHARACTER_CARD, position, conceptToPaste.name);
+        
+        const cardData = [{
+            id: `char-card-${Date.now()}`,
+            name: conceptToPaste.name || 'New Entity',
+            index: conceptToPaste.index || 'Entity-1',
+            image: conceptToPaste.image,
+            thumbnails: { '1:1': conceptToPaste.image, '16:9': null, '9:16': null },
+            selectedRatio: '1:1',
+            prompt: conceptToPaste.prompt || '',
+            fullDescription: conceptToPaste.fullDescription || '',
+            isOutput: true,
+            isActive: true
+        }];
+        
+        if (conceptToPaste._fullResImage) {
+             setFullSizeImage(newNodeId, 0, conceptToPaste._fullResImage);
+             setFullSizeImage(newNodeId, 1, conceptToPaste._fullResImage); 
+        } else if (conceptToPaste.image && conceptToPaste.image.startsWith('data:')) {
+             setFullSizeImage(newNodeId, 0, conceptToPaste.image);
+             setFullSizeImage(newNodeId, 1, conceptToPaste.image);
+        }
+
+        nodesHook.handleValueChange(newNodeId, JSON.stringify(cardData));
+        addToast(t('toast.pastedFromClipboard'), 'success');
+    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t]);
+
+    const onDetachImageToNode = useCallback((imageDataUrl: string, sourceNodeId: string) => {
+        const sourceNode = nodesHook.nodes.find(n => n.id === sourceNodeId);
+        const position = sourceNode 
+            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y } 
+            : { x: 0, y: 0 };
+            
+        const newNodeId = entityActionsHook.onAddNode(NodeType.IMAGE_INPUT, position);
+        
+        setFullSizeImage(newNodeId, 0, imageDataUrl);
+        generateThumbnail(imageDataUrl, 256, 256).then(thumb => {
+             nodesHook.handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: '' }));
+        });
+        
+        addToast(t('toast.pastedFromClipboard'), 'success');
+    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t]);
+
     const interactionHook = useInteraction({
         ...nodesHook, ...connectionsHook, ...groupsHook, ...canvasHook,
         ...dialogsHook, handleToggleCatalog: dialogsHook.handleToggleCatalog,
@@ -338,7 +444,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         t,
         handleAddGroupFromCatalog: orchestrationHook.handleAddGroupFromCatalog,
         activeTabId: activeTabId,
-        handleRenameTab: handleRenameTab
+        handleRenameTab: handleRenameTab,
+        handleRemoveGroup // Provide this to useCanvasEvents if it consumes it, though it doesn't seem to based on my reading.
+        // It's mainly used directly in CanvasLayer.
     });
 
     const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
@@ -657,6 +765,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleClearNodeNewFlag: nodesHook.handleClearNodeNewFlag,
             handleResetCanvas: handleResetCanvas,
             resetCanvasToDefault: resetCanvasToDefault,
+            
+            handleNodeCutConnections: connectionsHook.removeConnectionsByNodeId,
 
             showWelcome: globalState.showWelcome,
             setShowWelcome: globalState.setShowWelcome,
@@ -683,7 +793,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleUpdateCharacterPromptFromImage: geminiAnalysisHook.handleUpdateCharacterPromptFromImage,
             isUpdatingCharacterPrompt: geminiAnalysisHook.isUpdatingCharacterPrompt,
             onDownloadImageFromUrl, // Export to context
-            onCopyImageToClipboard // Export to context
+            onCopyImageToClipboard, // Export to context
+            
+            // Missing handlers added here
+            handleRemoveGroup,
+            handleSaveGroupToCatalog,
+            handleSaveGroupToDisk,
+            handleDetachAndPasteConcept,
+            onDetachImageToNode
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,
@@ -699,7 +816,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiModificationHook.handleUpdateCharacterPersonality, geminiModificationHook.isUpdatingPersonality,
         geminiModificationHook.handleUpdateCharacterAppearance, geminiModificationHook.isUpdatingAppearance,
         geminiModificationHook.handleUpdateCharacterClothing, geminiModificationHook.isUpdatingClothing,
-        onDownloadImageFromUrl, onCopyImageToClipboard, handleNavigateToNodeFrame, handleSplitConnection
+        onDownloadImageFromUrl, onCopyImageToClipboard, handleNavigateToNodeFrame, handleSplitConnection,
+        connectionsHook.removeConnectionsByNodeId,
+        handleRemoveGroup, handleSaveGroupToCatalog, handleSaveGroupToDisk, handleDetachAndPasteConcept, onDetachImageToNode
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
