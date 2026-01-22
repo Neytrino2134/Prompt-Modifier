@@ -7,9 +7,9 @@ import GroupView from './GroupView';
 import ViewControlsToolbar from './ViewControlsToolbar';
 import ControlsToolbar from './ControlsToolbar';
 import Toolbar from './Toolbar';
-import {
-    UndoIcon, RedoIcon, AlignLeftIcon, AlignCenterXIcon, AlignRightIcon,
-    AlignTopIcon, AlignCenterYIcon, AlignBottomIcon,
+import { 
+    UndoIcon, RedoIcon, AlignLeftIcon, AlignCenterXIcon, AlignRightIcon, 
+    AlignTopIcon, AlignCenterYIcon, AlignBottomIcon, 
     DistributeHorizontalIcon, DistributeVerticalIcon, GroupIcon,
     EyeIcon, EyeOffIcon
 } from './icons/AppIcons';
@@ -20,21 +20,21 @@ import { COLLAPSED_NODE_HEIGHT } from '../utils/nodeUtils';
 
 // Helper wrapper for tooltips
 const TopTooltipWrapper: React.FC<{ title: string; children: React.ReactNode; align?: 'center' | 'left' | 'right' }> = ({ title, children, align = 'center' }) => {
-    const positionClasses = align === 'left'
-        ? 'left-0 bottom-full mb-2 origin-bottom-left'
-        : 'left-1/2 -translate-x-1/2 bottom-full mb-2 origin-bottom';
+  const positionClasses = align === 'left'
+    ? 'left-0 bottom-full mb-2 origin-bottom-left'
+    : 'left-1/2 -translate-x-1/2 bottom-full mb-2 origin-bottom';
 
-    return (
-        <div className="relative group flex items-center justify-center">
-            {children}
-            <div
-                className={`absolute px-3 py-1.5 bg-slate-700 text-slate-200 text-sm whitespace-nowrap rounded-md shadow-xl z-50 transition-opacity duration-200 ease-in-out transform ${positionClasses} opacity-0 pointer-events-none group-hover:opacity-100`}
-                role="tooltip"
-            >
-                {title}
-            </div>
-        </div>
-    );
+  return (
+      <div className="relative group flex items-center justify-center">
+          {children}
+          <div
+            className={`absolute px-3 py-1.5 bg-slate-700 text-slate-200 text-sm whitespace-nowrap rounded-md shadow-xl z-50 transition-opacity duration-200 ease-in-out transform ${positionClasses} opacity-0 pointer-events-none group-hover:opacity-100`}
+            role="tooltip"
+          >
+            {title}
+          </div>
+      </div>
+  );
 };
 
 const CanvasLayer: React.FC = () => {
@@ -46,7 +46,7 @@ const CanvasLayer: React.FC = () => {
     const [isToolbarCompact, setIsToolbarCompact] = useState(false);
     const [tongueHeight, setTongueHeight] = useState(0);
     const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
-
+    
     const tongueRef = useCallback((node: HTMLDivElement | null) => {
         if (node !== null) {
             setTongueHeight(node.getBoundingClientRect().height);
@@ -55,11 +55,11 @@ const CanvasLayer: React.FC = () => {
 
     useEffect(() => {
         const handleResize = () => {
-            setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-            const TOOLBAR_ESTIMATED_WIDTH = 800;
-            const SIDE_MARGIN_THRESHOLD = 450;
-            const threshold = TOOLBAR_ESTIMATED_WIDTH + (SIDE_MARGIN_THRESHOLD * 2);
-            setIsVerticalViewControls(window.innerWidth < threshold);
+          setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+          const TOOLBAR_ESTIMATED_WIDTH = 800;
+          const SIDE_MARGIN_THRESHOLD = 450;
+          const threshold = TOOLBAR_ESTIMATED_WIDTH + (SIDE_MARGIN_THRESHOLD * 2);
+          setIsVerticalViewControls(window.innerWidth < threshold);
         };
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
@@ -158,7 +158,7 @@ const CanvasLayer: React.FC = () => {
         const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
 
         // Filter connections: visible if at least one end is in the visible node set
-        const visibleConnections = connections.filter(conn =>
+        const visibleConnections = connections.filter(conn => 
             visibleNodeIds.has(conn.fromNodeId) || visibleNodeIds.has(conn.toNodeId)
         );
 
@@ -180,7 +180,7 @@ const CanvasLayer: React.FC = () => {
         const isGroupDragging = !!activeGroupId && groupId === activeGroupId;
 
         return {
-            // key property removed from spread object
+            key: node.id,
             node: node,
             isGrouped: isGrouped,
             isGroupDragging: isGroupDragging,
@@ -306,17 +306,16 @@ const CanvasLayer: React.FC = () => {
             handleUndockNode: handleUndockNode,
             onToggleNodePin: handleToggleNodePin,
             onUpdateCharacterDescription: onUpdateCharacterDescription,
-            isUpdatingDescription: isUpdatingDescription,
-            isProxy: !!node.dockState
+            isUpdatingDescription: isUpdatingDescription
         };
     };
-
+    
     // Layering
     const { dockedNodes } = useMemo(() => {
         const docked = nodes.filter(n => n.dockState);
         return { dockedNodes: docked };
     }, [nodes]);
-
+    
     const focusedNode = focusedNodeId ? nodes.find(n => n.id === focusedNodeId) : null;
 
     const handleAddNodeFromToolbar = (type: NodeType, e: React.MouseEvent) => {
@@ -326,7 +325,7 @@ const CanvasLayer: React.FC = () => {
 
         const startScreen = e ? { x: e.clientX, y: e.clientY } : { x: window.innerWidth / 2, y: window.innerHeight - 80 };
         const startWorld = getTransformedPoint(startScreen);
-
+        
         setSpawnLine({ start: startWorld, end: targetWorldPos, fading: false });
         setTimeout(() => {
             setSpawnLine(prev => prev ? { ...prev, fading: true } : null);
@@ -346,9 +345,8 @@ const CanvasLayer: React.FC = () => {
     };
 
     return (
-        <div
-            id="app-container"
-            ref={setCanvasRef}
+        <div 
+            id="app-container" 
             className={`relative w-full h-full overflow-hidden select-none ${focusedNodeId ? 'bg-gray-700' : ''}`}
             onMouseDown={handleCanvasMouseDown}
             onContextMenu={handleCanvasContextMenu}
@@ -356,6 +354,7 @@ const CanvasLayer: React.FC = () => {
             onTouchMove={handleCanvasTouchMove}
             onTouchEnd={handleCanvasTouchEnd}
             onMouseMove={updatePointerPosition}
+            onWheel={handleWheel}
             onDoubleClick={handleCanvasDoubleClick}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -364,51 +363,58 @@ const CanvasLayer: React.FC = () => {
             style={{ cursor: getCanvasCursor() }}
         >
             {!focusedNodeId && <ControlsToolbar activeTool={effectiveTool} onToolChange={setActiveTool} />}
-
+            
+            {/* Render Docked Nodes (On Top, outside transform layer) */}
             {!focusedNodeId && dockedNodes.map((node: any) => (
-                <NodeView key={`${node.id}-docked`} node={node} {...getNodeViewProps(node)} />
+                <NodeView 
+                    key={`${node.id}-docked`} 
+                    node={node} 
+                    {...getNodeViewProps(node)} 
+                    // isDockedWindow implicitly handled by styles but passed via prop if needed for internal logic
+                    // The style util sees node.dockState and applies position:fixed + high zIndex
+                />
             ))}
 
             {!focusedNodeId && (
                 <div id="canvas-transform-layer" style={{ width: '1px', height: '1px', transform: `translate(${viewTransform.translate.x}px, ${viewTransform.translate.y}px) scale(${viewTransform.scale})`, transformOrigin: '0 0' }}>
-
+                    
                     <div className="absolute top-0 left-0 w-0 h-0 overflow-visible pointer-events-none z-0">
                         <div className="absolute top-0 left-[-50000px] w-[100000px] h-[1px] bg-cyan-900/30 -translate-y-1/2"></div>
                         <div className="absolute left-0 top-[-50000px] w-[1px] h-[100000px] bg-cyan-900/30 -translate-x-1/2"></div>
                         <div className="absolute top-0 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-                            {/* Central Crosshair - Themed */}
-                            <div className="absolute w-3 h-[2px] bg-accent shadow-[0_0_5px_var(--color-accent)]"></div>
-                            <div className="absolute h-3 w-[2px] bg-accent shadow-[0_0_5px_var(--color-accent)]"></div>
+                             {/* Central Crosshair - Themed */}
+                             <div className="absolute w-3 h-[2px] bg-accent shadow-[0_0_5px_var(--color-accent)]"></div>
+                             <div className="absolute h-3 w-[2px] bg-accent shadow-[0_0_5px_var(--color-accent)]"></div>
                         </div>
                     </div>
 
                     {selectionRect && (
-                        <div className="absolute border-2 border-dashed border-accent-text pointer-events-none"
-                            style={{
-                                left: Math.min(selectionRect.start.x, selectionRect.end.x),
-                                top: Math.min(selectionRect.start.y, selectionRect.end.y),
-                                width: Math.abs(selectionRect.start.x - selectionRect.end.x),
-                                height: Math.abs(selectionRect.start.y - selectionRect.end.y),
-                                zIndex: 100,
-                                backgroundColor: 'var(--color-selection)'
-                            }} />
+                        <div className="absolute border-2 border-dashed border-accent-text pointer-events-none" 
+                             style={{ 
+                                 left: Math.min(selectionRect.start.x, selectionRect.end.x), 
+                                 top: Math.min(selectionRect.start.y, selectionRect.end.y), 
+                                 width: Math.abs(selectionRect.start.x - selectionRect.end.x), 
+                                 height: Math.abs(selectionRect.start.y - selectionRect.end.y), 
+                                 zIndex: 100,
+                                 backgroundColor: 'var(--color-selection)' 
+                             }} />
                     )}
 
                     {groupButtonPosition && (
-                        <div
-                            className="absolute z-20 flex items-center gap-2 -translate-x-1/2"
-                            style={{ left: groupButtonPosition.x, top: groupButtonPosition.y }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onTouchStart={(e) => e.stopPropagation()}
-                        >
-                            <Tooltip content={t('hotkeys.tools.group')} position="top">
-                                <button onClick={handleGroupSelection} className="px-4 py-2 font-bold text-white bg-accent rounded-md hover:bg-accent-hover transition-all duration-200 shadow-lg flex items-center space-x-2 whitespace-nowrap shadow-accent/20">
-                                    <GroupIcon />
-                                    <span>{t('group.button.create', { count: selectedNodeIds.length })}</span>
-                                </button>
-                            </Tooltip>
-
-                            <div className="flex bg-gray-800/90 backdrop-blur-md rounded-lg shadow-lg p-1 space-x-1 border border-gray-700">
+                      <div 
+                          className="absolute z-20 flex items-center gap-2 -translate-x-1/2" 
+                          style={{ left: groupButtonPosition.x, top: groupButtonPosition.y }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                      >
+                          <Tooltip content={t('hotkeys.tools.group')} position="top">
+                              <button onClick={handleGroupSelection} className="px-4 py-2 font-bold text-white bg-accent rounded-md hover:bg-accent-hover transition-all duration-200 shadow-lg flex items-center space-x-2 whitespace-nowrap shadow-accent/20">
+                                  <GroupIcon />
+                                  <span>{t('group.button.create', { count: selectedNodeIds.length })}</span>
+                              </button>
+                          </Tooltip>
+                          
+                           <div className="flex bg-gray-800/90 backdrop-blur-md rounded-lg shadow-lg p-1 space-x-1 border border-gray-700">
                                 <div className="flex items-center space-x-1 pr-1 border-r border-gray-600 mr-1">
                                     <Tooltip content={t('contextMenu.undoPosition')} position="top">
                                         <button onClick={() => undoPosition && undoPosition(nodes)} disabled={!canUndo} className={`p-1.5 rounded transition-colors ${!canUndo ? 'text-gray-600 cursor-not-allowed' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}>
@@ -452,7 +458,7 @@ const CanvasLayer: React.FC = () => {
                                         <AlignBottomIcon />
                                     </button>
                                 </Tooltip>
-                                {selectedNodeIds.length >= 3 && (
+                                 {selectedNodeIds.length >= 3 && (
                                     <>
                                         <div className="w-px bg-gray-600 mx-1"></div>
                                         <Tooltip content={t('contextMenu.distribute.horizontal')} position="top">
@@ -467,8 +473,8 @@ const CanvasLayer: React.FC = () => {
                                         </Tooltip>
                                     </>
                                 )}
-                            </div>
-                        </div>
+                          </div>
+                      </div>
                     )}
 
                     {/* VIRTUALIZED CONNECTIONS */}
@@ -479,23 +485,23 @@ const CanvasLayer: React.FC = () => {
                             if (!fromNode || !toNode) return null;
                             const { start, end } = getConnectionPoints(fromNode, toNode, conn);
                             return (
-                                <ConnectionView
-                                    key={conn.id}
-                                    connection={conn}
-                                    fromNode={fromNode}
-                                    toNode={toNode}
-                                    start={start}
-                                    end={end}
-                                    isNodeHovered={effectiveTool === 'cutter' && (hoveredNodeId === conn.fromNodeId || hoveredNodeId === conn.toNodeId)}
-                                    activeTool={effectiveTool}
-                                    onDelete={removeConnectionById}
-                                    onSplit={handleSplitConnection}
-                                    lineStyle={lineStyle}
+                                <ConnectionView 
+                                    key={conn.id} 
+                                    connection={conn} 
+                                    fromNode={fromNode} 
+                                    toNode={toNode} 
+                                    start={start} 
+                                    end={end} 
+                                    isNodeHovered={effectiveTool === 'cutter' && (hoveredNodeId === conn.fromNodeId || hoveredNodeId === conn.toNodeId)} 
+                                    activeTool={effectiveTool} 
+                                    onDelete={removeConnectionById} 
+                                    onSplit={handleSplitConnection} 
+                                    lineStyle={lineStyle} 
                                 />
                             );
                         })}
                         {connectingInfo && <path d={`M ${connectingInfo.fromPoint.x} ${connectingInfo.fromPoint.y} C ${connectingInfo.fromPoint.x + 80} ${connectingInfo.fromPoint.y}, ${context.pointerPosition.x - 80} ${context.pointerPosition.y}, ${context.pointerPosition.x} ${context.pointerPosition.y}`} stroke={getDragLineColor(connectingInfo.fromType)} strokeWidth="3" fill="none" style={{ strokeDasharray: '8 4', pointerEvents: 'none' }} />}
-
+                        
                         {smartGuides.map((guide, index) => {
                             const isVertical = guide.type === 'vertical';
                             const x1 = isVertical ? guide.position : guide.start;
@@ -514,7 +520,7 @@ const CanvasLayer: React.FC = () => {
                             onMouseDown={(e) => context.handleGroupMouseDown(e, group.id)}
                             onTouchStart={(e) => context.handleGroupTouchStart(e, group.id)}
                             onClose={handleRemoveGroup}
-                            onRename={(id, title) => context.setRenameInfo({ type: 'group', id, currentTitle: title })}
+                            onRename={(id, title) => context.setRenameInfo({type: 'group', id, currentTitle: title})}
                             onSaveToCatalog={() => handleSaveGroupToCatalog(group.id)}
                             onSaveToDisk={() => handleSaveGroupToDisk(group.id)}
                             onCopy={copyGroup}
@@ -526,7 +532,14 @@ const CanvasLayer: React.FC = () => {
 
                     {/* VIRTUALIZED NODES */}
                     {visibleEntities.visibleNodes.map((node: any) => (
-                        <NodeView key={node.id} node={node} {...getNodeViewProps(node)} isProxy={!!node.dockState} />
+                        // If node is docked, render a PROXY here (isProxy=true)
+                        // If not docked, render normally
+                        <NodeView 
+                            key={node.id} 
+                            node={node} 
+                            {...getNodeViewProps(node)} 
+                            isProxy={!!node.dockState} // Crucial logic: if docked, render as proxy on canvas
+                        />
                     ))}
 
                     <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-[15] overflow-visible">
@@ -534,25 +547,25 @@ const CanvasLayer: React.FC = () => {
                     </svg>
                 </div>
             )}
-
+            
             {focusedNode && (
-                <NodeView key={`${focusedNode.id}-focused`} node={focusedNode} {...getNodeViewProps(focusedNode)} isFocused={true} />
+                 <NodeView key={`${focusedNode.id}-focused`} node={focusedNode} {...getNodeViewProps(focusedNode)} isFocused={true} />
             )}
 
             {!focusedNodeId && (
-                <div
+                <div 
                     className="absolute left-1/2 z-20 flex flex-col items-center transition-transform duration-300 ease-in-out"
-                    style={{
-                        bottom: '8px',
-                        transform: isToolbarCollapsed
-                            ? `translate(-50%, calc(100% - ${tongueHeight > 0 ? tongueHeight : 32}px))`
-                            : 'translate(-50%, 0)',
+                    style={{ 
+                        bottom: '8px', 
+                        transform: isToolbarCollapsed 
+                            ? `translate(-50%, calc(100% - ${tongueHeight > 0 ? tongueHeight : 32}px))` 
+                            : 'translate(-50%, 0)', 
                         maxWidth: 'calc(100% - 112px)',
-                        width: 'max-content'
+                        width: 'max-content' 
                     }}
                     onMouseDown={e => e.stopPropagation()}
                 >
-                    <div
+                    <div 
                         ref={tongueRef}
                         className="flex items-center justify-center bg-gray-800/90 backdrop-blur-md border border-gray-600 border-b-0 rounded-t-lg shadow-sm overflow-hidden"
                     >
@@ -570,10 +583,10 @@ const CanvasLayer: React.FC = () => {
 
                         <div className="w-px h-3 bg-gray-600"></div>
 
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setIsToolbarCollapsed(!isToolbarCollapsed); }}
-                            className="px-3 py-1 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none text-gray-400 hover:text-gray-200"
-                            title={isToolbarCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')}
+                        <button 
+                             onClick={(e) => { e.stopPropagation(); setIsToolbarCollapsed(!isToolbarCollapsed); }}
+                             className="px-3 py-1 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none text-gray-400 hover:text-gray-200"
+                             title={isToolbarCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')}
                         >
                             <div className={`transform transition-transform duration-300 ${isToolbarCollapsed ? 'rotate-180' : 'rotate-0'}`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -582,7 +595,7 @@ const CanvasLayer: React.FC = () => {
                     </div>
 
                     <div className="bg-gray-900/50 backdrop-blur-md border border-gray-700 rounded-lg p-1 shadow-2xl w-full">
-                        <Toolbar
+                        <Toolbar 
                             onAddNode={handleAddNodeFromToolbar}
                             onOpenSearch={() => handleOpenQuickSearch({ x: window.innerWidth / 2, y: window.innerHeight / 2 })}
                             onToggleCatalog={handleToggleCatalog}
@@ -633,7 +646,7 @@ const CanvasLayer: React.FC = () => {
                     </div>
                 </div>
             )}
-
+            
             {tutorialStep === 'tutorial_success_message' && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
                     <div className="bg-gray-800 rounded-2xl shadow-2xl border-2 border-cyan-500 p-8 max-w-md text-center transform scale-100 transition-all">
@@ -644,7 +657,7 @@ const CanvasLayer: React.FC = () => {
                         </div>
                         <h2 className="text-3xl font-bold text-white mb-4">{t('tutorial.success.title')}</h2>
                         <p className="text-gray-300 mb-8 text-lg leading-relaxed">{t('tutorial.success.message')}</p>
-                        <button
+                        <button 
                             onClick={advanceTutorial}
                             className="w-full py-4 text-xl font-bold text-white bg-gradient-to-r from-cyan-600 to-blue-600 rounded-xl hover:from-cyan-500 hover:to-blue-500 transition-all transform hover:scale-105 shadow-lg shadow-cyan-900/50"
                         >

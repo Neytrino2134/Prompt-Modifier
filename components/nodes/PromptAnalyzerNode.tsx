@@ -93,7 +93,8 @@ export const PromptAnalyzerNode: React.FC<NodeContentProps> = ({ node, onValueCh
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex-grow flex flex-col space-y-2 overflow-y-auto overflow-x-hidden px-2">
+            {/* Removed overflow-y-auto and overflow-x-hidden to disable internal scrolling */}
+            <div className="flex-grow flex flex-col space-y-2 px-2">
                 {renderSubPanel('environment', environment, (v) => handleValueUpdate({ environment: v }), 'environment')}
                 {Array.from({ length: charactersToRenderCount }).map((_, i) =>
                     renderSubPanel('character', characters[i] || '', (v) => handleCharacterChange(i, v), `character-${i}`, i)

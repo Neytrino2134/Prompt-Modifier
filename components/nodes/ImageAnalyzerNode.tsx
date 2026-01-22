@@ -35,6 +35,7 @@ export const ImageAnalyzerNode: React.FC<NodeContentProps> = ({
     const onAddNode = context?.onAddNode;
     const setConnections = context?.setConnections;
     const handleAnalyzePrompt = context?.handleAnalyzePrompt;
+    const getTransformedPoint = context?.getTransformedPoint;
     const connections = context?.connections || [];
     const allNodes = context?.nodes || [];
 
@@ -155,7 +156,7 @@ export const ImageAnalyzerNode: React.FC<NodeContentProps> = ({
         }
     };
 
-    const handleChainAnalysis = useCallback(() => {
+    const handleChainAnalysis = useCallback((e: React.MouseEvent) => {
         if (!onAddNode || !setConnections || !handleAnalyzePrompt || !description) return;
 
         // Check if 'text' handle is already connected to a Prompt Analyzer
@@ -177,7 +178,17 @@ export const ImageAnalyzerNode: React.FC<NodeContentProps> = ({
             handleAnalyzePrompt(targetNodeId);
         } else {
             // 1b. If not connected, create new node and connect
-            const newPos = { x: node.position.x + node.width + 50, y: node.position.y };
+            // Calculate position based on cursor + offset (500-600px)
+            let newPos = { x: node.position.x + node.width + 50, y: node.position.y };
+            
+            if (getTransformedPoint) {
+                const worldCursor = getTransformedPoint({ x: e.clientX, y: e.clientY });
+                newPos = { 
+                    x: worldCursor.x + 550, 
+                    y: node.position.y // Keep alignment vertical with parent
+                };
+            }
+
             const newNodeId = onAddNode(NodeType.PROMPT_ANALYZER, newPos);
 
             setConnections(prev => [...prev, {
@@ -194,7 +205,7 @@ export const ImageAnalyzerNode: React.FC<NodeContentProps> = ({
             }, 100);
         }
 
-    }, [onAddNode, setConnections, handleAnalyzePrompt, node, description, connections, allNodes]);
+    }, [onAddNode, setConnections, handleAnalyzePrompt, node, description, connections, allNodes, getTransformedPoint]);
 
     return (
         <div className="flex flex-col h-full space-y-2">
