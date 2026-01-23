@@ -5,6 +5,8 @@ jspm_packages/
 # --- Сборка и временные файлы ---
 dist/
 dist-ssr/
+dist-electron/
+release/
 build/
 out/
 .cache/
@@ -41,3 +43,7 @@ lerna-debug.log*
 # --- Системные файлы ---
 .DS_Store
 Thumbs.db
+
+# --- Ресурсы приложения ---
+resources/
+*.ico
