@@ -5,6 +5,7 @@ import { getEmptyValueForNodeType, getDuplicatedValueForNodeType, RATIO_INDICES,
 import { generateThumbnail } from '../utils/imageUtils';
 import { readPromptFromPNG } from '../utils/pngMetadata';
 import { CARD_NODE_WIDTH_STEP, CARD_NODE_BASE_WIDTH_OFFSET } from './useEntityActions';
+import { ContentCatalogItemType } from './useCatalog';
 
 const getTimestamp = () => new Date().toISOString().replace(/:/g, '-').replace('T', '_').split('.')[0];
 
@@ -505,6 +506,88 @@ export const useAppOrchestration = (
 
         addToast(t('toast.characterDetached') || "Character detached", 'success');
     }, [entityActionsHook, nodesHook, setFullSizeImage, addToast, t]);
+    
+    const onSaveCharacterToCatalog = useCallback((nodeId: string, cardIndex?: number) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node || node.type !== NodeType.CHARACTER_CARD) return;
+
+        try {
+            let characters = JSON.parse(node.value || '[]');
+            if (!Array.isArray(characters)) characters = [characters];
+            
+            // If cardIndex is undefined, SAVE ALL CHARACTERS as a single item
+            if (cardIndex === undefined) {
+                 const allDataToSave = characters.map((char: any, i: number) => {
+                     // Resolve images for each character
+                     const fullSources: Record<string, string | null> = { ...(char.thumbnails || char.imageSources || {}) };
+                     Object.entries(RATIO_INDICES).forEach(([ratio, index]) => {
+                        const fullRes = getFullSizeImage(nodeId, (i * 10) + index);
+                        if (fullRes) fullSources[ratio] = fullRes;
+                     });
+                     
+                     // Get active image
+                     const activeImg = getFullSizeImage(nodeId, i * 10) || char.image;
+
+                     // Return formatted character object
+                     return {
+                        id: char.id || `char-${Date.now()}-${i}`,
+                        type: 'character-card',
+                        name: char.name,
+                        index: char.index,
+                        image: activeImg,
+                        imageSources: fullSources,
+                        prompt: char.prompt,
+                        fullDescription: char.fullDescription,
+                        selectedRatio: char.selectedRatio,
+                        additionalPrompt: char.additionalPrompt,
+                        // Persist other states if needed
+                        isActive: char.isActive
+                     };
+                 });
+                 
+                 const collectionName = node.title || 'Character Collection';
+                 
+                 // Save the entire array to the catalog
+                 characterCatalogHook.createItem(
+                     ContentCatalogItemType.ITEM, 
+                     collectionName, 
+                     JSON.stringify(allDataToSave)
+                 );
+                 addToast(t('toast.characterSavedCatalog') + " (All)", 'success');
+                 
+            } else {
+                 // Existing Logic: Save SPECIFIC card
+                 const char = characters[cardIndex];
+                 if (!char) return;
+                 
+                 // Resolve images
+                 const fullSources: Record<string, string | null> = { ...char.thumbnails };
+                 Object.entries(RATIO_INDICES).forEach(([ratio, index]) => {
+                    const fullRes = getFullSizeImage(nodeId, (cardIndex * 10) + index);
+                    if (fullRes) fullSources[ratio] = fullRes;
+                 });
+                 const activeImg = getFullSizeImage(nodeId, cardIndex * 10) || char.image;
+
+                 const dataToSave = {
+                    type: 'character-card',
+                    name: char.name,
+                    index: char.index,
+                    image: activeImg,
+                    imageSources: fullSources,
+                    prompt: char.prompt,
+                    fullDescription: char.fullDescription,
+                    selectedRatio: char.selectedRatio,
+                    additionalPrompt: char.additionalPrompt
+                 };
+                 
+                 characterCatalogHook.createItem(ContentCatalogItemType.ITEM, char.name || 'New Character', JSON.stringify(dataToSave));
+                 addToast(t('toast.characterSavedCatalog'), 'success');
+            }
+        } catch (e) {
+            console.error("Failed to save character to catalog", e);
+             addToast("Failed to save to catalog", 'error');
+        }
+    }, [nodes, characterCatalogHook, getFullSizeImage, addToast, t]);
 
     return {
         handleDownloadImage,
@@ -519,6 +602,7 @@ export const useAppOrchestration = (
         onSaveMediaToDisk,
         handleDetachCharacterFromGenerator,
         handleDetachAndPasteConcept,
-        onDetachImageToNode
+        onDetachImageToNode,
+        onSaveCharacterToCatalog // Export the updated function
     };
 };

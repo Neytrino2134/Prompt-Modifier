@@ -293,17 +293,29 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                         {/* Character Card Toggles */}
                         {node.type === NodeType.CHARACTER_CARD && !isNoteMinimal && (
                             <>
-                                {onSaveCharacterCard && (
-                                    <ActionButton
-                                        title={t('node.action.saveCharacter')}
-                                        onClick={(e) => { e.stopPropagation(); onSaveCharacterCard(node.id); }}
-                                        className="p-1 rounded hover:bg-gray-600 transition-colors text-gray-400 hover:text-white border border-transparent"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                    </ActionButton>
-                                )}
+                                <div className="flex bg-gray-800/50 rounded-md border border-gray-600/50 p-0.5 space-x-0.5">
+                                    {onSaveCharacterCard && (
+                                        <ActionButton
+                                            title={t('node.action.saveCharacter')} // Save to Disk
+                                            onClick={(e) => { e.stopPropagation(); onSaveCharacterCard(node.id); }}
+                                            className="p-1 rounded hover:bg-gray-600 transition-colors text-gray-400 hover:text-white"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                            </svg>
+                                        </ActionButton>
+                                    )}
+                                    {onSaveCharacterToCatalog && (
+                                        <ActionButton 
+                                            title={t('catalog.saveTo')} 
+                                            onClick={(e) => { e.stopPropagation(); onSaveCharacterToCatalog(node.id); }}
+                                            className="p-1 rounded hover:bg-gray-600 transition-colors text-gray-400 hover:text-white"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-3 3-3-3m3 3V3" /></svg>
+                                        </ActionButton>
+                                    )}
+                                </div>
+                                <div className="w-px h-3 bg-gray-600/50 mx-0.5"></div>
                                 {onToggleCharacterImages && (
                                     <ActionButton
                                         title={allImagesCollapsed ? t('node.action.showImages') : t('node.action.hideImages')}
@@ -421,9 +433,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
 
                                 {onSaveCharacterToCatalog && onSaveCharacterCard && (
                                     <>
-                                        <ActionButton title={t('catalog.saveTo')} onClick={() => onSaveCharacterToCatalog(node.id)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-3 3-3-3m3 3V3" /></svg>
-                                        </ActionButton>
+                                        {/* Paste & Copy are specific to single card ops usually, kept here */}
                                         <ActionButton title={t('node.action.paste')} onClick={() => onPasteNodeValue(node.id)}>
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 14l2 2 4-4" /></svg>
                                         </ActionButton>

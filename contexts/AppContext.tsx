@@ -386,8 +386,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                  addToast(t('toast.characterSavedCatalog'), 'success');
 
             } else {
-                 // Fallback: Save primary or all?
-                 // For now, let's just log or ignore if no index, as button passes index.
+                 // Fallback: Save ALL characters if no index is provided (e.g. from header button)
+                 const allDataToSave = characters.map((char: any, i: number) => {
+                     const fullSources: Record<string, string | null> = { ...(char.thumbnails || char.imageSources || {}) };
+                     Object.entries(RATIO_INDICES).forEach(([ratio, index]) => {
+                        const fullRes = getFullSizeImage(nodeId, (i * 10) + index);
+                        if (fullRes) fullSources[ratio] = fullRes;
+                     });
+                     
+                     const activeImg = getFullSizeImage(nodeId, i * 10) || char.image;
+
+                     return {
+                        id: char.id || `char-${Date.now()}-${i}`,
+                        type: 'character-card',
+                        name: char.name,
+                        index: char.index,
+                        image: activeImg,
+                        imageSources: fullSources,
+                        prompt: char.prompt,
+                        fullDescription: char.fullDescription,
+                        selectedRatio: char.selectedRatio,
+                        additionalPrompt: char.additionalPrompt,
+                        isActive: char.isActive
+                     };
+                 });
+                 
+                 const collectionName = node.title || 'Character Collection';
+                 
+                 characterCatalogHook.createItem(
+                     ContentCatalogItemType.ITEM, 
+                     collectionName, 
+                     JSON.stringify(allDataToSave)
+                 );
+                 addToast(t('toast.characterSavedCatalog') + " (All)", 'success');
             }
         } catch (e) {
             console.error("Failed to save character to catalog", e);
