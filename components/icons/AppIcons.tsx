@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 
 export const ExpandIcon = () => (
@@ -252,6 +251,20 @@ export const GoogleDriveIcon = ({ className = "h-5 w-5" }: { className?: string 
     </svg>
 );
 
+export const CloudUploadIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+    </svg>
+);
+
+export const CloudDownloadIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12M12 10v9m0 0l3-3m-3 3l-3-3" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10V19M9 16L12 19L15 16" />
+    </svg>
+);
+
+
 export const EyedropperIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5l-2.404 2.404a5.002 5.002 0 01-7.072 0l-1.06-1.06a5.002 5.002 0 010-7.072l2.404-2.404a1.5 1.5 0 012.122 0l6.01 6.01a1.5 1.5 0 010 2.122zM8.25 15.75l-4.5 4.5a1.5 1.5 0 000 2.122l1.06 1.06a1.5 1.5 0 002.122 0l4.5-4.5" />
@@ -268,4 +281,97 @@ export const PhotoIcon = ({ className = "h-4 w-4" }: { className?: string }) => 
   <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
   </svg>
+);
+
+// --- NEW ICONS FOR CATALOG ---
+
+export const GroupItemIcon = ({ className = "h-8 w-8 text-cyan-400" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" fill="none" opacity="0.8" />
+        <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" fill="none" opacity="0.8" />
+        <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" fill="none" opacity="0.8" />
+        <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" fill="none" opacity="0.8" />
+        
+        <path d="M10 6.5h4" stroke="currentColor" strokeOpacity="0.5" />
+        <path d="M6.5 10v4" stroke="currentColor" strokeOpacity="0.5" />
+        <path d="M17.5 10v4" stroke="currentColor" strokeOpacity="0.5" />
+        <path d="M10 17.5h4" stroke="currentColor" strokeOpacity="0.5" />
+    </svg>
+);
+
+export const FolderIcon = ({ className = "h-10 w-10 text-cyan-400" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+    </svg>
+);
+
+export const FileIcon = ({ className = "h-10 w-10 text-cyan-400" }: { className?: string }) => (
+   <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+   </svg>
+);
+
+export const RenameIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+    </svg>
+);
+
+export const SaveIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+);
+
+export const DeleteIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+);
+
+export const BackIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
+);
+
+export const AddFolderIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+    </svg>
+);
+
+export const LoadFileIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+    </svg>
+);
+
+export const ClearCloudIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <div className="relative">
+        <CloudUploadIcon className={className} />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+             <div className="w-0.5 h-full bg-red-500 rotate-45 transform origin-center absolute scale-y-125"></div>
+        </div>
+    </div>
+);
+
+export const CharacterIcon = ({ className = "h-10 w-10" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 3h15a1.5 1.5 0 011.5 1.5v15a1.5 1.5 0 01-1.5 1.5h-15a1.5 1.5 0 01-1.5-1.5v-15A1.5 1.5 0 014.5 3z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 9a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 17.25h7.5a6 6 0 00-7.5 0z" />
+    </svg>
+);
+
+export const ScriptIcon = ({ className = "h-10 w-10" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h.01M15 12h.01M10.5 16.5h3M15 19.5h-6a2.25 2.25 0 01-2.25-2.25V6.75A2.25 2.25 0 018.25 4.5h7.5a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0115.75 19.5h-1.5" />
+    </svg>
+);
+
+export const SequenceIcon = ({ className = "h-10 w-10" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 5h12M6 9h12M6 13h12M6 17h12M3 3h2.5v18H3zm15.5 0H21v18h-2.5z" />
+    </svg>
 );

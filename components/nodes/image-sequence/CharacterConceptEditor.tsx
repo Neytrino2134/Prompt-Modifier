@@ -4,6 +4,7 @@ import { CharacterConcept } from '../../../types';
 import { ActionButton } from '../../ActionButton';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { DebouncedInput } from '../../DebouncedInput';
+import { CopyIcon } from '../../../components/icons/AppIcons'; // Imported CopyIcon
 
 interface CharacterConceptEditorProps {
     concept: { id: string; name: string; prompt: string; image: string | null; fullDescription?: string; isConnected: boolean };
@@ -20,6 +21,8 @@ interface CharacterConceptEditorProps {
     onViewImage: (imageUrl: string) => void;
     t: (key: string) => string;
     hasError?: boolean;
+    onCopyImage?: () => void; // New prop
+    onDownloadImage?: () => void; // New prop
 }
 
 const AspectRatioIcon: React.FC<{ width: number; height: number }> = ({ width, height }) => {
@@ -47,7 +50,10 @@ const AspectRatioIcon: React.FC<{ width: number; height: number }> = ({ width, h
     );
 };
 
-export const CharacterConceptEditor: React.FC<CharacterConceptEditorProps> = ({ concept, displayImage, fullResImage, isReadOnly, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast, onDetach, onViewImage, t, hasError }) => {
+export const CharacterConceptEditor: React.FC<CharacterConceptEditorProps> = ({ 
+    concept, displayImage, fullResImage, isReadOnly, onUpdate, onDelete, onMoveUp, onMoveDown, 
+    isFirst, isLast, onDetach, onViewImage, t, hasError, onCopyImage, onDownloadImage 
+}) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragOver, setIsDragOver] = useState(false);
     const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -196,13 +202,25 @@ export const CharacterConceptEditor: React.FC<CharacterConceptEditorProps> = ({ 
                                 onDragStart={handleImageDragStart}
                                 onLoad={(e) => setImgDimensions({ width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight })}
                             />
-                            {!concept.isConnected && (
-                                <div className="absolute top-1 right-1">
-                                     <ActionButton title={t('node.action.clear')} onClick={handleClearImage}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                             <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                {onDownloadImage && (
+                                     <ActionButton title={t('node.action.download')} onClick={(e) => { e.stopPropagation(); onDownloadImage(); }} className="bg-black/60 p-1 rounded text-accent-text hover:text-white" tooltipPosition="left">
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
                                     </ActionButton>
-                                </div>
-                            )}
+                                )}
+                                {onCopyImage && (
+                                    <ActionButton title={t('node.action.copy')} onClick={(e) => { e.stopPropagation(); onCopyImage(); }} className="bg-black/60 p-1 rounded text-accent-text hover:text-white" tooltipPosition="left">
+                                        <CopyIcon className="h-3 w-3" />
+                                    </ActionButton>
+                                )}
+                                {!concept.isConnected && (
+                                     <ActionButton title={t('node.action.clear')} onClick={handleClearImage} className="bg-black/60 p-1 rounded text-red-400 hover:text-white">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </ActionButton>
+                                )}
+                            </div>
                             {imgDimensions && (
                                 <div className="absolute bottom-0 right-0 pointer-events-none z-10">
                                     <AspectRatioIcon width={imgDimensions.width} height={imgDimensions.height} />

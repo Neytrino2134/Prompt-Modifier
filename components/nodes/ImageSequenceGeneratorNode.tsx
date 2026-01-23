@@ -1,6 +1,4 @@
 
-
-
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { NodeContentProps, CharacterConcept } from '../../types';
@@ -15,6 +13,7 @@ import { ActionButton } from '../ActionButton';
 import JSZip from 'jszip';
 import { CustomCheckbox } from '../CustomCheckbox';
 import { getTranslation } from '../../localization';
+import { RATIO_INDICES } from '../../utils/nodeUtils';
 
 import { CharacterConceptsPanel } from './image-sequence/CharacterConceptsPanel';
 import { SourcePromptList } from './image-sequence/SourcePromptList';
@@ -312,13 +311,24 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 });
 
                 // Map all characters to concepts
-                const newConcepts = cardData.map((c: any, i: number) => ({
-                    id: `Entity-${maxId + i + 1}`, // Updated to Entity
-                    name: c.name || `Entity ${maxId + i + 1}`,
-                    prompt: c.prompt || '',
-                    image: c.thumbnails?.['1:1'] || c.image || null, // Use thumbnail
-                    fullDescription: c.fullDescription || ''
-                }));
+                const newConcepts = cardData.map((c: any, i: number) => {
+                    // Try to retrieve high-res from source node cache
+                    // Character Card stores full res at (cardIndex * 10) + ratioIndex OR base (cardIndex * 10)
+                    // We check if we can get it.
+                    const ratio = c.selectedRatio || '1:1';
+                    const ratioIdx = RATIO_INDICES[ratio] || 1;
+                    const cachedFull = getFullSizeImage(sourceNode.id, (i * 10) + ratioIdx) || getFullSizeImage(sourceNode.id, i * 10);
+                    
+                    const bestImage = cachedFull || c.thumbnails?.['1:1'] || c.image || null;
+
+                    return {
+                        id: `Entity-${maxId + i + 1}`, // Updated to Entity
+                        name: c.name || `Entity ${maxId + i + 1}`,
+                        prompt: c.prompt || '',
+                        image: bestImage, 
+                        fullDescription: c.fullDescription || ''
+                    };
+                });
 
                 // Append to local state
                 handleValueUpdate({ characterConcepts: [...characterConcepts, ...newConcepts] });
@@ -335,7 +345,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         if (onDetachAndPasteConcept) {
             onDetachAndPasteConcept(node.id, concept);
         }
-    }, [allNodes, connections, setConnections, characterConcepts, handleValueUpdate, onDetachAndPasteConcept, node.id, addToast, t]);
+    }, [allNodes, connections, setConnections, characterConcepts, handleValueUpdate, onDetachAndPasteConcept, node.id, addToast, t, getFullSizeImage]);
 
     const handleMoveConcept = useCallback((index: number, direction: 'up' | 'down') => {
         const localIndex = index - upstreamCount;
@@ -1037,13 +1047,15 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         onMoveConcept={handleMoveConcept}
                         onAddConcept={handleAddConcept}
                         onDetachConnectedConcept={(concept) => handleDetachConcept(concept)}
-                        onClearConcepts={handleClearConcepts} // Added
+                        onClearConcepts={handleClearConcepts} 
                         handleViewImage={(url) => setImageViewer({ sources: [{ src: url, frameNumber: 0 }], initialIndex: 0 })}
                         t={t}
                         deselectAllNodes={deselectAllNodes}
                         conceptsMode={conceptsMode}
                         onToggleMode={handleToggleConceptsMode}
-                        duplicateIndices={duplicateIndices} // Pass validation result
+                        duplicateIndices={duplicateIndices} 
+                        onCopyImageToClipboard={onCopyImageToClipboard} // Passed
+                        onDownloadImageFromUrl={onDownloadImageFromUrl} // Passed
                     />
                 </div>
 

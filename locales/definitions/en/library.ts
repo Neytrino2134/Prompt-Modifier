@@ -20,6 +20,7 @@ export const library = {
     'catalog.card.save': 'Save',
     'catalog.card.delete': 'Delete',
     'catalog.empty.description': 'This folder is empty. You can add items or create new folders.',
+    'catalog.clearCloudCategory': 'Clear Cloud Category',
     'library.loadFromFile': 'Load',
     'library.actions.newFolder': 'New Folder',
     'library.actions.newPrompt': 'New Prompt',

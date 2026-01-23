@@ -20,6 +20,7 @@ export const library = {
     'catalog.card.save': 'Сохранить',
     'catalog.card.delete': 'Удалить',
     'catalog.empty.description': 'Эта папка пуста. Вы можете добавить элементы или создать новые папки.',
+    'catalog.clearCloudCategory': 'Очистить категорию в облаке',
     'library.loadFromFile': 'Загрузить',
     'library.actions.newFolder': 'Новая папка',
     'library.actions.newPrompt': 'Новый промпт',

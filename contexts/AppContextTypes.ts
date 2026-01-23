@@ -26,7 +26,7 @@ import {
   useNodePositionHistory,
   useContentCatalog,
 } from '../hooks';
-import { useGoogleDrive } from '../hooks/useGoogleDrive'; // Import
+import { useGoogleDrive } from '../hooks/useGoogleDrive';
 
 export type AppContextType = 
   Omit<ReturnType<typeof useTabs>, 'handleCloseTab' | 'loadCanvasState'> &
@@ -49,13 +49,13 @@ export type AppContextType =
   ReturnType<typeof useGeminiGeneration> &
   ReturnType<typeof useGeminiModification> &
   ReturnType<typeof useNodePositionHistory> &
-  ReturnType<typeof useGoogleDrive> & // Add
+  ReturnType<typeof useGoogleDrive> & 
    {
   replaceAllItems: (newItems: LibraryItem[]) => void;
   importItemsData: (data: any) => Promise<void>;
   
   handleLoadCanvasIntoCurrentTab: (text: string) => void; 
-  handleLoadFromExternal: (text: string) => void; // New method
+  handleLoadFromExternal: (text: string) => void;
 
   t: (key: string, options?: { [key: string]: string | number }) => string;
   isSnapToGrid: boolean;
@@ -256,4 +256,10 @@ export type AppContextType =
   setIsConnectionAnimationEnabled: (enabled: boolean) => void;
   connectionOpacity: number;
   setConnectionOpacity: (opacity: number) => void;
+
+  // Sync Logic
+  handleSyncCatalogs: () => void;
+  handleDeleteFromDrive: (item: any, context: string) => void;
+  handleClearCloudFolder: (context: string) => void; // Added
+  handleCleanupDuplicates: () => void;
 };

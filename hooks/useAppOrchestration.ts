@@ -411,6 +411,56 @@ export const useAppOrchestration = (
         }
     }, [nodes, addToast, t, setError]);
 
+    const handleDetachAndPasteConcept = useCallback((sequenceNodeId: string, conceptToPaste: any) => {
+        const sourceNode = nodes.find(n => n.id === sequenceNodeId);
+        const position = sourceNode 
+            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y } 
+            : { x: 0, y: 0 };
+            
+        const newNodeId = entityActionsHook.onAddNode(NodeType.CHARACTER_CARD, position, conceptToPaste.name);
+        
+        // Prioritize full resolution image from cache if available (attached in useDerivedMemo/useSequenceNode)
+        const imageToUse = conceptToPaste._fullResImage || conceptToPaste.image;
+
+        const cardData = [{
+            id: `char-card-${Date.now()}`,
+            name: conceptToPaste.name || 'New Entity',
+            index: conceptToPaste.index || 'Entity-1',
+            image: imageToUse,
+            thumbnails: { '1:1': imageToUse, '16:9': null, '9:16': null },
+            selectedRatio: '1:1',
+            prompt: conceptToPaste.prompt || '',
+            fullDescription: conceptToPaste.fullDescription || '',
+            isOutput: true,
+            isActive: true
+        }];
+        
+        // Set Full Resolution Cache for new node
+        if (imageToUse && imageToUse.startsWith('data:')) {
+             setFullSizeImage(newNodeId, 0, imageToUse);
+             setFullSizeImage(newNodeId, 1, imageToUse); 
+        }
+
+        nodesHook.handleValueChange(newNodeId, JSON.stringify(cardData));
+        addToast(t('toast.pastedFromClipboard'), 'success');
+    }, [nodes, entityActionsHook, setFullSizeImage, addToast, t, nodesHook]);
+
+    const onDetachImageToNode = useCallback((imageDataUrl: string, sourceNodeId: string) => {
+        const sourceNode = nodes.find(n => n.id === sourceNodeId);
+        const position = sourceNode 
+            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y } 
+            : { x: 0, y: 0 };
+            
+        const newNodeId = entityActionsHook.onAddNode(NodeType.IMAGE_INPUT, position);
+        
+        setFullSizeImage(newNodeId, 0, imageDataUrl);
+        generateThumbnail(imageDataUrl, 256, 256).then(thumb => {
+             nodesHook.handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: '' }));
+        });
+        
+        addToast(t('toast.pastedFromClipboard'), 'success');
+    }, [nodes, entityActionsHook, setFullSizeImage, addToast, t, nodesHook]);
+
     const handleDetachCharacterFromGenerator = useCallback((characterData: any, generatorNode: Node) => {
         const pos = { x: generatorNode.position.x + generatorNode.width + 400, y: generatorNode.position.y };
 
@@ -467,6 +517,8 @@ export const useAppOrchestration = (
         handleAddGroupFromCatalog,
         handleAddNodeAndConnect,
         onSaveMediaToDisk,
-        handleDetachCharacterFromGenerator
+        handleDetachCharacterFromGenerator,
+        handleDetachAndPasteConcept,
+        onDetachImageToNode
     };
 };

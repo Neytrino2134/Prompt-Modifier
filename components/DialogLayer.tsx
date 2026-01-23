@@ -74,7 +74,14 @@ const DialogLayer: React.FC = () => {
         isApiKeyDialogOpen, handleApiKeySelect, handleApiKeyDialogClose,
         addToast,
         handlePaste,
-        error, setError // Ensure error state is available
+        error, setError,
+        // Google Drive Props from context
+        handleSyncCatalogs, 
+        isGoogleDriveReady, 
+        isGoogleDriveSaving, 
+        uploadCatalogItem,
+        handleDeleteFromDrive, // <--- Destructured here
+        handleClearCloudFolder // <--- Destructured here
     } = context;
 
     const handleAddNodeFromMenu = (type: any) => {
@@ -257,6 +264,15 @@ const DialogLayer: React.FC = () => {
                 onRenameCharacter={(id, name) => setRenameInfo({ type: 'character', id, currentTitle: name })}
                 onRenameScript={(id, name) => setRenameInfo({ type: 'script', id, currentTitle: name })}
                 onRenameSequence={(id, name) => setRenameInfo({ type: 'sequence', id, currentTitle: name })}
+                
+                // Pass Google Drive handlers
+                handleSyncCatalogs={handleSyncCatalogs}
+                isGoogleDriveReady={isGoogleDriveReady}
+                isSyncing={isGoogleDriveSaving} // Use saving state as generic "busy" state for sync
+                uploadCatalogItem={uploadCatalogItem}
+                // PASSED NEW HANDLERS HERE
+                handleDeleteFromDrive={handleDeleteFromDrive}
+                handleClearCloudFolder={handleClearCloudFolder}
             />
 
             <ApiKeyDialog

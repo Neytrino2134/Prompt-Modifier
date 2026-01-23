@@ -51,7 +51,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
     getFullSizeImage,
     setImageViewer,
     onCopyImageToClipboard,
-    onDownloadImage,
+    onDownloadImageFromUrl,
     addToast,
     onUpdateCharacterDescription,
     isUpdatingDescription,
@@ -858,6 +858,7 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         onPasteImage={() => handlePasteImageToSlot(idx)}
                         onClearImage={() => handleUpdateCard(idx, { thumbnails: { ...char.thumbnails, [char.selectedRatio]: null }, image: null })}
                         onCopyImage={() => { const src = getFullSizeImage(node.id, idx * 10) || char.image; if (src) onCopyImageToClipboard(src); }}
+                        onDownloadImageFromUrl={onDownloadImageFromUrl}
                         onGenerateImage={() => { setEditingCardIndex(idx); onGenerateImage(node.id, idx); }}
                         onEditRaster={() => handleOpenInRasterEditor(idx)}
                         onEditAI={() => handleOpenInEditor(idx)}

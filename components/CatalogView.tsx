@@ -1,11 +1,15 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { CatalogItem } from '../hooks/useCatalog';
 import { CatalogItemType, ContentCatalogItemType } from '../hooks/useCatalog';
 import type { LibraryItem, ContentCatalogItem } from '../types';
 import { LibraryItemType } from '../types';
 import { useLanguage } from '../localization';
 import type { useContentCatalog } from '../hooks/useCatalog';
+import { 
+    GoogleDriveIcon, CloudUploadIcon, CloudDownloadIcon, CopyIcon,
+    FolderIcon, GroupItemIcon, FileIcon, RenameIcon, SaveIcon, DeleteIcon, BackIcon, AddFolderIcon, LoadFileIcon, ClearCloudIcon, CharacterIcon, ScriptIcon, SequenceIcon
+} from './icons/AppIcons';
 
 interface CatalogViewProps {
   isOpen: boolean;
@@ -42,9 +46,17 @@ interface CatalogViewProps {
   onRenameCharacter: (itemId: string, currentName: string) => void;
   onRenameScript: (itemId: string, currentName: string) => void;
   onRenameSequence: (itemId: string, currentName: string) => void;
+  
+  // Google Drive Props
+  handleSyncCatalogs?: () => void;
+  isGoogleDriveReady?: boolean;
+  isSyncing?: boolean;
+  uploadCatalogItem?: (item: any, context: string) => void;
+  handleDeleteFromDrive?: (item: any, context: string) => void; 
+  handleClearCloudFolder?: (context: string) => void; // New Prop for clearing folder
 }
 
-const ActionButton: React.FC<{ title: string; onClick: (e: React.MouseEvent) => void; children: React.ReactNode; disabled?: boolean }> = ({ title, onClick, children, disabled = false }) => {
+const ActionButton: React.FC<{ title: string; onClick: (e: React.MouseEvent) => void; children: React.ReactNode; disabled?: boolean; className?: string }> = ({ title, onClick, children, disabled = false, className }) => {
     const [isTooltipVisible, setIsTooltipVisible] = useState(false);
     return (
         <div 
@@ -57,7 +69,7 @@ const ActionButton: React.FC<{ title: string; onClick: (e: React.MouseEvent) => 
                 onMouseDown={e => e.stopPropagation()}
                 aria-label={title}
                 disabled={disabled}
-                className="p-2 text-gray-300 rounded-full hover:bg-gray-600 hover:text-white transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                className={`p-2 text-gray-300 rounded-full hover:bg-gray-600 hover:text-white transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent ${className || ''}`}
             >
                 {children}
             </button>
@@ -104,7 +116,9 @@ const CatalogItemCard: React.FC<{
   onMoveItem: (targetFolderId: string) => void;
   isDragOver: boolean;
   setIsDragOver: (isOver: boolean) => void;
-}> = ({ item, onAddToCanvas, onNavigate, onRename, onSave, onDelete, draggedItem, onDragStart, onDragEnd, onMoveItem, isDragOver, setIsDragOver }) => {
+  onUpload?: (item: any) => void;
+  onDeleteFromDrive?: (item: any) => void;
+}> = ({ item, onAddToCanvas, onNavigate, onRename, onSave, onDelete, draggedItem, onDragStart, onDragEnd, onMoveItem, isDragOver, setIsDragOver, onUpload, onDeleteFromDrive }) => {
   const { t } = useLanguage();
   const isFolder = item.type === CatalogItemType.FOLDER;
 
@@ -154,29 +168,53 @@ const CatalogItemCard: React.FC<{
       >
         <div className={`absolute w-full h-full ${isFolder ? 'group-hover:scale-110' : ''} bg-gray-800 rounded-lg flex items-center justify-center shadow-lg transition-transform`}>
            {isFolder ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+            <FolderIcon />
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-            </svg>
+            <GroupItemIcon />
           )}
         </div>
+        {/* Cloud Indicator if synced */}
+        {item.driveFileId && (
+            <div className="absolute top-0 right-0 bg-blue-600/80 p-0.5 rounded-bl-md z-10 shadow-sm pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+                </svg>
+            </div>
+        )}
       </div>
       <p className="font-semibold text-gray-100 text-center break-all w-full truncate" title={item.name}>{item.name}</p>
-      <div className="flex justify-center space-x-2 w-full pt-2 border-t border-gray-600/50">
+      <div className="flex justify-center space-x-1 w-full pt-2 border-t border-gray-600/50">
         {!isFolder && (
             <ActionButton title={t('catalog.card.addToCanvas')} onClick={() => onAddToCanvas(item.id)}>
                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </ActionButton>
         )}
         <ActionButton title={t('catalog.card.rename')} onClick={() => onRename(item.id, item.name)}>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+          <RenameIcon />
         </ActionButton>
         <ActionButton title={t('catalog.card.save')} onClick={() => onSave(item.id)}>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+          <SaveIcon />
         </ActionButton>
+        
+        {/* Cloud Actions */}
+        {onUpload && (
+            <ActionButton title="Upload to Drive" onClick={() => onUpload(item)}>
+                <CloudUploadIcon className="h-5 w-5 text-blue-400" />
+            </ActionButton>
+        )}
+        {onDeleteFromDrive && item.driveFileId && (
+             <ActionButton title="Delete from Drive" onClick={() => onDeleteFromDrive(item)} className="text-red-300 hover:text-red-100 hover:bg-red-900/30">
+                 <div className="relative w-5 h-5">
+                     <DeleteIcon />
+                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                         <div className="w-0.5 h-6 bg-red-500 rotate-45 transform origin-center absolute"></div>
+                     </div>
+                 </div>
+            </ActionButton>
+        )}
+
         <ActionButton title={t('catalog.card.delete')} onClick={() => onDelete(item.id)}>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          <DeleteIcon />
         </ActionButton>
       </div>
     </div>
@@ -196,7 +234,9 @@ const LibraryItemCard: React.FC<{
   onMoveItem: (targetFolderId: string) => void;
   isDragOver: boolean;
   setIsDragOver: (isOver: boolean) => void;
-}> = ({ item, onNavigate, onEdit, onRename, onSave, onDelete, draggedItem, onDragStart, onDragEnd, onMoveItem, isDragOver, setIsDragOver }) => {
+  onUpload?: (item: any) => void;
+  onDeleteFromDrive?: (item: any) => void;
+}> = ({ item, onNavigate, onEdit, onRename, onSave, onDelete, draggedItem, onDragStart, onDragEnd, onMoveItem, isDragOver, setIsDragOver, onUpload, onDeleteFromDrive }) => {
   const { t } = useLanguage();
   const isFolder = item.type === LibraryItemType.FOLDER;
 
@@ -251,11 +291,19 @@ const LibraryItemCard: React.FC<{
       >
         <div className={`absolute w-full h-full ${isFolder ? 'group-hover:scale-110' : ''} bg-gray-800 rounded-lg flex items-center justify-center shadow-lg transition-transform`}>
           {isFolder ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+            <FolderIcon />
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <FileIcon />
           )}
         </div>
+         {/* Cloud Indicator if synced */}
+         {item.driveFileId && (
+            <div className="absolute top-0 right-0 bg-blue-600/80 p-0.5 rounded-bl-md z-10 shadow-sm pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+            </svg>
+            </div>
+        )}
       </div>
       
       <div className="text-center w-full min-h-[4rem]">
@@ -263,23 +311,41 @@ const LibraryItemCard: React.FC<{
         {!isFolder && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{item.content || t('library.emptyPrompt')}</p>}
       </div>
 
-      <div className="flex justify-center space-x-2 w-full pt-2 border-t border-gray-600/50">
+      <div className="flex justify-center space-x-1 w-full pt-2 border-t border-gray-600/50">
         {!isFolder && (
           <ActionButton title={t('library.actions.copy')} onClick={handleCopy}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+            <CopyIcon className="h-5 w-5" />
           </ActionButton>
         )}
         {/* Rename button only for Folders */}
         {isFolder && (
             <ActionButton title={t('catalog.card.rename')} onClick={() => onRename(item.id, item.name)}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              <RenameIcon />
             </ActionButton>
         )}
         <ActionButton title={t('catalog.card.save')} onClick={() => onSave(item)}>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+          <SaveIcon />
         </ActionButton>
+
+         {/* Cloud Actions */}
+         {onUpload && (
+            <ActionButton title="Upload to Drive" onClick={() => onUpload(item)}>
+                <CloudUploadIcon className="h-5 w-5 text-blue-400" />
+            </ActionButton>
+        )}
+        {onDeleteFromDrive && item.driveFileId && (
+             <ActionButton title="Delete from Drive" onClick={() => onDeleteFromDrive(item)} className="text-red-300 hover:text-red-100 hover:bg-red-900/30">
+                 <div className="relative w-5 h-5">
+                     <DeleteIcon />
+                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                         <div className="w-0.5 h-6 bg-red-500 rotate-45 transform origin-center absolute"></div>
+                     </div>
+                 </div>
+            </ActionButton>
+        )}
+
         <ActionButton title={t('catalog.card.delete')} onClick={() => onDelete(item.id)}>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          <DeleteIcon />
         </ActionButton>
       </div>
     </div>
@@ -300,7 +366,9 @@ const ContentCatalogItemCard: React.FC<{
     isDragOver: boolean;
     setIsDragOver: (isOver: boolean) => void;
     t: (key: string) => string;
-}> = ({ item, dragItemType, onNavigate, onRename, onSave, onDelete, draggedItem, onDragStart, onDragEnd, onMoveItem, isDragOver, setIsDragOver, t }) => {
+    onUpload?: (item: any) => void; 
+    onDeleteFromDrive?: (item: any) => void; // New prop
+}> = ({ item, dragItemType, onNavigate, onRename, onSave, onDelete, draggedItem, onDragStart, onDragEnd, onMoveItem, isDragOver, setIsDragOver, t, onUpload, onDeleteFromDrive }) => {
     const isFolder = item.type === ContentCatalogItemType.FOLDER;
     const mainAction = isFolder ? () => onNavigate(item.id) : () => {};
 
@@ -356,16 +424,16 @@ const ContentCatalogItemCard: React.FC<{
     };
     
     const icon = useMemo(() => {
-        if (isFolder) return <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>;
+        if (isFolder) return <FolderIcon />;
         
         if (thumbnail) {
             return <img src={thumbnail} alt={item.name} className="w-full h-full object-cover rounded" />;
         }
 
         switch(dragItemType) {
-            case 'CHARACTER': return <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 3h15a1.5 1.5 0 011.5 1.5v15a1.5 1.5 0 01-1.5 1.5h-15a1.5 1.5 0 01-1.5-1.5v-15A1.5 1.5 0 014.5 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 9a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 17.25h7.5a6 6 0 00-7.5 0z" /></svg>;
-            case 'SCRIPT': return <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h.01M15 12h.01M10.5 16.5h3M15 19.5h-6a2.25 2.25 0 01-2.25-2.25V6.75A2.25 2.25 0 018.25 4.5h7.5a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0115.75 19.5h-1.5" /></svg>;
-            case 'PROMPT_SEQUENCE': return <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 5h12M6 9h12M6 13h12M6 17h12M3 3h2.5v18H3zm15.5 0H21v18h-2.5z" /></svg>;
+            case 'CHARACTER': return <CharacterIcon />;
+            case 'SCRIPT': return <ScriptIcon />;
+            case 'PROMPT_SEQUENCE': return <SequenceIcon />;
             default: return null;
         }
     }, [isFolder, dragItemType, thumbnail]);
@@ -388,17 +456,42 @@ const ContentCatalogItemCard: React.FC<{
                 <div className={`absolute w-full h-full ${isFolder ? 'group-hover:scale-110' : ''} bg-gray-800 rounded-lg flex items-center justify-center shadow-lg transition-transform overflow-hidden`}>
                    {icon}
                 </div>
+                {/* Cloud Indicator if synced */}
+                {item.driveFileId && (
+                     <div className="absolute top-0 right-0 bg-blue-600/80 p-0.5 rounded-bl-md z-10 shadow-sm pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                           <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+                        </svg>
+                     </div>
+                )}
             </div>
             <p className="font-semibold text-gray-100 text-center break-all w-full truncate" title={item.name}>{item.name}</p>
-            <div className="flex justify-center space-x-2 w-full pt-2 border-t border-gray-600/50">
+            <div className="flex justify-center space-x-1 w-full pt-2 border-t border-gray-600/50">
                 <ActionButton title={t('catalog.card.rename')} onClick={() => onRename(item.id, item.name)}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                  <RenameIcon />
                 </ActionButton>
                 <ActionButton title={t('catalog.card.save')} onClick={() => onSave(item.id)}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                  <SaveIcon />
                 </ActionButton>
+                {/* Upload Button */}
+                {onUpload && (
+                    <ActionButton title="Upload to Drive" onClick={() => onUpload(item)}>
+                        <CloudUploadIcon className="h-5 w-5 text-blue-400" />
+                    </ActionButton>
+                )}
+                {/* Delete from Drive */}
+                {onDeleteFromDrive && item.driveFileId && (
+                     <ActionButton title="Delete from Drive" onClick={() => onDeleteFromDrive(item)} className="text-red-300 hover:text-red-100 hover:bg-red-900/30">
+                         <div className="relative w-5 h-5">
+                             <DeleteIcon />
+                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                 <div className="w-0.5 h-6 bg-red-500 rotate-45 transform origin-center absolute"></div>
+                             </div>
+                         </div>
+                    </ActionButton>
+                )}
                 <ActionButton title={t('catalog.card.delete')} onClick={() => onDelete(item.id)}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  <DeleteIcon />
                 </ActionButton>
             </div>
         </div>
@@ -414,8 +507,20 @@ const ContentCatalogView: React.FC<{
     dragItemType: 'CHARACTER' | 'SCRIPT' | 'PROMPT_SEQUENCE';
     onRenameItem: (id: string, name: string) => void;
     t: (key: string) => string;
-}> = ({ catalog, draggedItem, setDraggedItem, dragOverTarget, setDragOverTarget, dragItemType, onRenameItem, t }) => {
+    onUpload?: (item: any, context: string) => void;
+    onDeleteFromDrive?: (item: any, context: string) => void; 
+    onClearCloudFolder?: (context: string) => void; // New Prop
+}> = ({ catalog, draggedItem, setDraggedItem, dragOverTarget, setDragOverTarget, dragItemType, onRenameItem, t, onUpload, onDeleteFromDrive, onClearCloudFolder }) => {
     
+    // Determine context string for upload based on type
+    const contextMap: Record<string, string> = {
+        'CHARACTER': 'characters',
+        'SCRIPT': 'scripts',
+        'PROMPT_SEQUENCE': 'sequences'
+    };
+    
+    const context = contextMap[dragItemType];
+
     return (
         <>
             <div className="p-3 border-b border-gray-700 flex items-center justify-between space-x-2 flex-shrink-0">
@@ -432,7 +537,7 @@ const ContentCatalogView: React.FC<{
                         }}
                     >
                         <ActionButton title={t('catalog.back')} onClick={catalog.navigateBack} disabled={catalog.path.length <= 1}>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                            <BackIcon />
                         </ActionButton>
                     </div>
                     <div className="flex items-center text-sm text-gray-400 truncate">
@@ -445,18 +550,34 @@ const ContentCatalogView: React.FC<{
                     </div>
                 </div>
                 <div className="flex space-x-2 flex-shrink-0">
-                    <TooltipWrapper title={t('catalog.load')}>
-                        <button onClick={catalog.triggerLoadFromFile} className="px-3 py-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 rounded-md flex items-center space-x-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
-                            <span>{t('library.loadFromFile')}</span>
-                        </button>
-                    </TooltipWrapper>
                     <TooltipWrapper title={t('catalog.newFolder')}>
                         <button onClick={() => catalog.createItem(ContentCatalogItemType.FOLDER, t('library.actions.newFolder'))} className="px-3 py-2 text-sm font-semibold bg-gray-600 hover:bg-gray-500 rounded-md flex items-center space-x-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
-                            <span>{t('library.actions.newFolder')}</span>
+                            <AddFolderIcon className="h-5 w-5" />
+                            <span className="hidden md:inline">{t('library.actions.newFolder')}</span>
                         </button>
                     </TooltipWrapper>
+
+                    <TooltipWrapper title={t('catalog.load')}>
+                        <button onClick={catalog.triggerLoadFromFile} className="px-3 py-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 rounded-md flex items-center space-x-2">
+                            <LoadFileIcon className="h-5 w-5" />
+                            <span className="hidden md:inline">{t('library.loadFromFile')}</span>
+                        </button>
+                    </TooltipWrapper>
+
+                    {/* Clear Cloud Folder Button - MOVED TO END */}
+                    {onClearCloudFolder && (
+                         <TooltipWrapper title={t('catalog.clearCloudCategory')}>
+                            <button 
+                                onClick={() => { if(confirm("Are you sure you want to delete all files in this cloud folder? This cannot be undone.")) onClearCloudFolder(context); }} 
+                                className="px-3 py-2 text-sm font-semibold bg-gray-700 hover:bg-red-600 text-gray-200 hover:text-white rounded-md flex items-center space-x-2 border border-gray-600 hover:border-red-500 transition-colors"
+                            >
+                                <div className="relative w-5 h-5">
+                                    <ClearCloudIcon className="h-5 w-5" />
+                                </div>
+                                <span className="hidden md:inline">Clear Cloud</span>
+                            </button>
+                        </TooltipWrapper>
+                    )}
                 </div>
             </div>
             <div className="flex-grow overflow-y-auto p-4">
@@ -476,6 +597,8 @@ const ContentCatalogView: React.FC<{
                                 isDragOver={dragOverTarget === item.id}
                                 setIsDragOver={(isOver) => setDragOverTarget(isOver ? item.id : null)}
                                 t={t}
+                                onUpload={onUpload ? (i) => onUpload(i, context) : undefined}
+                                onDeleteFromDrive={onDeleteFromDrive ? (i) => onDeleteFromDrive(i, context) : undefined}
                             />
                         ))}
                     </div>
@@ -496,12 +619,50 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
     isOpen, onClose,
     currentCatalogItems, catalogPath, onCatalogNavigateBack, onCatalogNavigateToFolder, onCreateCatalogFolder, onAddGroupFromCatalog, onRenameCatalogItem, onSaveCatalogItem, onDeleteCatalogItem, onLoadCatalogItemFromFile, onMoveCatalogItem,
     libraryItems, libraryPath, onNavigateBack, onNavigateToFolder, onCreateLibraryItem, onEditLibraryItem, onRenameLibraryItem, onDeleteLibraryItem, onSaveLibraryItem, onLoadLibraryItemFromFile, onMoveLibraryItem,
-    onRenameCharacter, onRenameScript, onRenameSequence
+    onRenameCharacter, onRenameScript, onRenameSequence,
+    handleSyncCatalogs, isGoogleDriveReady, isSyncing, uploadCatalogItem, handleDeleteFromDrive, handleClearCloudFolder // New Prop
   } = props;
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'groups' | 'library' | 'characters' | 'scripts' | 'sequences'>('groups');
   const [draggedItem, setDraggedItem] = useState<{ id: string; tab: string } | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+
+  // --- Draggable State for Catalog Window ---
+  const [position, setPosition] = useState<{ x: number, y: number } | null>(null);
+  const dragStartRef = useRef<{ x: number, y: number } | null>(null);
+  const windowRef = useRef<HTMLDivElement>(null);
+
+  // Initialize position to center on open (or keep if already set/moved)
+  useEffect(() => {
+      if (isOpen && !position) {
+           const w = 896; // max-w-4xl is 56rem = 896px
+           const h = window.innerHeight * 0.8;
+           const x = (window.innerWidth - w) / 2;
+           const y = (window.innerHeight - h) / 2;
+           setPosition({ x: Math.max(20, x), y: Math.max(20, y) });
+      }
+  }, [isOpen]);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
+      e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      if (dragStartRef.current && position) {
+          const dx = e.clientX - dragStartRef.current.x;
+          const dy = e.clientY - dragStartRef.current.y;
+          setPosition({ x: position.x + dx, y: position.y + dy });
+          dragStartRef.current = { x: e.clientX, y: e.clientY };
+      }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+      dragStartRef.current = null;
+      e.currentTarget.releasePointerCapture(e.pointerId);
+  };
 
   if (!isOpen) return null;
 
@@ -532,7 +693,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
               onClick={onCatalogNavigateBack} 
               disabled={catalogPath.length <= 1} 
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+              <BackIcon />
             </ActionButton>
           </div>
           <div className="flex items-center text-sm text-gray-400 truncate">
@@ -545,18 +706,33 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           </div>
         </div>
         <div className="flex space-x-2 flex-shrink-0">
-          <TooltipWrapper title={t('catalog.load')}>
-            <button onClick={onLoadCatalogItemFromFile} className="px-3 py-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 rounded-md flex items-center space-x-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
-              <span>{t('library.loadFromFile')}</span>
-            </button>
-          </TooltipWrapper>
           <TooltipWrapper title={t('catalog.newFolder')}>
             <button onClick={onCreateCatalogFolder} className="px-3 py-2 text-sm font-semibold bg-gray-600 hover:bg-gray-500 rounded-md flex items-center space-x-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
-              <span>{t('library.actions.newFolder')}</span>
+              <AddFolderIcon className="h-5 w-5" />
+              <span className="hidden md:inline">{t('library.actions.newFolder')}</span>
             </button>
           </TooltipWrapper>
+
+          <TooltipWrapper title={t('catalog.load')}>
+            <button onClick={onLoadCatalogItemFromFile} className="px-3 py-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 rounded-md flex items-center space-x-2">
+              <LoadFileIcon className="h-5 w-5" />
+              <span className="hidden md:inline">{t('library.loadFromFile')}</span>
+            </button>
+          </TooltipWrapper>
+
+          {handleClearCloudFolder && (
+             <TooltipWrapper title={t('catalog.clearCloudCategory')}>
+                <button 
+                    onClick={() => { if(confirm("Are you sure you want to delete all files in this cloud folder?")) handleClearCloudFolder('groups'); }} 
+                    className="px-3 py-2 text-sm font-semibold bg-gray-700 hover:bg-red-600 text-gray-200 hover:text-white rounded-md flex items-center space-x-2 border border-gray-600 hover:border-red-500 transition-colors"
+                >
+                    <div className="relative w-5 h-5">
+                        <ClearCloudIcon className="h-5 w-5" />
+                    </div>
+                    <span className="hidden md:inline">Clear Cloud</span>
+                </button>
+            </TooltipWrapper>
+          )}
         </div>
       </div>
       <div className="flex-grow overflow-y-auto p-4">
@@ -577,6 +753,9 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
                 onMoveItem={(targetFolderId) => onMoveCatalogItem(draggedItem!.id, targetFolderId)}
                 isDragOver={dragOverTarget === item.id}
                 setIsDragOver={(isOver) => setDragOverTarget(isOver ? item.id : null)}
+                // We pass 'groups' as context for upload
+                onUpload={(i) => uploadCatalogItem && uploadCatalogItem(i, 'groups')}
+                onDeleteFromDrive={handleDeleteFromDrive ? (i) => handleDeleteFromDrive(i, 'groups') : undefined}
               />
             ))}
           </div>
@@ -613,7 +792,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
               onClick={onNavigateBack} 
               disabled={libraryPath.length <= 1}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+              <BackIcon />
             </ActionButton>
           </div>
           <div className="flex items-center text-sm text-gray-400 truncate">
@@ -626,24 +805,44 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           </div>
         </div>
         <div className="flex space-x-2 flex-shrink-0">
-          <TooltipWrapper title={t('catalog.load')}>
-            <button onClick={onLoadLibraryItemFromFile} className="px-3 py-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 rounded-md flex items-center space-x-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
-              <span>{t('library.loadFromFile')}</span>
-            </button>
-          </TooltipWrapper>
-          <TooltipWrapper title={t('catalog.newFolder')}>
-            <button onClick={() => onCreateLibraryItem(LibraryItemType.FOLDER)} className="px-3 py-2 text-sm font-semibold bg-gray-600 hover:bg-gray-500 rounded-md flex items-center space-x-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
-              <span>{t('library.actions.newFolder')}</span>
-            </button>
-          </TooltipWrapper>
+          {/* New Prompt (First) */}
           <TooltipWrapper title={t('library.actions.newPrompt')}>
             <button onClick={() => onCreateLibraryItem(LibraryItemType.PROMPT)} className="px-3 py-2 text-sm font-semibold bg-cyan-600 hover:bg-cyan-700 rounded-md flex items-center space-x-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              <span>{t('library.actions.newPrompt')}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <span className="hidden md:inline">{t('library.actions.newPrompt')}</span>
             </button>
           </TooltipWrapper>
+
+          {/* New Folder (Second) */}
+          <TooltipWrapper title={t('catalog.newFolder')}>
+            <button onClick={() => onCreateLibraryItem(LibraryItemType.FOLDER)} className="px-3 py-2 text-sm font-semibold bg-gray-600 hover:bg-gray-500 rounded-md flex items-center space-x-2">
+              <AddFolderIcon className="h-5 w-5" />
+              <span className="hidden md:inline">{t('library.actions.newFolder')}</span>
+            </button>
+          </TooltipWrapper>
+
+          {/* Load (Third) */}
+          <TooltipWrapper title={t('catalog.load')}>
+            <button onClick={onLoadLibraryItemFromFile} className="px-3 py-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 rounded-md flex items-center space-x-2">
+              <LoadFileIcon className="h-5 w-5" />
+              <span className="hidden md:inline">{t('library.loadFromFile')}</span>
+            </button>
+          </TooltipWrapper>
+
+          {/* Clear Cloud (Last) */}
+          {handleClearCloudFolder && (
+             <TooltipWrapper title={t('catalog.clearCloudCategory')}>
+                <button 
+                    onClick={() => { if(confirm("Are you sure you want to delete all files in this cloud folder?")) handleClearCloudFolder('library'); }} 
+                    className="px-3 py-2 text-sm font-semibold bg-gray-700 hover:bg-red-600 text-gray-200 hover:text-white rounded-md flex items-center space-x-2 border border-gray-600 hover:border-red-500 transition-colors"
+                >
+                    <div className="relative w-5 h-5">
+                        <ClearCloudIcon className="h-5 w-5" />
+                    </div>
+                    <span className="hidden md:inline">Clear Cloud</span>
+                </button>
+            </TooltipWrapper>
+          )}
         </div>
       </div>
       <div className="flex-grow overflow-y-auto p-4">
@@ -664,6 +863,9 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
                 onMoveItem={(targetFolderId) => onMoveLibraryItem(draggedItem!.id, targetFolderId)}
                 isDragOver={dragOverTarget === item.id}
                 setIsDragOver={(isOver) => setDragOverTarget(isOver ? item.id : null)}
+                // We pass 'library' as context for upload
+                onUpload={(i) => uploadCatalogItem && uploadCatalogItem(i, 'library')}
+                onDeleteFromDrive={handleDeleteFromDrive ? (i) => handleDeleteFromDrive(i, 'library') : undefined}
               />
             ))}
           </div>
@@ -679,26 +881,70 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-      <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-4xl border border-gray-700 flex flex-col h-[80vh] pointer-events-auto" onMouseDown={e => e.stopPropagation()}>
-        <div className="p-4 pb-0 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-          <div className="flex items-end space-x-4">
+    <div className="fixed inset-0 z-50 pointer-events-none">
+      <div 
+        ref={windowRef}
+        className="pointer-events-auto fixed bg-gray-800 rounded-lg shadow-2xl w-full max-w-4xl border border-gray-700 flex flex-col h-[80vh] select-none" 
+        style={{
+            left: position ? position.x : '50%',
+            top: position ? position.y : '50%',
+            // If no position set yet (first render), center via transform. Otherwise follow drag.
+            transform: position ? 'none' : 'translate(-50%, -50%)'
+        }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        
+        {/* HEADER */}
+        <div 
+             className="p-4 pb-0 border-b border-gray-700 flex justify-between items-center flex-shrink-0 cursor-move"
+             onPointerDown={handlePointerDown}
+             onPointerMove={handlePointerMove}
+             onPointerUp={handlePointerUp}
+        >
+          <div className="flex items-end space-x-4" onPointerDown={e => e.stopPropagation()}>
             <button onClick={() => setActiveTab('groups')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'groups' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.groups')}</button>
             <button onClick={() => setActiveTab('library')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'library' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.library')}</button>
             <button onClick={() => setActiveTab('characters')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'characters' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.characters')}</button>
             <button onClick={() => setActiveTab('scripts')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'scripts' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.scripts')}</button>
             <button onClick={() => setActiveTab('sequences')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'sequences' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.sequences')}</button>
           </div>
-          <button onClick={onClose} className="p-1 text-gray-400 rounded hover:bg-gray-600 hover:text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+          
+          <div className="flex items-center gap-3" onPointerDown={e => e.stopPropagation()}>
+             {/* Global Sync Button */}
+             {handleSyncCatalogs && (
+                 <button
+                    onClick={handleSyncCatalogs}
+                    disabled={!isGoogleDriveReady || isSyncing}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors ${
+                        isSyncing 
+                        ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-wait' 
+                        : 'bg-blue-600/20 border-blue-500 text-blue-400 hover:bg-blue-600/30'
+                    }`}
+                    title="Sync catalogs from Google Drive"
+                 >
+                     {isSyncing ? (
+                         <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                     ) : (
+                         <CloudDownloadIcon className="h-4 w-4" />
+                     )}
+                     <span className="text-xs font-bold">Sync Drive</span>
+                 </button>
+             )}
+
+             <button onClick={onClose} className="p-1 text-gray-400 rounded hover:bg-gray-600 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+             </button>
+          </div>
         </div>
         
         {activeTab === 'groups' && renderGroupCatalog()}
         {activeTab === 'library' && renderPromptLibrary()}
-        {activeTab === 'characters' && <ContentCatalogView catalog={props.characterCatalog} dragItemType="CHARACTER" onRenameItem={onRenameCharacter} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} />}
-        {activeTab === 'scripts' && <ContentCatalogView catalog={props.scriptCatalog} dragItemType="SCRIPT" onRenameItem={onRenameScript} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} />}
-        {activeTab === 'sequences' && <ContentCatalogView catalog={props.sequenceCatalog} dragItemType="PROMPT_SEQUENCE" onRenameItem={onRenameSequence} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} />}
+        {activeTab === 'characters' && <ContentCatalogView catalog={props.characterCatalog} dragItemType="CHARACTER" onRenameItem={onRenameCharacter} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} onUpload={uploadCatalogItem} onDeleteFromDrive={handleDeleteFromDrive} onClearCloudFolder={handleClearCloudFolder} />}
+        {activeTab === 'scripts' && <ContentCatalogView catalog={props.scriptCatalog} dragItemType="SCRIPT" onRenameItem={onRenameScript} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} onUpload={uploadCatalogItem} onDeleteFromDrive={handleDeleteFromDrive} onClearCloudFolder={handleClearCloudFolder} />}
+        {activeTab === 'sequences' && <ContentCatalogView catalog={props.sequenceCatalog} dragItemType="PROMPT_SEQUENCE" onRenameItem={onRenameSequence} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} onUpload={uploadCatalogItem} onDeleteFromDrive={handleDeleteFromDrive} onClearCloudFolder={handleClearCloudFolder} />}
       </div>
     </div>
   );

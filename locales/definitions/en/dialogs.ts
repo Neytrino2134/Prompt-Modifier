@@ -38,6 +38,8 @@ export const dialogs = {
     'settings.googleClientIdLabel': 'Client ID',
     'settings.googleDriveTitle': 'Google Drive Integration',
     'settings.signInWithGoogle': 'Sign In with Google',
+    'settings.updateId': 'Update Client ID',
+    'settings.connecting': 'Connecting...',
     'dialog.settings.useDevKeyLabel': 'Use free API key (for development)',
     'dialog.settings.instantNodeCloseLabel': 'Instant node closing',
     'dialog.settings.nodeAnimationLabel': 'Node Addition Animation',

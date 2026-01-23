@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export type Resolution = '720p' | '1080p' | '1K' | '2K' | '4K';
@@ -169,6 +168,7 @@ export interface LibraryItem {
   name: string;
   parentId: string | null;
   content?: string; // Only for prompts
+  driveFileId?: string;
 }
 
 // Duplicated from useCatalog.ts to be accessible globally
@@ -182,6 +182,7 @@ export interface ContentCatalogItem {
     name: string;
     parentId: string | null;
     content?: any;
+    driveFileId?: string;
 }
 
 // New types for the Tab System

@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import type { Point } from '../types';
 import { ActionButton } from './ActionButton';
@@ -84,6 +82,10 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
   const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const imageDragStart = useRef<{ x: number, y: number } | null>(null);
+  
+  // Ref to track if we have set the initial zoom for the session.
+  // This prevents resetting zoom when navigating between images.
+  const hasSetInitialZoom = useRef(false);
 
   // Stats
   const [imgStats, setImgStats] = useState<{ width: number, height: number, size: string | null }>({ width: 0, height: 0, size: null });
@@ -152,24 +154,27 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
                 });
           }
 
-          if (containerRef.current) {
-              const { width: cw, height: ch } = containerRef.current.getBoundingClientRect();
-              const availableW = cw - 20;
-              const availableH = ch - 20;
-              
-              if (availableW > 0 && availableH > 0) {
-                  const scaleW = availableW / img.naturalWidth;
-                  const scaleH = availableH / img.naturalHeight;
-                  const fitScale = Math.min(scaleW, scaleH);
-                  setZoom(Math.min(fitScale, 1)); 
+          // Initial Zoom Fit Logic - Only runs once per viewer session
+          if (!hasSetInitialZoom.current) {
+              if (containerRef.current) {
+                  const { width: cw, height: ch } = containerRef.current.getBoundingClientRect();
+                  const availableW = cw - 20;
+                  const availableH = ch - 20;
+                  
+                  if (availableW > 0 && availableH > 0) {
+                      const scaleW = availableW / img.naturalWidth;
+                      const scaleH = availableH / img.naturalHeight;
+                      const fitScale = Math.min(scaleW, scaleH);
+                      setZoom(Math.min(fitScale, 1)); 
+                  } else {
+                      setZoom(1);
+                  }
               } else {
                   setZoom(1);
               }
-          } else {
-              setZoom(1);
+              setImageOffset({ x: 0, y: 0 });
+              hasSetInitialZoom.current = true;
           }
-          
-          setImageOffset({ x: 0, y: 0 });
       };
       img.src = currentSource.src;
   }, [currentSource]);
@@ -340,7 +345,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
   return (
     <div
       ref={mainContainerRef}
-      className={`fixed bg-gray-800 rounded-lg shadow-2xl border-2 border-gray-700 flex flex-col z-[${zIndex}] group transition-opacity duration-300 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+      className={`fixed bg-gray-800 rounded-lg shadow-2xl border-2 border-gray-700 flex flex-col z-[${zIndex}] group transition-opacity duration-300 ease-out select-none ${isVisible ? 'opacity-100' : 'opacity-0'}`}
       style={isMaximized ? {
         left: 0,
         top: 0,
@@ -369,36 +374,51 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
         onPointerDown={handleHeaderPointerDown}
         onPointerMove={handleHeaderPointerMove}
         onPointerUp={handleHeaderPointerUp}
-        className="bg-gray-700 text-white font-bold p-2 rounded-t-md flex justify-between items-center cursor-move flex-shrink-0"
+        className="bg-gray-700 text-white font-bold p-2 rounded-t-md flex justify-between items-center cursor-move flex-shrink-0 select-none"
       >
         <span>{t('imageViewer.title')} - Frame {currentSource.frameNumber}</span>
         <div className="flex items-center space-x-1">
-            <ActionButton title="Copy Image" onClick={(e) => { e.stopPropagation(); onCopyImageToClipboard(currentSource.src); }}>
+            <ActionButton 
+                title="Copy Image" 
+                onClick={(e) => { e.stopPropagation(); onCopyImageToClipboard(currentSource.src); }}
+                className="p-1 text-gray-400 rounded hover:bg-gray-600 hover:text-white transition-colors"
+                tooltipPosition="bottom"
+            >
                 <CopyIcon className="h-5 w-5" />
             </ActionButton>
-            <ActionButton title="Download Image" onClick={(e) => { 
-                e.stopPropagation(); 
-                onDownloadImageFromUrl(currentSource.src, currentSource.frameNumber, currentSource.prompt || '');
-                if (addToast) addToast(t('toast.downloadStarted'), 'success'); 
-            }}>
+            <ActionButton 
+                title="Download Image" 
+                onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onDownloadImageFromUrl(currentSource.src, currentSource.frameNumber, currentSource.prompt || '');
+                    if (addToast) addToast(t('toast.downloadStarted'), 'success'); 
+                }}
+                className="p-1 text-gray-400 rounded hover:bg-gray-600 hover:text-white transition-colors"
+                tooltipPosition="bottom"
+            >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             </ActionButton>
             <div className="w-px h-4 bg-gray-500 mx-1"></div>
-            <button 
-                onClick={toggleMaximize} 
-                className="p-1 text-gray-400 rounded-full hover:bg-gray-600 hover:text-white transition-colors"
+            
+            <ActionButton 
                 title={isMaximized ? "Restore" : "Full Screen"}
+                onClick={toggleMaximize} 
+                className="p-1 text-gray-400 rounded hover:bg-gray-600 hover:text-white transition-colors"
+                tooltipPosition="bottom"
             >
-                {isMaximized ? <ExitFullScreenIcon /> : <FullScreenIcon />}
-            </button>
-            <button
+                {isMaximized ? <ExitFullScreenIcon className="h-5 w-5" /> : <FullScreenIcon className="h-5 w-5" />}
+            </ActionButton>
+            
+            <ActionButton
+              title="Close"
               onClick={(e) => { e.stopPropagation(); onClose(); }}
-              className="p-1 text-gray-400 rounded-full hover:bg-gray-600 hover:text-white"
+              className="p-1 text-gray-400 rounded hover:bg-gray-600 hover:text-white transition-colors"
+              tooltipPosition="bottom"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </ActionButton>
         </div>
       </div>
       <div 
@@ -425,7 +445,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
           onMouseDown={(e) => e.preventDefault()}
         />
 
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-full flex items-center space-x-3 border border-gray-600 shadow-lg z-20" onMouseDown={e => e.stopPropagation()}>
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-full flex items-center space-x-3 border border-gray-600 shadow-lg z-20 select-none" onMouseDown={e => e.stopPropagation()}>
             <button 
                 onClick={resetZoom} 
                 className="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 text-xs font-bold text-white flex items-center justify-center border border-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"

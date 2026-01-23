@@ -29,7 +29,7 @@ import {
     CatalogItemType,
     ContentCatalogItemType,
 } from '../hooks';
-import { useGoogleDrive } from '../hooks/useGoogleDrive'; // Import new hook
+import { useGoogleDrive } from '../hooks/useGoogleDrive'; 
 import { useGlobalState } from '../hooks/useGlobalState';
 import { useAppOrchestration } from '../hooks/useAppOrchestration';
 import { useTutorial } from '../hooks/useTutorial';
@@ -332,7 +332,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         nodesHook.handleValueChange(newNodeId, JSON.stringify(cardData));
         addToast(t('toast.pastedFromClipboard'), 'success');
-    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t]);
+    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t, nodesHook]);
 
     const onDetachImageToNode = useCallback((imageDataUrl: string, sourceNodeId: string) => {
         const sourceNode = nodesHook.nodes.find(n => n.id === sourceNodeId);
@@ -348,7 +348,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
         
         addToast(t('toast.pastedFromClipboard'), 'success');
-    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t]);
+    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t, nodesHook]);
 
     const onSaveCharacterToCatalog = useCallback((nodeId: string, cardIndex?: number) => {
         const node = nodesHook.nodes.find(n => n.id === nodeId);
@@ -935,6 +935,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             globalImageEditor: globalState.globalImageEditor,
             openGlobalImageEditor: globalState.openGlobalImageEditor,
             closeGlobalImageEditor: globalState.closeGlobalImageEditor,
+            handleDeleteFromDrive: googleDriveHook.handleDeleteFromDrive, // Exposed
+            handleClearCloudFolder: googleDriveHook.handleClearCloudFolder, // Exposed NEW Function
+            handleCleanupDuplicates: googleDriveHook.handleCleanupDuplicates // Exposed
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,

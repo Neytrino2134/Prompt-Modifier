@@ -13,13 +13,15 @@ interface CharacterConceptsPanelProps {
     onMoveConcept: (index: number, direction: 'up' | 'down') => void;
     onAddConcept: () => void;
     onDetachConnectedConcept: (concept: any) => void;
-    onClearConcepts: () => void; // New Prop
+    onClearConcepts: () => void; 
     handleViewImage: (url: string) => void;
     t: (key: string) => string;
     deselectAllNodes: () => void;
     conceptsMode?: 'normal' | 'collapsed' | 'expanded';
     onToggleMode?: (mode: 'normal' | 'collapsed' | 'expanded') => void;
     duplicateIndices?: Set<string>;
+    onCopyImageToClipboard?: (src: string) => void; // Added
+    onDownloadImageFromUrl?: (url: string, frameNumber: number, prompt: string, filename?: string) => void; // Added
 }
 
 export const CharacterConceptsPanel: React.FC<CharacterConceptsPanelProps> = ({
@@ -35,7 +37,9 @@ export const CharacterConceptsPanel: React.FC<CharacterConceptsPanelProps> = ({
     deselectAllNodes,
     conceptsMode = 'normal',
     onToggleMode,
-    duplicateIndices = new Set()
+    duplicateIndices = new Set(),
+    onCopyImageToClipboard,
+    onDownloadImageFromUrl
 }) => {
     const [isDragOverAdd, setIsDragOverAdd] = useState(false);
 
@@ -153,6 +157,17 @@ export const CharacterConceptsPanel: React.FC<CharacterConceptsPanelProps> = ({
                                 onViewImage={handleViewImage}
                                 t={t}
                                 hasError={hasError}
+                                onCopyImage={() => {
+                                    const src = concept._fullResImage || concept.image;
+                                    if(src && onCopyImageToClipboard) onCopyImageToClipboard(src);
+                                }}
+                                onDownloadImage={() => {
+                                    const src = concept._fullResImage || concept.image;
+                                    if(src && onDownloadImageFromUrl) {
+                                        const safeName = (concept.name || 'concept').replace(/\s+/g, '_');
+                                        onDownloadImageFromUrl(src, 0, concept.prompt || safeName, `${safeName}.png`);
+                                    }
+                                }}
                             />
                         </div>
                     )})}

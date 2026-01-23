@@ -27,7 +27,7 @@ export const DebugConsole: React.FC = () => {
 
     return (
         <div 
-            className={`fixed bottom-[60px] left-1/2 -translate-x-1/2 bg-gray-900 border border-gray-700 shadow-2xl rounded-t-lg flex flex-col z-[300] transition-all duration-300 w-full max-w-4xl`}
+            className={`fixed bottom-[100px] left-1/2 -translate-x-1/2 bg-gray-900 border border-gray-700 shadow-2xl rounded-t-lg flex flex-col z-[300] transition-all duration-300 w-full max-w-[1040px]`}
             style={{ height: isExpanded ? '80vh' : '300px' }}
         >
             <div className="flex items-center justify-between p-2 bg-gray-800 rounded-t-lg border-b border-gray-700 select-none cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>

@@ -52,6 +52,7 @@ interface CharacterCardItemProps {
     getFullSizeImage: (idx: number) => string | undefined;
     setImageViewer: (state: any) => void;
     onCopyImageToClipboard: (src: string) => void;
+    onDownloadImageFromUrl: (url: string, frameNumber: number, prompt: string, filename?: string) => void; // Added Prop
     processNewImage: (data: string) => void;
 
     t: (key: string) => string;
@@ -70,7 +71,6 @@ interface CharacterCardItemProps {
     isUpdatingAppearance: string | null;
     onUpdateAppearance: () => void;
 
-    // Clothing Update
     // Clothing Update
     isUpdatingClothing: string | null;
     onUpdateClothing: () => void;
@@ -112,7 +112,7 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
     onUpdate, onRemove, onSetAsOutput, onToggleActive, onDragStart, onDragEnd, onSmartDragOver,
     onRatioChange, onPasteImage, onClearImage, onCopyImage, onGenerateImage, onEditRaster, onEditAI, onCrop1x1, onExpandRatio, onSetEditingIndex,
     onSyncFromConnection, onLoad, onSave, onSaveToCatalog, onCopySpecific, onPasteSpecific, onDetach, onModify,
-    getFullSizeImage, setImageViewer, onCopyImageToClipboard, processNewImage,
+    getFullSizeImage, setImageViewer, onCopyImageToClipboard, onDownloadImageFromUrl, processNewImage,
     t, deselectAllNodes, languages, secondaryLanguage, isModifyingCharacter, isUpdatingDescription, onUpdateDescription,
     isUpdatingPersonality, onUpdatePersonality,
     isUpdatingAppearance, onUpdateAppearance,
@@ -246,6 +246,13 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({
                             onPasteImage={onPasteImage}
                             onClearImage={onClearImage}
                             onCopyImage={onCopyImage}
+                            onDownloadImage={() => {
+                                const src = getFullSizeImage((index * 10) + (RATIO_INDICES[char.selectedRatio] || 1)) || char.image;
+                                if (src && onDownloadImageFromUrl) {
+                                    const filename = `${char.name.replace(/\s+/g, '_')}_${char.selectedRatio.replace(':', 'x')}_${index}.png`;
+                                    onDownloadImageFromUrl(src, 0, char.prompt || char.name, filename);
+                                }
+                            }}
                             onGenerateImage={onGenerateImage}
                             onEditRaster={onEditRaster}
                             onEditAI={onEditAI}

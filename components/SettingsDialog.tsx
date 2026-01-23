@@ -82,6 +82,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       setGoogleClientId, 
       handleGoogleSignIn, 
       isGoogleDriveReady,
+      isGoogleDriveSaving,
+      handleSyncCatalogs,
+      handleCleanupDuplicates, // Use new hook function
       currentTheme,
       setTheme,
       setConfirmInfo,
@@ -146,7 +149,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
     localStorage.setItem('settings_nodeAnimationMode', animMode);
     localStorage.setItem('settings_hoverHighlight', String(hoverHighlight)); 
     
-    if (setGoogleClientId) {
+    // Also save Google Client ID if it changed but user didn't click "Update" button
+    if (setGoogleClientId && googleDriveClientId !== googleClientId) {
         setGoogleClientId(googleDriveClientId.trim());
     }
     
@@ -186,6 +190,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
           }
       });
   };
+  
+  // Logic to determine if Google Client ID input differs from active context
+  const isGoogleIdDirty = googleDriveClientId.trim() !== (googleClientId || '');
 
   // Drag Handlers
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -315,9 +322,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                         checked={useDevKey}
                         onChange={(checked) => {
                              setUseDevKey(checked);
-                             // If re-enabling dev key, clear custom key input visually if needed, 
-                             // but we keep it stored in case they switch back. 
-                             // Actually, keeping it is better UX.
                         }}
                         label={t('dialog.settings.useDevKeyLabel')}
                         className="text-sm text-gray-400"
@@ -440,15 +444,78 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                     />
                   </div>
 
-                  <button
-                      onClick={() => handleGoogleSignIn && handleGoogleSignIn()}
-                      disabled={!isGoogleDriveReady}
-                      className={`w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 ${isGoogleDriveReady ? 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-900/20' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
-                      title={!isGoogleDriveReady ? "Enter Client ID and Save first" : ""}
-                  >
-                      <GoogleDriveIcon className="w-4 h-4" />
-                      {t('settings.signInWithGoogle')}
-                  </button>
+                  {/* Smart Contextual Action Button */}
+                  {isGoogleIdDirty ? (
+                     <button
+                        onClick={() => {
+                            if (setGoogleClientId) setGoogleClientId(googleDriveClientId.trim());
+                        }}
+                        className="w-full py-2 px-4 rounded-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-900/20"
+                     >
+                        <GoogleDriveIcon className="w-4 h-4" />
+                        {t('settings.updateId')}
+                     </button>
+                  ) : !isGoogleDriveReady ? (
+                     <button
+                        className="w-full py-2 px-4 rounded-md text-sm font-bold text-gray-400 bg-gray-700 cursor-not-allowed flex items-center justify-center gap-2"
+                        disabled
+                     >
+                        <svg className="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {t('settings.connecting')}
+                     </button>
+                  ) : (
+                      <div className="flex flex-col gap-2">
+                        <button
+                            onClick={() => handleGoogleSignIn && handleGoogleSignIn()}
+                            className={`w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-900/20`}
+                        >
+                            <GoogleDriveIcon className="w-4 h-4" />
+                            {t('settings.signInWithGoogle')}
+                        </button>
+                        
+                         {/* Cleanup Button */}
+                         {handleCleanupDuplicates && (
+                             <button
+                                onClick={handleCleanupDuplicates}
+                                disabled={isGoogleDriveSaving}
+                                className="w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 shadow-md"
+                             >
+                                {isGoogleDriveSaving ? (
+                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <span className="flex items-center gap-2">Cleanup Duplicates in Cloud</span>
+                                )}
+                             </button>
+                         )}
+
+                         {/* Sync Button */}
+                         {handleSyncCatalogs && (
+                             <button
+                                onClick={handleSyncCatalogs}
+                                disabled={isGoogleDriveSaving}
+                                className="w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 shadow-md"
+                             >
+                                {isGoogleDriveSaving ? (
+                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                )}
+                                Sync Catalogs from Drive
+                             </button>
+                         )}
+                      </div>
+                  )}
              </div>
           </div>
 
