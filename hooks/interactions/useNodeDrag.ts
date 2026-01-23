@@ -96,7 +96,7 @@ export const useNodeDrag = ({
         let newSelectedIds = [...selectedNodeIds];
         const isSelected = newSelectedIds.includes(nodeId);
 
-        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        if (e.shiftKey) {
             if (isSelected) newSelectedIds = newSelectedIds.filter(id => id !== nodeId);
             else newSelectedIds.push(nodeId);
             setSelectedNodeIds(newSelectedIds);

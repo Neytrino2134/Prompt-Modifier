@@ -26,6 +26,8 @@ import {
     useNodePositionHistory,
     useContentCatalog,
     calculateGroupBounds,
+    CatalogItemType,
+    ContentCatalogItemType,
 } from '../hooks';
 import { useGoogleDrive } from '../hooks/useGoogleDrive'; // Import new hook
 import { useGlobalState } from '../hooks/useGlobalState';
@@ -347,6 +349,128 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         
         addToast(t('toast.pastedFromClipboard'), 'success');
     }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t]);
+
+    const onSaveCharacterToCatalog = useCallback((nodeId: string, cardIndex?: number) => {
+        const node = nodesHook.nodes.find(n => n.id === nodeId);
+        if (!node || node.type !== NodeType.CHARACTER_CARD) return;
+
+        try {
+            let characters = JSON.parse(node.value || '[]');
+            if (!Array.isArray(characters)) characters = [characters];
+            
+            if (cardIndex !== undefined) {
+                 const char = characters[cardIndex];
+                 if (!char) return;
+                 
+                 // Resolve images
+                 const fullSources: Record<string, string | null> = { ...char.thumbnails };
+                 Object.entries(RATIO_INDICES).forEach(([ratio, index]) => {
+                    const fullRes = getFullSizeImage(nodeId, (cardIndex * 10) + index);
+                    if (fullRes) fullSources[ratio] = fullRes;
+                 });
+                 const activeImg = getFullSizeImage(nodeId, cardIndex * 10) || char.image;
+
+                 const dataToSave = {
+                    type: 'character-card',
+                    name: char.name,
+                    index: char.index,
+                    image: activeImg,
+                    imageSources: fullSources,
+                    prompt: char.prompt,
+                    fullDescription: char.fullDescription,
+                    selectedRatio: char.selectedRatio,
+                    additionalPrompt: char.additionalPrompt
+                 };
+                 
+                 characterCatalogHook.createItem(ContentCatalogItemType.ITEM, char.name || 'New Character', JSON.stringify(dataToSave));
+                 addToast(t('toast.characterSavedCatalog'), 'success');
+
+            } else {
+                 // Fallback: Save primary or all?
+                 // For now, let's just log or ignore if no index, as button passes index.
+            }
+        } catch (e) {
+            console.error("Failed to save character to catalog", e);
+             addToast("Failed to save to catalog", 'error');
+        }
+    }, [nodesHook.nodes, characterCatalogHook, getFullSizeImage, addToast, t]);
+
+    const onSaveGeneratedCharacterToCatalog = useCallback((characterData: any) => {
+        if (!characterData) return;
+        
+        const dataToSave = {
+            type: 'character-card', 
+            name: characterData.name,
+            index: characterData.alias || characterData.index,
+            image: characterData.imageBase64 ? `data:image/png;base64,${characterData.imageBase64}` : null,
+            imageSources: characterData.imageBase64 ? { '1:1': `data:image/png;base64,${characterData.imageBase64}` } : {},
+            prompt: characterData.prompt,
+            fullDescription: characterData.fullDescription,
+            selectedRatio: '1:1',
+            additionalPrompt: characterData.additionalPrompt
+        };
+
+        characterCatalogHook.createItem(ContentCatalogItemType.ITEM, characterData.name || 'Generated Character', JSON.stringify(dataToSave));
+        addToast(t('toast.characterSavedCatalog'), 'success');
+    }, [characterCatalogHook, addToast, t]);
+
+    const onSaveScriptToCatalog = useCallback((nodeId: string) => {
+        const node = nodesHook.nodes.find(n => n.id === nodeId);
+        if (!node) return;
+        
+        if (node.type === NodeType.SCRIPT_GENERATOR || node.type === NodeType.SCRIPT_VIEWER) {
+             scriptCatalogHook.createItem(ContentCatalogItemType.ITEM, node.title || 'New Script', node.value);
+             addToast("Script saved to catalog", 'success');
+        }
+    }, [nodesHook.nodes, scriptCatalogHook, addToast]);
+
+    const onSaveSequenceToCatalog = useCallback((nodeId: string) => {
+        const node = nodesHook.nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {
+            try {
+                const data = JSON.parse(node.value || '{}');
+                const contentToSave = {
+                    type: 'script-prompt-modifier-data', 
+                    title: node.title,
+                    usedCharacters: data.usedCharacters,
+                    sceneContexts: data.sceneContexts,
+                    finalPrompts: (data.prompts || []).map((p:any) => ({
+                         frameNumber: p.frameNumber,
+                         sceneNumber: p.sceneNumber,
+                         sceneTitle: p.sceneTitle,
+                         characters: p.characters,
+                         duration: p.duration,
+                         prompt: p.prompt,
+                         shotType: p.shotType
+                    })),
+                    videoPrompts: (data.prompts || []).map((p:any) => ({
+                         frameNumber: p.frameNumber,
+                         videoPrompt: p.videoPrompt
+                    })),
+                    styleOverride: data.styleOverride
+                };
+                
+                sequenceCatalogHook.createItem(ContentCatalogItemType.ITEM, node.title || 'New Sequence', JSON.stringify(contentToSave));
+                addToast("Sequence saved to catalog", 'success');
+            } catch(e) { console.error(e); }
+        } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
+            try {
+                const data = JSON.parse(node.value || '{}');
+                const contentToSave = {
+                    type: 'script-prompt-modifier-data',
+                    title: node.title,
+                    usedCharacters: data.usedCharacters,
+                    sceneContexts: data.sceneContexts,
+                    finalPrompts: data.modifiedPrompts || data.sourcePrompts || [], 
+                    styleOverride: data.styleOverride
+                };
+                 sequenceCatalogHook.createItem(ContentCatalogItemType.ITEM, node.title || 'New Sequence', JSON.stringify(contentToSave));
+                 addToast("Sequence saved to catalog", 'success');
+            } catch(e) { console.error(e); }
+        }
+    }, [nodesHook.nodes, sequenceCatalogHook, addToast]);
 
     const interactionHook = useInteraction({
         ...nodesHook, ...connectionsHook, ...groupsHook, ...canvasHook,
@@ -800,7 +924,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleSaveGroupToCatalog,
             handleSaveGroupToDisk,
             handleDetachAndPasteConcept,
-            onDetachImageToNode
+            onDetachImageToNode,
+            onSaveCharacterToCatalog,
+            onSaveGeneratedCharacterToCatalog,
+            onSaveScriptToCatalog,
+            onSaveSequenceToCatalog,
+            onSavePromptToLibrary: libraryHook.saveProcessorPrompt, // Map correctly
+            onSaveToLibrary: libraryHook.saveToLibrary, // Map correctly
+            clearSelectionsSignal: globalState.clearSelectionsSignal,
+            globalImageEditor: globalState.globalImageEditor,
+            openGlobalImageEditor: globalState.openGlobalImageEditor,
+            closeGlobalImageEditor: globalState.closeGlobalImageEditor,
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,
@@ -818,7 +952,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiModificationHook.handleUpdateCharacterClothing, geminiModificationHook.isUpdatingClothing,
         onDownloadImageFromUrl, onCopyImageToClipboard, handleNavigateToNodeFrame, handleSplitConnection,
         connectionsHook.removeConnectionsByNodeId,
-        handleRemoveGroup, handleSaveGroupToCatalog, handleSaveGroupToDisk, handleDetachAndPasteConcept, onDetachImageToNode
+        handleRemoveGroup, handleSaveGroupToCatalog, handleSaveGroupToDisk, handleDetachAndPasteConcept, onDetachImageToNode,
+        onSaveCharacterToCatalog, onSaveGeneratedCharacterToCatalog, onSaveScriptToCatalog, onSaveSequenceToCatalog
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

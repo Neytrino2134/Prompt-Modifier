@@ -4,6 +4,8 @@ import { ActionButton } from '../../ActionButton';
 import { PromptCard } from './PromptCard';
 import { usePromptVirtualization } from './usePromptVirtualization';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
+import { Tooltip } from '../../Tooltip';
+import { CustomCheckbox } from '../../CustomCheckbox';
 
 interface ModifiedPromptListProps {
     prompts: any[];

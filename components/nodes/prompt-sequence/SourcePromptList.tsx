@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { PromptCard } from './PromptCard';
@@ -5,6 +6,7 @@ import { usePromptVirtualization } from './usePromptVirtualization';
 import { InputWithSpinners } from './SharedUI';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { CustomCheckbox } from '../../CustomCheckbox';
+import { Tooltip } from '../../Tooltip';
 
 interface SourcePromptListProps {
     prompts: any[];
@@ -283,7 +285,7 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
         if (onClearTextOnly) {
             onClearTextOnly();
         } else {
-            // Fallback to legacy clear all if not provided (should be provided in new implementation)
+            // Fallback to legacy clear all if not provided
             onClearAll();
         }
     };
@@ -307,6 +309,36 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
         }
         
         onUpdatePrompts({ [selectionKey]: newChecked });
+    };
+
+    // New: Focus Scene (Exclusive Selection)
+    const handleFocusScene = (sceneNum: number) => {
+        const group = groupedPrompts.find(g => g.scene === sceneNum);
+        if (!group) return;
+        
+        const sceneFrameIds = group.prompts.map((p: any) => p.frameNumber);
+        
+        // Collapse all others
+        const allScenes = groupedPrompts.map(g => g.scene);
+        const newCollapsed = allScenes.filter(s => s !== sceneNum);
+        
+        onUpdatePrompts({ 
+            [selectionKey]: sceneFrameIds, // Select only frames in this scene
+            checkedContextScenes: [sceneNum], // Select only this scene context
+            collapsedScenes: newCollapsed, // Collapse others (local state)
+            collapsedSourceScenes: newCollapsed // Collapse others (parent state)
+        });
+
+        // Scroll to the first frame of the scene
+        if (sceneFrameIds.length > 0) {
+            setTimeout(() => {
+                const top = getScrollPositionForFrame(sceneFrameIds[0]);
+                if (top !== null && listRef.current) {
+                     // Adjust for header height (~36px)
+                     listRef.current.scrollTo({ top: Math.max(0, top - 40), behavior: 'smooth' });
+                }
+            }, 50);
+        }
     };
 
     // Helper to check if ALL frames in a scene are selected
@@ -486,23 +518,43 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                                                 
                                                 {/* Left Group: Checkboxes */}
                                                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                    <CustomCheckbox
-                                                        checked={onToggleContextCheck && checkedContextScenes ? checkedContextScenes.includes(group.scene) : false}
-                                                        onChange={() => onToggleContextCheck && onToggleContextCheck(group.scene)}
-                                                        title="Include Context in Modification"
-                                                    />
-                                                    <CustomCheckbox
-                                                        checked={isSceneFullySelected(group.scene)}
-                                                        onChange={() => handleToggleSceneSelection(group.scene)}
-                                                        title="Select All Frames in Scene"
-                                                        className="text-cyan-400" 
-                                                    />
+                                                    <Tooltip content="Include Context in Modification">
+                                                        <div onClick={(e) => {e.stopPropagation()}}>
+                                                            <CustomCheckbox
+                                                                checked={onToggleContextCheck && checkedContextScenes ? checkedContextScenes.includes(group.scene) : false}
+                                                                onChange={() => onToggleContextCheck && onToggleContextCheck(group.scene)}
+                                                            />
+                                                        </div>
+                                                    </Tooltip>
+                                                    
+                                                    <Tooltip content="Select All Frames in Scene">
+                                                        <div onClick={(e) => {e.stopPropagation()}}>
+                                                            <CustomCheckbox
+                                                                checked={isSceneFullySelected(group.scene)}
+                                                                onChange={() => handleToggleSceneSelection(group.scene)}
+                                                                className="text-cyan-400" 
+                                                            />
+                                                        </div>
+                                                    </Tooltip>
                                                 </div>
 
                                                 <span className="text-xs font-bold text-gray-300 uppercase tracking-wider bg-gray-800 px-2 py-1 rounded">
                                                     {t('image_sequence.scene_input_label')} {group.scene}{group.title ? `: ${group.title}` : ''}
                                                 </span>
                                                 <span className="text-[10px] text-gray-500">({group.prompts.length} frames)</span>
+                                            </div>
+
+                                            {/* Right Side: Focus Button */}
+                                            <div className="flex items-center px-2">
+                                                 <ActionButton 
+                                                    title="Focus Scene (Collapse others)" 
+                                                    tooltipPosition="left"
+                                                    onClick={(e) => { e.stopPropagation(); handleFocusScene(group.scene); }}
+                                                 >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-accent hover:text-accent-hover" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                                    </svg>
+                                                 </ActionButton>
                                             </div>
                                         </div>
                                     </div>
@@ -527,13 +579,14 @@ export const SourcePromptList = forwardRef<SourcePromptListRef, SourcePromptList
                                                  <div className="flex items-center gap-2">
                                                     <div className="flex items-center gap-2">
                                                         {/* ADD CHECKBOX HERE */}
-                                                        <div onClick={(e) => e.stopPropagation()}>
-                                                           <CustomCheckbox
-                                                               checked={onToggleContextCheck && checkedContextScenes ? checkedContextScenes.includes(sceneNum) : false}
-                                                               onChange={() => onToggleContextCheck && onToggleContextCheck(sceneNum)}
-                                                               title="Include Context in Modification"
-                                                           />
-                                                        </div>
+                                                        <Tooltip content="Include Context in Modification">
+                                                            <div onClick={(e) => e.stopPropagation()}>
+                                                               <CustomCheckbox
+                                                                   checked={onToggleContextCheck && checkedContextScenes ? checkedContextScenes.includes(sceneNum) : false}
+                                                                   onChange={() => onToggleContextCheck && onToggleContextCheck(sceneNum)}
+                                                               />
+                                                            </div>
+                                                        </Tooltip>
                                                         <div className="text-connection-text">
                                                             {isExpanded 
                                                                 ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>

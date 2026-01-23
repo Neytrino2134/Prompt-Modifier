@@ -1,5 +1,6 @@
 
 
+
 export const nodes = {
     'node.title.text_input': 'Text Input',
     'node.title.image_input': 'Image Input',
@@ -310,10 +311,10 @@ export const nodes = {
     'node.content.usedCharacters': 'Used Characters',
     'node.content.insertStyle': 'Insert Style',
 
-    'node.promptProcessor.safePromptTooltip': 'Rewrites the prompt to comply with safety guidelines and avoid policy violations.',
-    'node.promptProcessor.technicalPromptTooltip': 'Converts the prompt into a highly detailed technical specification (lighting, camera, render settings).',
-    'node.promptProcessor.enhanceTooltip': 'Uses AI to expand and enrich the prompt with descriptive details.',
-    'node.promptProcessor.chainTooltip': 'Executes this node and triggers all connected downstream nodes.',
+    'node.promptProcessor.safePromptTooltip': 'Safety mode enabled',
+    'node.promptProcessor.technicalPromptTooltip': 'Technical description',
+    'node.promptProcessor.enhanceTooltip': 'Enhance prompt (AI)',
+    'node.promptProcessor.chainTooltip': 'Execute chain',
 
     'image_sequence.tooltip.autoCrop': 'Automatically crops generated images to 16:9 ratio.',
     'image_sequence.tooltip.autoDownload': 'Automatically saves each image to your device upon generation.',

@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode } from '../types';
+import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme } from '../types';
 
 export const useGlobalState = (currentNodes: Node[]) => {
     // Toasts
@@ -72,8 +72,24 @@ export const useGlobalState = (currentNodes: Node[]) => {
     }, []);
 
     // Selection & Dragging
-    const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+    const [selectedNodeIds, _setSelectedNodeIds] = useState<string[]>([]);
     const [draggingInfo, setDraggingInfo] = useState<DraggingInfo | null>(null);
+    const [clearSelectionsSignal, setClearSelectionsSignal] = useState(0);
+
+    const setSelectedNodeIds = useCallback((value: string[] | ((prev: string[]) => string[])) => {
+         _setSelectedNodeIds(prev => {
+             const next = typeof value === 'function' ? value(prev) : value;
+             if (next.length === 0 && prev.length > 0) {
+                 setClearSelectionsSignal(s => s + 1);
+             }
+             return next;
+         });
+    }, []);
+
+    // Global Image Editor
+    const [globalImageEditor, setGlobalImageEditor] = useState<{ src: string } | null>(null);
+    const openGlobalImageEditor = useCallback((src: string) => setGlobalImageEditor({ src }), []);
+    const closeGlobalImageEditor = useCallback(() => setGlobalImageEditor(null), []);
 
     // Welcome Screen
     const [showWelcome, setShowWelcome] = useState(false);
@@ -114,6 +130,12 @@ export const useGlobalState = (currentNodes: Node[]) => {
     const [dockHoverMode, setDockHoverMode] = useState<DockMode | null>(null);
     const [isDockingMenuVisible, setIsDockingMenuVisible] = useState(false);
 
+    // Node Focus (Full Screen)
+    const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+    const toggleNodeFullScreen = useCallback((nodeId: string | null) => {
+        setFocusedNodeId(nodeId);
+    }, []);
+
     // App Settings (Initialize from localStorage where appropriate)
     const [isInstantCloseEnabled, setIsInstantCloseEnabled] = useState(() => localStorage.getItem('settings_instantNodeClose') === 'true');
     const [isHoverHighlightEnabled, setIsHoverHighlightEnabled] = useState(() => {
@@ -123,6 +145,22 @@ export const useGlobalState = (currentNodes: Node[]) => {
     const [nodeAnimationMode, setNodeAnimationMode] = useState(() => localStorage.getItem('settings_nodeAnimationMode') || 'pulse');
     const [isConnectionAnimationEnabled, setIsConnectionAnimationEnabled] = useState(true);
     const [connectionOpacity, setConnectionOpacity] = useState(0.4);
+
+    // Theme Settings
+    const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
+        return (localStorage.getItem('settings_theme') as Theme) || 'cyan';
+    });
+
+    const setTheme = useCallback((theme: Theme) => {
+        setCurrentTheme(theme);
+        localStorage.setItem('settings_theme', theme);
+        document.documentElement.setAttribute('data-theme', theme);
+    }, []);
+
+    // Apply theme on mount/change
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', currentTheme);
+    }, [currentTheme]);
 
     // Capture Console Logs
     useEffect(() => {
@@ -209,10 +247,16 @@ export const useGlobalState = (currentNodes: Node[]) => {
         spawnLine, setSpawnLine,
         dockHoverMode, setDockHoverMode,
         isDockingMenuVisible, setIsDockingMenuVisible,
+        focusedNodeId, toggleNodeFullScreen,
         isInstantCloseEnabled, setIsInstantCloseEnabled,
         isHoverHighlightEnabled, setIsHoverHighlightEnabled,
         nodeAnimationMode, setNodeAnimationMode,
         isConnectionAnimationEnabled, setIsConnectionAnimationEnabled,
         connectionOpacity, setConnectionOpacity,
+        currentTheme, setTheme,
+        clearSelectionsSignal,
+        globalImageEditor,
+        openGlobalImageEditor,
+        closeGlobalImageEditor,
     };
 };

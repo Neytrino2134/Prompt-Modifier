@@ -80,6 +80,13 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
         }));
     };
 
+    const handleOutputChange = (newOutput: string) => {
+        onValueChange(node.id, JSON.stringify({
+            ...parsedValue,
+            prompt: newOutput
+        }));
+    };
+
     const handlePaste = async () => {
         try {
             const text = await navigator.clipboard.readText();
@@ -173,11 +180,11 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
                         </ActionButton>
                     </div>
                 </div>
-                <textarea
-                    readOnly
+                <DebouncedTextarea
                     value={parsedValue.prompt}
+                    onDebouncedChange={handleOutputChange}
                     placeholder={t('node.content.enhancedPromptHere')}
-                    className="w-full h-full p-2 bg-input border-none rounded-md resize-none focus:outline-none"
+                    className="w-full h-full p-2 bg-input border-none rounded-md resize-none focus:ring-2 focus:ring-accent focus:outline-none"
                     onWheel={e => e.stopPropagation()}
                     onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}
                 />

@@ -310,10 +310,10 @@ export const nodes = {
     'node.content.usedCharacters': 'Используемые персонажи',
     'node.content.insertStyle': 'Вставлять стиль',
 
-    'node.promptProcessor.safePromptTooltip': 'Переписывает промпт для соответствия правилам безопасности и предотвращения нарушений политики.',
-    'node.promptProcessor.technicalPromptTooltip': 'Преобразует промпт в высокодетализированную техническую спецификацию (освещение, камера, настройки рендеринга).',
-    'node.promptProcessor.enhanceTooltip': 'Использует ИИ для расширения и обогащения промпта описательными деталями.',
-    'node.promptProcessor.chainTooltip': 'Выполняет этот узел и запускает все подключенные нижестоящие узлы.',
+    'node.promptProcessor.safePromptTooltip': 'Безопасный режим (Safety).',
+    'node.promptProcessor.technicalPromptTooltip': 'Технический стиль (свет, камера).',
+    'node.promptProcessor.enhanceTooltip': 'Улучшить через ИИ.',
+    'node.promptProcessor.chainTooltip': 'Запустить цепочку.',
     'image_sequence.tooltip.autoCrop': 'Автоматически обрезает сгенерированные изображения до соотношения сторон 16:9.',
     'image_sequence.tooltip.autoDownload': 'Автоматически сохраняет каждое изображение на ваше устройство после генерации.',
     'image_sequence.tooltip.createZip': 'Упаковывает все выбранные изображения в один ZIP-архив при скачивании.'
