@@ -30,9 +30,15 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
+  // Cached display values for animation
+  const [displayTitle, setDisplayTitle] = useState(title);
+  const [displayLabel, setDisplayLabel] = useState(label);
+
   useEffect(() => {
     if (isOpen) {
       setValue(initialValue);
+      setDisplayTitle(title);
+      setDisplayLabel(label);
       setIsVisible(true);
       setTimeout(() => {
         inputRef.current?.focus();
@@ -42,7 +48,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
       const timer = setTimeout(() => setIsVisible(false), 300);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, initialValue]);
+  }, [isOpen, initialValue, title, label]);
 
   const handleConfirm = () => {
     if (value.trim()) {
@@ -74,11 +80,11 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
         onKeyDown={handleKeyDown}
       >
         <div className="px-6 py-4 border-b border-gray-700 bg-[#18202f] rounded-t-xl">
-          <h2 className="text-lg font-bold text-accent-text">{title || t('dialog.rename.title')}</h2>
+          <h2 className="text-lg font-bold text-accent-text">{displayTitle || t('dialog.rename.title')}</h2>
         </div>
         <div className="p-6 space-y-4">
             <label htmlFor="rename-input" className="block text-sm font-medium text-gray-400">
-                {label || t('dialog.rename.label')}
+                {displayLabel || t('dialog.rename.label')}
             </label>
             <input
                 id="rename-input"

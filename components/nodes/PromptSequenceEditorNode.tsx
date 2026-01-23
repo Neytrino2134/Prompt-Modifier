@@ -1,6 +1,5 @@
 
 
-
 import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
 import type { NodeContentProps } from '../../types';
 import { NodeType } from '../../types';
@@ -72,7 +71,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
             sceneTitle: '',
             prompt: '',
             videoPrompt: '',
-            shotType: 'WS',
+            shotType: 'MS',
             characters: [],
             duration: 3,
             isCollapsed: false
@@ -102,7 +101,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
             sceneTitle: `Scene ${nextScene}`,
             prompt: '',
             videoPrompt: '',
-            shotType: 'WS',
+            shotType: 'MS',
             characters: [],
             duration: 3,
             isCollapsed: false
@@ -216,7 +215,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                                  sceneTitle: inc.sceneTitle || '',
                                  prompt: inc.prompt || '',
                                  videoPrompt: inc.videoPrompt || '',
-                                 shotType: inc.shotType || inc.ShotType || 'WS',
+                                 shotType: inc.shotType || inc.ShotType || 'MS',
                                  characters: inc.characters || [],
                                  duration: inc.duration || 3,
                                  isCollapsed: existing ? existing.isCollapsed : true
@@ -275,6 +274,12 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
     const handleUpdateSceneContext = (sceneNum: number, text: string) => {
         const newContexts = { ...sceneContexts, [sceneNum]: text };
         handleValueUpdate({ sceneContexts: newContexts });
+    };
+
+    const handleUpdateModifiedSceneContext = (sceneNum: number, text: string) => {
+        const currentModified = parsedValueRef.current.modifiedSceneContexts || {};
+        const newContexts = { ...currentModified, [sceneNum]: text };
+        handleValueUpdate({ modifiedSceneContexts: newContexts });
     };
 
     const handleToggleSceneContext = (sceneNum: number) => {
@@ -478,7 +483,7 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                     modifiedSceneContexts={modifiedSceneContexts} // Pass modified contexts
                     expandedSceneContexts={expandedSceneContexts}
                     onToggleSceneContext={handleToggleSceneContext}
-                    onUpdateSceneContext={handleUpdateSceneContext} 
+                    onUpdateSceneContext={handleUpdateModifiedSceneContext} // Pass the specific modifier handler
                 />
             </div>
         </div>

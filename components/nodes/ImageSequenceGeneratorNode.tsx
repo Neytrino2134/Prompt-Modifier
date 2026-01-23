@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { NodeContentProps, CharacterConcept } from '../../types';
@@ -399,7 +401,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             ...p,
             prompt: '',
             videoPrompt: '',
-            shotType: 'WS'
+            shotType: 'MS'
         }));
         handleValueUpdate({ prompts: newPrompts });
         if (addToast) addToast("Text prompts cleared", "info");
@@ -416,7 +418,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             sceneTitle: '',
             prompt: '',
             videoPrompt: '',
-            shotType: 'WS',
+            shotType: 'MS',
             characters: [],
             duration: 3,
             isCollapsed: true
@@ -448,7 +450,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             sceneTitle: `Scene ${nextScene}`,
             prompt: '',
             videoPrompt: '',
-            shotType: 'WS',
+            shotType: 'MS',
             characters: [],
             duration: 3,
             isCollapsed: false
@@ -536,9 +538,12 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         const prefix = parsedValue.integrationPrompt || DEFAULT_INTEGRATION_INSTRUCTION;
 
         // 2. Shot Type (Always in English for AI compatibility)
-        const shotInstruction = promptItem.shotType
-            ? getTranslation('en', `image_sequence.shot_type.${promptItem.shotType}` as any)
-            : "";
+        // Sanitize shotType
+        const safeShotType = (promptItem.shotType && ['WS', 'MS', 'CU', 'ECU', 'LS'].includes(promptItem.shotType)) 
+             ? promptItem.shotType 
+             : 'MS';
+             
+        const shotInstruction = getTranslation('en', `image_sequence.shot_type.${safeShotType}` as any);
 
         let fullPrompt = `${prefix}\n${shotInstruction}`;
 
@@ -553,10 +558,16 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         // 4. Base Prompt with Character Replacement
         let mainPrompt = promptItem.prompt;
         if (parsedValue.characterPromptCombination === 'replace') {
-            mainPrompt = mainPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
+             const replacedEntities = new Set<string>();
+             mainPrompt = mainPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
                 const concept = resolveCharacterConcept(match, allConcepts);
                 if (concept && concept.prompt) {
-                    return `${match} (${concept.prompt})`;
+                     const uniqueKey = concept.index || concept.id || match.toLowerCase();
+                     if (!replacedEntities.has(uniqueKey)) {
+                         replacedEntities.add(uniqueKey);
+                         return `${match} (${concept.prompt})`; // First time: expand
+                     }
+                     // Subsequent times: keep tag
                 }
                 return match;
             });
@@ -897,7 +908,21 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         extractedPrompts = Array.from(mergedMap.values());
                         if (parsed.styleOverride) styleOverrideFromUpstream = parsed.styleOverride;
                         if (parsed.usedCharacters) usedCharactersFromUpstream = parsed.usedCharacters;
-                        if (parsed.sceneContexts) sceneContextsFromUpstream = parsed.sceneContexts;
+                        if (parsed.sceneContexts) {
+                             // Correctly handle upstream context updates:
+                             // Merge with existing contexts, upstream takes precedence OR we rely fully on upstream
+                             // For simplicity and to allow overrides, let's merge but prioritize upstream if it has data.
+                             // Actually, logic below handles change detection.
+                             // If upstream sends contexts, we want to use them.
+                             // HOWEVER, we also have `modifiedSceneContexts` from Editor node.
+                             // We should check if the incoming data HAS `modifiedSceneContexts` (from Editor)
+                             // and merge that on top.
+                             let incomingContexts = parsed.sceneContexts;
+                             if (parsed.modifiedSceneContexts) {
+                                  incomingContexts = { ...incomingContexts, ...parsed.modifiedSceneContexts };
+                             }
+                             sceneContextsFromUpstream = incomingContexts;
+                        }
                     } else if (Array.isArray(parsed)) { extractedPrompts = parsed; }
 
                     if (extractedPrompts.length > 0) {
@@ -906,7 +931,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                             const currentPrompts = parsedValueRef.current.prompts || [];
                             const existing = currentPrompts.find((ep: any) => ep.frameNumber === frameNum);
                             const isCollapsed = existing ? existing.isCollapsed : true;
-                            promptMap.set(frameNum, { frameNumber: frameNum, sceneNumber: p.sceneNumber || 1, sceneTitle: p.sceneTitle || '', prompt: p.prompt || '', videoPrompt: p.videoPrompt || '', shotType: p.shotType || p.ShotType || 'WS', characters: p.characters || [], duration: p.duration || 3, isCollapsed: isCollapsed });
+                            promptMap.set(frameNum, { frameNumber: frameNum, sceneNumber: p.sceneNumber || 1, sceneTitle: p.sceneTitle || '', prompt: p.prompt || '', videoPrompt: p.videoPrompt || '', shotType: p.shotType || p.ShotType || 'MS', characters: p.characters || [], duration: p.duration || 3, isCollapsed: isCollapsed });
                         });
                     }
                 } catch { }

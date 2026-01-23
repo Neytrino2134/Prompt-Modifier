@@ -13,16 +13,18 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({ isOpen, message, onClose }) =
   const { t } = useLanguage();
   const [isCopied, setIsCopied] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [displayMessage, setDisplayMessage] = useState(message);
 
   useEffect(() => {
     if (isOpen) {
         setVisible(true);
+        setDisplayMessage(message);
         setIsCopied(false);
     } else {
         const timer = setTimeout(() => setVisible(false), 300); // Allow exit animation
         return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, message]);
 
   // Handle escape key to close
   useEffect(() => {
@@ -40,8 +42,8 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({ isOpen, message, onClose }) =
   if (!isOpen && !visible) return null;
 
   const handleCopy = () => {
-      if (message) {
-          navigator.clipboard.writeText(message);
+      if (displayMessage) {
+          navigator.clipboard.writeText(displayMessage);
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2000);
       }
@@ -79,7 +81,7 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({ isOpen, message, onClose }) =
         {/* Content */}
         <div className="p-5 max-h-[300px] overflow-y-auto custom-scrollbar">
             <p className="text-gray-300 text-sm whitespace-pre-wrap break-words leading-relaxed font-medium select-none">
-              {message}
+              {displayMessage}
             </p>
         </div>
 

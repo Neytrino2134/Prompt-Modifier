@@ -1,6 +1,5 @@
 
 
-
 import { useState, useCallback, useRef } from 'react';
 import { generateImage } from '../../services/geminiService';
 import { generateThumbnail, formatImageForAspectRatio, cropImageTo169 } from '../../utils/imageUtils';
@@ -194,16 +193,26 @@ export const useSequenceNode = ({
                     
                     if (imagesToSend.length > 0) {
                         // Use localized Shot Type instruction
-                        const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : "";
+                        const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : t('image_sequence.shot_type.MS' as any);
                         // Prefix (Integration Instruction) is placed at the beginning as requested
                         fullPrompt = `${prefix}\n${shotInstruction}\n\n${fullPrompt}`;
                         
                         // Replace Tags Logic - Applied only if images (characters) are present
                         if (parsed.characterPromptCombination === 'replace') {
+                            const replacedEntities = new Set<string>();
+                            
                             fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
                                  const concept = resolveCharacterConcept(match, allConcepts);
                                  if (concept && concept.prompt) {
-                                     return `${match} (${concept.prompt})`;
+                                     // Use unique key to track if we've already described this entity in this prompt
+                                     const uniqueKey = concept.index || concept.id || match.toLowerCase();
+                                     
+                                     if (!replacedEntities.has(uniqueKey)) {
+                                         replacedEntities.add(uniqueKey);
+                                         return `${match} (${concept.prompt})`;
+                                     }
+                                     // Subsequent mentions remain just the tag
+                                     return match;
                                  }
                                  return match;
                             });
@@ -366,16 +375,26 @@ export const useSequenceNode = ({
                     }
                     
                     if (imagesToSend.length > 0) {
-                        const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : "";
+                        const shotInstruction = promptItem.shotType ? t(`image_sequence.shot_type.${promptItem.shotType}` as any) : t('image_sequence.shot_type.MS' as any);
                         // Prefix (Integration Instruction) is placed at the beginning as requested
                         fullPrompt = `${prefix}\n${shotInstruction}\n\n${fullPrompt}`;
                         
                         // Replace Tags Logic - Applied only if images (characters) are present
                         if (parsed.characterPromptCombination === 'replace') {
+                            const replacedEntities = new Set<string>();
+                            
                             fullPrompt = fullPrompt.replace(/((?:Character|Entity)[-\s]?\d+|(?:Character|Entity)[-\s]?\w+)/gi, (match: string) => {
                                  const concept = resolveCharacterConcept(match, allConcepts);
                                  if (concept && concept.prompt) {
-                                     return `${match} (${concept.prompt})`;
+                                     // Use unique key to track if we've already described this entity in this prompt
+                                     const uniqueKey = concept.index || concept.id || match.toLowerCase();
+                                     
+                                     if (!replacedEntities.has(uniqueKey)) {
+                                         replacedEntities.add(uniqueKey);
+                                         return `${match} (${concept.prompt})`;
+                                     }
+                                     // Subsequent mentions remain just the tag
+                                     return match;
                                  }
                                  return match;
                             });

@@ -1,7 +1,5 @@
 
 
-
-
 import { Node, NodeType, Connection, Point } from '../types';
 
 export const HEADER_HEIGHT = 40;
@@ -291,6 +289,8 @@ export const getDuplicatedValueForNodeType = (node: Node): string => {
     } catch (e) {
         return emptyValue;
     }
+    // Ensure return
+    return emptyValue;
 };
 
 export const getMinNodeSize = (nodeType: NodeType): { minWidth: number, minHeight: number } => {
@@ -366,10 +366,6 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                 
                 const handleIndex = activeHandles.indexOf(handleId || '');
                 if (handleIndex !== -1) {
-                    // Match visual calculation: HEADER_HEIGHT + (step * (index + 1))
-                    // Visual uses node.height in expanded, but COLLAPSED_NODE_HEIGHT in collapsed
-                    // The standard collapsed rendering usually divides height evenly.
-                    // Let's stick to standard even division for collapsed nodes as per visual.
                     y = (handleIndex + 1) * (COLLAPSED_NODE_HEIGHT / (activeHandles.length + 1));
                 } else {
                     y = COLLAPSED_NODE_HEIGHT / 2;
@@ -404,18 +400,11 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                 const topY = HEADER_HEIGHT + CONTENT_PADDING;
                 
                 if (handleId === 'image') {
-                    // Logic MUST match NodeHandles.tsx:
-                    // If SeqCombo: 25%
-                    // If SeqEditPrompts: -1000 (Hidden)
-                    // Else: 50%
                     if (isSeqEditPrompts) y = h / 2; // Fallback, visually hidden
                     else if (isSeqCombo) y = topY + (topPaneHeight * 0.25);
                     else y = topY + (topPaneHeight * 0.5);
                 }
                 else if (handleId === 'image_b') {
-                    // If SeqCombo: 75%
-                    // If SeqEditPrompts: 50%
-                    // Else: Hidden
                     if (isSeqCombo) y = topY + (topPaneHeight * 0.75);
                     else if (isSeqEditPrompts) y = topY + (topPaneHeight * 0.5);
                     else y = h / 2; // Fallback
@@ -466,15 +455,12 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                 else y = h / 2; // Fallback
             } else if (node.type === NodeType.IMAGE_INPUT && !isInput) {
                 // Expanded IMAGE_INPUT Output Handles Calculation
-                // Matches logic in NodeHandles.tsx
                 const contentHeight = h - HEADER_HEIGHT - 2 * CONTENT_PADDING;
                 const availableContentHeight = Math.max(0, contentHeight);
                 
                 if (handleId === 'image') {
-                    // Positioned at 1/4 of the content area below header
                     y = HEADER_HEIGHT + CONTENT_PADDING + (availableContentHeight / 4);
                 } else if (handleId === 'text') {
-                     // Positioned near bottom
                      y = h - 80;
                 }
             } else if (node.type === NodeType.CHARACTER_CARD && !isInput) {
@@ -524,5 +510,8 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
         return { x: node.position.x + x, y: node.position.y + y };
     };
 
-    return { start: getHandlePosition(fromNode, connection.fromHandleId, false), end: getHandlePosition(toNode, connection.toHandleId, true) };
+    const start = getHandlePosition(fromNode, connection.fromHandleId, false);
+    const end = getHandlePosition(toNode, connection.toHandleId, true);
+
+    return { start, end };
 };

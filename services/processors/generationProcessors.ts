@@ -37,7 +37,8 @@ export const processPromptSequenceEditor: NodeProcessor = async ({ node }) => {
         modificationModel = 'gemini-3-flash-preview',
         includeVideoPrompts = false,
         checkedContextScenes = [],
-        sceneContexts = {}
+        sceneContexts = {},
+        modifiedSceneContexts = {} // Get local modified contexts
     } = JSON.parse(node.value || '{}');
     
     if (!instruction?.trim()) throw new Error("Modification instruction is empty.");
@@ -46,16 +47,21 @@ export const processPromptSequenceEditor: NodeProcessor = async ({ node }) => {
     const promptsToModify = sourcePrompts.filter((p: any) => checkedSourceFrameNumbers.includes(p.frameNumber));
     if (promptsToModify.length === 0) throw new Error("Selected prompts not found.");
     
-    // Prepare Contexts to send
+    // Prepare Contexts to send (Merged Source + Modified)
+    // AI receives the *current visible state* to modify further or use as context
     let contextsToSend: Record<string, string> = {};
+    
+    // Merge: Modified overrides Source
+    const mergedContexts = { ...sceneContexts, ...modifiedSceneContexts };
+
     const distinctScenes = new Set(promptsToModify.map((p: any) => p.sceneNumber));
     distinctScenes.forEach((sceneNum: any) => {
-        if (sceneContexts[sceneNum] && checkedContextScenes.includes(sceneNum)) {
-                contextsToSend[String(sceneNum)] = sceneContexts[sceneNum];
+        if (mergedContexts[sceneNum] && checkedContextScenes.includes(sceneNum)) {
+                contextsToSend[String(sceneNum)] = mergedContexts[sceneNum];
         }
     });
 
-    const { modifiedFrames, modifiedSceneContexts } = await modifyPromptSequence(
+    const { modifiedFrames, modifiedSceneContexts: newAiModifiedContexts } = await modifyPromptSequence(
         promptsToModify, 
         instruction,
         targetLanguage,
@@ -72,7 +78,7 @@ export const processPromptSequenceEditor: NodeProcessor = async ({ node }) => {
     const sourceMap = new Map(sourcePrompts.map((p: any) => [p.frameNumber, p]));
 
     modifiedFrames.forEach((newPrompt: any) => {
-        // Retrieve original prompt to copy static fields like videoPrompt and sceneTitle if the API didn't return them
+        // Retrieve original prompt to copy static fields like videoPrompt and sceneTitle if the AI didn't return them
         const original = sourceMap.get(newPrompt.frameNumber) as any;
         if (original) {
             // Ensure videoPrompt is preserved from source if not present in API response
@@ -96,20 +102,29 @@ export const processPromptSequenceEditor: NodeProcessor = async ({ node }) => {
     });
     
     // Update Scene Contexts if returned
-    let newModifiedSceneContexts = { ...(currentVal.modifiedSceneContexts || {}) };
-    if (modifiedSceneContexts && modifiedSceneContexts.length > 0) {
-        modifiedSceneContexts.forEach((item: any) => {
+    let updatedModifiedSceneContexts = { ...modifiedSceneContexts };
+    if (newAiModifiedContexts && newAiModifiedContexts.length > 0) {
+        newAiModifiedContexts.forEach((item: any) => {
             if (item.sceneNumber && item.context) {
-                newModifiedSceneContexts[String(item.sceneNumber)] = item.context;
+                updatedModifiedSceneContexts[String(item.sceneNumber)] = item.context;
             }
         });
     }
+    
+    // IMPORTANT: When generating the final value for the node, we must construct the output object
+    // such that downstream nodes (ImageSequenceGenerator) see the "final" merged contexts.
+    // However, the node state MUST keep them separate to allow further editing and UI distinction.
+    // The processor returns the updated NODE STATE.
+    // But downstream nodes read `node.value`. 
+    // So `node.value` must contain `sceneContexts` and `modifiedSceneContexts` separately,
+    // and the downstream node is responsible for merging them.
+    // See ImageSequenceGeneratorNode.tsx: calculateUpstreamUpdates update.
 
     return {
         value: { 
             ...currentVal, 
             modifiedPrompts: Array.from(modifiedMap.values()),
-            modifiedSceneContexts: newModifiedSceneContexts
+            modifiedSceneContexts: updatedModifiedSceneContexts
         }
     };
 };

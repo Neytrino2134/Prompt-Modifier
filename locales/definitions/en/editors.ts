@@ -1,4 +1,5 @@
 
+
 export const editors = {
     'imageEditor.title': 'Image Editor',
     'imageEditor.canvasResolution': 'Canvas Resolution',
@@ -108,9 +109,8 @@ export const editors = {
     'geminiChat.mode.prompt': 'Prompt Expert',
     'geminiChat.mode.script': 'Script Writer',
     'geminiChat.mode.youtube': 'YouTube Analyst',
-    'geminiChat.mode.developer': 'Developer',
     'image_sequence.shot_type.WS': "Integrate the Entity with a Wide Shot (WS) into the scene and action. Show the environment.",
-    'image_sequence.shot_type.MS': "Integrate the Entity with a Medium Shot (MS) into the scene. Character from waist up.",
+    'image_sequence.shot_type.MS': "Integrate the Entity with a Medium Shot (MS) into the scene.",
     'image_sequence.shot_type.CU': "Integrate the Entity with a Close-Up (CU) into the scene.",
     'image_sequence.shot_type.ECU': "Integrate the Entity with an Extreme Close-Up (ECU) into the scene. Maximum detail.",
     'image_sequence.shot_type.LS': "Integrate the Entity with a Long Shot (LS) into the scene to show scale."

@@ -27,6 +27,8 @@ const PromptEditDialog: React.FC<PromptEditDialogProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      // Only update internal state when opening or when props change WHILE open.
+      // Do NOT update when closing (props become empty strings from parent).
       setName(initialName);
       setContent(initialContent);
       setIsVisible(true);

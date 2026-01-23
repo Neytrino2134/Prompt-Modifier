@@ -19,15 +19,23 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 }) => {
   const { t } = useLanguage();
   const [isVisible, setIsVisible] = useState(false);
+  
+  // Local state to hold content during exit animation
+  const [displayTitle, setDisplayTitle] = useState(title);
+  const [displayMessage, setDisplayMessage] = useState(message);
 
   useEffect(() => {
     if (isOpen) {
       setIsVisible(true);
+      // Update content when opening
+      setDisplayTitle(title);
+      setDisplayMessage(message);
     } else {
+      // Delay unmounting to allow animation to finish
       const timer = setTimeout(() => setIsVisible(false), 300);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, title, message]);
 
   const handleConfirm = () => {
     onConfirm();
@@ -42,6 +50,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     }
   };
   
+  // Render if open OR if visible (animating out)
   if (!isOpen && !isVisible) {
     return null;
   }
@@ -57,10 +66,10 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         onKeyDown={handleKeyDown}
       >
         <div className="px-6 py-4 border-b border-gray-700 bg-[#18202f] rounded-t-xl">
-          <h2 className="text-lg font-bold text-accent-text">{title}</h2>
+          <h2 className="text-lg font-bold text-accent-text">{displayTitle}</h2>
         </div>
         <div className="p-6 space-y-4">
-            <p className="text-sm text-gray-400 leading-relaxed">{message}</p>
+            <p className="text-sm text-gray-400 leading-relaxed">{displayMessage}</p>
         </div>
         <div className="px-6 py-4 border-t border-gray-700 flex justify-end items-center space-x-3 bg-gray-900 rounded-b-xl">
             <button
