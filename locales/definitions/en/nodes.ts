@@ -1,12 +1,11 @@
 
 
-
 export const nodes = {
     'node.title.text_input': 'Text Input',
     'node.title.image_input': 'Image Input',
     'node.title.prompt_processor': 'Prompt Processor',
     'node.title.prompt_sanitizer': 'Prompt Sanitizer',
-    'node.title.video_prompt_processor': 'Video Prompt Processor',
+    'node.title.video_prompt_processor': 'Video Prompt Proc.',
     'node.title.image_output': 'Image Output',
     'node.title.video_output': 'Video Output',
     'node.title.prompt_analyzer': 'Prompt Analyzer',
@@ -15,7 +14,7 @@ export const nodes = {
     'node.title.character_card': 'Character Card',
     'node.title.image_analyzer': 'Image Analyzer',
     'node.title.image_editor': 'AI Image Editor',
-    'node.title.image_sequence_generator': 'Image Sequence Generator',
+    'node.title.image_sequence_generator': 'Image Sequence Gen.',
     'node.title.prompt_sequence_editor': 'Prompt Sequence Editor',
     'node.title.gemini_chat': 'Gemini Chat',
     'node.title.translator': 'Translator',
@@ -53,7 +52,7 @@ export const nodes = {
     'node.help.video_editor': 'A timeline-based tool for editing video clips and images.',
     'node.help.media_viewer': 'A player for viewing video and audio files with playback controls.',
     'node.help.data_protection': 'An interactive Tower Defense game node. Defend your data stream from corruption.',
-    'node.help.pose_creator': 'Visually rig and create character poses for generation guidance.',
+    'node.help.pose_creator': 'Visual rig to define and generate character poses for consistency.',
     'node.action.expand': 'Expand',
     'node.action.collapse': 'Collapse',
     'node.action.help': 'Help',
@@ -299,6 +298,7 @@ export const nodes = {
     'geminiChat.mode.prompt': 'Prompt Expert',
     'geminiChat.mode.script': 'Script Writer',
     'geminiChat.mode.youtube': 'YouTube Analyst',
+    'geminiChat.mode.developer': 'Developer',
     'image_sequence.deselect_scene': 'Deselect all frames in this scene',
     'image_sequence.clear_prompts_only': 'Clear Text Prompts Only',
     'image_sequence.prev_scene': 'Previous Scene',

@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef } from 'react';
 import { Node, NodeType, Point, ToastType } from '../types';
 import { readPromptFromPNG } from '../utils/pngMetadata';
@@ -502,10 +503,6 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, isCollapsed: !n.isCollapsed } : n));
     };
 
-    const setNodesCollapse = (nodeIds: string[], collapsed: boolean) => {
-        setNodes(nds => nds.map(n => nodeIds.includes(n.id) ? { ...n, isCollapsed: collapsed } : n));
-    };
-
     const handleToggleNodePin = (nodeId: string) => {
         setNodes(nds => nds.map(n => {
             if (n.id === nodeId) {
@@ -540,7 +537,6 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         handleSetImageEditorOutputToInput,
         handleRefreshImageEditor,
         handleToggleNodeCollapse,
-        setNodesCollapse,
         handleToggleNodePin,
         handleToggleNodeHandles,
         handleClearNodeNewFlag

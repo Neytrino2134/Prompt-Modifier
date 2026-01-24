@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, session } from 'electron';
+import { app, BrowserWindow, shell, session, ipcMain, dialog } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -7,6 +7,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // SPOOFING: Use a standard Chrome User Agent to bypass Google's "secure browser" check.
 // Using a fixed recent version of Chrome on Windows 10.
 const FAKE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+// Store user defined download path in memory (syncs from renderer)
+let customDownloadPath = '';
 
 function createWindow() {
   const isDev = !app.isPackaged;
@@ -26,6 +29,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'), // Load preload script
       // Create a clean session partition to avoid cache conflicts
       partition: 'persist:main', 
     },
@@ -73,6 +77,15 @@ function createWindow() {
     callback({ cancel: false, requestHeaders: details.requestHeaders });
   });
 
+  // --- Download Handler ---
+  session.defaultSession.on('will-download', (event, item, webContents) => {
+    if (customDownloadPath) {
+      // If a custom path is set, save the file there automatically
+      item.setSavePath(path.join(customDownloadPath, item.getFilename()));
+    }
+    // If no path is set, Electron's default behavior (usually asking or Downloads folder) applies.
+  });
+
   // Load the app
   if (isDev) {
     win.loadURL('http://localhost:5173');
@@ -82,6 +95,25 @@ function createWindow() {
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 }
+
+// --- IPC Handlers ---
+
+// Handle folder selection dialog
+ipcMain.handle('dialog:selectFolder', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory']
+  });
+  if (result.canceled) {
+    return null;
+  } else {
+    return result.filePaths[0];
+  }
+});
+
+// Receive download path from Renderer
+ipcMain.on('app:setDownloadPath', (event, path) => {
+  customDownloadPath = path;
+});
 
 app.whenReady().then(() => {
   createWindow();

@@ -13,18 +13,6 @@ export const CollapseIcon = () => (
   </svg>
 );
 
-export const ExpandAllIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M7 9l5-5 5 5M7 15l5 5 5-5" />
-  </svg>
-);
-
-export const CollapseAllIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M7 5l5 5 5-5M7 19l5-5 5 5" />
-  </svg>
-);
-
 export const HomeIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -139,12 +127,7 @@ export const DistributeVerticalIcon = () => (
 );
 
 export const GroupIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-        <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-        <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-        <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-        <path d="M16 19h6m-3-3v6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 14v6m-3-3h6M6 10h2a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2zm10 0h2a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2zM6 20h2a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z" /></svg>
 );
 
 export const CopyIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
@@ -182,7 +165,7 @@ export const FullScreenIcon = ({ className = "h-4 w-4" }: { className?: string }
 
 export const ExitFullScreenIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1zm0 0l-5-5M15 9h4a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1zm0 0l5-5M9 15H5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1zm0 0l-5 5M15 15h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1zm0 0l5-5" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1zm0 0l-5-5M15 9h4a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1zm0 0l5-5M9 15H5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1zm0 0l-5 5M15 15h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1zm0 0l5 5" />
     </svg>
 );
 
@@ -257,6 +240,37 @@ export const EyeOffIcon = ({ className = "h-4 w-4" }: { className?: string }) =>
     </svg>
 );
 
+export const GoogleDriveIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 87.3 78" fill="currentColor">
+        <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+        <path d="M43.65 25l13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2l13.75 23.8z" fill="#00ac47"/>
+        <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l9.6-16.6c.8-1.4 1.2-2.95 1.2-4.5h-27.5l13.4 24.4z" fill="#ea4335"/>
+        <path d="M43.65 25L29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3l-9.6 16.6c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00832d"/>
+        <path d="M59.05 52.9H31.55l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h18.5c1.6 0 3.15-.45 4.5-1.2l13.75-23.8z" fill="#2684fc"/>
+        <path d="M73.55 76.8l-13.75-23.8h-27.5l13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h18.5c1.6 0 3.15-.45 4.5-1.2z" fill="#ffba00"/>
+    </svg>
+);
+
+export const CloudUploadIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+    </svg>
+);
+
+export const CloudDownloadIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12M12 10v9m0 0l3-3m-3 3l-3-3" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10V19M9 16L12 19L15 16" />
+    </svg>
+);
+
+
+export const EyedropperIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5l-2.404 2.404a5.002 5.002 0 01-7.072 0l-1.06-1.06a5.002 5.002 0 010-7.072l2.404-2.404a1.5 1.5 0 012.122 0l6.01 6.01a1.5 1.5 0 010 2.122zM8.25 15.75l-4.5 4.5a1.5 1.5 0 000 2.122l1.06 1.06a1.5 1.5 0 002.122 0l4.5-4.5" />
+    </svg>
+);
+
 export const SparklesIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.562L16.25 22.5l-.648-1.938a3.375 3.375 0 00-2.672-2.672L11.25 18l1.938-.648a3.375 3.375 0 002.672 2.672L16.25 13l.648 1.938a3.375 3.375 0 002.672 2.672L21.75 18l-1.938.648a3.375 3.375 0 00-2.672 2.672z" />
@@ -268,6 +282,8 @@ export const PhotoIcon = ({ className = "h-4 w-4" }: { className?: string }) => 
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
   </svg>
 );
+
+// --- NEW ICONS FOR CATALOG ---
 
 export const GroupItemIcon = ({ className = "h-8 w-8 text-cyan-400" }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -333,9 +349,7 @@ export const LoadFileIcon = ({ className = "h-5 w-5" }: { className?: string }) 
 
 export const ClearCloudIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
     <div className="relative">
-        <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-        </svg>
+        <CloudUploadIcon className={className} />
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
              <div className="w-0.5 h-full bg-red-500 rotate-45 transform origin-center absolute scale-y-125"></div>
         </div>
@@ -359,30 +373,5 @@ export const ScriptIcon = ({ className = "h-10 w-10" }: { className?: string }) 
 export const SequenceIcon = ({ className = "h-10 w-10" }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M6 5h12M6 9h12M6 13h12M6 17h12M3 3h2.5v18H3zm15.5 0H21v18h-2.5z" />
-    </svg>
-);
-
-// Added missing icons
-export const GoogleDriveIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-        <path d="M7.74,13.345l4.26,7.34H3.48L0.72,16.015L7.74,13.345z M12.58,12.015h8.52l2.76,4.67l-11.28,6.66L12.58,12.015z M12.1,3.345l8.52,14.685l-2.76,4.67L6.58,8.015L12.1,3.345z" />
-    </svg>
-);
-
-export const CloudUploadIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-    </svg>
-);
-
-export const CloudDownloadIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-    </svg>
-);
-
-export const EyedropperIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
     </svg>
 );

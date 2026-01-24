@@ -98,6 +98,14 @@ const Editor: React.FC = () => {
     return () => window.removeEventListener('prompt-modifier-open-file', handleExternalFileLoad as EventListener);
   }, [context]);
 
+  // Sync Download Path from LocalStorage to Electron
+  useEffect(() => {
+    const savedPath = localStorage.getItem('settings_downloadPath');
+    if (savedPath && (window as any).electronAPI) {
+        (window as any).electronAPI.setDownloadPath(savedPath);
+    }
+  }, []);
+
   // Deferred loading effect for Canvas
   useEffect(() => {
     const timer = setTimeout(() => {

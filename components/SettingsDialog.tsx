@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../localization';
-import { ReloadIcon, GoogleDriveIcon, SettingsIcon } from './icons/AppIcons';
+import { ReloadIcon, GoogleDriveIcon, SettingsIcon, FolderIcon, DeleteIcon, CopyIcon } from './icons/AppIcons';
 import { CustomCheckbox } from './CustomCheckbox';
 import { useAppContext } from '../contexts/AppContext';
 import { Theme, Point } from '../types';
@@ -27,6 +27,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   const dragStart = useRef({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const positionRef = useRef(position);
+  
+  const [currentOrigin, setCurrentOrigin] = useState('');
 
   // Sync ref for event handlers
   useEffect(() => {
@@ -37,6 +39,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   useEffect(() => {
       if (isOpen) {
           setIsVisible(true);
+          setCurrentOrigin(window.location.origin);
+          
           const saved = localStorage.getItem(LOCAL_STORAGE_POS_KEY);
           if (saved) {
               try {
@@ -52,7 +56,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
               // Align top-left of dialog to bottom-left of anchor
               // Adjust if it goes off screen
               const width = 512; // approximate max-w-lg
-              const height = 600; // approximate
+              const height = 650; // approximate
               let x = anchorPosition.x;
               let y = anchorPosition.y + 10;
               
@@ -64,7 +68,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
           } else {
               setPosition({ 
                   x: Math.max(0, window.innerWidth / 2 - 256), 
-                  y: Math.max(0, window.innerHeight / 2 - 300) 
+                  y: Math.max(0, window.innerHeight / 2 - 325) 
               });
           }
       } else {
@@ -104,6 +108,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   const [instantNodeClose, setInstantNodeClose] = useState(false);
   const [hoverHighlight, setHoverHighlight] = useState(true);
   const [animMode, setAnimMode] = useState<string>('pulse');
+  const [downloadPath, setDownloadPath] = useState('');
+
+  // Check if running in Electron context
+  const isElectron = !!(window as any).electronAPI;
 
   useEffect(() => {
     if (isOpen) {
@@ -112,6 +120,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       const storedInstantClose = localStorage.getItem('settings_instantNodeClose');
       const storedAnimMode = localStorage.getItem('settings_nodeAnimationMode');
       const storedHoverHighlight = localStorage.getItem('settings_hoverHighlight'); 
+      const storedDownloadPath = localStorage.getItem('settings_downloadPath') || '';
       
       const legacyAnim = localStorage.getItem('settings_nodeAnimation');
       
@@ -120,6 +129,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       setUseDevKey(storedUseDev === null ? true : storedUseDev === 'true');
       setInstantNodeClose(storedInstantClose === 'true');
       setHoverHighlight(storedHoverHighlight === null ? true : storedHoverHighlight === 'true'); 
+      setDownloadPath(storedDownloadPath);
       
       if (storedAnimMode) {
           setAnimMode(storedAnimMode);
@@ -141,6 +151,19 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
           setUseDevKey(false);
       }
   };
+  
+  const handleSelectDownloadFolder = async () => {
+      if ((window as any).electronAPI) {
+          const path = await (window as any).electronAPI.selectFolder();
+          if (path) {
+              setDownloadPath(path);
+          }
+      }
+  };
+  
+  const handleResetDownloadFolder = () => {
+      setDownloadPath('');
+  };
 
   const handleSave = () => {
     localStorage.setItem('settings_userApiKey', apiKey);
@@ -148,6 +171,12 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
     localStorage.setItem('settings_instantNodeClose', String(instantNodeClose));
     localStorage.setItem('settings_nodeAnimationMode', animMode);
     localStorage.setItem('settings_hoverHighlight', String(hoverHighlight)); 
+    localStorage.setItem('settings_downloadPath', downloadPath);
+    
+    // Notify Electron about the new path
+    if ((window as any).electronAPI) {
+        (window as any).electronAPI.setDownloadPath(downloadPath);
+    }
     
     // Also save Google Client ID if it changed but user didn't click "Update" button
     if (setGoogleClientId && googleDriveClientId !== googleClientId) {
@@ -226,6 +255,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       localStorage.setItem(LOCAL_STORAGE_POS_KEY, JSON.stringify(positionRef.current));
   };
 
+  const copyOrigin = () => {
+      navigator.clipboard.writeText(currentOrigin);
+      addToast(t('toast.copiedToClipboard'), 'success');
+  };
+
   if (!isOpen && !isVisible) return null;
 
   const themes: { id: Theme; color: string; label: string }[] = [
@@ -249,7 +283,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   return (
     <div className={`fixed inset-0 z-[100] pointer-events-none transition-opacity duration-200 ease-out ${isVisible && isOpen ? 'opacity-100' : 'opacity-0'}`}>
       <div 
-        className="absolute bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col cursor-default max-h-[90vh] overflow-hidden pointer-events-auto border border-gray-700 transition-transform duration-200 ease-out"
+        className="absolute bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col cursor-default max-h-[95vh] overflow-hidden pointer-events-auto border border-gray-700 transition-transform duration-200 ease-out"
         style={{
             left: position.x,
             top: position.y,
@@ -420,6 +454,36 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                          </div>
                      </div>
                  </div>
+                 
+                 {/* Download Path (Electron Only) */}
+                 {isElectron && (
+                     <div className="space-y-2 pt-2 border-t border-gray-700/50">
+                         <label className="block text-xs font-medium text-gray-400">
+                             {t('dialog.settings.downloadPathLabel')}
+                         </label>
+                         <div className="flex gap-2">
+                             <div className="flex-grow bg-gray-800 border border-gray-700 rounded-md p-2 text-xs text-gray-300 truncate" title={downloadPath || "Default"}>
+                                 {downloadPath || <span className="text-gray-500 italic">Downloads Folder (Default)</span>}
+                             </div>
+                             <button
+                                 onClick={handleSelectDownloadFolder}
+                                 className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-md border border-gray-600"
+                                 title={t('dialog.settings.selectFolder')}
+                             >
+                                 <FolderIcon className="w-4 h-4" />
+                             </button>
+                             {downloadPath && (
+                                 <button
+                                     onClick={handleResetDownloadFolder}
+                                     className="p-2 bg-gray-700 hover:bg-red-900/30 text-gray-400 hover:text-red-400 rounded-md border border-gray-600 hover:border-red-800"
+                                     title={t('dialog.settings.resetPath')}
+                                 >
+                                     <DeleteIcon className="w-4 h-4" />
+                                 </button>
+                             )}
+                         </div>
+                     </div>
+                 )}
              </div>
           </div>
 
@@ -430,7 +494,26 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
              </div>
              
              <div className="bg-gray-900/50 p-4 rounded-lg space-y-4">
-                  <div className="space-y-2">
+                  
+                  {/* Origin Display Helper */}
+                  <div className="space-y-1">
+                      <label className="block text-xs font-medium text-gray-500">
+                          Detected Origin (For Google Cloud Console):
+                      </label>
+                      <div className="flex items-center gap-2">
+                          <code className="flex-grow bg-black/30 p-1.5 rounded text-[10px] text-gray-300 font-mono truncate border border-gray-700">
+                              {currentOrigin}
+                          </code>
+                          <button onClick={copyOrigin} className="p-1.5 text-gray-400 hover:text-white bg-gray-700 rounded hover:bg-gray-600" title="Copy Origin">
+                              <CopyIcon className="h-3.5 w-3.5" />
+                          </button>
+                      </div>
+                      <p className="text-[10px] text-gray-600 italic">
+                          Add this URL to "Authorized JavaScript origins" in your Google Cloud Project if Auth fails.
+                      </p>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-gray-700/30">
                     <label htmlFor="googleClientId" className="block text-xs font-medium text-gray-400">
                       {t('settings.googleClientIdLabel')}
                     </label>

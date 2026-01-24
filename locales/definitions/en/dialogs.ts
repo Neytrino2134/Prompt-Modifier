@@ -74,4 +74,7 @@ export const dialogs = {
     'dialog.settings.connectionsLabel': 'Connections Style',
     'dialog.settings.connectionAnimationLabel': 'Data Flow Animation',
     'dialog.settings.connectionOpacityLabel': 'Line Opacity',
+    'dialog.settings.downloadPathLabel': 'Download Path',
+    'dialog.settings.selectFolder': 'Select Folder',
+    'dialog.settings.resetPath': 'Reset to Default',
 };

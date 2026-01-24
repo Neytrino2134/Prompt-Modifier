@@ -1,3 +1,4 @@
+
 import React, { useEffect, MutableRefObject } from 'react';
 import { NodeType, Tool, Node } from '../../types';
 
@@ -23,7 +24,6 @@ interface UseHotkeysProps {
     requestDeleteNodes: (ids: string[], pos: {x: number, y: number}) => void;
     handleGroupSelection: () => void;
     handleToggleNodeCollapse: (id: string) => void;
-    handleBatchToggleCollapse?: (ids: string[]) => void; // New prop
     handleToggleNodePin: (id: string) => void;
     onAddNode: (type: NodeType, pos: {x: number, y: number}) => void;
     pointerPositionRef: MutableRefObject<{x: number, y: number}>;
@@ -61,7 +61,7 @@ export const useHotkeys = (props: UseHotkeysProps) => {
         handleSaveCanvas, handleLoadCanvas, copyNodeValue, copyGroup, handlePaste,
         handleToggleCatalog, handleOpenQuickSearch, handleOpenQuickAdd, deselectAllNodes, handleDuplicateNode,
         handleDuplicateNodeWithContent, deleteNodeAndConnections, requestDeleteNodes,
-        handleGroupSelection, handleToggleNodeCollapse, handleBatchToggleCollapse, handleToggleNodePin, onAddNode, pointerPositionRef,
+        handleGroupSelection, handleToggleNodeCollapse, handleToggleNodePin, onAddNode, pointerPositionRef,
         clientPointerPositionRef, handleCloseAddNodeMenus, setIsSnapToGrid, setLineStyle,
         setIsSmartGuidesEnabled, setActiveTool, setIsShiftDown, setIsCtrlDown, setIsAltDown, setIsZDown,
         setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition,
@@ -242,17 +242,7 @@ export const useHotkeys = (props: UseHotkeysProps) => {
             }
 
             // Collapse
-            if (e.code === 'KeyH' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { 
-                e.preventDefault(); 
-                if (!e.repeat && selectedNodeIds.length > 0) {
-                    if (handleBatchToggleCollapse) {
-                        handleBatchToggleCollapse(selectedNodeIds);
-                    } else {
-                        selectedNodeIds.forEach(handleToggleNodeCollapse);
-                    }
-                }
-                return; 
-            }
+            if (e.code === 'KeyH' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); if (!e.repeat) selectedNodeIds.forEach(handleToggleNodeCollapse); return; }
 
             // Group / Gemini Chat Logic for 'G'
             if (e.code === 'KeyG' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { 
@@ -384,5 +374,5 @@ export const useHotkeys = (props: UseHotkeysProps) => {
             window.removeEventListener('focus', resetInteractionState);
             document.removeEventListener('visibilitychange', resetInteractionState);
         };
-    }, [selectedNodeIds, nodesRef, draggingInfoRef, isTyping, handleSaveCanvas, handleLoadCanvas, copyNodeValue, copyGroup, handlePaste, handleToggleCatalog, handleOpenQuickSearch, handleOpenQuickAdd, deselectAllNodes, handleDuplicateNode, handleDuplicateNodeWithContent, deleteNodeAndConnections, requestDeleteNodes, handleGroupSelection, handleToggleNodeCollapse, handleBatchToggleCollapse, onAddNode, pointerPositionRef, clientPointerPositionRef, handleCloseAddNodeMenus, setIsSnapToGrid, setLineStyle, setIsSmartGuidesEnabled, setActiveTool, setIsShiftDown, setIsCtrlDown, setIsAltDown, setIsZDown, setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition, radialMenuSelectedItem, setRadialMenuSelectedItem, getTransformedPoint, radialMenuPosition, quickSlots, isConnectionQuickAddOpen, isInstantCloseEnabled, handleAlignNodes, undoPosition, redoPosition, handleValueChange]);
+    }, [selectedNodeIds, nodesRef, draggingInfoRef, isTyping, handleSaveCanvas, handleLoadCanvas, copyNodeValue, copyGroup, handlePaste, handleToggleCatalog, handleOpenQuickSearch, handleOpenQuickAdd, deselectAllNodes, handleDuplicateNode, handleDuplicateNodeWithContent, deleteNodeAndConnections, requestDeleteNodes, handleGroupSelection, handleToggleNodeCollapse, onAddNode, pointerPositionRef, clientPointerPositionRef, handleCloseAddNodeMenus, setIsSnapToGrid, setLineStyle, setIsSmartGuidesEnabled, setActiveTool, setIsShiftDown, setIsCtrlDown, setIsAltDown, setIsZDown, setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition, radialMenuSelectedItem, setRadialMenuSelectedItem, getTransformedPoint, radialMenuPosition, quickSlots, isConnectionQuickAddOpen, isInstantCloseEnabled, handleAlignNodes, undoPosition, redoPosition, handleValueChange]);
 };

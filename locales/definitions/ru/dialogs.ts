@@ -74,4 +74,7 @@ export const dialogs = {
     'dialog.settings.connectionsLabel': 'Стиль соединений',
     'dialog.settings.connectionAnimationLabel': 'Анимация потока данных',
     'dialog.settings.connectionOpacityLabel': 'Прозрачность линий',
+    'dialog.settings.downloadPathLabel': 'Путь для скачивания',
+    'dialog.settings.selectFolder': 'Выбрать папку',
+    'dialog.settings.resetPath': 'По умолчанию',
 };

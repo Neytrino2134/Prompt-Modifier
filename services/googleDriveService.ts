@@ -7,6 +7,7 @@ const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/r
 // Changed scope to drive.file to allow managing files created by this app, 
 // and creating new ones.
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+// SHARED FOLDER NAME - Must be identical in Script Modifier
 const APP_FOLDER_NAME = 'Prompt Modifier Data';
 
 let tokenClient: any;

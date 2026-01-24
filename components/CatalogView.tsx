@@ -53,7 +53,7 @@ interface CatalogViewProps {
   isSyncing?: boolean;
   uploadCatalogItem?: (item: any, context: string) => void;
   handleDeleteFromDrive?: (item: any, context: string) => void; 
-  handleClearCloudFolder?: (context: string) => void; 
+  handleClearCloudFolder?: (context: string) => void; // New Prop for clearing folder
 }
 
 const ActionButton: React.FC<{ title: string; onClick: (e: React.MouseEvent) => void; children: React.ReactNode; disabled?: boolean; className?: string }> = ({ title, onClick, children, disabled = false, className }) => {
@@ -367,39 +367,33 @@ const ContentCatalogItemCard: React.FC<{
     setIsDragOver: (isOver: boolean) => void;
     t: (key: string) => string;
     onUpload?: (item: any) => void; 
-    onDeleteFromDrive?: (item: any) => void; 
+    onDeleteFromDrive?: (item: any) => void; // New prop
 }> = ({ item, dragItemType, onNavigate, onRename, onSave, onDelete, draggedItem, onDragStart, onDragEnd, onMoveItem, isDragOver, setIsDragOver, t, onUpload, onDeleteFromDrive }) => {
     const isFolder = item.type === ContentCatalogItemType.FOLDER;
     const mainAction = isFolder ? () => onNavigate(item.id) : () => {};
 
     // --- THUMBNAIL LOGIC ---
-    const { thumbnail, isCollection } = useMemo(() => {
-        let thumb = null;
-        let isCol = false;
+    const thumbnail = useMemo(() => {
         if (!isFolder && item.content) {
             try {
                 const parsed = JSON.parse(item.content);
-                
-                // If it's an array, it's a collection (from node header save)
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                     isCol = true;
-                     const first = parsed[0];
-                     if (first.imageSources && first.imageSources['1:1']) thumb = first.imageSources['1:1'];
-                     else if (first.image && typeof first.image === 'string') thumb = first.image;
-                } else {
-                    // Single Item logic
-                    if (parsed.image && typeof parsed.image === 'string' && parsed.image.startsWith('data:')) {
-                        thumb = parsed.image;
-                    } else if (parsed.imageBase64 && typeof parsed.imageBase64 === 'string') {
-                        thumb = `data:image/png;base64,${parsed.imageBase64}`;
-                    } else if (parsed.imageSources && parsed.imageSources['1:1']) {
-                         thumb = parsed.imageSources['1:1'];
-                    }
+                // 1. Check for 'image' field (Base64)
+                if (parsed.image && typeof parsed.image === 'string' && parsed.image.startsWith('data:')) {
+                    return parsed.image;
+                }
+                // 2. Check for 'imageBase64' field (Base64 without prefix)
+                if (parsed.imageBase64 && typeof parsed.imageBase64 === 'string') {
+                    return `data:image/png;base64,${parsed.imageBase64}`;
+                }
+                // 3. Check for 'imageSources' (Character Card structure)
+                if (parsed.imageSources && parsed.imageSources['1:1']) {
+                     return parsed.imageSources['1:1'];
                 }
             } catch {}
         }
-        return { thumbnail: thumb, isCollection: isCol };
+        return null;
     }, [item.content, isFolder]);
+    // -----------------------
 
     const handleDragStart = (e: React.DragEvent) => {
         onDragStart();
@@ -462,17 +456,6 @@ const ContentCatalogItemCard: React.FC<{
                 <div className={`absolute w-full h-full ${isFolder ? 'group-hover:scale-110' : ''} bg-gray-800 rounded-lg flex items-center justify-center shadow-lg transition-transform overflow-hidden`}>
                    {icon}
                 </div>
-                
-                {/* Collection Icon Overlay */}
-                {isCollection && (
-                    <div className="absolute top-0 left-0 bg-indigo-600/90 p-1 rounded-br-md z-10 shadow-sm pointer-events-none" title="Collection">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="7" y="7" width="14" height="14" rx="2" ry="2"></rect>
-                            <path d="M17 3H5a2 2 0 0 0-2 2v12"></path>
-                        </svg>
-                    </div>
-                )}
-
                 {/* Cloud Indicator if synced */}
                 {item.driveFileId && (
                      <div className="absolute top-0 right-0 bg-blue-600/80 p-0.5 rounded-bl-md z-10 shadow-sm pointer-events-none">
@@ -526,9 +509,10 @@ const ContentCatalogView: React.FC<{
     t: (key: string) => string;
     onUpload?: (item: any, context: string) => void;
     onDeleteFromDrive?: (item: any, context: string) => void; 
-    onClearCloudFolder?: (context: string) => void;
+    onClearCloudFolder?: (context: string) => void; // New Prop
 }> = ({ catalog, draggedItem, setDraggedItem, dragOverTarget, setDragOverTarget, dragItemType, onRenameItem, t, onUpload, onDeleteFromDrive, onClearCloudFolder }) => {
     
+    // Determine context string for upload based on type
     const contextMap: Record<string, string> = {
         'CHARACTER': 'characters',
         'SCRIPT': 'scripts',
@@ -580,6 +564,7 @@ const ContentCatalogView: React.FC<{
                         </button>
                     </TooltipWrapper>
 
+                    {/* Clear Cloud Folder Button - MOVED TO END */}
                     {onClearCloudFolder && (
                          <TooltipWrapper title={t('catalog.clearCloudCategory')}>
                             <button 
@@ -635,23 +620,22 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
     currentCatalogItems, catalogPath, onCatalogNavigateBack, onCatalogNavigateToFolder, onCreateCatalogFolder, onAddGroupFromCatalog, onRenameCatalogItem, onSaveCatalogItem, onDeleteCatalogItem, onLoadCatalogItemFromFile, onMoveCatalogItem,
     libraryItems, libraryPath, onNavigateBack, onNavigateToFolder, onCreateLibraryItem, onEditLibraryItem, onRenameLibraryItem, onDeleteLibraryItem, onSaveLibraryItem, onLoadLibraryItemFromFile, onMoveLibraryItem,
     onRenameCharacter, onRenameScript, onRenameSequence,
-    handleSyncCatalogs, isGoogleDriveReady, isSyncing, uploadCatalogItem, handleDeleteFromDrive, handleClearCloudFolder
+    handleSyncCatalogs, isGoogleDriveReady, isSyncing, uploadCatalogItem, handleDeleteFromDrive, handleClearCloudFolder // New Prop
   } = props;
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'groups' | 'library' | 'characters' | 'scripts' | 'sequences'>('groups');
   const [draggedItem, setDraggedItem] = useState<{ id: string; tab: string } | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
-  // --- High Performance Draggable State for Catalog Window ---
+  // --- Draggable State for Catalog Window ---
   const [position, setPosition] = useState<{ x: number, y: number } | null>(null);
   const dragStartRef = useRef<{ x: number, y: number } | null>(null);
   const windowRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
 
   // Initialize position to center on open (or keep if already set/moved)
   useEffect(() => {
       if (isOpen && !position) {
-           const w = 896; 
+           const w = 896; // max-w-4xl is 56rem = 896px
            const h = window.innerHeight * 0.8;
            const x = (window.innerWidth - w) / 2;
            const y = (window.innerHeight - h) / 2;
@@ -660,40 +644,23 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
   }, [isOpen]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('button') || target.closest('input')) return;
-
       e.preventDefault();
       e.stopPropagation();
-      isDraggingRef.current = true;
       dragStartRef.current = { x: e.clientX, y: e.clientY };
       e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isDraggingRef.current || !dragStartRef.current || !position || !windowRef.current) return;
-      
-      const dx = e.clientX - dragStartRef.current.x;
-      const dy = e.clientY - dragStartRef.current.y;
-      
-      // Direct DOM update for smooth movement bypassing React state on every frame
-      windowRef.current.style.transform = `translate(${dx}px, ${dy}px)`;
+      if (dragStartRef.current && position) {
+          const dx = e.clientX - dragStartRef.current.x;
+          const dy = e.clientY - dragStartRef.current.y;
+          setPosition({ x: position.x + dx, y: position.y + dy });
+          dragStartRef.current = { x: e.clientX, y: e.clientY };
+      }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isDraggingRef.current || !dragStartRef.current || !position || !windowRef.current) return;
-      
-      isDraggingRef.current = false;
-      const dx = e.clientX - dragStartRef.current.x;
-      const dy = e.clientY - dragStartRef.current.y;
-      
-      // Update state once drag finishes
-      const newPos = { x: position.x + dx, y: position.y + dy };
-      setPosition(newPos);
-      
-      // Reset transform since we updated absolute position
-      windowRef.current.style.transform = 'none';
-      
+      dragStartRef.current = null;
       e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
@@ -786,6 +753,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
                 onMoveItem={(targetFolderId) => onMoveCatalogItem(draggedItem!.id, targetFolderId)}
                 isDragOver={dragOverTarget === item.id}
                 setIsDragOver={(isOver) => setDragOverTarget(isOver ? item.id : null)}
+                // We pass 'groups' as context for upload
                 onUpload={(i) => uploadCatalogItem && uploadCatalogItem(i, 'groups')}
                 onDeleteFromDrive={handleDeleteFromDrive ? (i) => handleDeleteFromDrive(i, 'groups') : undefined}
               />
@@ -837,6 +805,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           </div>
         </div>
         <div className="flex space-x-2 flex-shrink-0">
+          {/* New Prompt (First) */}
           <TooltipWrapper title={t('library.actions.newPrompt')}>
             <button onClick={() => onCreateLibraryItem(LibraryItemType.PROMPT)} className="px-3 py-2 text-sm font-semibold bg-cyan-600 hover:bg-cyan-700 rounded-md flex items-center space-x-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -844,6 +813,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
             </button>
           </TooltipWrapper>
 
+          {/* New Folder (Second) */}
           <TooltipWrapper title={t('catalog.newFolder')}>
             <button onClick={() => onCreateLibraryItem(LibraryItemType.FOLDER)} className="px-3 py-2 text-sm font-semibold bg-gray-600 hover:bg-gray-500 rounded-md flex items-center space-x-2">
               <AddFolderIcon className="h-5 w-5" />
@@ -851,6 +821,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
             </button>
           </TooltipWrapper>
 
+          {/* Load (Third) */}
           <TooltipWrapper title={t('catalog.load')}>
             <button onClick={onLoadLibraryItemFromFile} className="px-3 py-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 rounded-md flex items-center space-x-2">
               <LoadFileIcon className="h-5 w-5" />
@@ -858,6 +829,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
             </button>
           </TooltipWrapper>
 
+          {/* Clear Cloud (Last) */}
           {handleClearCloudFolder && (
              <TooltipWrapper title={t('catalog.clearCloudCategory')}>
                 <button 
@@ -891,6 +863,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
                 onMoveItem={(targetFolderId) => onMoveLibraryItem(draggedItem!.id, targetFolderId)}
                 isDragOver={dragOverTarget === item.id}
                 setIsDragOver={(isOver) => setDragOverTarget(isOver ? item.id : null)}
+                // We pass 'library' as context for upload
                 onUpload={(i) => uploadCatalogItem && uploadCatalogItem(i, 'library')}
                 onDeleteFromDrive={handleDeleteFromDrive ? (i) => handleDeleteFromDrive(i, 'library') : undefined}
               />
@@ -898,7 +871,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           </div>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center text-gray-500">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
             <p className="font-semibold">{t('library.empty.title')}</p>
             <p className="text-sm">{t('library.empty.description')}</p>
           </div>
@@ -915,6 +888,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
         style={{
             left: position ? position.x : '50%',
             top: position ? position.y : '50%',
+            // If no position set yet (first render), center via transform. Otherwise follow drag.
             transform: position ? 'none' : 'translate(-50%, -50%)'
         }}
         onMouseDown={e => e.stopPropagation()}
@@ -968,9 +942,9 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
         
         {activeTab === 'groups' && renderGroupCatalog()}
         {activeTab === 'library' && renderPromptLibrary()}
-        {activeTab === 'characters' && <ContentCatalogView catalog={props.characterCatalog} dragItemType="CHARACTER" onRenameItem={onRenameCharacter} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} onUpload={uploadCatalogItem} onDeleteFromDrive={handleDeleteFromDrive} />}
-        {activeTab === 'scripts' && <ContentCatalogView catalog={props.scriptCatalog} dragItemType="SCRIPT" onRenameItem={onRenameScript} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} onUpload={uploadCatalogItem} onDeleteFromDrive={handleDeleteFromDrive} />}
-        {activeTab === 'sequences' && <ContentCatalogView catalog={props.sequenceCatalog} dragItemType="PROMPT_SEQUENCE" onRenameItem={onRenameSequence} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} onUpload={uploadCatalogItem} onDeleteFromDrive={handleDeleteFromDrive} />}
+        {activeTab === 'characters' && <ContentCatalogView catalog={props.characterCatalog} dragItemType="CHARACTER" onRenameItem={onRenameCharacter} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} onUpload={uploadCatalogItem} onDeleteFromDrive={handleDeleteFromDrive} onClearCloudFolder={handleClearCloudFolder} />}
+        {activeTab === 'scripts' && <ContentCatalogView catalog={props.scriptCatalog} dragItemType="SCRIPT" onRenameItem={onRenameScript} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} onUpload={uploadCatalogItem} onDeleteFromDrive={handleDeleteFromDrive} onClearCloudFolder={handleClearCloudFolder} />}
+        {activeTab === 'sequences' && <ContentCatalogView catalog={props.sequenceCatalog} dragItemType="PROMPT_SEQUENCE" onRenameItem={onRenameSequence} t={t} draggedItem={draggedItem} setDraggedItem={setDraggedItem} dragOverTarget={dragOverTarget} setDragOverTarget={setDragOverTarget} onUpload={uploadCatalogItem} onDeleteFromDrive={handleDeleteFromDrive} onClearCloudFolder={handleClearCloudFolder} />}
       </div>
     </div>
   );
