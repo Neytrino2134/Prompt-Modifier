@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, ReactNode, useMemo, useCallback, useRef, useEffect } from 'react';
 import type { AppContextType } from './AppContextTypes';
 import { useLanguage, LanguageCode } from '../localization';
@@ -137,6 +136,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [resetTabs]);
 
     // Derived Action Hooks
+    const activeTabIdId = activeTabId;
     const activeTabIdRef = useRef(activeTabId);
     useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
 
@@ -245,6 +245,51 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
     }, [groupsHook.setGroups, nodesHook.nodes]);
 
+    // --- Batch UI Logic ---
+
+    const handleBatchToggleCollapse = useCallback((nodeIds: string[]) => {
+        if (nodeIds.length === 0) return;
+        
+        // Use current snapshot to determine target state
+        const targetNodes = nodesHook.nodes.filter(n => nodeIds.includes(n.id));
+        const hasExpanded = targetNodes.some(n => !n.isCollapsed);
+        
+        // Algorithm: If any is expanded -> Collapse All. Else (all are collapsed) -> Expand All.
+        const targetCollapsedState = hasExpanded;
+        
+        // 1. Update node states
+        nodesHook.setNodesCollapse(nodeIds, targetCollapsedState);
+        
+        // 2. Update Group Bounds
+        // Need to identify which groups are affected by these nodes
+        const affectedGroupIds = new Set<string>();
+        groupsHook.groups.forEach(g => {
+             if (g.nodeIds.some(nid => nodeIds.includes(nid))) {
+                 affectedGroupIds.add(g.id);
+             }
+        });
+        
+        if (affectedGroupIds.size > 0) {
+             groupsHook.setGroups(prevGroups => prevGroups.map(g => {
+                 if (affectedGroupIds.has(g.id)) {
+                     // Get latest node data after collapse update
+                     const groupNodes = nodesHook.nodes.map(n => {
+                         if (nodeIds.includes(n.id)) return { ...n, isCollapsed: targetCollapsedState };
+                         return n;
+                     }).filter(n => g.nodeIds.includes(n.id));
+                     
+                     const bounds = calculateGroupBounds(groupNodes);
+                     return bounds ? { ...g, ...bounds } : g;
+                 }
+                 return g;
+             }));
+        }
+    }, [nodesHook.nodes, nodesHook.setNodesCollapse, groupsHook.groups, groupsHook.setGroups]);
+
+    const handleToggleNodeCollapse = useCallback((nodeId: string) => {
+        handleBatchToggleCollapse([nodeId]);
+    }, [handleBatchToggleCollapse]);
+
     // --- Missing Handlers Implementation ---
     
     const handleRemoveGroup = useCallback((groupId: string, e: React.MouseEvent) => {
@@ -332,7 +377,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         nodesHook.handleValueChange(newNodeId, JSON.stringify(cardData));
         addToast(t('toast.pastedFromClipboard'), 'success');
-    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t, nodesHook]);
+    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t]);
 
     const onDetachImageToNode = useCallback((imageDataUrl: string, sourceNodeId: string) => {
         const sourceNode = nodesHook.nodes.find(n => n.id === sourceNodeId);
@@ -348,7 +393,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
         
         addToast(t('toast.pastedFromClipboard'), 'success');
-    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t, nodesHook]);
+    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t]);
 
     const onSaveCharacterToCatalog = useCallback((nodeId: string, cardIndex?: number) => {
         const node = nodesHook.nodes.find(n => n.id === nodeId);
@@ -555,24 +600,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         dialogsHook.handleOpenNodeContextMenu(e, nodeId);
     }, [nodesHook.nodes, selectedNodeIds, setSelectedNodeIds, dialogsHook.handleOpenNodeContextMenu]);
-
-    const handleToggleNodeCollapse = useCallback((nodeId: string) => {
-        nodesHook.handleToggleNodeCollapse(nodeId);
-
-        const node = nodesHook.nodes.find(n => n.id === nodeId);
-        if (node) {
-            const parentGroup = groupsHook.groups.find(g => g.nodeIds.includes(nodeId));
-            if (parentGroup) {
-                const updatedNodes = nodesHook.nodes.map(n => n.id === nodeId ? { ...n, isCollapsed: !n.isCollapsed } : n);
-                const groupNodes = updatedNodes.filter(n => parentGroup.nodeIds.includes(n.id));
-                const newBounds = calculateGroupBounds(groupNodes);
-
-                if (newBounds) {
-                    groupsHook.setGroups(prev => prev.map(g => g.id === parentGroup.id ? { ...g, ...newBounds } : g));
-                }
-            }
-        }
-    }, [nodesHook.handleToggleNodeCollapse, nodesHook.nodes, groupsHook.groups, groupsHook.setGroups]);
 
     const handleRegenerateFrame = useCallback((nodeId: string, frameNumber: number) => {
         const node = nodesHook.nodes.find(n => n.id === nodeId);
@@ -874,6 +901,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onRefreshUpstreamData: (nodeId: string, handleId?: string) => { },
 
             handleDetachNodeFromGroup,
+            handleBatchToggleCollapse, // Exported new method
             onDetachCharacter: orchestrationHook.handleDetachCharacterFromGenerator,
             onSaveScriptToDisk: canvasIOHook.handleSaveScriptFile,
             onSaveMediaToDisk: orchestrationHook.onSaveMediaToDisk,
@@ -976,7 +1004,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         entityActionsHook, interactionHook, derivedMemoHook, canvasEventsHook,
         geminiAnalysisHook, geminiConversationHook, geminiChainExecutionHook, geminiGenerationHook, geminiModificationHook,
         positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook,
-        handleToggleNodeCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
+        handleToggleNodeCollapse, handleBatchToggleCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,
         handleResetCanvas, resetCanvasToDefault, nodesHook.handleToggleNodeHandles, nodesHook.handleClearNodeNewFlag,

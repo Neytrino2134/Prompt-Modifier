@@ -137,6 +137,8 @@ export type AppContextType =
   getUpstreamNodeValues: (nodeId: string, handleId?: string, currentNodes?: Node[], optimizedForUI?: boolean) => (string | { base64ImageData: string, mimeType: string })[];
   getCurrentCanvasState: () => CanvasState;
   handleDetachNodeFromGroup: (nodeId: string) => void;
+  // Fix: Add handleBatchToggleCollapse which was missing from the interface
+  handleBatchToggleCollapse: (nodeIds: string[]) => void;
   handleNodeTouchStart: (e: React.TouchEvent<HTMLDivElement>, nodeId: string) => void;
   handleGroupTouchStart: (e: React.TouchEvent<HTMLDivElement>, groupId: string) => void;
   handleStartConnectionTouch: (e: React.TouchEvent<HTMLDivElement>, fromNodeId: string, fromHandleId?: string) => void;

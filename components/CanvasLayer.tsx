@@ -1,4 +1,3 @@
-
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { NodeView } from './NodeView';
@@ -11,7 +10,7 @@ import {
     UndoIcon, RedoIcon, AlignLeftIcon, AlignCenterXIcon, AlignRightIcon, 
     AlignTopIcon, AlignCenterYIcon, AlignBottomIcon, 
     DistributeHorizontalIcon, DistributeVerticalIcon, GroupIcon,
-    EyeIcon, EyeOffIcon
+    EyeIcon, EyeOffIcon, CollapseAllIcon, ExpandAllIcon
 } from './icons/AppIcons';
 import { useLanguage } from '../localization';
 import { NodeType } from '../types';
@@ -79,7 +78,7 @@ const CanvasLayer: React.FC = () => {
         activeTool, setActiveTool, effectiveTool,
         deleteNodeAndConnections, removeConnectionsByNodeId, copyNodeValue, pasteNodeValue,
         pasteImageToNode, handleDownloadImage, handleDuplicateNode, handleDuplicateNodeWithContent,
-        handleToggleNodeCollapse, handleDetachNodeFromGroup, handleStartConnection, handleStartConnectionTouch,
+        handleToggleNodeCollapse, handleBatchToggleCollapse, handleDetachNodeFromGroup, handleStartConnection, handleStartConnectionTouch,
         handleNodeCutConnections, handleNodeTouchStart, handleGroupMouseDown, handleGroupTouchStart,
         handleRemoveGroup, handleSaveGroupToCatalog, handleSaveGroupToDisk, copyGroup, duplicateGroup,
         hoveredGroupIdForDrop, handleGroupSelection, handleAlignNodes,
@@ -114,7 +113,6 @@ const CanvasLayer: React.FC = () => {
     } = context;
 
     // --- Node Group Map for Layering ---
-    // Pre-calculate which group each node belongs to for O(1) lookup during rendering
     const nodeGroupMap = useMemo(() => {
         const map = new Map<string, string>();
         groups.forEach(group => {
@@ -130,9 +128,8 @@ const CanvasLayer: React.FC = () => {
     // --- Virtualization Logic ---
     const visibleEntities = useMemo(() => {
         const { scale, translate } = viewTransform;
-        const buffer = 300 / scale; // Buffer depends on zoom to keep consistent margin
+        const buffer = 300 / scale;
 
-        // Current visible area in World coordinates
         const viewport = {
             left: -translate.x / scale - buffer,
             top: -translate.y / scale - buffer,
@@ -141,8 +138,8 @@ const CanvasLayer: React.FC = () => {
         };
 
         const isNodeVisible = (node: any) => {
-            if (node.dockState) return true; // Docked nodes are fixed UI
-            if (node.isPinned) return true; // Pinned nodes are usually critical
+            if (node.dockState) return true;
+            if (node.isPinned) return true;
             if (draggingInfo?.type === 'node' && draggingInfo.offsets.has(node.id)) return true;
 
             const nodeHeight = node.isCollapsed ? COLLAPSED_NODE_HEIGHT : node.height;
@@ -157,12 +154,10 @@ const CanvasLayer: React.FC = () => {
         const visibleNodes = nodes.filter(isNodeVisible);
         const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
 
-        // Filter connections: visible if at least one end is in the visible node set
         const visibleConnections = connections.filter(conn => 
             visibleNodeIds.has(conn.fromNodeId) || visibleNodeIds.has(conn.toNodeId)
         );
 
-        // Filter groups: visible if they intersect viewport
         const visibleGroups = groups.filter(group => (
             group.position.x < viewport.right &&
             group.position.x + group.width > viewport.left &&
@@ -230,6 +225,7 @@ const CanvasLayer: React.FC = () => {
             onCopyImageToClipboard: onCopyImageToClipboard,
             onLoadImageSequenceFile: triggerLoadImageSequenceFile,
             onLoadPromptSequenceFile: triggerLoadPromptSequenceFile,
+            onDownloadImage: handleDownloadImage,
             onProcessImage: handleProcessImage,
             isProcessingImage: isProcessingImage === node.id,
             activeTool: effectiveTool,
@@ -245,7 +241,6 @@ const CanvasLayer: React.FC = () => {
             onCopyNodeValue: copyNodeValue,
             onPasteNodeValue: pasteNodeValue,
             onPasteImage: pasteImageToNode,
-            onDownloadImage: handleDownloadImage,
             onDuplicateNode: handleDuplicateNode,
             onDuplicateNodeWithContent: handleDuplicateNodeWithContent,
             onAspectRatioChange: handleAspectRatioChange,
@@ -344,6 +339,13 @@ const CanvasLayer: React.FC = () => {
         }
     };
 
+    // Calculate if batch toggle will collapse or expand
+    const batchWillCollapse = useMemo(() => {
+        if (selectedNodeIds.length < 1) return true;
+        const targetNodes = nodes.filter(n => selectedNodeIds.includes(n.id));
+        return targetNodes.some(n => !n.isCollapsed);
+    }, [nodes, selectedNodeIds]);
+
     return (
         <div 
             id="app-container" 
@@ -364,14 +366,12 @@ const CanvasLayer: React.FC = () => {
         >
             {!focusedNodeId && <ControlsToolbar activeTool={effectiveTool} onToolChange={setActiveTool} />}
             
-            {/* Render Docked Nodes (On Top, outside transform layer) */}
             {!focusedNodeId && dockedNodes.map((node: any) => (
                 <NodeView 
                     key={`${node.id}-docked`} 
                     node={node} 
                     {...getNodeViewProps(node)} 
-                    // isDockedWindow implicitly handled by styles but passed via prop if needed for internal logic
-                    // The style util sees node.dockState and applies position:fixed + high zIndex
+                    isProxy={!!node.dockState}
                 />
             ))}
 
@@ -382,7 +382,6 @@ const CanvasLayer: React.FC = () => {
                         <div className="absolute top-0 left-[-50000px] w-[100000px] h-[1px] bg-cyan-900/30 -translate-y-1/2"></div>
                         <div className="absolute left-0 top-[-50000px] w-[1px] h-[100000px] bg-cyan-900/30 -translate-x-1/2"></div>
                         <div className="absolute top-0 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-                             {/* Central Crosshair - Themed */}
                              <div className="absolute w-3 h-[2px] bg-accent shadow-[0_0_5px_var(--color-accent)]"></div>
                              <div className="absolute h-3 w-[2px] bg-accent shadow-[0_0_5px_var(--color-accent)]"></div>
                         </div>
@@ -427,6 +426,27 @@ const CanvasLayer: React.FC = () => {
                                         </button>
                                     </Tooltip>
                                 </div>
+                                
+                                {/* New Batch Toggle Collapse Button with Single Arrow Icons */}
+                                <Tooltip content={batchWillCollapse ? t('image_sequence.collapse_all_frames') : t('image_sequence.expand_all_frames')} position="top">
+                                    <button 
+                                        onClick={() => handleBatchToggleCollapse(selectedNodeIds)} 
+                                        className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white transition-colors"
+                                    >
+                                        {batchWillCollapse ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                                            </svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </Tooltip>
+
+                                <div className="w-px bg-gray-600 mx-1"></div>
+
                                 <Tooltip content={t('contextMenu.align.left')} position="top">
                                     <button onClick={() => handleAlignNodes(selectedNodeIds, 'left')} className="p-1.5 hover:bg-accent rounded text-gray-300 hover:text-white">
                                         <AlignLeftIcon />
@@ -477,7 +497,6 @@ const CanvasLayer: React.FC = () => {
                       </div>
                     )}
 
-                    {/* VIRTUALIZED CONNECTIONS */}
                     <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-0 overflow-visible">
                         {visibleEntities.visibleConnections.map(conn => {
                             const fromNode = nodes.find(n => n.id === conn.fromNodeId);
@@ -485,7 +504,7 @@ const CanvasLayer: React.FC = () => {
                             if (!fromNode || !toNode) return null;
                             const { start, end } = getConnectionPoints(fromNode, toNode, conn);
                             return (
-                                <ConnectionView 
+                                ConnectionView && <ConnectionView 
                                     key={conn.id} 
                                     connection={conn} 
                                     fromNode={fromNode} 
@@ -512,7 +531,6 @@ const CanvasLayer: React.FC = () => {
                         })}
                     </svg>
 
-                    {/* VIRTUALIZED GROUPS */}
                     {visibleEntities.visibleGroups.map(group => (
                         <GroupView
                             key={group.id}
@@ -530,15 +548,12 @@ const CanvasLayer: React.FC = () => {
                         />
                     ))}
 
-                    {/* VIRTUALIZED NODES */}
                     {visibleEntities.visibleNodes.map((node: any) => (
-                        // If node is docked, render a PROXY here (isProxy=true)
-                        // If not docked, render normally
                         <NodeView 
                             key={node.id} 
                             node={node} 
                             {...getNodeViewProps(node)} 
-                            isProxy={!!node.dockState} // Crucial logic: if docked, render as proxy on canvas
+                            isProxy={!!node.dockState}
                         />
                     ))}
 

@@ -1,4 +1,3 @@
-
 export const editors = {
     'imageEditor.title': 'Растровый редактор',
     'imageEditor.canvasResolution': 'Разрешение холста',
@@ -54,9 +53,9 @@ export const editors = {
     'image_sequence.copy_prompt': 'Копировать промпт',
     'image_sequence.add_frame': 'Добавить кадр',
     'image_sequence.delete_frame': 'Удалить кадр',
-    'image_sequence.expand_all_frames': 'Развернуть/Свернуть все кадры',
-    'image_sequence.collapse_all_frames': 'Свернуть все кадры',
-    'image_sequence.expand_all_scenes': 'Развернуть/Свернуть все сцены',
+    'image_sequence.expand_all_frames': 'Развернуть все (H)',
+    'image_sequence.collapse_all_frames': 'Свернуть все (H)',
+    'image_sequence.expand_all_scenes': 'Развернуть все сцены',
     'image_sequence.collapse_all_scenes': 'Свернуть все сцены',
     'image_sequence.expand_all': 'Развернуть все',
     'image_sequence.collapse_all': 'Свернуть все',
@@ -109,7 +108,7 @@ export const editors = {
     'geminiChat.mode.script': 'Сценарист',
     'geminiChat.mode.youtube': 'Ютюб Аналитик',
     'geminiChat.mode.developer': 'Разработчик',
-    'image_sequence.shot_type.WS': "Интегрируйте Сущность с общим планом (WS) в сцену и действие. Показать окружение.",
+    'image_sequence.shot_type.WS': "Интегрируйте Сущность с общим планом (WS) в цену и действие. Показать окружение.",
     'image_sequence.shot_type.MS': "Интегрируйте Сущность со средним планом (MS) в сцену. Персонаж по пояс.",
     'image_sequence.shot_type.CU': "Интегрируйте Сущность с крупным планом (CU) в сцену.",
     'image_sequence.shot_type.ECU': "Интегрируйте Сущность с экстремально крупным планом (ECU) в сцену. Максимальная детализация.",

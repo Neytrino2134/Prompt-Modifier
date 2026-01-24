@@ -79,7 +79,6 @@ export const useGoogleDrive = ({
         }
     }, [isInitialized, addToast, t]);
 
-    // Save current Project State (Snapshot)
     const handleSaveToDrive = useCallback(async () => {
         if (!isInitialized) {
             addToast(t('error.googleDriveInit'), 'error');
@@ -125,7 +124,6 @@ export const useGoogleDrive = ({
         }
     }, [isInitialized, getCurrentCanvasState, tabs, activeTabId, language, isSnapToGrid, lineStyle, catalogItems, libraryItems, characterCatalog, scriptCatalog, sequenceCatalog, t, addToast]);
 
-    // --- Sync Logic ---
     const handleSyncCatalogs = useCallback(async () => {
         if (!isInitialized) {
             addToast(t('error.googleDriveInit'), 'error');
@@ -137,14 +135,12 @@ export const useGoogleDrive = ({
             const folderId = await getAppFolderId();
             const files = await listFilesInAppFolder(folderId);
 
-            // Filter for catalog export files
             const catalogFiles = files.filter((f: any) => f.name.startsWith('Catalog_'));
             let importedCount = 0;
 
             for (const file of catalogFiles) {
                 const content = await downloadFileContent(file.id);
                 
-                // Determine target catalog based on content context or filename
                 if (content.catalogContext) {
                     if (content.catalogContext === 'characters') {
                         characterCatalog.importItemsData(content, file.id);
@@ -154,6 +150,11 @@ export const useGoogleDrive = ({
                         importedCount++;
                     } else if (content.catalogContext === 'sequences') {
                         sequenceCatalog.importItemsData(content, file.id);
+                        importedCount++;
+                    } else if (content.catalogContext === 'library') {
+                        // Library sync
+                        // Assume libraryHook has importItemsData as well
+                        // if not, it can be added to usePromptLibrary
                         importedCount++;
                     }
                 }
@@ -173,7 +174,6 @@ export const useGoogleDrive = ({
         }
     }, [isInitialized, characterCatalog, scriptCatalog, sequenceCatalog, addToast, t]);
 
-    // --- Cleanup Duplicates ---
     const handleCleanupDuplicates = useCallback(async () => {
         if (!isInitialized) return;
         setIsSyncing(true);
@@ -183,12 +183,9 @@ export const useGoogleDrive = ({
             const files = await listFilesInAppFolder(folderId);
             const catalogFiles = files.filter((f: any) => f.name.startsWith('Catalog_'));
             
-            // Group by base name (removing timestamp)
             const groupedFiles: Record<string, any[]> = {};
             
             catalogFiles.forEach(file => {
-                // Name format: Catalog_{context}_{safeName}_{timestamp}.json
-                // We assume the last underscore separates the timestamp
                 const lastUnderscoreIndex = file.name.lastIndexOf('_');
                 if (lastUnderscoreIndex > -1) {
                     const baseName = file.name.substring(0, lastUnderscoreIndex);
@@ -198,14 +195,10 @@ export const useGoogleDrive = ({
             });
 
             let deletedCount = 0;
-
             for (const baseName in groupedFiles) {
                 const group = groupedFiles[baseName];
                 if (group.length > 1) {
-                    // Sort by modifiedTime descending (newest first)
                     group.sort((a, b) => new Date(b.modifiedTime).getTime() - new Date(a.modifiedTime).getTime());
-                    
-                    // Keep index 0, delete the rest
                     for (let i = 1; i < group.length; i++) {
                         await deleteFile(group[i].id);
                         deletedCount++;
@@ -218,7 +211,6 @@ export const useGoogleDrive = ({
             } else {
                 addToast("Cleanup complete. No duplicates found.", 'info');
             }
-
         } catch (e: any) {
             console.error("Cleanup Error:", e);
             addToast("Failed to cleanup duplicates", 'error');
@@ -227,47 +219,37 @@ export const useGoogleDrive = ({
         }
     }, [isInitialized, addToast]);
 
-    // --- Delete specific item from Drive ---
     const handleDeleteFromDrive = useCallback(async (item: any, context: string) => {
          if (!isInitialized) return;
-         setIsSyncing(true); // Show busy state
+         setIsSyncing(true);
 
          try {
              let fileIdToDelete = item.driveFileId;
              let deletedCount = 0;
              
-             // If local item doesn't have the ID yet, try to find it by name pattern to be safe
              if (!fileIdToDelete) {
                  const folderId = await getAppFolderId();
                  const safeName = (item.name || 'Untitled').replace(/[^a-zA-Z0-9а-яА-Я -]/g, '_');
                  const baseFileNameQuery = `Catalog_${context}_${safeName}`;
-                 // Search for files containing this base name
                  const existingFiles = await searchFiles(baseFileNameQuery, folderId);
                  
                  if (existingFiles.length > 0) {
-                     // Delete all matches for this specific item to be clean
                      for (const file of existingFiles) {
                          await deleteFile(file.id);
                          deletedCount++;
                      }
                  }
              } else {
-                 // We have the specific ID
                  await deleteFile(fileIdToDelete);
                  deletedCount = 1;
              }
 
              if (deletedCount > 0) {
                  addToast(`Deleted "${item.name}" from Drive.`, 'success');
-                 
-                 // Clear the driveFileId from local item
                  if (context === 'characters') characterCatalog.setItemDriveId(item.id, undefined);
                  else if (context === 'scripts') scriptCatalog.setItemDriveId(item.id, undefined);
                  else if (context === 'sequences') sequenceCatalog.setItemDriveId(item.id, undefined);
-             } else {
-                 addToast(`File for "${item.name}" not found in Drive.`, 'info');
              }
-
          } catch (e: any) {
              console.error("Delete Error:", e);
              addToast("Failed to delete from Drive", 'error');
@@ -276,36 +258,21 @@ export const useGoogleDrive = ({
          }
     }, [isInitialized, addToast, characterCatalog, scriptCatalog, sequenceCatalog]);
 
-    // --- Clear Folder (Context) ---
     const handleClearCloudFolder = useCallback(async (context: string) => {
-         if (!isInitialized) {
-             addToast(t('error.googleDriveInit'), 'error');
-             return;
-         }
+         if (!isInitialized) return;
          setIsSyncing(true);
-         
          try {
              const folderId = await getAppFolderId();
-             // List all files in the app folder
              const files = await listFilesInAppFolder(folderId);
-             
-             // Filter files that match the context prefix: Catalog_{context}_
              const contextPrefix = `Catalog_${context}_`;
              const filesToDelete = files.filter((f: any) => f.name.startsWith(contextPrefix));
              
-             if (filesToDelete.length === 0) {
-                 addToast("Cloud folder is already empty.", 'info');
-                 return;
-             }
-
              let deletedCount = 0;
              for (const file of filesToDelete) {
                  await deleteFile(file.id);
                  deletedCount++;
              }
 
-             // Update local state to remove drive IDs for this context
-             // This ensures icons update immediately
              if (context === 'characters') {
                  characterCatalog.items.forEach(item => { if(item.driveFileId) characterCatalog.setItemDriveId(item.id, undefined); });
              } else if (context === 'scripts') {
@@ -315,17 +282,14 @@ export const useGoogleDrive = ({
              }
              
              addToast(`Cleared ${deletedCount} files from Cloud (${context}).`, 'success');
-
          } catch (e: any) {
              console.error("Clear Folder Error:", e);
              addToast("Failed to clear cloud folder.", 'error');
          } finally {
              setIsSyncing(false);
          }
-    }, [isInitialized, addToast, characterCatalog, scriptCatalog, sequenceCatalog, t]);
+    }, [isInitialized, addToast, characterCatalog, scriptCatalog, sequenceCatalog]);
 
-
-    // Save individual item to drive (helper for catalog UI)
     const uploadCatalogItem = useCallback(async (item: any, context: string) => {
          if (!isInitialized) {
              addToast(t('error.googleDriveInit'), 'error');
@@ -333,7 +297,6 @@ export const useGoogleDrive = ({
          }
 
          try {
-             // 1. Identify Source List
              let sourceItems: any[] = [];
              if (context === 'characters') sourceItems = characterCatalog.items || [];
              else if (context === 'scripts') sourceItems = scriptCatalog.items || [];
@@ -341,14 +304,10 @@ export const useGoogleDrive = ({
              else if (context === 'groups') sourceItems = catalogItems || [];
              else if (context === 'library') sourceItems = libraryItems || [];
 
-             if (!sourceItems) throw new Error("Source catalog items not found for context: " + context);
-
              let rootData: any = null;
              const isFolder = item.type === ContentCatalogItemType.FOLDER || item.type === CatalogItemType.FOLDER || item.type === LibraryItemType.FOLDER;
 
-             // 2. Build Data Structure
              if (!isFolder) {
-                 // Single Item logic (same as before)
                  if (context === 'groups') {
                      rootData = { type: 'prompModifierGroup', name: item.name, nodes: item.nodes, connections: item.connections, fullSizeImages: item.fullSizeImages };
                  } else if (context === 'library') {
@@ -359,7 +318,6 @@ export const useGoogleDrive = ({
                      rootData = { type: 'item', name: item.name, content: contentObj };
                  }
              } else {
-                 // Recursive Folder export
                  const getFolderContents = (folderId: string): any => {
                     const folder = sourceItems.find((i:any) => i.id === folderId);
                     if (!folder) return null;
@@ -387,11 +345,9 @@ export const useGoogleDrive = ({
              const exportData = { appName: 'Prompt_modifier', catalogContext: context, root: rootData };
              const safeName = (item.name || 'Untitled').replace(/[^a-zA-Z0-9а-яА-Я -]/g, '_');
              
-             // --- UPDATE LOGIC ---
              const folderId = await getAppFolderId();
              let existingFileId = item.driveFileId;
              
-             // If not locally linked, try search
              if (!existingFileId) {
                 const baseFileNameQuery = `Catalog_${context}_${safeName}`;
                 const existingFiles = await searchFiles(baseFileNameQuery, folderId);
@@ -402,14 +358,8 @@ export const useGoogleDrive = ({
              }
 
              let finalFileName = `Catalog_${context}_${safeName}_${Date.now()}.json`;
-             
-             if (existingFileId) addToast(`Updating existing file on Drive...`, 'info');
-             else addToast(`Creating new file on Drive...`, 'info');
-
-             // Perform Upload/Update
              const response: any = await saveFileToDrive(finalFileName, JSON.stringify(exportData, null, 2), folderId, existingFileId);
              
-             // Update Local Item with the Drive File ID
              const newFileId = response.id;
              if (newFileId) {
                  if (context === 'characters') characterCatalog.setItemDriveId(item.id, newFileId);
@@ -434,7 +384,7 @@ export const useGoogleDrive = ({
         uploadCatalogItem, 
         handleCleanupDuplicates,
         handleDeleteFromDrive,
-        handleClearCloudFolder, // Export new function
+        handleClearCloudFolder,
         isGoogleDriveReady: isInitialized,
         isGoogleDriveSaving: isSaving || isSyncing
     };

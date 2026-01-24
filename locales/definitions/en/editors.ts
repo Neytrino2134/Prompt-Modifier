@@ -1,5 +1,3 @@
-
-
 export const editors = {
     'imageEditor.title': 'Image Editor',
     'imageEditor.canvasResolution': 'Canvas Resolution',
@@ -12,7 +10,6 @@ export const editors = {
     'imageEditor.action.sendRequest': 'Send Request',
     'imageEditor.tooltip.removeObject': 'Remove (Red) / Keep (Green)',
     'imageEditor.action.removeObject': 'Remove Object',
-    'imageEditor.action.removeBackground': 'Remove Background',
     'imageEditor.tool.transform': 'Transform',
     'imageEditor.tool.hand': 'Hand (Pan)',
     'imageEditor.tool.zoom': 'Zoom',
@@ -50,13 +47,13 @@ export const editors = {
     'imageEditor.background.dark': 'Dark',
     'image_sequence.regenerate': 'Regenerate',
     'image_sequence.stop_queue': 'Stop Queue',
-    'image_sequence.move_up': 'Move Up',
-    'image_sequence.move_down': 'Move Down',
+    'image_sequence.move_up': 'After up',
+    'image_sequence.move_down': 'After down',
     'image_sequence.copy_prompt': 'Copy Prompt',
     'image_sequence.add_frame': 'Add Frame',
     'image_sequence.delete_frame': 'Delete Frame',
-    'image_sequence.expand_all_frames': 'Expand/Collapse All Frames',
-    'image_sequence.collapse_all_frames': 'Collapse All Frames',
+    'image_sequence.expand_all_frames': 'Expand All (H)',
+    'image_sequence.collapse_all_frames': 'Collapse All (H)',
     'image_sequence.expand_all_scenes': 'Expand/Collapse All Scenes',
     'image_sequence.collapse_all_scenes': 'Collapse All Scenes',
     'image_sequence.expand_all': 'Expand All',
