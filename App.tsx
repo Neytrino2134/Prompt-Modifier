@@ -1,4 +1,3 @@
-
 import React, { useCallback, ReactNode, useState, useEffect, useRef } from 'react';
 import { LanguageContext, LanguageCode, getTranslation, TranslationKey } from './localization';
 import { AppProvider, useAppContext } from './contexts/AppContext';
@@ -64,13 +63,14 @@ const Editor: React.FC = () => {
       }
   }, [context]);
 
-  // Handle beforeunload event
+  // Handle Close Events (Browser & Electron)
   useEffect(() => {
+      const isElectron = !!(window as any).electronAPI;
+
+      // 1. Browser Native Handler (beforeunload)
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-          // Check if running in Electron/Nativefier
-          const isElectron = /Electron/i.test(navigator.userAgent);
-          
-          // If in Nativefier wrapper, do NOT prevent unload, otherwise the app won't close.
+          // If in Electron, we rely on the IPC message 'app:close-request' instead of this native event
+          // to show our custom UI.
           if (isElectron) return;
 
           if (hasContentRef.current) {
@@ -80,8 +80,33 @@ const Editor: React.FC = () => {
       };
 
       window.addEventListener('beforeunload', handleBeforeUnload);
-      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+
+      // 2. Electron Handler (Custom Dialog)
+      let removeElectronListener: (() => void) | undefined;
+
+      if (isElectron && context?.setConfirmInfo && context?.t) {
+          removeElectronListener = (window as any).electronAPI.onCloseRequested(() => {
+              if (hasContentRef.current) {
+                  // Show in-app custom dialog
+                  context.setConfirmInfo({
+                      title: context.t('dialog.exitApp.title'),
+                      message: context.t('dialog.exitApp.message'),
+                      onConfirm: () => {
+                          (window as any).electronAPI.forceClose();
+                      }
+                  });
+              } else {
+                  // No content, close immediately
+                  (window as any).electronAPI.forceClose();
+              }
+          });
+      }
+
+      return () => {
+          window.removeEventListener('beforeunload', handleBeforeUnload);
+          if (removeElectronListener) removeElectronListener();
+      };
+  }, [context]);
 
   // Handle external file load (e.g. from Nativefier double-click)
   useEffect(() => {
@@ -136,7 +161,8 @@ const Editor: React.FC = () => {
     imageViewer, setImageViewer,
     onDownloadImageFromUrl, onCopyImageToClipboard,
     isDockingMenuVisible, dockHoverMode, clientPointerPositionRef,
-    t
+    t,
+    setConfirmInfo // Ensure this is destructured for use in effect
   } = context;
 
   return (

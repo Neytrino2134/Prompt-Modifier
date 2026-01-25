@@ -14,6 +14,9 @@ const DEV_PORT = process.env.PORT || 5173;
 // Store user defined download path in memory (syncs from renderer)
 let customDownloadPath = '';
 
+// Flag to track if we should actually close the app or ask the renderer first
+let isQuitting = false;
+
 function createWindow() {
   const isDev = !app.isPackaged;
   
@@ -43,6 +46,15 @@ function createWindow() {
 
   // Remove the default menu bar for a cleaner "app-like" look
   win.setMenuBarVisibility(false);
+
+  // --- Close Handler for Custom Dialog ---
+  win.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      // Send a message to the renderer process to check for unsaved changes
+      win.webContents.send('app:close-request');
+    }
+  });
 
   // Handle external links (open in default browser)
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -116,6 +128,17 @@ ipcMain.handle('dialog:selectFolder', async () => {
 // Receive download path from Renderer
 ipcMain.on('app:setDownloadPath', (event, path) => {
   customDownloadPath = path;
+});
+
+// Handle Force Close from Renderer (User confirmed exit in UI)
+ipcMain.on('app:force-close', () => {
+  isQuitting = true;
+  const wins = BrowserWindow.getAllWindows();
+  if (wins.length > 0) {
+    wins[0].close();
+  } else {
+    app.quit();
+  }
 });
 
 app.whenReady().then(() => {
