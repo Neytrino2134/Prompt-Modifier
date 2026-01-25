@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Alignment, Point, DockMode } from '../types';
 import { useLanguage } from '../localization';
 import { useAppContext } from '../contexts/AppContext';
-import { CopyIcon, PinLeftIcon, PinRightIcon } from './icons/AppIcons';
+import { CopyIcon, PinLeftIcon, PinRightIcon, ExpandIcon, CollapseIcon } from './icons/AppIcons';
 import { isRestrictedDockingNode } from '../utils/nodeUtils';
 
 interface NodeAlignContextMenuProps {
@@ -101,13 +101,20 @@ const NodeAlignContextMenu: React.FC<NodeAlignContextMenuProps> = ({ isOpen, pos
 
     // Check if any selected node is restricted
     let isRestricted = false;
+    let areAllCollapsed = false;
+
     if (context && context.selectedNodeIds.length > 0) {
-        // If single select or multi-select contains ANY restricted node, restrict layout options?
-        // Usually logical to restrict if ANY is restricted.
+        // Restricted Check
         isRestricted = context.selectedNodeIds.some(id => {
             const node = context.nodes.find(n => n.id === id);
             return node ? isRestrictedDockingNode(node.type) : false;
         });
+
+        // Collapse State Check
+        const selectedNodes = context.nodes.filter(n => context.selectedNodeIds.includes(n.id));
+        if (selectedNodes.length > 0) {
+            areAllCollapsed = selectedNodes.every(n => n.isCollapsed);
+        }
     }
 
     const handleAlign = (type: Alignment) => {
@@ -141,9 +148,19 @@ const NodeAlignContextMenu: React.FC<NodeAlignContextMenuProps> = ({ isOpen, pos
         }
     };
 
-    const handleCollapse = () => {
+    const handleSmartCollapse = () => {
         if (context) {
-            context.selectedNodeIds.forEach(id => context.handleToggleNodeCollapse(id));
+            // Logic:
+            // If ALL selected nodes are collapsed -> Expand All (targetState = false)
+            // If ANY selected node is expanded (mixed or all expanded) -> Collapse All (targetState = true)
+            const targetState = !areAllCollapsed;
+
+            context.setNodes(prevNodes => prevNodes.map(n => {
+                if (context.selectedNodeIds.includes(n.id)) {
+                    return { ...n, isCollapsed: targetState };
+                }
+                return n;
+            }));
             onClose();
         }
     };
@@ -238,10 +255,15 @@ const NodeAlignContextMenu: React.FC<NodeAlignContextMenuProps> = ({ isOpen, pos
                     onClick={handlePaste}
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>}
                 />
+                
+                {/* Smart Collapse/Expand Button */}
                 <AlignButton 
-                    title="Toggle Collapse"
-                    onClick={handleCollapse}
-                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                    title={areAllCollapsed ? t('image_sequence.expand_all') : t('image_sequence.collapse_all')}
+                    onClick={handleSmartCollapse}
+                    icon={areAllCollapsed 
+                        ? <ExpandIcon />  // Down Chevron (to Expand)
+                        : <CollapseIcon /> // Up Chevron (to Collapse)
+                    }
                 />
                 
                 <div className="w-px bg-gray-600 my-1 mx-1"></div>

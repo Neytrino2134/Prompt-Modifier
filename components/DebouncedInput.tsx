@@ -12,6 +12,7 @@ export const DebouncedInput: React.FC<DebouncedInputProps> = ({
     onDebouncedChange, 
     debounceTime = 300, 
     onChange,
+    onPaste,
     ...props 
 }) => {
     const [localValue, setLocalValue] = useState(externalValue);
@@ -50,12 +51,34 @@ export const DebouncedInput: React.FC<DebouncedInputProps> = ({
         if (props.onBlur) props.onBlur(e);
     };
 
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        // Prevent scroll jump behavior
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
+        
+        const appContainer = document.getElementById('app-container');
+        const appX = appContainer ? appContainer.scrollLeft : 0;
+        const appY = appContainer ? appContainer.scrollTop : 0;
+        
+        requestAnimationFrame(() => {
+            window.scrollTo(scrollX, scrollY);
+            if (appContainer) {
+                appContainer.scrollTo(appX, appY);
+            }
+        });
+
+        if (onPaste) {
+            onPaste(e);
+        }
+    };
+
     return (
         <input
             {...props}
             value={localValue}
             onChange={handleChange}
             onBlur={handleBlur}
+            onPaste={handlePaste}
         />
     );
 };
