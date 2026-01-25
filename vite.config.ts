@@ -10,6 +10,10 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
     },
+    server: {
+      port: 5173,
+      strictPort: true, // Forces Vite to fail if 5173 is busy, ensuring Electron always finds the right port
+    },
     build: {
       outDir: 'dist',
     }

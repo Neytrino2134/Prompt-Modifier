@@ -8,6 +8,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Using a fixed recent version of Chrome on Windows 10.
 const FAKE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+// Define the dev port - must match vite.config.ts
+const DEV_PORT = process.env.PORT || 5173;
+
 // Store user defined download path in memory (syncs from renderer)
 let customDownloadPath = '';
 
@@ -88,7 +91,7 @@ function createWindow() {
 
   // Load the app
   if (isDev) {
-    win.loadURL('http://localhost:5173');
+    win.loadURL(`http://localhost:${DEV_PORT}`);
     // win.webContents.openDevTools(); // Uncomment to debug
   } else {
     // In production, load the built index.html
