@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo, useEffect } from 'react';
 import type { NodeContentProps } from '../../types';
 import { ActionButton } from '../ActionButton';
@@ -40,12 +42,13 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
                     inputPrompt: parsed.inputPrompt || '',
                     prompt: parsed.prompt || '', 
                     safePrompt: parsed.safePrompt !== false,
-                    technicalPrompt: parsed.technicalPrompt === true
+                    technicalPrompt: parsed.technicalPrompt === true,
+                    model: parsed.model || 'gemini-3-flash-preview'
                 };
             }
-            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false };
+            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'gemini-3-flash-preview' };
         } catch (e) {
-            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false };
+            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'gemini-3-flash-preview' };
         }
     }, [node.value]);
 
@@ -70,6 +73,13 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
         onValueChange(node.id, JSON.stringify({
             ...parsedValue,
             technicalPrompt: checked
+        }));
+    };
+    
+    const handleModelChange = (model: string) => {
+        onValueChange(node.id, JSON.stringify({
+            ...parsedValue,
+            model
         }));
     };
 
@@ -221,6 +231,27 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
             </div>
             
             <div className="flex space-x-2 h-10">
+                <div className="flex bg-gray-700 rounded-md p-1 space-x-1 h-10 flex-shrink-0 w-24">
+                     <Tooltip content="Gemini 3.0 Flash" className="h-full flex-1">
+                         <button
+                             onClick={() => handleModelChange('gemini-3-flash-preview')}
+                             disabled={isEnhancing || isExecutingChain}
+                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${parsedValue.model === 'gemini-3-flash-preview' ? 'bg-accent text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                         >
+                             Flash
+                         </button>
+                     </Tooltip>
+                     <Tooltip content="Gemini 3.0 Pro" className="h-full flex-1">
+                         <button
+                             onClick={() => handleModelChange('gemini-3-pro-preview')}
+                             disabled={isEnhancing || isExecutingChain}
+                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${parsedValue.model === 'gemini-3-pro-preview' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                         >
+                             Pro
+                         </button>
+                     </Tooltip>
+                </div>
+                
                 <TutorialTooltip 
                     content={isTutorialWaiting ? t('tutorial.step2_waiting') : t('tutorial.step2')} 
                     isActive={!!isTutorialActive || !!isTutorialWaiting} 
@@ -230,7 +261,7 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
                     className="flex-grow h-full"
                 >
                     <Tooltip 
-                        content={`${t('node.promptProcessor.enhanceTooltip')} (gemini-3-flash-preview)`}
+                        content={t('node.promptProcessor.enhanceTooltip')}
                         position="top"
                         className="w-full h-full"
                         usePortal={false}

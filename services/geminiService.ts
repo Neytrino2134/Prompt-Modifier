@@ -41,7 +41,7 @@ const callWithRetry = async <T>(fn: () => Promise<T>, retries = 3, baseDelay = 1
   throw new Error("Max retries reached");
 };
 
-export const enhancePrompt = async (texts: string[], safePrompt: boolean, technicalPrompt: boolean): Promise<string> => {
+export const enhancePrompt = async (texts: string[], safePrompt: boolean, technicalPrompt: boolean, model: string = 'gemini-3-flash-preview'): Promise<string> => {
   return callWithRetry(async () => {
     const ai = createAIClient();
     const validTexts = texts.filter(text => text && text.trim() !== '');
@@ -87,9 +87,8 @@ export const enhancePrompt = async (texts: string[], safePrompt: boolean, techni
     const prompt = `Concepts to process: ${combinedDescription}`;
 
     try {
-      // Fix: Use 'gemini-3-flash-preview' for basic text tasks per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: model,
         contents: prompt,
         config: { systemInstruction }
       });

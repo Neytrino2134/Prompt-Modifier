@@ -4,6 +4,8 @@
 
 
 
+
+
 /* Fix: Added missing React import to resolve namespace errors */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NodeType, type Node, type Tab, type ActiveOperation, type ToastType } from '../types';
@@ -103,13 +105,14 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
             
             const safePrompt = parsedValue.safePrompt !== false;
             const technicalPrompt = parsedValue.technicalPrompt === true;
+            const model = parsedValue.model || 'gemini-3-flash-preview';
 
             let texts = getUpstreamNodeValues(nodeId).filter(v => typeof v === 'string') as string[];
             if (texts.length === 0 && parsedValue.inputPrompt) {
                 texts = [parsedValue.inputPrompt];
             }
 
-            const enhanced = await enhancePrompt(texts, safePrompt, technicalPrompt);
+            const enhanced = await enhancePrompt(texts, safePrompt, technicalPrompt, model);
             
             updateNodeInStorage(currentTabId, nodeId, (prev) => ({ 
                 ...prev, 
