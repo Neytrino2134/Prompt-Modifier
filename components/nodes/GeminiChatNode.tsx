@@ -7,7 +7,7 @@ import { CopyIcon } from '../../components/icons/AppIcons';
 import { useAppContext } from '../../contexts/AppContext';
 import { Tooltip } from '../Tooltip';
 
-// Helper function to format inline text (bold, code)
+// Helper function to format inline text (bold, code, links)
 const formatText = (text: string) => {
     // Basic sanitization
     let safeText = text
@@ -15,7 +15,13 @@ const formatText = (text: string) => {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
-        .replace(/"/g, "&#039;");
+        .replace(/'/g, "&#039;");
+
+    // Markdown Links [text](url) - Themed
+    safeText = safeText.replace(
+        /\[([^\]]+)\]\(([^)]+)\)/g, 
+        '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-500/50 hover:decoration-cyan-300 transition-colors break-words">$1</a>'
+    );
 
     // Bold **text** - Themed
     safeText = safeText.replace(/\*\*(.*?)\*\*/g, '<strong class="text-accent-text font-bold">$1</strong>');
