@@ -487,10 +487,15 @@ export const generateImage = async (
                inlineData: { data: image.base64ImageData, mimeType: image.mimeType },
           }));
           const parts: any[] = [...imageParts];
-          if (prompt && prompt.trim() !== '') parts.push({ text: prompt });
+          if (prompt && prompt.trim() !== '') {
+              parts.push({ text: prompt });
+          } else {
+              // Ensure we send at least an empty text part if prompt is missing, as 2.5 editing expects text
+              parts.push({ text: " " });
+          }
 
-          // Ensure correct model for editing
-          const editingModel = model === 'gemini-2.5-flash-image' ? 'gemini-2.5-flash-image' : 'gemini-2.5-flash-image';
+          // Use the passed model if available, otherwise default logic
+          const editingModel = model || 'gemini-2.5-flash-image';
 
           const response = await ai.models.generateContent({
             model: editingModel,

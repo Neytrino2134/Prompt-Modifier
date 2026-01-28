@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ActionButton } from '../../ActionButton';
 import CustomSelect from '../../CustomSelect';
@@ -8,6 +7,8 @@ import { ImageEditorState, ImageSlot } from './types';
 import { CopyIcon } from '../../../components/icons/AppIcons';
 import { Tooltip } from '../../Tooltip';
 import JSZip from 'jszip';
+import { CustomCheckbox } from '../../CustomCheckbox';
+import { DebouncedTextarea } from '../../DebouncedTextarea';
 
 // Helper component for input with stylish spinners
 const InputWithSpinners: React.FC<{
@@ -110,6 +111,8 @@ interface OutputPanelProps {
     // New Props for Editing
     onEditPrompt: (index: number) => void;
     onEditInSource: (index: number) => void;
+    deselectAllNodes: () => void;
+    nodeId: string;
 }
 
 const ITEM_SIZE = 160;
@@ -123,9 +126,9 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     onDownload, onCopy, onSelectAll, onSelectNone, onInvertSelection, onManualRefresh,
     onOutputClick, onSequenceOutputClick, onCheckOutput, onCopyFrame, onDownloadFrame, onRegenerateFrame, onStopFrame,
     getFullSizeImage, t, upstreamPrompt, isTextConnected,
-    onEditPrompt, onEditInSource
+    onEditPrompt, onEditInSource, deselectAllNodes, nodeId
 }) => {
-    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, isSequentialEditingWithPrompts, createZip } = state;
+    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt } = state;
     
     // Range State
     const [rangeStart, setRangeStart] = useState('');
@@ -567,6 +570,18 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                      </Tooltip>
                 </div>
 
+                {/* Auto Crop Toggle (Moved here) */}
+                <div 
+                    onClick={() => onUpdateState({ autoCrop169: !autoCrop169 })}
+                    className={`h-[36px] flex items-center gap-2 px-3 rounded-md cursor-pointer transition-colors border ${autoCrop169 ? 'bg-indigo-900/40 border-indigo-500/50' : 'bg-gray-800 border-gray-700 hover:border-gray-600'}`}
+                    title={t('image_sequence.tooltip.autoCrop')}
+                >
+                     <span className={`text-[10px] font-bold uppercase whitespace-nowrap ${autoCrop169 ? 'text-indigo-300' : 'text-gray-400'}`}>Crop 16:9</span>
+                     <div className={`w-8 h-4 rounded-full relative transition-colors ${autoCrop169 ? 'bg-indigo-500' : 'bg-gray-600'}`}>
+                         <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${autoCrop169 ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
+                     </div>
+                </div>
+
                 <div className="flex-1 flex space-x-2">
                     {/* Main Action Button */}
                     {isEditing && isSequenceMode ? (
@@ -601,6 +616,8 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                 {/* Single Mode: Output to Input */}
                 {!isSequenceMode && outputImage && <ActionButton title={t('node.action.outputToInput')} onClick={onSetOutputToInput} className="h-[36px]"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg></ActionButton>}
             </div>
+            
+             {/* No Extra Controls Row - Removed Outpainting Checkboxes Here */}
         </div>
     );
 };

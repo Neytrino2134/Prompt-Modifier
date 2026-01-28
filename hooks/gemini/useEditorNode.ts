@@ -1,4 +1,6 @@
 
+
+
 import { useState, useCallback, useRef } from 'react';
 import { generateImage } from '../../services/geminiService';
 import { generateThumbnail, formatImageForAspectRatio, cropImageTo169 } from '../../utils/imageUtils';
@@ -135,8 +137,9 @@ export const useEditorNode = ({
         const allInputImages = [...localImages, ...imageInputs];
         const allInputImagesB = [...localImagesB, ...imageInputsB];
 
-        // Validation - Removed strict B check here as we allow empty B for text-to-image
+        // Validation - Relaxed for text-only potential
         if (!parsed.isSequentialEditingWithPrompts) {
+             // Standard modes require Input A
              if (allInputImages.length === 0 && parsed.model !== 'gemini-3-pro-image-preview') {
                  setError("No input image provided for editing.");
                  return;
@@ -216,6 +219,8 @@ export const useEditorNode = ({
                         const genericTexts = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
                         let promptToUse = [basePrompt, ...genericTexts].filter(Boolean).join(', ');
                         
+                        if (!promptToUse.trim()) promptToUse = "High quality image"; // Default for editing
+
                         const imagesToUse = await Promise.all(imagesForFrame.map(async (image) => {
                              const imageDataUrl = `data:${image.mimeType};base64,${image.base64ImageData}`;
                              if (parsed.enableAspectRatio && parsed.aspectRatio && parsed.aspectRatio !== 'Auto') {
@@ -241,9 +246,7 @@ export const useEditorNode = ({
                         
                         let finalImageUrl = imageUrl;
                         if (parsed.autoCrop169) {
-                            try {
-                                finalImageUrl = await cropImageTo169(imageUrl);
-                            } catch (e) { console.error(e); }
+                             try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
                         }
                         
                         const thumb = await generateThumbnail(finalImageUrl, 256, 256);
@@ -308,6 +311,8 @@ export const useEditorNode = ({
                 // Filter out JSON strings from text inputs for Single Mode prompt
                 const genericTexts = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
                 let promptToUse = [parsed.prompt, ...genericTexts].filter(Boolean).join(', ');
+                
+                if (!promptToUse.trim()) promptToUse = "High quality image"; // Default for editing
 
                 const processedImages = await Promise.all(imagesToUse.map(async (image) => {
                      const imageDataUrl = `data:${image.mimeType};base64,${image.base64ImageData}`;
@@ -334,9 +339,7 @@ export const useEditorNode = ({
                 
                 let finalImageUrl = imageUrl;
                 if (parsed.autoCrop169) {
-                     try {
-                         finalImageUrl = await cropImageTo169(imageUrl);
-                     } catch (e) { console.error(e); }
+                     try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
                 }
 
                 const thumb = await generateThumbnail(finalImageUrl, 256, 256);

@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo, useState, useRef, useEffect, useCallback, useReducer } from 'react';
 import { NodeContentProps, NodeType } from '../../types';
 import { formatImageForAspectRatio, generateThumbnail, cropImageTo169 } from '../../utils/imageUtils';
@@ -822,6 +824,8 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 isTextConnected={isTextConnected}
                 onEditPrompt={handleEditPrompt}
                 onEditInSource={handleEditInSource}
+                deselectAllNodes={deselectAllNodes}
+                nodeId={node.id} // Added nodeId
             />
         </div>
     );

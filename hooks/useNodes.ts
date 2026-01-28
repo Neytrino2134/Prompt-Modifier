@@ -62,6 +62,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
 
         // Character Card logic: up to 10 characters supported in duplication loop (0..9) * 10
         // Standard loop 0-50 covers generic nodes + 5 characters. Increased to 100 for safety.
+        // Note Cache logic: References use indexes 0...N. Loop handles it.
         for (let i = 0; i <= 100; i++) {
             const cachedImg = getFullSizeImage(nodeId, i);
             if (cachedImg) {
@@ -80,6 +81,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
 
         try {
             const text = await navigator.clipboard.readText();
+            if (!text) return "Clipboard empty.";
 
             if (node.type === NodeType.CHARACTER_CARD) {
                 try {
@@ -185,6 +187,23 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                         return null;
                     }
                 } catch (e) { }
+            } else if (node.type === NodeType.NOTE) {
+                // Note Node Text Append Logic
+                try {
+                    const parsed = JSON.parse(node.value || '{}');
+                    const currentText = parsed.text || '';
+                    const newText = currentText ? `${currentText}\n${text}` : text;
+                    handleValueChange(nodeId, JSON.stringify({ ...parsed, text: newText }));
+                    addToast(t('toast.pastedFromClipboard'));
+                    return null;
+                } catch (e) {
+                    // Fallback if parsing fails (legacy string content)
+                    const newText = node.value ? `${node.value}\n${text}` : text;
+                     // Upgrade structure
+                     handleValueChange(nodeId, JSON.stringify({ text: newText, references: [], activeTab: 'note' }));
+                     addToast(t('toast.pastedFromClipboard'));
+                     return null;
+                }
             }
 
             handleValueChange(nodeId, text);
@@ -221,6 +240,28 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                             const newImages = [...(parsed.inputImages || []), thumbnailUrl];
                             setFullSizeImage(nodeId, newImages.length, dataUrl);
                             newValue = JSON.stringify({ ...parsed, inputImages: newImages });
+                        } else if (node.type === NodeType.NOTE) {
+                             // Note Node Image Paste Logic (Append to References)
+                             const references = parsed.references || [];
+                             const newRefId = `ref-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                             
+                             // Calculate index for cache (must shift if inserting in middle, but here we append)
+                             // Note uses index 0, 1, 2... for references based on array index.
+                             const nextIndex = references.length; 
+                             
+                             setFullSizeImage(nodeId, nextIndex, dataUrl);
+                             
+                             const newRef = {
+                                 id: newRefId,
+                                 image: thumbnailUrl,
+                                 caption: prompt || ''
+                             };
+                             
+                             newValue = JSON.stringify({ 
+                                 ...parsed, 
+                                 references: [...references, newRef],
+                                 activeTab: 'reference' // Switch to references tab
+                             });
                         } else if (node.type === NodeType.IMAGE_INPUT || node.type === NodeType.IMAGE_ANALYZER || node.type === NodeType.CHARACTER_CARD || node.type === NodeType.TRANSLATOR) {
 
                             // Specific handling for Translator Node
@@ -285,6 +326,15 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                         } else if (node.type === NodeType.TRANSLATOR) {
                             setFullSizeImage(nodeId, 0, dataUrl);
                             newValue = JSON.stringify({ image: thumbnailUrl });
+                        } else if (node.type === NodeType.NOTE) {
+                             // Fresh Note Node
+                             const newRefId = `ref-${Date.now()}`;
+                             setFullSizeImage(nodeId, 0, dataUrl);
+                             newValue = JSON.stringify({ 
+                                 text: node.value || '', 
+                                 references: [{ id: newRefId, image: thumbnailUrl, caption: prompt || '' }], 
+                                 activeTab: 'reference' 
+                             });
                         } else if (node.type === NodeType.CHARACTER_CARD) {
                             setFullSizeImage(nodeId, 0, dataUrl);
                             const thumbs = { '1:1': thumbnailUrl, '16:9': null, '9:16': null };
@@ -403,6 +453,9 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                     case NodeType.PROMPT_PROCESSOR:
                         textToCopy = parsed.prompt || '';
                         break;
+                    case NodeType.NOTE:
+                        textToCopy = parsed.text || '';
+                        break;
                     case NodeType.PROMPT_ANALYZER:
                     case NodeType.CHARACTER_ANALYZER:
                     case NodeType.SCRIPT_GENERATOR:
@@ -506,8 +559,6 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
     const handleToggleNodePin = (nodeId: string) => {
         setNodes(nds => nds.map(n => {
             if (n.id === nodeId) {
-                // Simply toggle the boolean flag. 
-                // Do NOT touch dockState here. Docking is handled by handleDockNode.
                 return { ...n, isPinned: !n.isPinned };
             }
             return n;

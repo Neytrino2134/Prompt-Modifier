@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../localization';
 import { ReloadIcon, GoogleDriveIcon, SettingsIcon, FolderIcon, DeleteIcon, CopyIcon } from './icons/AppIcons';
 import { CustomCheckbox } from './CustomCheckbox';
+import CustomSelect from './CustomSelect';
 import { useAppContext } from '../contexts/AppContext';
 import { Theme, Point } from '../types';
 
@@ -85,7 +86,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       googleClientId, 
       setGoogleClientId, 
       handleGoogleSignIn, 
-      isGoogleDriveReady,
+      isGoogleDriveReady, 
       isGoogleDriveSaving,
       handleSyncCatalogs,
       handleCleanupDuplicates, // Use new hook function
@@ -374,19 +375,15 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                  {/* Theme Selector */}
                  <div className="space-y-2">
                      <label className="block text-xs font-medium text-gray-400">{t('settings.themeLabel')}</label>
-                     <div className="flex flex-wrap gap-3">
-                         {themes.map(theme => (
-                             <button
-                                key={theme.id}
-                                onClick={() => setTheme(theme.id)}
-                                className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center ${currentTheme === theme.id ? 'border-white scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
-                                style={{ backgroundColor: theme.color }}
-                                title={theme.label}
-                             >
-                                 {currentTheme === theme.id && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white drop-shadow-md" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                             </button>
-                         ))}
-                     </div>
+                     <CustomSelect
+                        value={currentTheme}
+                        onChange={(val) => setTheme(val as Theme)}
+                        options={themes.map(t => ({
+                            value: t.id,
+                            label: t.label,
+                            icon: <div className="w-3 h-3 rounded-full border border-gray-500" style={{ backgroundColor: t.color }} />
+                        }))}
+                     />
                  </div>
 
                  {/* Animation Mode */}
@@ -553,7 +550,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                       <div className="flex flex-col gap-2">
                         <button
                             onClick={() => handleGoogleSignIn && handleGoogleSignIn()}
-                            className={`w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-900/20`}
+                            className={`w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 bg-gray-700 hover:bg-blue-600 shadow-md`}
                         >
                             <GoogleDriveIcon className="w-4 h-4" />
                             {t('settings.signInWithGoogle')}
@@ -564,7 +561,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                              <button
                                 onClick={handleCleanupDuplicates}
                                 disabled={isGoogleDriveSaving}
-                                className="w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 shadow-md"
+                                className="w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 bg-gray-700 hover:bg-red-600 shadow-md"
                              >
                                 {isGoogleDriveSaving ? (
                                     <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -582,7 +579,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                              <button
                                 onClick={handleSyncCatalogs}
                                 disabled={isGoogleDriveSaving}
-                                className="w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 shadow-md"
+                                className="w-full py-2 px-4 rounded-md text-sm font-bold text-white transition-all flex items-center justify-center gap-2 bg-gray-700 hover:bg-teal-600 shadow-md"
                              >
                                 {isGoogleDriveSaving ? (
                                     <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

@@ -148,17 +148,37 @@ export const useAppOrchestration = (
     }, [nodesHook]);
 
     const handlePaste = useCallback(async (selectedNodeIds: string[], pasteNodeValueFn: any, pasteImageToNodeFn: any, canvasHook: any, entityActionsHook: any, nodesHook: any, isAlternativeMode?: boolean) => {
-        // Priority 1: Paste into Selected Node (if compatible)
+        let clipboardItems;
+        try {
+            clipboardItems = await navigator.clipboard.read();
+        } catch (e) {
+            // Firefox or security restriction
+            clipboardItems = []; 
+        }
+        
+        // Check if there is an image in the clipboard
+        const hasImage = clipboardItems.some(i => i.types.some(t => t.startsWith('image/')));
+
+        // Priority 1: Paste into Selected Node
         if (selectedNodeIds.length === 1 && !isAlternativeMode) {
+            // If clipboard has image, try pasting image first
+            if (hasImage) {
+                const result = await pasteImageToNodeFn(selectedNodeIds[0]);
+                if (!result) return; // Image paste handled successfully
+            }
+            
+            // If no image or image paste failed/skipped (returned error string), try text paste
             const result = await pasteNodeValueFn(selectedNodeIds[0]);
             if (!result) return; // Paste handled successfully
-            // If result is string (error), fall through to global paste
+            
+            // If result is string (error/not handled), fall through to global paste
         }
 
         // Priority 2: Paste as new Node/Group/Image
         try {
-            const clipboardItems = await navigator.clipboard.read();
-            for (const item of clipboardItems) {
+            // Re-read clipboard inside loop to be safe or reuse if possible, but reading again ensures valid blob state
+            const items = await navigator.clipboard.read(); 
+            for (const item of items) {
 
                 // Case A: Image -> Create Image Input
                 if (item.types.some(t => t.startsWith('image/'))) {
@@ -258,7 +278,8 @@ export const useAppOrchestration = (
                         }
 
                         if (charCards) {
-                            const newNodeId = entityActionsHook.onAddNode(NodeType.CHARACTER_CARD, pos, charCards[0].name || 'Character Card');
+                            const title = charCards[0].nodeTitle || charCards[0].title || (Array.isArray(json) ? "Character Cards" : "Character Card");
+                            const newNodeId = entityActionsHook.onAddNode(NodeType.CHARACTER_CARD, pos, title);
 
                             // Restore images to cache
                             charCards.forEach((char: any, i: number) => {
@@ -301,8 +322,19 @@ export const useAppOrchestration = (
                 }
             }
         } catch (e) {
-            // Clipboard read failed or denied
-            console.warn("Paste failed or permission denied", e);
+            // Clipboard read failed or denied or simple fallback
+            // Try standard text read if navigator.clipboard.read() fails
+             try {
+                const text = await navigator.clipboard.readText();
+                if(text) {
+                     const pos = canvasHook.pointerPosition || { x: 0, y: 0 };
+                     const newNodeId = entityActionsHook.onAddNode(NodeType.TEXT_INPUT, pos);
+                     nodesHook.handleValueChange(newNodeId, text);
+                     addToast(t('toast.pastedFromClipboard'));
+                }
+             } catch(e2) {
+                 console.warn("Paste failed or permission denied", e);
+             }
         }
     }, [addToast, t, setFullSizeImage, setNodes]);
 
@@ -336,14 +368,7 @@ export const useAppOrchestration = (
 
         // Auto-connect
         const targetNode = nodes.find(n => n.id === newNodeId); // It won't be in 'nodes' yet due to closure, but we know its ID
-        // Note: entityActionsHook.onAddNode triggers state update, but we are in the same cycle. 
-        // We can construct the connection blindly, but handleId matching requires node instance.
-        // Actually, we can assume standard handles or use a helper that doesn't need the node object immediately if possible,
-        // OR rely on the fact that we know the type.
-
-        // Simulating the target node for handle lookup
-        const mockTargetNode = { id: newNodeId, type: nodeType } as Node;
-
+        
         let targetHandleId: string | undefined = undefined;
         // Logic similar to useConnectionHandling but streamlined for creation
         if (connectingInfo.fromType === 'image') {

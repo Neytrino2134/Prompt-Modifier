@@ -1,4 +1,6 @@
 
+
+
 import { NodeProcessor } from './types';
 import { generateImage } from '../geminiService';
 import { generateThumbnail, formatImageForAspectRatio, cropImageTo169 } from '../../utils/imageUtils';
@@ -104,6 +106,8 @@ export const processImageEditor = async (
         if (imagesForFrame.length === 0 && parsed.model !== 'gemini-3-pro-image-preview') {
              throw new Error("No images selected for processing.");
         }
+        
+        if (!promptToUse.trim()) promptToUse = "High quality image"; // Default
 
         const formattingPromises = imagesForFrame.map(async (image) => {
             const imageDataUrl = `data:${image.mimeType};base64,${image.base64ImageData}`;
@@ -172,6 +176,8 @@ export const processImageEditor = async (
              }
         }
     }
+    
+    if (!promptToUse.trim()) promptToUse = "High quality image"; // Default
 
     // Process this single frame for chain return
     const formattingPromises = imagesToProcess.map(async (image) => {
