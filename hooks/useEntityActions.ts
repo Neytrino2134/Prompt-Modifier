@@ -251,8 +251,26 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                         value = parsed.prompt || '';
                     } else if (fromNode.type === NodeType.IMAGE_ANALYZER) {
                         value = parsed.description || '';
+                    } else if (fromNode.type === NodeType.PROMPT_PROCESSOR || fromNode.type === NodeType.VIDEO_PROMPT_PROCESSOR) {
+                        value = parsed.prompt || '';
+                    } else if (fromNode.type === NodeType.TRANSLATOR) {
+                        value = parsed.translatedText || parsed.inputText || '';
                     } else {
-                        value = fromNode.value;
+                        // General heuristic for JSON nodes
+                        if (parsed && typeof parsed === 'object') {
+                            if (parsed.prompt && typeof parsed.prompt === 'string') {
+                                value = parsed.prompt;
+                            } else if (parsed.text && typeof parsed.text === 'string') {
+                                value = parsed.text;
+                            } else if ('inputPrompt' in parsed && 'safePrompt' in parsed) {
+                                // Specific check for Prompt Processor-like structure if earlier checks fail
+                                value = parsed.prompt || '';
+                            } else {
+                                value = fromNode.value;
+                            }
+                        } else {
+                            value = fromNode.value;
+                        }
                     }
                 } catch {
                     value = fromNode.value;

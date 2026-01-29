@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { NodeContentProps } from '../../types';
 import CustomSelect from '../CustomSelect';
 import { useAppContext } from '../../contexts/AppContext';
@@ -7,12 +7,20 @@ import { TutorialTooltip } from '../TutorialTooltip';
 import { CustomCheckbox } from '../CustomCheckbox';
 import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
+import { expandImageAspectRatio } from '../../services/imageActions';
+import { generateThumbnail } from '../../utils/imageUtils';
 
-export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGeneratingImage, isExecutingChain, onModelChange, onAspectRatioChange, onResolutionChange, onAutoDownloadChange, onGenerateImage, onStopChainExecution, onExecuteChain, t, onDownloadImage, setImageViewer, getFullSizeImage, getUpstreamNodeValues, isGlobalProcessing, onCopyImageToClipboard }) => {
+export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGeneratingImage, isExecutingChain, onModelChange, onAspectRatioChange, onResolutionChange, onAutoDownloadChange, onGenerateImage, onStopChainExecution, onExecuteChain, t, onDownloadImage, setImageViewer, getFullSizeImage, setFullSizeImage, onValueChange, getUpstreamNodeValues, isGlobalProcessing, onCopyImageToClipboard, addToast }) => {
     const context = useAppContext();
     const { tutorialStep, tutorialTargetId, advanceTutorial, skipTutorial } = context || {};
     
+    const [transformingRatio, setTransformingRatio] = useState<string | null>(null);
+
     const isTutorialActive = tutorialTargetId === node.id && tutorialStep === 'image_output_generate';
+
+    // Calculate prompt for drag/drop context
+    const texts = getUpstreamNodeValues(node.id).filter(v => typeof v === 'string') as string[];
+    const currentPrompt = texts.join(', ');
 
     const handleGenerateClick = () => {
         onGenerateImage(node.id);
@@ -27,6 +35,34 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
         const fullSizeSrc = getFullSizeImage(node.id, 0) || node.value;
         if (fullSizeSrc && onCopyImageToClipboard) {
             onCopyImageToClipboard(fullSizeSrc);
+        }
+    };
+
+    const handleRatioExpand = async (targetRatio: string) => {
+        const fullSizeSrc = getFullSizeImage(node.id, 0) || node.value;
+        if (!fullSizeSrc) return;
+
+        setTransformingRatio(targetRatio);
+        try {
+            // Use the node's selected model or default to flash for speed/cost if not specified
+            // Note: expansion usually works best with the flash model for editing tasks
+            const expansionModel = 'gemini-2.5-flash-image'; 
+
+            const newImage = await expandImageAspectRatio(fullSizeSrc, targetRatio, currentPrompt, expansionModel);
+            
+            // 1. Update High Res Cache
+            setFullSizeImage(node.id, 0, newImage);
+            
+            // 2. Update Thumbnail/Value
+            const thumb = await generateThumbnail(newImage, 256, 256);
+            onValueChange(node.id, thumb);
+
+            if (addToast) addToast(`Expanded to ${targetRatio}`, 'success');
+        } catch (error: any) {
+            console.error("Ratio expansion failed:", error);
+            if (addToast) addToast(`Failed to expand: ${error.message}`, 'error');
+        } finally {
+            setTransformingRatio(null);
         }
     };
 
@@ -53,10 +89,8 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
         if (!node.value) return;
         const fullSizeSrc = getFullSizeImage(node.id, 0) || node.value; // Frame 0 for single image nodes
         if (fullSizeSrc) {
-            const texts = getUpstreamNodeValues(node.id).filter(v => typeof v === 'string') as string[];
-            const prompt = texts.join(', ');
             setImageViewer({
-                sources: [{ src: fullSizeSrc, frameNumber: 0, prompt }],
+                sources: [{ src: fullSizeSrc, frameNumber: 0, prompt: currentPrompt }],
                 initialIndex: 0,
             });
         }
@@ -66,6 +100,13 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
         <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <rect x="8" y="8" width="12" height="12" rx="2" ry="2" />
             <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+        </svg>
+    );
+    
+    const LoadingSpinner = () => (
+        <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
     );
 
@@ -80,9 +121,28 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                         draggable={true}
                         onMouseDown={(e) => e.stopPropagation()}
                         onDragStart={(e) => {
+                            // Prioritize High Resolution Image
                             const imageToDrag = getFullSizeImage(node.id, 0) || node.value;
                             if (imageToDrag) {
+                                // 1. Internal App Drag (Raw Image)
                                 e.dataTransfer.setData('application/prompt-modifier-drag-image', imageToDrag);
+
+                                // 2. Internal App Drag (Rich Info for internal drops)
+                                e.dataTransfer.setData('application/prompt-modifier-drag-info', JSON.stringify({
+                                    src: imageToDrag,
+                                    prompt: currentPrompt
+                                }));
+                                
+                                // 3. External Drag (File Download for Chrome/Edge)
+                                const filename = `Output_Image_${Date.now()}.png`;
+                                e.dataTransfer.setData("DownloadURL", `image/png:${filename}:${imageToDrag}`);
+                                
+                                // 4. External Drag (HTML Insertion for Docs/Other Browsers)
+                                e.dataTransfer.setData("text/html", `<img src="${imageToDrag}" alt="Exported Image" />`);
+
+                                // 5. Standard URI List
+                                e.dataTransfer.setData("text/uri-list", imageToDrag);
+
                                 e.dataTransfer.effectAllowed = 'copy';
                                 e.stopPropagation();
                             }
@@ -126,6 +186,42 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                             <CopyIcon />
                         </ActionButton>
                         <ActionButton title={t('node.action.download')} onClick={(e) => { e.stopPropagation(); onDownloadImage(node.id); }}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></ActionButton>
+                    </div>
+                )}
+                
+                {/* Expansion Controls - Bottom Right Overlay */}
+                {node.value && !(isGeneratingImage || (isExecutingChain && !node.value)) && (
+                    <div className="absolute bottom-2 right-2 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                         <button
+                            onClick={(e) => { e.stopPropagation(); handleRatioExpand('16:9'); }}
+                            disabled={isGeneratingImage || isExecutingChain || !!transformingRatio}
+                            className="px-2 py-1 text-[10px] font-bold text-gray-200 bg-gray-800/80 hover:bg-gray-700 hover:text-white border border-gray-600/50 rounded backdrop-blur-sm shadow-sm flex items-center gap-1 transition-colors pointer-events-auto"
+                            title="Expand to 16:9"
+                        >
+                            {transformingRatio === '16:9' ? (
+                                <LoadingSpinner />
+                            ) : (
+                                <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><rect x="2" y="8" width="20" height="8" rx="1" /></svg>
+                                    16:9
+                                </>
+                            )}
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleRatioExpand('9:16'); }}
+                            disabled={isGeneratingImage || isExecutingChain || !!transformingRatio}
+                            className="px-2 py-1 text-[10px] font-bold text-gray-200 bg-gray-800/80 hover:bg-gray-700 hover:text-white border border-gray-600/50 rounded backdrop-blur-sm shadow-sm flex items-center gap-1 transition-colors pointer-events-auto"
+                            title="Expand to 9:16"
+                        >
+                            {transformingRatio === '9:16' ? (
+                                <LoadingSpinner />
+                            ) : (
+                                 <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="20" rx="1" /></svg>
+                                    9:16
+                                </>
+                            )}
+                        </button>
                     </div>
                 )}
             </div>
@@ -183,7 +279,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                 >
                     <button
                         onClick={handleGenerateClick}
-                        disabled={isGeneratingImage || isExecutingChain || isGlobalProcessing}
+                        disabled={isGeneratingImage || isExecutingChain || isGlobalProcessing || !!transformingRatio}
                         className="w-full h-full px-4 font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
                     >
                         {isGeneratingImage ? t('node.content.generating') : t('node.content.generateImage')}
@@ -203,7 +299,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                 ) : (
                     <button
                         onClick={() => onExecuteChain(node.id)}
-                        disabled={isGeneratingImage || isExecutingChain || isGlobalProcessing}
+                        disabled={isGeneratingImage || isExecutingChain || isGlobalProcessing || !!transformingRatio}
                         className="h-10 w-10 flex-shrink-0 flex items-center justify-center font-bold text-white bg-accent-secondary rounded-md hover:bg-accent-secondary-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
                         title={t('node.action.executeChainTitle')}
                     >

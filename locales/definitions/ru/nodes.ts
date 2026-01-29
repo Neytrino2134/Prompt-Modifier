@@ -1,5 +1,7 @@
 
 
+
+
 export const nodes = {
     'node.title.text_input': 'Текстовый узел',
     'node.title.image_input': 'Узел изображения',
@@ -298,23 +300,11 @@ export const nodes = {
     'geminiChat.mode.prompt': 'Эксперт по промптам',
     'geminiChat.mode.script': 'Сценарист',
     'geminiChat.mode.youtube': 'Ютюб Аналитик',
-    'image_sequence.deselect_scene': 'Deselect all frames in this scene',
-    'image_sequence.clear_prompts_only': 'Очистить только текстовые промпты',
-    'image_sequence.prev_scene': 'Предыдущая сцена',
-    'image_sequence.next_scene': 'Следующая сцена',
-    'image_sequence.frames_hidden': '({count} кадров скрыто)',
-    'image_sequence.frames_count': '({count} кадров)',
-    'image_sequence.auto_crop': 'Авто-кадрирование 16:9',
-    'image_sequence.create_zip': 'Создать Zip архив',
-    'node.content.technicalPrompt': 'Технический промпт',
-    'node.content.usedCharacters': 'Используемые персонажи',
-    'node.content.insertStyle': 'Вставлять стиль',
-
-    'node.promptProcessor.safePromptTooltip': 'Безопасный режим (Safety).',
-    'node.promptProcessor.technicalPromptTooltip': 'Технический стиль (свет, камера).',
-    'node.promptProcessor.enhanceTooltip': 'Улучшить через ИИ.',
-    'node.promptProcessor.chainTooltip': 'Запустить цепочку.',
-    'image_sequence.tooltip.autoCrop': 'Автоматически обрезает сгенерированные изображения до соотношения сторон 16:9.',
-    'image_sequence.tooltip.autoDownload': 'Автоматически сохраняет каждое изображение на ваше устройство после генерации.',
-    'image_sequence.tooltip.createZip': 'Упаковывает все выбранные изображения в один ZIP-архив при скачивании.'
+    'geminiChat.mode.developer': 'Разработчик',
+    'geminiChat.mode.friend': 'Друг',
+    'image_sequence.shot_type.WS': "Интегрируйте Сущность с общим планом (WS) в сцену и действие. Показать окружение.",
+    'image_sequence.shot_type.MS': "Интегрируйте Сущность со средним планом (MS) в сцену. Персонаж по пояс.",
+    'image_sequence.shot_type.CU': "Интегрируйте Сущность с крупным планом (CU) в сцену.",
+    'image_sequence.shot_type.ECU': "Интегрируйте Сущность с экстремально крупным планом (ECU) в сцену. Максимальная детализация.",
+    'image_sequence.shot_type.LS': "Интегрируйте Сущность с дальним планом (LS) в сцену, чтобы показать масштаб."
 };

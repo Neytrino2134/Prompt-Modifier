@@ -1,5 +1,6 @@
 
 
+
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import type { NodeContentProps } from '../../types';
 import { ActionButton } from '../ActionButton';
@@ -184,26 +185,40 @@ const MarkdownContent: React.FC<{ content: string }> = React.memo(({ content }) 
     );
 });
 
-// Internal Style Button Component with Tooltip
+// Tab-style Style Button Component
 const StyleButton: React.FC<{ id: string; label: string; icon: React.ReactNode; isActive: boolean; onClick: () => void; }> = ({ label, icon, isActive, onClick }) => {
     const [isHovered, setIsHovered] = useState(false);
+    
     return (
-        <div className="relative flex-1 flex h-full" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} onMouseDown={e => e.stopPropagation()}>
-            <button
-                onClick={onClick}
-                // Themed active state, remove fixed padding to allow stretch
-                className={`flex-1 flex items-center justify-center rounded transition-all duration-200 group h-full ${isActive ? 'bg-accent text-white shadow-sm' : 'hover:bg-gray-700 text-gray-400 hover:text-gray-200'}`}
-            >
-                {icon}
-            </button>
-             {/* Styled Tooltip pinned to node (absolute within component) */}
-             {isHovered && (
+        <button
+            onClick={onClick}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            onMouseDown={e => e.stopPropagation()}
+            className={`
+                relative flex items-center justify-center px-3 py-1.5 transition-all duration-300 ease-in-out h-full overflow-hidden
+                rounded-t-md rounded-b-none border-b-2
+                ${isActive 
+                    ? 'bg-gray-800 text-accent-text border-accent flex-grow shadow-[inset_0_-2px_10px_rgba(0,0,0,0.3)]' 
+                    : 'bg-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/30 border-transparent flex-none'
+                }
+            `}
+        >
+            <span className={`z-10 transition-transform duration-300 ${isActive ? 'scale-110' : 'scale-100'}`}>{icon}</span>
+            
+            {/* Label Animation */}
+            <div className={`overflow-hidden transition-all duration-300 ${isActive ? 'max-w-[120px] ml-2 opacity-100' : 'max-w-0 ml-0 opacity-0'}`}>
+                <span className="text-xs font-bold whitespace-nowrap">{label}</span>
+            </div>
+
+            {/* Tooltip for inactive tabs */}
+            {!isActive && isHovered && (
                  <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-700 text-slate-200 text-xs whitespace-nowrap rounded shadow-xl z-50 pointer-events-none animate-fade-in-up`}>
                     {label}
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-700"></div>
                 </div>
              )}
-        </div>
+        </button>
     );
 };
 
@@ -513,6 +528,7 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
 
     const styles = [
         { id: 'general', label: t('geminiChat.mode.general'), icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg> },
+        { id: 'friend', label: t('geminiChat.mode.friend'), icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0h-14z" clipRule="evenodd" /></svg> },
         { id: 'prompt', label: t('geminiChat.mode.prompt'), icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path strokeLinecap="round" strokeLinejoin="round" d="m21 15-5-5L5 21" /></svg> },
         { id: 'script', label: t('geminiChat.mode.script'), icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> },
         { id: 'youtube', label: t('geminiChat.mode.youtube'), icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> },
@@ -538,8 +554,8 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
             {selection && <FloatingCopyButton selection={selection} onCopy={handleFloatingCopy} rootRef={rootRef} scale={viewScale} />}
 
             {/* Top Bar with Style Switcher and Model Icons */}
-            <div className="flex items-stretch bg-gray-900/50 p-1 rounded-md mb-2 shrink-0 justify-between gap-2 h-10" onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}>
-                <div className="flex gap-1 flex-1 h-full">
+            <div className="flex items-end bg-gray-900/30 px-1 pt-1 rounded-md mb-2 shrink-0 justify-between gap-2 h-10 border-b border-gray-700/50" onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}>
+                <div className="flex gap-1 flex-1 h-full items-end">
                     {styles.map(s => (
                         <StyleButton
                             key={s.id}
@@ -553,7 +569,7 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                 </div>
                 
                 {/* Model Selector - Icon Buttons */}
-                <div className="relative flex bg-gray-800 rounded p-0.5 border border-gray-700 h-full items-center w-16 isolate">
+                <div className="relative flex bg-gray-800 rounded p-0.5 border border-gray-700 h-8 items-center w-16 isolate self-center">
                     {/* Animated Background Pill */}
                     <div 
                         className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] bg-accent rounded-sm shadow-md transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] z-0 ${model === 'gemini-3-flash-preview' ? 'left-0.5' : 'left-[calc(50%+1px)]'}`} 

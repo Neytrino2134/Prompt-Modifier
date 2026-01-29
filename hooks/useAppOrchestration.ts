@@ -49,7 +49,7 @@ export const useAppOrchestration = (
             const parsed = JSON.parse(node.value || '{}');
 
             if (node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.VIDEO_OUTPUT) {
-                imageUrl = getFullSizeImage(nodeId, 0) || node.value;
+                imageUrl = getFullSizeImage(nodeId, 0) || (typeof parsed === 'string' ? parsed : (parsed.image || node.value));
                 prompt = entityActionsHook.getPromptForNode(nodeId);
             } else if (node.type === NodeType.IMAGE_INPUT) {
                 imageUrl = getFullSizeImage(nodeId, 0) || parsed.image;
@@ -80,7 +80,15 @@ export const useAppOrchestration = (
                 addToast(t('toast.scriptSaved'), 'success');
                 return;
             }
-        } catch (e) { }
+        } catch (e) { 
+            // Fallback for raw string values (Data URIs in ImageOutput often fail JSON.parse)
+            if (node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.VIDEO_OUTPUT) {
+                 imageUrl = getFullSizeImage(nodeId, 0) || node.value;
+                 prompt = entityActionsHook.getPromptForNode(nodeId);
+            } else if (node.type === NodeType.IMAGE_INPUT && node.value.startsWith('data:')) {
+                 imageUrl = getFullSizeImage(nodeId, 0) || node.value;
+            }
+        }
 
         if (imageUrl) {
             onDownloadImageFromUrl(imageUrl, 0, prompt);

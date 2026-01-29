@@ -138,31 +138,34 @@ export const NoteNode: React.FC<NodeContentProps> = ({ node, onValueChange, t, d
 
     // --- Data Manipulation Handlers for References ---
     
-    const handleAddImages = async (imgDataList: (File | string)[], targetIndex?: number) => {
+    const handleAddImages = async (imgDataList: (File | string | { image: string, caption: string })[], targetIndex?: number) => {
         if (isPromptDataConnected) return; 
 
-        // Process mix of Files and Base64 strings
-        const processInput = async (item: File | string): Promise<string> => {
-            if (typeof item === 'string') return item;
+        // Process mix of Files, Base64 strings, and objects with captions
+        const processInput = async (item: File | string | { image: string, caption: string }): Promise<{ image: string, caption: string }> => {
+            if (typeof item === 'object' && 'image' in item && 'caption' in item) {
+                return item; // Already processed
+            }
+            if (typeof item === 'string') return { image: item, caption: '' };
             return new Promise((resolve) => {
                 const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target?.result as string);
+                reader.onload = (e) => resolve({ image: e.target?.result as string, caption: '' });
                 reader.readAsDataURL(item);
             });
         };
 
-        const resolvedImages = await Promise.all(imgDataList.map(processInput));
+        const resolvedInputs = await Promise.all(imgDataList.map(processInput));
         
         const currentRefs = [...data.references];
         const newRefs: ReferenceItem[] = [];
 
-        for (let i = 0; i < resolvedImages.length; i++) {
-            const fullRes = resolvedImages[i];
+        for (let i = 0; i < resolvedInputs.length; i++) {
+            const { image: fullRes, caption } = resolvedInputs[i];
             const thumbnail = await generateThumbnail(fullRes, 256, 256);
             newRefs.push({
                 id: `ref-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
                 image: thumbnail, 
-                caption: ''
+                caption: caption || ''
             });
         }
         
@@ -180,7 +183,7 @@ export const NoteNode: React.FC<NodeContentProps> = ({ node, onValueChange, t, d
         });
         
         // Add new ones to map
-        newRefs.forEach((ref, idx) => { tempImageMap.set(ref.id, resolvedImages[idx]); });
+        newRefs.forEach((ref, idx) => { tempImageMap.set(ref.id, resolvedInputs[idx].image); });
 
         updateData({ references: currentRefs, activeTab: 'reference' });
         

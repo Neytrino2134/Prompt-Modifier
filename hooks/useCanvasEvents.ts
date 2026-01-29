@@ -110,6 +110,22 @@ export const useCanvasEvents = (props: any) => {
         toggleHighlight(false);
         const dropPosition = getTransformedPoint({ x: e.clientX, y: e.clientY });
 
+        // Check for rich info first (Image + Prompt)
+        const dragInfoData = e.dataTransfer.getData('application/prompt-modifier-drag-info');
+        if (dragInfoData) {
+             try {
+                 const { src, prompt } = JSON.parse(dragInfoData);
+                 const newNodeId = onAddNode(NodeType.IMAGE_INPUT, dropPosition);
+                 setFullSizeImage(newNodeId, 0, src);
+                 generateThumbnail(src, 256, 256).then((thumb: string) => {
+                     handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: prompt || '' }));
+                 });
+                 return;
+             } catch (e) {
+                 console.error("Failed to parse drag info", e);
+             }
+        }
+
         const dragImageData = e.dataTransfer.getData('application/prompt-modifier-drag-image');
         if (dragImageData) {
              const newNodeId = onAddNode(NodeType.IMAGE_INPUT, dropPosition);

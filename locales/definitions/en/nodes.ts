@@ -1,5 +1,7 @@
 
 
+
+
 export const nodes = {
     'node.title.text_input': 'Text Input',
     'node.title.image_input': 'Image Input',
@@ -298,25 +300,10 @@ export const nodes = {
     'geminiChat.mode.prompt': 'Prompt Expert',
     'geminiChat.mode.script': 'Script Writer',
     'geminiChat.mode.youtube': 'YouTube Analyst',
-    'geminiChat.mode.developer': 'Developer',
-    'image_sequence.deselect_scene': 'Deselect all frames in this scene',
-    'image_sequence.clear_prompts_only': 'Clear Text Prompts Only',
-    'image_sequence.prev_scene': 'Previous Scene',
-    'image_sequence.next_scene': 'Next Scene',
-    'image_sequence.frames_hidden': '({count} frames hidden)',
-    'image_sequence.frames_count': '({count} frames)',
-    'image_sequence.auto_crop': 'Auto Crop 16:9',
-    'image_sequence.create_zip': 'Create ZIP Archive',
-    'node.content.technicalPrompt': 'Technical Prompt',
-    'node.content.usedCharacters': 'Used Characters',
-    'node.content.insertStyle': 'Insert Style',
-
-    'node.promptProcessor.safePromptTooltip': 'Safety mode enabled',
-    'node.promptProcessor.technicalPromptTooltip': 'Technical description',
-    'node.promptProcessor.enhanceTooltip': 'Enhance prompt (AI)',
-    'node.promptProcessor.chainTooltip': 'Execute chain',
-
-    'image_sequence.tooltip.autoCrop': 'Automatically crops generated images to 16:9 ratio.',
-    'image_sequence.tooltip.autoDownload': 'Automatically saves each image to your device upon generation.',
-    'image_sequence.tooltip.createZip': 'Packages all selected images into a single ZIP archive for download.'
+    'geminiChat.mode.friend': 'Best Friend',
+    'image_sequence.shot_type.WS': "Integrate the Entity with a Wide Shot (WS) into the scene and action. Show the environment.",
+    'image_sequence.shot_type.MS': "Integrate the Entity with a Medium Shot (MS) into the scene. Character from waist up.",
+    'image_sequence.shot_type.CU': "Integrate the Entity with a Close-Up (CU) into the scene.",
+    'image_sequence.shot_type.ECU': "Integrate the Entity with an Extreme Close-Up (ECU) into the scene. Maximum detail.",
+    'image_sequence.shot_type.LS': "Integrate the Entity with a Long Shot (LS) into the scene to show scale."
 };

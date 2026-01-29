@@ -14,7 +14,7 @@ interface ReferencesTabProps {
     isLocked: boolean; // Connected to upstream
     
     // Actions
-    onAddImages: (filesOrData: (File | string)[], targetIndex?: number) => void;
+    onAddImages: (filesOrData: (File | string | { image: string, caption: string })[], targetIndex?: number) => void;
     onReorder: (sourceIndex: number, targetIndex: number) => void;
     onUpdateCaption: (id: string, newCaption: string) => void;
     onRemoveReference: (id: string) => void;
@@ -130,6 +130,16 @@ export const ReferencesTab: React.FC<ReferencesTabProps> = ({
             setDraggingIndex(null); // Ensure drag state is cleared
             return;
         }
+
+        // Check for rich info (Image + Caption)
+        const dragInfoData = e.dataTransfer.getData('application/prompt-modifier-drag-info');
+        if (dragInfoData) {
+             try {
+                 const { src, prompt } = JSON.parse(dragInfoData);
+                 onAddImages([{ image: src, caption: prompt || '' }]);
+                 return;
+             } catch (e) { console.error("Error parsing drag info", e); }
+        }
         
         // Check for files/images
         const dragImageData = e.dataTransfer.getData('application/prompt-modifier-drag-image');
@@ -159,6 +169,16 @@ export const ReferencesTab: React.FC<ReferencesTabProps> = ({
             return;
         }
         
+        // Check for rich info (Image + Caption)
+        const dragInfoData = e.dataTransfer.getData('application/prompt-modifier-drag-info');
+        if (dragInfoData) {
+             try {
+                 const { src, prompt } = JSON.parse(dragInfoData);
+                 onAddImages([{ image: src, caption: prompt || '' }], targetIndex);
+                 return;
+             } catch (e) { console.error("Error parsing drag info", e); }
+        }
+
         // Dropping external files/images onto a specific slot to insert before
         const dragImageData = e.dataTransfer.getData('application/prompt-modifier-drag-image');
         if (dragImageData) {
@@ -364,6 +384,7 @@ export const ReferencesTab: React.FC<ReferencesTabProps> = ({
                                          const dragImg = getFullSizeImage(index) || img;
                                          if (dragImg) {
                                               e.dataTransfer.setData('application/prompt-modifier-drag-image', dragImg);
+                                              e.dataTransfer.setData('application/prompt-modifier-drag-info', JSON.stringify({ src: dragImg, prompt: ref.caption }));
                                               e.dataTransfer.effectAllowed = 'copy';
                                               e.stopPropagation();
                                          }

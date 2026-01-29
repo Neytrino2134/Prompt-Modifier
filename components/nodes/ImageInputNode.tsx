@@ -283,9 +283,22 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={handleImageClick}
                                 onDragStart={(e) => {
+                                    // Prioritize High Resolution Image
                                     const imageToDrag = getFullSizeImage(node.id, 0) || image;
                                     if (imageToDrag) {
+                                        // 1. Internal App Drag
                                         e.dataTransfer.setData('application/prompt-modifier-drag-image', imageToDrag);
+                                        
+                                        // 2. External Drag (File Download for Chrome/Edge)
+                                        const filename = `Input_Image_${Date.now()}.png`;
+                                        e.dataTransfer.setData("DownloadURL", `image/png:${filename}:${imageToDrag}`);
+                                        
+                                        // 3. External Drag (HTML Insertion for Docs/Other Browsers)
+                                        e.dataTransfer.setData("text/html", `<img src="${imageToDrag}" alt="Image Input" />`);
+
+                                        // 4. Standard URI List
+                                        e.dataTransfer.setData("text/uri-list", imageToDrag);
+
                                         e.dataTransfer.effectAllowed = 'copy';
                                         e.stopPropagation();
                                     }
