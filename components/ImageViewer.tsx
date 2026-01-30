@@ -441,8 +441,20 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
              pointerEvents: 'auto',
              transformOrigin: 'center', 
           }}
-          draggable={false}
-          onMouseDown={(e) => e.preventDefault()}
+          draggable={!canDrag}
+          onDragStart={(e) => {
+            e.stopPropagation();
+            const src = currentSource.src;
+            const safeName = (currentSource.prompt || 'image').slice(0, 40).replace(/[^a-z0-9]/gi, '_');
+            const filename = `${safeName}_frame_${currentSource.frameNumber}.png`;
+  
+            e.dataTransfer.setData('application/prompt-modifier-drag-image', src);
+            // Chrome/Edge Download Trigger
+            e.dataTransfer.setData("DownloadURL", `image/png:${filename}:${src}`);
+            e.dataTransfer.setData("text/html", `<img src="${src}" alt="${safeName}" />`);
+            e.dataTransfer.setData("text/uri-list", src);
+            e.dataTransfer.effectAllowed = 'copy';
+          }}
         />
 
         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-full flex items-center space-x-3 border border-gray-600 shadow-lg z-20 select-none" onMouseDown={e => e.stopPropagation()}>

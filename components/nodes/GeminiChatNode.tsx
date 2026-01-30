@@ -1,6 +1,5 @@
 
 
-
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import type { NodeContentProps } from '../../types';
 import { ActionButton } from '../ActionButton';
@@ -90,7 +89,6 @@ const MarkdownContent: React.FC<{ content: string }> = React.memo(({ content }) 
                 if (codeMatch) {
                     let rawCode = codeMatch[1];
                     // Clean up language identifier (e.g., "bash", "python") from the first line
-                    // It usually looks like "bash\n<code...>"
                     const firstNewLine = rawCode.indexOf('\n');
                     if (firstNewLine !== -1) {
                         const potentialLang = rawCode.substring(0, firstNewLine).trim();
@@ -271,19 +269,31 @@ const FloatingCopyButton: React.FC<{
     );
 };
 
-const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChange, onSendMessage, isChatting, t, onSelectNode, addToast }) => {
+const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChange, onSendMessage, isChatting, t, onSelectNode, addToast, setImageViewer }) => {
     const context = useAppContext();
     const viewScale = context?.viewTransform.scale || 1;
 
     const chatValue = useMemo(() => {
         try {
-            return JSON.parse(node.value || '{}');
+            const val = JSON.parse(node.value || '{}');
+            // Ensure attachments array exists if migration from old single attachment
+            if (val.attachment && !val.attachments) {
+                val.attachments = [val.attachment];
+                delete val.attachment;
+            }
+            return {
+                messages: val.messages || [],
+                currentInput: val.currentInput || '',
+                style: val.style || 'general',
+                attachments: val.attachments || [],
+                model: val.model || 'gemini-3-flash-preview'
+            };
         } catch {
-            return { messages: [], currentInput: '', style: 'general', attachment: null, model: 'gemini-3-flash-preview' };
+            return { messages: [], currentInput: '', style: 'general', attachments: [], model: 'gemini-3-flash-preview' };
         }
     }, [node.value]);
 
-    const { messages = [], currentInput = '', style = 'general', attachment = null, model = 'gemini-3-flash-preview' } = chatValue;
+    const { messages = [], currentInput = '', style = 'general', attachments = [], model = 'gemini-3-flash-preview' } = chatValue;
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const isUserAtBottomRef = useRef(true); // Track if user is at bottom
     
@@ -372,22 +382,29 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
 
-        // Convert to Base64 for storage/transmission
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const dataUrl = ev.target?.result as string;
-            const newAttachment = {
-                name: file.name,
-                type: file.type,
-                data: dataUrl
-            };
-            onValueChange(node.id, JSON.stringify({ ...chatValue, attachment: newAttachment }));
-            if (addToast) addToast("File attached", "success");
-        };
-        reader.readAsDataURL(file);
+        const newAttachments = [...attachments];
+
+        for (const file of Array.from(files)) {
+             const reader = new FileReader();
+             await new Promise<void>((resolve) => {
+                 reader.onload = (ev) => {
+                     const dataUrl = ev.target?.result as string;
+                     newAttachments.push({
+                         name: file.name,
+                         type: file.type,
+                         data: dataUrl
+                     });
+                     resolve();
+                 };
+                 reader.readAsDataURL(file);
+             });
+        }
+        
+        onValueChange(node.id, JSON.stringify({ ...chatValue, attachments: newAttachments }));
+        if (addToast) addToast(`${files.length} file(s) attached`, "success");
         
         // Reset input
         e.target.value = '';
@@ -396,20 +413,33 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
     const handlePasteClipboard = async () => {
         try {
             const items = await navigator.clipboard.read();
+            let hasImage = false;
+            const newAttachments = [...attachments];
+
             for (const item of items) {
                 // Check for images
-                if (item.types.some(t => t.startsWith('image/'))) {
-                    const blob = await item.getType(item.types.find(t => t.startsWith('image/'))!);
+                const imageType = item.types.find(t => t.startsWith('image/'));
+                if (imageType) {
+                    const blob = await item.getType(imageType) as Blob;
                     const file = new File([blob], "pasted_image.png", { type: blob.type });
+                    
                     const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        const dataUrl = ev.target?.result as string;
-                        onValueChange(node.id, JSON.stringify({ ...chatValue, attachment: { name: file.name, type: file.type, data: dataUrl } }));
-                        if (addToast) addToast(t('toast.pastedFromClipboard'), "success");
-                    };
-                    reader.readAsDataURL(file);
-                    return;
+                    await new Promise<void>((resolve) => {
+                        reader.onload = (ev) => {
+                            const dataUrl = ev.target?.result as string;
+                            newAttachments.push({ name: file.name, type: file.type, data: dataUrl });
+                            hasImage = true;
+                            resolve();
+                        };
+                        reader.readAsDataURL(file);
+                    });
                 }
+            }
+            
+            if (hasImage) {
+                onValueChange(node.id, JSON.stringify({ ...chatValue, attachments: newAttachments }));
+                if (addToast) addToast(t('toast.pastedFromClipboard'), "success");
+                return;
             }
             
             // Fallback to text if no image found in items
@@ -435,9 +465,49 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
             }
         }
     };
+    
+    // New handler for pasting directly into the textarea (Ctrl+V)
+    const handleInputPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const items = e.clipboardData.items;
+        let hasImage = false;
+        const newAttachments = [...attachments];
 
-    const handleRemoveAttachment = () => {
-        onValueChange(node.id, JSON.stringify({ ...chatValue, attachment: null }));
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (item.type.startsWith('image/')) {
+                // Prevent the image data (or file name) from being pasted as text
+                e.preventDefault();
+                
+                const file = item.getAsFile();
+                if (file) {
+                     const reader = new FileReader();
+                     await new Promise<void>((resolve) => {
+                         reader.onload = (ev) => {
+                             const dataUrl = ev.target?.result as string;
+                             // Use type assertions to fix type errors
+                             const fileName = file.name || "pasted_image.png";
+                             const fileType = file.type || "image/png";
+                             newAttachments.push({ name: fileName, type: fileType, data: dataUrl });
+                             hasImage = true;
+                             resolve();
+                         };
+                         reader.readAsDataURL(file);
+                     });
+                }
+            }
+        }
+
+        if (hasImage) {
+             onValueChange(node.id, JSON.stringify({ ...chatValue, attachments: newAttachments }));
+             if (addToast) addToast("Image attached from clipboard", "success");
+        }
+        // If no image, default text paste behavior proceeds automatically by browser
+    };
+
+    const handleRemoveAttachment = (index: number) => {
+        const newAttachments = [...attachments];
+        newAttachments.splice(index, 1);
+        onValueChange(node.id, JSON.stringify({ ...chatValue, attachments: newAttachments }));
     };
     
     const handleFloatingCopy = () => {
@@ -525,6 +595,15 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
+    
+    const handleImagePreview = (src: string) => {
+        if (setImageViewer) {
+             setImageViewer({
+                 sources: [{ src, frameNumber: 0 }],
+                 initialIndex: 0
+             });
+        }
+    };
 
     const styles = [
         { id: 'general', label: t('geminiChat.mode.general'), icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg> },
@@ -549,6 +628,7 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                 className="hidden" 
                 onChange={handleFileChange} 
                 accept="image/*,.txt,.pdf,.json" 
+                multiple // Enable multiple files
             />
             
             {selection && <FloatingCopyButton selection={selection} onCopy={handleFloatingCopy} rootRef={rootRef} scale={viewScale} />}
@@ -619,69 +699,82 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                         <span className="text-[10px] text-gray-600">{model === 'gemini-3-pro-preview' ? 'Pro 3.0' : 'Flash 3.0'}</span>
                     </div>
                 )}
-                {messages.map((msg: { role: string, content: string }, index: number) => (
+                {messages.map((msg: { role: string, content: string, images?: string[] }, index: number) => (
                     <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         {/* User Message: Themed Accent Color */}
-                        <div className={`relative group max-w-[90%] p-3 rounded-lg select-text flex gap-2 ${msg.role === 'user' ? 'bg-accent text-white shadow-md' : 'bg-gray-800 border border-gray-700'}`}>
+                        <div className={`relative group max-w-[90%] p-3 rounded-lg select-text flex gap-2 flex-col ${msg.role === 'user' ? 'bg-accent text-white shadow-md' : 'bg-gray-800 border border-gray-700'}`}>
                            
-                           {/* Content Wrapper */}
-                           <div className="min-w-0 flex-grow">
-                               {msg.role === 'model' ? (
-                                   <MarkdownContent content={msg.content} /> 
-                               ) : (
-                                   <p className={`text-sm whitespace-pre-wrap break-words select-text ${msg.role === 'user' ? 'text-white' : 'text-gray-200'}`}>
-                                       {msg.content}
-                                   </p>
+                           {/* Render Attached Images if any */}
+                           {msg.images && msg.images.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                     {msg.images.map((imgSrc, imgIdx) => (
+                                         <div key={imgIdx} className="w-24 h-24 rounded overflow-hidden border border-white/20 bg-black/50 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleImagePreview(imgSrc); }}>
+                                             <img src={imgSrc} alt="attachment" className="w-full h-full object-cover" />
+                                         </div>
+                                     ))}
+                                </div>
+                           )}
+
+                           <div className="flex gap-2 w-full">
+                               {/* Content Wrapper */}
+                               <div className="min-w-0 flex-grow">
+                                   {msg.role === 'model' ? (
+                                       <MarkdownContent content={msg.content} /> 
+                                   ) : (
+                                       <p className={`text-sm whitespace-pre-wrap break-words select-text ${msg.role === 'user' ? 'text-white' : 'text-gray-200'}`}>
+                                           {msg.content}
+                                       </p>
+                                   )}
+                               </div>
+                               
+                               {/* Sticky Action Sidebar */}
+                               {msg.role === 'model' && (
+                                   <div className="flex flex-col justify-start shrink-0 self-stretch">
+                                        <div className="sticky top-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
+                                           <ActionButton
+                                               title={t('node.action.copy')}
+                                               onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   navigator.clipboard.writeText(msg.content);
+                                                   addToast(t('toast.copiedToClipboard'));
+                                               }}
+                                               className="p-1.5 bg-gray-800/80 rounded-md text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 shadow-sm"
+                                               tooltipPosition="left"
+                                           >
+                                               <CopyIcon className="h-3 w-3" />
+                                           </ActionButton>
+                                           
+                                           <ActionButton
+                                               title={t('node.action.downloadTxt')}
+                                               onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   handleDownloadTxt(msg.content);
+                                               }}
+                                               className="p-1.5 bg-gray-800/80 rounded-md text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 shadow-sm"
+                                               tooltipPosition="left"
+                                           >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                           </ActionButton>
+    
+                                           <ActionButton
+                                               title={t('node.action.downloadDoc')}
+                                               onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   handleDownloadDoc(msg.content);
+                                               }}
+                                               className="p-1.5 bg-gray-800/80 rounded-md text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 shadow-sm"
+                                               tooltipPosition="left"
+                                           >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                </svg>
+                                           </ActionButton>
+                                       </div>
+                                   </div>
                                )}
                            </div>
-                           
-                           {/* Sticky Action Sidebar */}
-                           {msg.role === 'model' && (
-                               <div className="flex flex-col justify-start shrink-0 self-stretch">
-                                    <div className="sticky top-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
-                                       <ActionButton
-                                           title={t('node.action.copy')}
-                                           onClick={(e) => {
-                                               e.stopPropagation();
-                                               navigator.clipboard.writeText(msg.content);
-                                               addToast(t('toast.copiedToClipboard'));
-                                           }}
-                                           className="p-1.5 bg-gray-800/80 rounded-md text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 shadow-sm"
-                                           tooltipPosition="left"
-                                       >
-                                           <CopyIcon className="h-3 w-3" />
-                                       </ActionButton>
-                                       
-                                       <ActionButton
-                                           title={t('node.action.downloadTxt')}
-                                           onClick={(e) => {
-                                               e.stopPropagation();
-                                               handleDownloadTxt(msg.content);
-                                           }}
-                                           className="p-1.5 bg-gray-800/80 rounded-md text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 shadow-sm"
-                                           tooltipPosition="left"
-                                       >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                       </ActionButton>
-
-                                       <ActionButton
-                                           title={t('node.action.downloadDoc')}
-                                           onClick={(e) => {
-                                               e.stopPropagation();
-                                               handleDownloadDoc(msg.content);
-                                           }}
-                                           className="p-1.5 bg-gray-800/80 rounded-md text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 shadow-sm"
-                                           tooltipPosition="left"
-                                       >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                            </svg>
-                                       </ActionButton>
-                                   </div>
-                               </div>
-                           )}
                         </div>
                     </div>
                 ))}
@@ -701,17 +794,20 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
             {/* Input Area */}
             <div className="relative w-full group flex-shrink-0 bg-gray-700 rounded-md border-none focus-within:ring-1 focus-within:ring-node-selected transition-shadow">
                 
-                {/* Attachment Preview Overlay */}
-                {attachment && (
-                    <div className="absolute -top-8 left-2 bg-gray-800 text-accent-text text-xs px-2 py-1 rounded-t-md border border-accent/50 border-b-0 flex items-center gap-2 max-w-[200px] shadow-sm z-0">
-                        <span className="truncate">{attachment.name}</span>
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); handleRemoveAttachment(); }}
-                            className="text-gray-500 hover:text-red-400"
-                            title="Remove attachment"
-                        >
-                            &times;
-                        </button>
+                {/* Attachment Preview Overlay (Stack) */}
+                {attachments && attachments.length > 0 && (
+                    <div className="absolute -top-16 left-2 flex gap-2 max-w-full overflow-x-auto p-1 custom-scrollbar z-20">
+                         {attachments.map((att, idx) => (
+                             <div key={idx} className="relative group/att w-12 h-12 bg-gray-800 rounded border border-gray-600 flex-shrink-0">
+                                 <img src={att.data} alt="thumb" className="w-full h-full object-cover rounded opacity-80 group-hover/att:opacity-100" />
+                                 <button 
+                                     onClick={(e) => { e.stopPropagation(); handleRemoveAttachment(idx); }}
+                                     className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] hover:bg-red-600 shadow-sm"
+                                 >
+                                     &times;
+                                 </button>
+                             </div>
+                         ))}
                     </div>
                 )}
 
@@ -724,6 +820,7 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } 
                     }}
                     onKeyUp={e => e.stopPropagation()}
+                    onPaste={handleInputPaste} // Handle image pasting
                     placeholder={t('node.content.chatPlaceholder')}
                     onWheel={e => e.stopPropagation()}
                     onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}
@@ -751,7 +848,7 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                         <Tooltip content="Прикрепить файл" position="left">
                             <button 
                                 onClick={handleFileClick} 
-                                className={`p-1.5 rounded-md transition-colors duration-200 ${attachment ? 'bg-accent/20 text-accent-text border border-accent/50' : 'bg-gray-600 hover:bg-gray-500 text-gray-300 hover:text-white'}`}
+                                className={`p-1.5 rounded-md transition-colors duration-200 ${attachments.length > 0 ? 'bg-accent/20 text-accent-text border border-accent/50' : 'bg-gray-600 hover:bg-gray-500 text-gray-300 hover:text-white'}`}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -763,7 +860,7 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
                     <Tooltip content="Отправить" position="left">
                         <button 
                             onClick={handleSend} 
-                            disabled={isChatting || (!currentInput.trim() && !attachment)} 
+                            disabled={isChatting || (!currentInput.trim() && attachments.length === 0)} 
                             className="p-1.5 bg-accent hover:bg-accent-hover rounded-md text-white disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200 shadow-md"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -778,3 +875,4 @@ const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onValueChan
 };
 
 export const GeminiChatNode = React.memo(GeminiChatNodeComponent);
+

@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef } from 'react';
 import type { Node, Tab } from '../types';
 import { GoogleGenAI, Chat } from "@google/genai";
@@ -133,6 +132,9 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
     
         const initialParsed = JSON.parse(node.value || '{}');
         let { messages = [], currentInput, style = 'general', model = 'gemini-3-flash-preview' } = initialParsed;
+        
+        // Handle Attachments: Ensure array structure
+        const attachments = initialParsed.attachments || (initialParsed.attachment ? [initialParsed.attachment] : []);
 
         if (!currentInput || !currentInput.trim()) {
             const upstreamTexts = getUpstreamNodeValues(nodeId).filter(v => typeof v === 'string') as string[];
@@ -141,15 +143,26 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
             }
         }
         
-        if (!currentInput || !currentInput.trim()) return;
+        // Must have either text OR attachments to send
+        if ((!currentInput || !currentInput.trim()) && attachments.length === 0) return;
     
         setIsChatting(nodeId);
         setError(null);
     
-        const newMessages = [...messages, { role: 'user', content: currentInput }];
+        // Add User Message to history (including images for display)
+        const newMessages = [...messages, { 
+            role: 'user', 
+            content: currentInput,
+            images: attachments.map((a: any) => a.data) // Store base64 data for history display
+        }];
         
         // Update state to show user message immediately
-        updateNodeInStorage(currentTabId, nodeId, (prev) => ({ ...prev, messages: newMessages, currentInput: '' }));
+        updateNodeInStorage(currentTabId, nodeId, (prev) => ({ 
+            ...prev, 
+            messages: newMessages, 
+            currentInput: '',
+            attachments: [] // Clear attachments after sending
+        }));
     
         try {
             // Check if session exists AND if the style/model matches
@@ -170,16 +183,27 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
                     },
                 });
                 
-                // If switching styles/models, we might want to provide context from previous messages manually,
-                // but usually switching personas implies a context switch. 
-                // For now, we start fresh context-wise for the model, but keep history in UI.
-                
                 chatSessions.current.set(nodeId, { chat, style, model });
             }
 
             const session = chatSessions.current.get(nodeId)!;
             
-            const response = await session.chat.sendMessage({ message: currentInput });
+            // Construct Payload with Text + Images
+            const parts: any[] = [];
+            if (currentInput) {
+                parts.push({ text: currentInput });
+            }
+            
+            attachments.forEach((att: any) => {
+                 if (att.data && att.data.startsWith('data:')) {
+                     const base64 = att.data.split(',')[1];
+                     parts.push({ inlineData: { mimeType: att.type, data: base64 } });
+                 }
+            });
+            
+            // Send Message using structured parts
+            const response = await session.chat.sendMessage({ message: parts });
+            
             const modelResponse = response.text || "";
 
             const promptMatch = modelResponse.match(/```prompt\n([\s\S]*?)\n```/);
@@ -191,6 +215,7 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
                 ...prev, 
                 messages: finalMessages, 
                 currentInput: '', 
+                attachments: [], // Ensure cleared in final state
                 lastPrompt: extractedPrompt || prev.lastPrompt 
             }));
     
@@ -209,6 +234,7 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
             messages: [], 
             currentInput: '', 
             lastPrompt: '', 
+            attachments: [],
             style: prev.style || 'general',
             model: prev.model || 'gemini-3-flash-preview' // Preserve model
         }));

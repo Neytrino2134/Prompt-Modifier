@@ -1,7 +1,3 @@
-
-
-
-
 export const nodes = {
     'node.title.text_input': 'Текстовый узел',
     'node.title.image_input': 'Узел изображения',
