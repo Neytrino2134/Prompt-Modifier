@@ -1,5 +1,4 @@
 
-
 import React, { useMemo } from 'react';
 import CustomSelect from '../../CustomSelect';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
@@ -25,7 +24,7 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
     nodeId,
     deselectAllNodes
 }) => {
-    const { isSequenceMode, isSequentialCombinationMode, isSequentialPromptMode, isSequentialEditingWithPrompts, enableAspectRatio, aspectRatio, enableOutpainting, outpaintingPrompt } = state;
+    const { isSequenceMode, isSequentialCombinationMode, isSequentialPromptMode, isSequentialEditingWithPrompts, enableAspectRatio, aspectRatio, enableOutpainting } = state;
 
     const aspectRatioOptionsWithIcons = useMemo(() => [
         { value: 'Auto', label: 'Auto', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg> },
@@ -119,31 +118,6 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
                         <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.aspectRatio')}</label>
                         <CustomSelect value={aspectRatio || '1:1'} onChange={(v) => onUpdateState({ aspectRatio: v })} disabled={isEditing} options={aspectRatioOptionsWithIcons} />
                     </div>
-                    
-                    <div className="flex items-center space-x-2 pt-1">
-                        <input 
-                            id={`outpainting-toggle-${nodeId}`}
-                            type="checkbox" 
-                            checked={enableOutpainting} 
-                            onChange={(e) => onUpdateState({ enableOutpainting: e.target.checked })} 
-                            className="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 bg-gray-700 cursor-pointer" 
-                            onMouseDown={(e) => e.stopPropagation()} 
-                        />
-                        <label htmlFor={`outpainting-toggle-${nodeId}`} className="text-sm text-gray-300 select-none cursor-pointer">{t('node.content.enableOutpainting')}</label>
-                    </div>
-
-                    {enableOutpainting && (
-                        <DebouncedTextarea 
-                            value={outpaintingPrompt} 
-                            onDebouncedChange={(v) => onUpdateState({ outpaintingPrompt: v })} 
-                            placeholder={t('node.content.outpaintingPromptPlaceholder')} 
-                            className="w-full p-2 bg-gray-900/50 rounded-md resize-none border border-gray-600 focus:border-cyan-500 focus:outline-none text-xs" 
-                            style={{ height: '60px' }} 
-                            onFocus={deselectAllNodes} 
-                            onWheel={(e) => e.stopPropagation()} 
-                            onMouseDown={(e) => e.stopPropagation()} 
-                        />
-                    )}
                 </>
             )}
         </div>

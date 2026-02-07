@@ -1,7 +1,4 @@
 
-
-
-
 export const nodes = {
     'node.title.text_input': 'Text Input',
     'node.title.image_input': 'Image Input',
@@ -54,7 +51,7 @@ export const nodes = {
     'node.help.video_editor': 'A timeline-based tool for editing video clips and images.',
     'node.help.media_viewer': 'A player for viewing video and audio files with playback controls.',
     'node.help.data_protection': 'An interactive Tower Defense game node. Defend your data stream from corruption.',
-    'node.help.pose_creator': 'Visual rig to define and generate character poses for consistency.',
+    'node.help.pose_creator': 'Visually rig and create character poses for generation guidance.',
     'node.action.expand': 'Expand',
     'node.action.collapse': 'Collapse',
     'node.action.help': 'Help',
@@ -301,6 +298,7 @@ export const nodes = {
     'geminiChat.mode.script': 'Script Writer',
     'geminiChat.mode.youtube': 'YouTube Analyst',
     'geminiChat.mode.friend': 'Best Friend',
+    'geminiChat.mode.developer': 'Developer',
     'image_sequence.shot_type.WS': "Integrate the Entity with a Wide Shot (WS) into the scene and action. Show the environment.",
     'image_sequence.shot_type.MS': "Integrate the Entity with a Medium Shot (MS) into the scene. Character from waist up.",
     'image_sequence.shot_type.CU': "Integrate the Entity with a Close-Up (CU) into the scene.",

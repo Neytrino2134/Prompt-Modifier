@@ -1,4 +1,3 @@
-
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import type { NodeContentProps } from '../../types';
 import { NodeType } from '../../types';
@@ -179,7 +178,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
         setTransformingRatio(targetRatio);
         try {
-            const newImage = await expandImageAspectRatio(fullSizeSrc, targetRatio, prompt);
+            // Explicitly use 'gemini-2.5-flash-image' for editing tasks to ensure compatibility
+            const newImage = await expandImageAspectRatio(fullSizeSrc, targetRatio, prompt, 'gemini-2.5-flash-image');
             await handleImageChange(newImage);
             if (addToast) addToast(`Converted to ${targetRatio} successfully`, 'success');
         } catch (error: any) {
@@ -337,6 +337,57 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     
                     {!showControls && image && (
                         <>
+                             {/* Image to Text */}
+                             <Tooltip content={t('node.content.imageToText')}>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onImageToText && onImageToText(node.id); }}
+                                    disabled={isAnalyzingImage || !onImageToText}
+                                    className="p-1 bg-gray-900/60 hover:bg-gray-700 text-gray-400 hover:text-white rounded transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isAnalyzingImage ? (
+                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                        </svg>
+                                    )}
+                                </button>
+                            </Tooltip>
+
+                            {/* Expand 16:9 */}
+                            <Tooltip content={t('node.action.expand169')}>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleRatioExpand('16:9'); }}
+                                    disabled={isProcessingImage || !!transformingRatio}
+                                    className="p-1 bg-gray-900/60 hover:bg-gray-700 text-gray-400 hover:text-white rounded transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {transformingRatio === '16:9' ? (
+                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                            <rect x="2" y="6" width="20" height="12" rx="2" />
+                                        </svg>
+                                    )}
+                                </button>
+                            </Tooltip>
+
+                            {/* Expand 9:16 */}
+                            <Tooltip content={t('node.action.expand916')}>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleRatioExpand('9:16'); }}
+                                    disabled={isProcessingImage || !!transformingRatio}
+                                    className="p-1 bg-gray-900/60 hover:bg-gray-700 text-gray-400 hover:text-white rounded transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {transformingRatio === '9:16' ? (
+                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                            <rect x="6" y="2" width="12" height="20" rx="2" />
+                                        </svg>
+                                    )}
+                                </button>
+                            </Tooltip>
+
                              <Tooltip content={t('node.action.rasterEditor')}>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); setIsEditorOpen(true); }}
