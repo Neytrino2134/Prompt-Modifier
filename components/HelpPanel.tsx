@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../localization';
 import { CopyIcon } from './icons/AppIcons';
@@ -242,6 +243,7 @@ const HelpPanel: React.FC = () => {
     windows: [
       { key: 'Space', description: t('hotkeys.windows.search') },
       { key: 'Ctrl+Space', description: t('hotkeys.windows.catalog') },
+      { key: 'Shift+F', description: t('hotkeys.windows.fullscreen') },
       { key: 'F1', description: t('help.panelTitle') }, 
     ],
     alignment: [

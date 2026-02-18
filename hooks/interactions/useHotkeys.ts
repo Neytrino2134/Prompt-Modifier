@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, MutableRefObject } from 'react';
 import { NodeType, Tool, Node } from '../../types';
 
@@ -157,6 +158,17 @@ export const useHotkeys = (props: UseHotkeysProps) => {
                     handleOpenQuickSearch(clientPointerPositionRef.current);
                     return;
                 }
+            }
+
+            // Full Screen (Shift + F)
+            if (e.code === 'KeyF' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                e.preventDefault();
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => console.error(err));
+                } else {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                }
+                return;
             }
 
             // Standard Alignment Shortcuts (Legacy or backup, keep for now if user reverts selection)

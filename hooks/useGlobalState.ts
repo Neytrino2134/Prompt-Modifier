@@ -92,7 +92,7 @@ export const useGlobalState = (currentNodes: Node[]) => {
     const closeGlobalImageEditor = useCallback(() => setGlobalImageEditor(null), []);
 
     // Welcome Screen
-    const [showWelcome, setShowWelcome] = useState(false);
+    const [showWelcome, setShowWelcome] = useState(true);
 
     // Error
     const [error, setError] = useState<string | null>(null);

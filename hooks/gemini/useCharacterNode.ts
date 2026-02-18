@@ -35,8 +35,11 @@ export const useCharacterNode = ({
             
             const suffix = parsed.additionalPrompt || '';
             const prompt = suffix.trim() ? `${basePrompt}, ${suffix}` : basePrompt;
+            
+            // Use character specific aspect ratio, defaulting to 1:1 if not set
+            const aspectRatio = char.aspectRatio || '1:1';
 
-            const imageUrl = await generateImage(prompt, '1:1', undefined, 'gemini-3-flash-preview');
+            const imageUrl = await generateImage(prompt, aspectRatio, undefined, 'gemini-3-flash-preview');
             const base64 = imageUrl.split(',')[1];
             
             const newCharacters = characters.map((c: any) => c.id === characterId ? { ...c, imageBase64: base64 } : c);

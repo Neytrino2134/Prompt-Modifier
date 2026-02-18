@@ -1,4 +1,5 @@
 
+
 export const ui = {
     'toolbar.settings': 'Настройки',
     'toolbar.resetCanvas': 'Сбросить холст',
@@ -90,6 +91,7 @@ export const ui = {
     'hotkeys.windows.title': 'Окна',
     'hotkeys.windows.search': 'Быстрый поиск',
     'hotkeys.windows.catalog': 'Каталог',
+    'hotkeys.windows.fullscreen': 'Полноэкранный режим (Shift+F)',
     'hotkeys.createNode.title': 'Создать узел',
     'help.panelTitle': 'Помощь и горячие клавиши',
     'help.subtitle': 'Справочный центр',

@@ -1,10 +1,12 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import CustomSelect from '../../CustomSelect';
 import { CustomCheckbox } from '../../CustomCheckbox';
 
 interface GenerationControlsProps {
     model: string;
+    aspectRatio: string;
+    resolution: string;
     autoCrop169: boolean;
     autoDownload: boolean;
     createZip: boolean;
@@ -22,6 +24,8 @@ interface GenerationControlsProps {
 
 export const GenerationControls: React.FC<GenerationControlsProps> = ({
     model,
+    aspectRatio,
+    resolution,
     autoCrop169,
     autoDownload,
     createZip,
@@ -38,21 +42,64 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
 }) => {
     
     const modelOptions = [
-        { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image' },
+        { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash (Nano Banana)' },
+        { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)' },
         { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0' }
     ];
 
+    const aspectRatios = [
+        { value: '1:1', label: '1:1' },
+        { value: '16:9', label: '16:9' },
+        { value: '9:16', label: '9:16' },
+        { value: '4:3', label: '4:3' },
+        { value: '3:4', label: '3:4' },
+    ];
+
+    const resolutions = [
+        { value: '1K', label: '1K' },
+        { value: '2K', label: '2K' },
+        { value: '4K', label: '4K' },
+    ];
+
+    const isPro = model === 'gemini-3-pro-image-preview';
+
     return (
         <div className="flex-shrink-0 space-y-2 mt-2">
-            <div className="mb-2">
-                <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.generationMode')}</label>
-                <CustomSelect
-                    value={model}
-                    onChange={(value) => onUpdateState({ model: value })}
-                    disabled={isGeneratingSequence}
-                    options={modelOptions}
-                />
+            {/* Top Row: Model | Aspect Ratio | Resolution */}
+            <div className="flex gap-2">
+                <div className="flex-grow">
+                    <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.generationMode')}</label>
+                    <CustomSelect
+                        value={model}
+                        onChange={(value) => onUpdateState({ model: value })}
+                        disabled={isGeneratingSequence}
+                        options={modelOptions}
+                    />
+                </div>
+                
+                <div className="w-24 flex-shrink-0">
+                    <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.aspectRatio')}</label>
+                    <CustomSelect
+                        value={aspectRatio || '1:1'}
+                        onChange={(value) => onUpdateState({ aspectRatio: value })}
+                        disabled={isGeneratingSequence}
+                        options={aspectRatios}
+                    />
+                </div>
+
+                {isPro && (
+                    <div className="w-24 flex-shrink-0 animate-fade-in">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Resolution</label>
+                        <CustomSelect
+                            value={resolution || '1K'}
+                            onChange={(value) => onUpdateState({ resolution: value })}
+                            disabled={isGeneratingSequence}
+                            options={resolutions}
+                        />
+                    </div>
+                )}
             </div>
+
             <div className="flex flex-wrap gap-x-4 gap-y-2">
                 <CustomCheckbox 
                     id="auto-crop-169"
@@ -88,7 +135,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
                     {t('image_sequence.run_selected')} ({checkedCount})
                 </button>
                 
-                {/* NEW: Batch Expand Buttons */}
+                {/* Batch Expand Buttons */}
                 <button 
                     onClick={() => onExpandSelected('16:9')}
                     disabled={isGeneratingSequence || isAnyFrameGenerating || checkedCount === 0}

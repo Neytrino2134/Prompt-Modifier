@@ -1,4 +1,5 @@
 
+
 export const ui = {
     'toolbar.settings': 'Settings',
     'toolbar.resetCanvas': 'Reset to Default',
@@ -90,6 +91,7 @@ export const ui = {
     'hotkeys.windows.title': 'Windows',
     'hotkeys.windows.search': 'Quick Search',
     'hotkeys.windows.catalog': 'Catalog',
+    'hotkeys.windows.fullscreen': 'Full Screen Mode (Shift+F)',
     'hotkeys.createNode.title': 'Create Node',
     'help.panelTitle': 'Help & Hotkeys',
     'help.subtitle': 'Help Center',

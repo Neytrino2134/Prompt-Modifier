@@ -1,4 +1,5 @@
 
+
 export const common = {
     'app.title': 'Prompt Modifier',
     'app.subtitle': 'Connect ideas to create a masterpiece',
@@ -13,7 +14,7 @@ export const common = {
     'welcome.apiKeyPlaceholder': 'Enter your API key',
     'welcome.apiKeyHelp': 'Your API key is stored locally in your browser.',
     'welcome.getKeyLink': 'Get API Key',
-    'welcome.iAmDeveloper': 'I am a Developer',
+    'welcome.iAmDeveloper': 'I work from Google AI Studio',
     'welcome.letsGo': 'Let\'s Go',
     'welcome.resume': 'Resume',
     'welcome.startNew': 'Start New Canvas',

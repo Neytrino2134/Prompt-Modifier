@@ -171,6 +171,32 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                            {msg.content}
                                        </p>
                                    )}
+                                   
+                                   {/* Grounding Sources */}
+                                   {msg.groundingMetadata?.groundingChunks?.length > 0 && (
+                                       <div className="mt-3 pt-2 border-t border-gray-700/50">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Sources</span>
+                                            <div className="flex flex-wrap gap-2">
+                                                {msg.groundingMetadata.groundingChunks.map((chunk: any, i: number) => {
+                                                    if (chunk.web) {
+                                                        return (
+                                                            <a 
+                                                                key={i} 
+                                                                href={chunk.web.uri} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                className="text-[10px] bg-gray-900/50 hover:bg-gray-700 text-cyan-400 px-2 py-1 rounded border border-gray-700 hover:border-cyan-500/50 transition-colors truncate max-w-[150px]"
+                                                                title={chunk.web.title}
+                                                            >
+                                                                {chunk.web.title || chunk.web.uri}
+                                                            </a>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })}
+                                            </div>
+                                       </div>
+                                   )}
                                </div>
                                
                                {msg.role === 'model' && (

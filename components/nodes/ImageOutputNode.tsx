@@ -75,9 +75,10 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
     ];
     
     const isNanoBanana = node.model === 'gemini-3-pro-image-preview';
+    const isFlashImage = node.model === 'gemini-2.5-flash-image';
     // An 'imagen' model is selected if the model string is not set (default) or starts with 'imagen-4.0'
     const isImagenModel = !node.model || node.model.startsWith('imagen-4.0');
-    const isAspectRatioEnabled = isImagenModel || isNanoBanana;
+    const isAspectRatioEnabled = isImagenModel || isNanoBanana || isFlashImage;
 
     const resolutions = [
         { value: '1K', label: '1K' },

@@ -382,6 +382,8 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                         values.push(parsed.prompt || '');
                     } else if (fromNode.type === NodeType.IMAGE_ANALYZER && conn.fromHandleId === 'text') {
                         values.push(parsed.description || '');
+                    } else if (fromNode.type === NodeType.PROMPT_PROCESSOR || fromNode.type === NodeType.VIDEO_PROMPT_PROCESSOR) {
+                        values.push(parsed.prompt || '');
                     } else if (fromNode.type === NodeType.CHARACTER_CARD) {
                         const charArr = Array.isArray(parsed) ? parsed : [parsed];
                         const char = charArr.find((c:any) => c.isOutput) || charArr[0];

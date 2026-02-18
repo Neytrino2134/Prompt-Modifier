@@ -3,6 +3,7 @@ export interface ChatMessage {
     role: string;
     content: string;
     images?: string[];
+    groundingMetadata?: any;
 }
 
 export interface ChatAttachment {
@@ -18,4 +19,5 @@ export interface ChatNodeState {
     attachments: ChatAttachment[];
     model: string;
     lastPrompt?: string;
+    useSearch: boolean;
 }

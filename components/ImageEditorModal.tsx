@@ -814,7 +814,8 @@ const ImageEditorModal: React.FC<ImageEditorModalProps> = ({ isOpen, onClose, on
           
           const prompt = "Modify the image based on the colored markings: 1. REMOVE objects covered in RED. 2. STRICTLY PRESERVE and do NOT change objects covered in GREEN. Fill the removed red areas naturally to match the surroundings.";
 
-          const newImageUrl = await generateImage(prompt, '1:1', [{ base64ImageData, mimeType }], 'gemini-3-flash-preview');
+          // Fix: Use 'gemini-2.5-flash-image' instead of 'gemini-3-flash-preview' for image editing
+          const newImageUrl = await generateImage(prompt, '1:1', [{ base64ImageData, mimeType }], 'gemini-2.5-flash-image');
           
           const newImg = new Image();
           newImg.onload = () => {
@@ -851,14 +852,12 @@ const ImageEditorModal: React.FC<ImageEditorModalProps> = ({ isOpen, onClose, on
             
             const prompt = "Replace the background with solid pure black color (#000000). Keep the main subject exactly identical.";
 
-            const newImageUrl = await generateImage(prompt, '1:1', [{ base64ImageData, mimeType }], 'gemini-3-flash-preview');
+            // Fix: Use 'gemini-2.5-flash-image' instead of 'gemini-3-flash-preview' for image editing
+            const newImageUrl = await generateImage(prompt, '1:1', [{ base64ImageData, mimeType }], 'gemini-2.5-flash-image');
             
             const newImg = new Image();
             newImg.crossOrigin = "anonymous";
             newImg.onload = () => {
-                 // Background removal logic (simulated by flood fill transparent logic if API returns black bg)
-                 // This mirrors previous implementation logic in EditorSidebar but now called from here or passed down
-                 // For now, let's just set the image as the result
                  imageRef.current = newImg;
                  setIsProcessing(false);
             };
@@ -885,7 +884,8 @@ const ImageEditorModal: React.FC<ImageEditorModalProps> = ({ isOpen, onClose, on
             const base64ImageData = mergedDataUrl.split(',')[1];
             const mimeType = 'image/png';
             
-            const newImageUrl = await generateImage(modificationPrompt, '1:1', [{ base64ImageData, mimeType }], 'gemini-3-flash-preview');
+            // Fix: Use 'gemini-2.5-flash-image' instead of 'gemini-3-flash-preview' for image editing
+            const newImageUrl = await generateImage(modificationPrompt, '1:1', [{ base64ImageData, mimeType }], 'gemini-2.5-flash-image');
             
             const newImg = new Image();
             newImg.onload = () => {

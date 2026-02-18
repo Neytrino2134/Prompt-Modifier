@@ -2,16 +2,19 @@
 import React, { useRef, useLayoutEffect } from 'react';
 import { Tooltip } from '../../Tooltip';
 import { ChatAttachment } from './types';
+import { GoogleSearchIcon } from '../../../components/icons/AppIcons';
 
 interface ChatInputProps {
     currentInput: string;
     attachments: ChatAttachment[];
     isChatting: boolean;
+    useSearch: boolean;
     onInputChange: (val: string) => void;
     onSend: () => void;
     onAttachmentsChange: (atts: ChatAttachment[]) => void;
     onPasteClipboard: () => void;
     onAddFileClick: () => void;
+    onToggleSearch: () => void;
     t: (key: string) => string;
     onFocus: () => void;
     onMouseDown: (e: React.MouseEvent) => void;
@@ -21,11 +24,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     currentInput,
     attachments,
     isChatting,
+    useSearch,
     onInputChange,
     onSend,
     onAttachmentsChange,
     onPasteClipboard,
     onAddFileClick,
+    onToggleSearch,
     t,
     onFocus,
     onMouseDown
@@ -162,6 +167,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                             </svg>
+                        </button>
+                    </Tooltip>
+
+                    <Tooltip content={useSearch ? "Google Search ON" : "Google Search OFF"} position="left">
+                        <button 
+                            onClick={onToggleSearch} 
+                            className={`p-1.5 rounded-md transition-colors duration-200 ${useSearch ? 'bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-gray-400 hover:text-white'}`}
+                        >
+                            <GoogleSearchIcon className="h-5 w-5" />
                         </button>
                     </Tooltip>
                  </div>

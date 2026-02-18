@@ -27,6 +27,20 @@ const HEADER_HEIGHT_PX = 37;
 
 const DEFAULT_INTEGRATION_INSTRUCTION = "Integrate these Entities into the scene, action and pose. Fill the background with environmental elements — fill in the gray area of the source scene image naturally.";
 
+const resolveCharacterConcept = (charRef: string, allConcepts: any[]) => {
+    if (!charRef) return null;
+    const normalize = (s: string) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const target = normalize(charRef);
+
+    return allConcepts.find((c: any) => {
+        if (c.index && normalize(c.index) === target) return true;
+        if (c.alias && normalize(c.alias) === target) return true;
+        if (c.name && normalize(c.name) === target) return true;
+        if (c.id && normalize(c.id) === target) return true;
+        return false;
+    });
+};
+
 export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onLoadImageSequenceFile, onGenerateImageSequence, onGenerateSelectedFrames, onStopImageSequence, isGeneratingSequence, onRegenerateFrame, onDownloadImageFromUrl, onCopyImageToClipboard, t, deselectAllNodes, connectedCharacterData, onDetachAndPasteConcept, onDetachImageToNode, onSaveSequenceToCatalog, setError, setImageViewer, getFullSizeImage, setFullSizeImage, connectedInputs, onRefreshUpstreamData, clearImagesForNodeFromCache, getUpstreamNodeValues, addToast, onSaveScriptToDisk, viewTransform }) => {
 
     const isPromptInputConnected = connectedInputs?.has('prompt_input');
@@ -55,7 +69,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         try {
             return JSON.parse(node.value || '{}');
         } catch {
-            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isSceneContextInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {}, sceneContexts: {}, expandedSceneContexts: [], checkedContextScenes: [] };
+            return { prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', resolution: '1K', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, checkedFrameNumbers: [], styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isStyleInserted: true, isSceneContextInserted: true, isUsedCharsCollapsed: true, isIntegrationSettingsCollapsed: true, isCharacterPromptCombinationCollapsed: true, integrationPrompt: DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters: [], conceptsMode: 'normal', connectedCharacterConfig: {}, collapsedScenes: [], collapsedOutputScenes: [], autoCrop169: true, leftPaneWidth: MIN_LEFT_PANE_WIDTH, createZip: false, imageDimensions: {}, sceneContexts: {}, expandedSceneContexts: [], checkedContextScenes: [] };
         }
     }, [node.value]);
 
@@ -70,7 +84,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     }
 
     // Default integration prompt handling if missing in JSON
-    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isSceneContextInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {}, sceneContexts = {}, expandedSceneContexts = [], checkedContextScenes = [] } = parsedValue;
+    const { prompts = [], images = {}, selectedFrameNumber = null, frameStatuses = {}, aspectRatio = '16:9', resolution = '1K', autoDownload = false, characterConcepts = [], model = 'gemini-2.5-flash-image', characterPromptCombination = 'replace', enableAspectRatio = false, checkedFrameNumbers = [], styleOverride = '', isStyleCollapsed = true, isStyleInserted = true, isSceneContextInserted = true, isUsedCharsCollapsed = true, isIntegrationSettingsCollapsed = true, isCharacterPromptCombinationCollapsed = true, integrationPrompt = DEFAULT_INTEGRATION_INSTRUCTION, usedCharacters = [], conceptsMode = 'normal', collapsedScenes = [], collapsedOutputScenes = [], autoCrop169 = true, leftPaneWidth = MIN_LEFT_PANE_WIDTH, createZip = false, imageDimensions = {}, sceneContexts = {}, expandedSceneContexts = [], checkedContextScenes = [] } = parsedValue;
 
     // Ensure integration prompt is set if it came in empty from older save
     useEffect(() => {
@@ -526,20 +540,6 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         }
     }, [setConnections, node.id, addToast]);
 
-    const resolveCharacterConcept = (charRef: string, concepts: any[]) => {
-        if (!charRef) return null;
-        const normalize = (s: string) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
-        const target = normalize(charRef);
-
-        return concepts.find((c: any) => {
-            if (c.index && normalize(c.index) === target) return true;
-            if (c.alias && normalize(c.alias) === target) return true;
-            if (c.name && normalize(c.name) === target) return true;
-            if (c.id && normalize(c.id) === target) return true;
-            return false;
-        });
-    };
-
     const handleCopyCombinedPrompt = useCallback((frameNumber: number) => {
         const promptItem = prompts.find((p: any) => p.frameNumber === frameNumber);
         if (!promptItem) return;
@@ -834,7 +834,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             currentStatuses[frameNumber] = 'generating';
             handleValueUpdate({ frameStatuses: currentStatuses });
 
-            // Fix: Use parsedValueRef.current.model
+            // Use the model selected in the node, fallback to default
             const modelToUse = parsedValueRef.current.model || 'gemini-2.5-flash-image';
 
             const newImage = await expandImageAspectRatio(fullSize, ratio, p, modelToUse);
@@ -919,14 +919,6 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         if (parsed.styleOverride) styleOverrideFromUpstream = parsed.styleOverride;
                         if (parsed.usedCharacters) usedCharactersFromUpstream = parsed.usedCharacters;
                         if (parsed.sceneContexts) {
-                             // Correctly handle upstream context updates:
-                             // Merge with existing contexts, upstream takes precedence OR we rely fully on upstream
-                             // For simplicity and to allow overrides, let's merge but prioritize upstream if it has data.
-                             // Actually, logic below handles change detection.
-                             // If upstream sends contexts, we want to use them.
-                             // HOWEVER, we also have `modifiedSceneContexts` from Editor node.
-                             // We should check if the incoming data HAS `modifiedSceneContexts` (from Editor)
-                             // and merge that on top.
                              let incomingContexts = parsed.sceneContexts;
                              if (parsed.modifiedSceneContexts) {
                                   incomingContexts = { ...incomingContexts, ...parsed.modifiedSceneContexts };
@@ -977,10 +969,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     };
 
     const handleUpdateUsedCharacterName = (idx: number, newName: string) => {
-        // Find the character by originalIndex to update correctly
-        // We use the original index to update the main array, regardless of sort order
         const targetOriginalIndex = sortedUsedCharacters[idx].originalIndex;
-
         const newChars = [...usedCharacters];
         if (newChars[targetOriginalIndex]) {
             newChars[targetOriginalIndex] = { ...newChars[targetOriginalIndex], name: newName };
@@ -991,7 +980,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const handleToggleUsedCharsCollapse = () => handleValueUpdate({ isUsedCharsCollapsed: !isUsedCharsCollapsed });
     const handleToggleStyleCollapse = () => handleValueUpdate({ isStyleCollapsed: !isStyleCollapsed });
     const handleToggleInsertStyle = (checked: boolean) => handleValueUpdate({ isStyleInserted: checked });
-    const handleToggleInsertSceneContext = (checked: boolean) => handleValueUpdate({ isSceneContextInserted: checked }); // New Handler
+    const handleToggleInsertSceneContext = (checked: boolean) => handleValueUpdate({ isSceneContextInserted: checked }); 
     const handleToggleIntegrationSettings = () => handleValueUpdate({ isIntegrationSettingsCollapsed: !isIntegrationSettingsCollapsed });
     const handleToggleCharacterPromptCombinationCollapse = () => handleValueUpdate({ isCharacterPromptCombinationCollapsed: !isCharacterPromptCombinationCollapsed });
 
@@ -1054,8 +1043,8 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                         conceptsMode={conceptsMode}
                         onToggleMode={handleToggleConceptsMode}
                         duplicateIndices={duplicateIndices} 
-                        onCopyImageToClipboard={onCopyImageToClipboard} // Passed
-                        onDownloadImageFromUrl={onDownloadImageFromUrl} // Passed
+                        onCopyImageToClipboard={onCopyImageToClipboard} 
+                        onDownloadImageFromUrl={onDownloadImageFromUrl} 
                     />
                 </div>
 
@@ -1099,7 +1088,6 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                         let tooltip = "";
 
                                         if (result.status === 'match') {
-                                            // Changed to use theme accent secondary color
                                             icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-accent-secondary" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>;
                                             textColor = "text-connection-text";
                                             tooltip = "Совпадение имени и индекса";
@@ -1112,7 +1100,6 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                             textColor = "text-red-400";
                                             tooltip = `Имя совпадает ("${char.name}"), но индекс отличается. Исправьте индекс на: ${result.expectedIndex}`;
                                         } else {
-                                            // Missing or Empty
                                             icon = <span className="text-gray-600 text-[10px]">•</span>;
                                             tooltip = "Персонаж не найден в концептах";
                                         }
@@ -1122,7 +1109,6 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                                 <div className="w-4 flex-shrink-0 flex items-center justify-center">
                                                     {icon}
                                                 </div>
-                                                {/* Updated to text-connection-text */}
                                                 <span className={`text-[10px] font-mono w-20 shrink-0 truncate ${textColor}`}>{char.index}:</span>
                                                 <input
                                                     type="text"
@@ -1177,7 +1163,6 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                                     <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer py-1 flex-grow">
                                         {t('image_sequence.character_prompt_combination')}
                                         {characterPromptCombination !== 'none' && (
-                                            // Updated to text-connection-text
                                             <span className="text-connection-text font-normal ml-1 normal-case">
                                                 ({characterPromptCombination === 'combine' ? t('image_sequence.combination_combine') : t('image_sequence.combination_replace')})
                                             </span>
@@ -1412,7 +1397,24 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                     onClearImages={handleClearImages}
                     onCopyCombinedPrompt={handleCopyCombinedPrompt} // NEW PROP
                 />
-                <GenerationControls model={model} autoCrop169={autoCrop169} autoDownload={autoDownload} createZip={createZip} isGeneratingSequence={!!isGeneratingSequence} isAnyFrameGenerating={isAnyFrameBusy} checkedCount={checkedFrameNumbers.length} promptsLength={prompts.length} onUpdateState={handleValueUpdate} onGenerateSelected={() => onGenerateSelectedFrames(node.id)} onDownloadSelected={handleDownloadSelected} onStartQueue={() => onGenerateImageSequence(node.id, 0)} onExpandSelected={handleBatchExpand} t={t} />
+                <GenerationControls 
+                    model={model}
+                    aspectRatio={aspectRatio}
+                    resolution={resolution}
+                    autoCrop169={autoCrop169} 
+                    autoDownload={autoDownload} 
+                    createZip={createZip} 
+                    isGeneratingSequence={!!isGeneratingSequence} 
+                    isAnyFrameGenerating={isAnyFrameBusy} 
+                    checkedCount={checkedFrameNumbers.length} 
+                    promptsLength={prompts.length} 
+                    onUpdateState={handleValueUpdate} 
+                    onGenerateSelected={() => onGenerateSelectedFrames(node.id)} 
+                    onDownloadSelected={handleDownloadSelected} 
+                    onStartQueue={() => onGenerateImageSequence(node.id, 0)} 
+                    onExpandSelected={handleBatchExpand} 
+                    t={t} 
+                />
             </div>
         </div>
     );

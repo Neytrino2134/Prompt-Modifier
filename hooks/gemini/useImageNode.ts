@@ -5,6 +5,25 @@ import { generateThumbnail } from '../../utils/imageUtils';
 import { GeminiGenerationCommonProps } from './types';
 import { NodeType } from '../../types';
 import { RATIO_INDICES } from '../../utils/nodeUtils';
+import { addMetadataToPNG } from '../../utils/pngMetadata';
+
+const triggerDownload = (url: string, prompt: string) => {
+    let assetUrl = url;
+    if (url.startsWith('data:image/png')) {
+        assetUrl = addMetadataToPNG(url, 'prompt', prompt);
+    }
+    const link = document.createElement('a');
+    link.href = assetUrl;
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+    const filename = `Image_Output_${date}_${time}.png`;
+    
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
 
 export const useImageNode = ({
     nodes,
@@ -93,6 +112,10 @@ export const useImageNode = ({
 
             } else {
                 updateNodeInStorage(currentTabId, nodeId, () => thumbnailUrl, { frame: 0, url: imageUrl });
+                
+                if (node.autoDownload) {
+                    triggerDownload(imageUrl, prompt);
+                }
             }
 
         } catch (e: any) {

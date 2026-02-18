@@ -1,4 +1,5 @@
 
+
 export const common = {
     'app.title': 'Модификатор промптов',
     'app.subtitle': 'Соединяйте идеи для создания шедевров',
@@ -13,7 +14,7 @@ export const common = {
     'welcome.apiKeyPlaceholder': 'Введите ваш API ключ здесь...',
     'welcome.apiKeyHelp': 'Ваш API ключ хранится локально в браузере.',
     'welcome.getKeyLink': 'Получить бесплатный API ключ',
-    'welcome.iAmDeveloper': 'Я разработчик',
+    'welcome.iAmDeveloper': 'Я работаю из Google AI Studio',
     'welcome.letsGo': 'Поехали',
     'welcome.resume': 'Продолжить',
     'welcome.startNew': 'Начать заново',

@@ -128,7 +128,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     getFullSizeImage, t, upstreamPrompt, isTextConnected,
     onEditPrompt, onEditInSource, deselectAllNodes, nodeId
 }) => {
-    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt } = state;
+    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
     
     // Range State
     const [rangeStart, setRangeStart] = useState('');
@@ -138,6 +138,11 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const [scrollTop, setScrollTop] = useState(0);
     const [containerWidth, setContainerWidth] = useState(0);
+
+    const isFlashImage = model === 'gemini-2.5-flash-image';
+    const isPro = model === 'gemini-3-pro-image-preview';
+    const showAspectRatio = isFlashImage || isPro;
+    const showResolution = isPro;
 
     useEffect(() => {
         if (!isSequenceMode || !containerRef.current) return;
@@ -569,6 +574,34 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                          </button>
                      </Tooltip>
                 </div>
+
+                {/* Aspect Ratio Selector */}
+                {showAspectRatio && (
+                    <div className="w-20">
+                         <CustomSelect
+                            value={aspectRatio || '1:1'}
+                            onChange={(value) => onUpdateState({ aspectRatio: value })}
+                            disabled={isEditing}
+                            options={['1:1', '16:9', '9:16', '4:3', '3:4'].map(r => ({ value: r, label: r }))}
+                            id="aspect-ratio-selector"
+                            title="Aspect Ratio"
+                        />
+                    </div>
+                )}
+
+                 {/* Resolution Selector (Only for Pro) */}
+                 {showResolution && (
+                    <div className="w-20">
+                         <CustomSelect
+                            value={resolution || '1K'}
+                            onChange={(value) => onUpdateState({ resolution: value })}
+                            disabled={isEditing}
+                            options={['1K', '2K', '4K'].map(r => ({ value: r, label: r }))}
+                             id="resolution-selector"
+                             title="Resolution"
+                        />
+                    </div>
+                )}
 
                 {/* Auto Crop Toggle (Moved here) */}
                 <div 

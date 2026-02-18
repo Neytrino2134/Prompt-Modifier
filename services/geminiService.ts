@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI, GenerateContentResponse, Modality, Type } from "@google/genai";
 
 export const getApiKey = () => {
@@ -494,12 +493,23 @@ export const generateImage = async (
           }
 
           // Use the passed model if available, otherwise default logic
-          const editingModel = model || 'gemini-2.5-flash-image';
+          // Fix: Ensure we use a valid image model for editing. 3-flash-preview (text) cannot generate/edit images.
+          let editingModel = model || 'gemini-2.5-flash-image';
+          if (editingModel === 'gemini-3-flash-preview') {
+             editingModel = 'gemini-2.5-flash-image';
+          }
+          
+          const config: any = { responseModalities: [Modality.IMAGE] };
+          
+          // Allow aspectRatio config for 2.5 flash image in editing mode if specified
+          if (editingModel === 'gemini-2.5-flash-image' && aspectRatio && aspectRatio !== '1:1') {
+               config.imageConfig = { aspectRatio: aspectRatio };
+          }
 
           const response = await ai.models.generateContent({
             model: editingModel,
             contents: { parts },
-            config: { responseModalities: [Modality.IMAGE] },
+            config: config,
           });
 
           const candidate = response.candidates?.[0];
@@ -532,7 +542,10 @@ export const generateImage = async (
               const response = await ai.models.generateContent({
                 model: modelToUse,
                 contents: { parts: [{ text: prompt }] },
-                config: { responseModalities: [Modality.IMAGE] },
+                config: { 
+                    responseModalities: [Modality.IMAGE],
+                    imageConfig: { aspectRatio } // Enabled aspect ratio for gemini-2.5-flash-image
+                },
               });
               const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
               if (part?.inlineData) {
@@ -590,7 +603,7 @@ export const generateVideo = async (
       const videoBlob = await response.blob();
       return new Promise((resolve, reject) => {
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
+          reader.onload = () => resolve(reader.result as string);
           reader.onerror = reject;
           reader.readAsDataURL(videoBlob);
       });

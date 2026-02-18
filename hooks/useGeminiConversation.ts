@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef } from 'react';
 import type { Node, Tab } from '../types';
 import { GoogleGenAI, Chat } from "@google/genai";
@@ -131,7 +132,7 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
         if (!node || node.type !== 'GEMINI_CHAT') return;
     
         const initialParsed = JSON.parse(node.value || '{}');
-        let { messages = [], currentInput, style = 'general', model = 'gemini-3-flash-preview' } = initialParsed;
+        let { messages = [], currentInput, style = 'general', model = 'gemini-3-flash-preview', useSearch = false } = initialParsed;
         
         // Handle Attachments: Ensure array structure
         const attachments = initialParsed.attachments || (initialParsed.attachment ? [initialParsed.attachment] : []);
@@ -201,15 +202,32 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
                  }
             });
             
+            // Configure tools (Google Search)
+            // Use 'tools' in the request config
+            const requestConfig: any = {};
+            if (useSearch) {
+                requestConfig.tools = [{ googleSearch: {} }];
+            }
+
             // Send Message using structured parts
-            const response = await session.chat.sendMessage({ message: parts });
+            const response = await session.chat.sendMessage({ 
+                message: parts,
+                config: requestConfig
+            });
             
             const modelResponse = response.text || "";
 
             const promptMatch = modelResponse.match(/```prompt\n([\s\S]*?)\n```/);
             const extractedPrompt = promptMatch ? promptMatch[1].trim() : '';
+            
+            // Extract Grounding Metadata if available
+            const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
     
-            const finalMessages = [...newMessages, { role: 'model', content: modelResponse }];
+            const finalMessages = [...newMessages, { 
+                role: 'model', 
+                content: modelResponse,
+                groundingMetadata: groundingMetadata 
+            }];
             
             updateNodeInStorage(currentTabId, nodeId, (prev) => ({ 
                 ...prev, 
@@ -236,7 +254,8 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
             lastPrompt: '', 
             attachments: [],
             style: prev.style || 'general',
-            model: prev.model || 'gemini-3-flash-preview' // Preserve model
+            model: prev.model || 'gemini-3-flash-preview', // Preserve model
+            useSearch: prev.useSearch || false
         }));
     }, [updateNodeInStorage]);
 

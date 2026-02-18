@@ -1,3 +1,4 @@
+
 export const nodes = {
     'node.title.text_input': 'Текстовый узел',
     'node.title.image_input': 'Узел изображения',
@@ -234,7 +235,8 @@ export const nodes = {
     'node.content.integrationInstruction': 'Инструкция интеграции',
     'node.content.additionalPromptSuffix': 'Доп. Промпт (Суффикс)',
     'node.content.suffix': 'Суффикс',
-    'node.content.insertSceneContext': 'Вставлять окружение сцены',
+    'node.content.insertSceneContext': 'Вставлять контекст сцены',
+    'node.content.insertStyle': 'Вставлять описание стиля',
     'node.content.modificationRequest': 'Запрос на модификацию',
     'search.node.text_input.title': 'Текстовый ввод',
     'search.node.text_input.description': 'Простое многострочное текстовое поле.',
@@ -302,5 +304,14 @@ export const nodes = {
     'image_sequence.shot_type.MS': "Интегрируйте Сущность со средним планом (MS) в сцену. Персонаж по пояс.",
     'image_sequence.shot_type.CU': "Интегрируйте Сущность с крупным планом (CU) в сцену.",
     'image_sequence.shot_type.ECU': "Интегрируйте Сущность с экстремально крупным планом (ECU) в сцену. Максимальная детализация.",
-    'image_sequence.shot_type.LS': "Интегрируйте Сущность с дальним планом (LS) в сцену, чтобы показать масштаб."
+    'image_sequence.shot_type.LS': "Интегрируйте Сущность с дальним планом (LS) в сцену, чтобы показать масштаб.",
+
+    'node.content.technicalPrompt': 'Технический промпт',
+    'node.promptProcessor.safePromptTooltip': 'Переписывает промпт для соблюдения правил безопасности.',
+    'node.promptProcessor.technicalPromptTooltip': 'Преобразует промпт в детальное техническое описание (свет, камера, рендер).',
+    'node.promptProcessor.enhanceTooltip': 'Использует ИИ для улучшения и обогащения промпта деталями.',
+    'node.promptProcessor.chainTooltip': 'Выполняет этот узел и запускает все подключенные узлы.',
+    'image_sequence.tooltip.autoCrop': 'Автоматически обрезает сгенерированные изображения до 16:9.',
+    'image_sequence.tooltip.autoDownload': 'Автоматически сохраняет каждое изображение на устройство.',
+    'image_sequence.tooltip.createZip': 'Упаковывает все выбранные изображения в один ZIP-архив.',
 };

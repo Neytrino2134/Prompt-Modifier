@@ -99,6 +99,8 @@ export const editors = {
     'image_sequence.force_refresh': 'Force Refresh',
     'image_sequence.select_scene_frames': 'Select all frames in this scene',
     'image_sequence.collapse_other_scenes': 'Collapse other scenes',
+    'image_sequence.auto_crop': 'Auto Crop 16:9',
+    'image_sequence.create_zip': 'Create ZIP Archive',
     'prompt_sequence_editor.instructionPlaceholder': 'Enter instruction to modify prompts...',
     'prompt_sequence_editor.modifying': 'Modifying...',
     'prompt_sequence_editor.modifySelected': 'Modify Selected ({count})',
@@ -110,7 +112,7 @@ export const editors = {
     'geminiChat.mode.script': 'Script Writer',
     'geminiChat.mode.youtube': 'YouTube Analyst',
     'image_sequence.shot_type.WS': "Integrate the Entity with a Wide Shot (WS) into the scene and action. Show the environment.",
-    'image_sequence.shot_type.MS': "Integrate the Entity with a Medium Shot (MS) into the scene.",
+    'image_sequence.shot_type.MS': "Integrate the Entity with a Medium Shot (MS) into the scene. Character from waist up.",
     'image_sequence.shot_type.CU': "Integrate the Entity with a Close-Up (CU) into the scene.",
     'image_sequence.shot_type.ECU': "Integrate the Entity with an Extreme Close-Up (ECU) into the scene. Maximum detail.",
     'image_sequence.shot_type.LS': "Integrate the Entity with a Long Shot (LS) into the scene to show scale."

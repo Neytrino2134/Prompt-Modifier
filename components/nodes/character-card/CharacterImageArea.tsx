@@ -101,7 +101,11 @@ export const CharacterImageArea: React.FC<CharacterImageAreaProps> = ({
                             }} 
                             onClick={(e) => { 
                                 e.stopPropagation(); 
-                                setImageViewer({ sources: [{ src: getFullSizeImage((cardIdx * 10) + (RATIO_INDICES[char.selectedRatio] || 1)) || char.image!, frameNumber: 0 }], initialIndex: 0 }); 
+                                const fullRes = getFullSizeImage((cardIdx * 10) + (RATIO_INDICES[char.selectedRatio] || 1));
+                                const thumb = char.thumbnails[char.selectedRatio] || char.image;
+                                if (fullRes || thumb) {
+                                    setImageViewer({ sources: [{ src: fullRes || thumb!, frameNumber: 0 }], initialIndex: 0 }); 
+                                }
                             }} 
                         />
                         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">

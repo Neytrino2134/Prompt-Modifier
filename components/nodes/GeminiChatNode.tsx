@@ -1,3 +1,4 @@
+
 import React, { useMemo, useRef } from 'react';
 import type { NodeContentProps } from '../../types';
 import { useAppContext } from '../../contexts/AppContext';
@@ -23,14 +24,15 @@ export const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onVa
                 currentInput: val.currentInput || '',
                 style: val.style || 'general',
                 attachments: val.attachments || [],
-                model: val.model || 'gemini-3-flash-preview'
+                model: val.model || 'gemini-3-flash-preview',
+                useSearch: val.useSearch || false
             };
         } catch {
-            return { messages: [], currentInput: '', style: 'general', attachments: [], model: 'gemini-3-flash-preview' };
+            return { messages: [], currentInput: '', style: 'general', attachments: [], model: 'gemini-3-flash-preview', useSearch: false };
         }
     }, [node.value]);
 
-    const { messages, currentInput, style, attachments, model } = chatValue;
+    const { messages, currentInput, style, attachments, model, useSearch } = chatValue;
 
     const handleValueUpdate = (updates: Partial<ChatNodeState>) => {
         onValueChange(node.id, JSON.stringify({ ...chatValue, ...updates }));
@@ -48,6 +50,10 @@ export const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onVa
 
     const handleModelChange = (newModel: string) => {
         handleValueUpdate({ model: newModel });
+    };
+
+    const handleToggleSearch = () => {
+        handleValueUpdate({ useSearch: !useSearch });
     };
     
     const handleFileClick = () => {
@@ -171,11 +177,13 @@ export const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onVa
                 currentInput={currentInput}
                 attachments={attachments}
                 isChatting={isChatting}
+                useSearch={useSearch}
                 onInputChange={(val) => handleValueUpdate({ currentInput: val })}
                 onSend={handleSend}
                 onAttachmentsChange={(atts) => handleValueUpdate({ attachments: atts })}
                 onPasteClipboard={handlePasteClipboard}
                 onAddFileClick={handleFileClick}
+                onToggleSearch={handleToggleSearch}
                 t={t}
                 onFocus={onSelectNode}
                 onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}

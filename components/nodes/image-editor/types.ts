@@ -35,9 +35,9 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     enableOutpainting: false,
     outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.',
     model: 'gemini-2.5-flash-image', 
-    aspectRatio: '1:1',
+    aspectRatio: '16:9', // Default changed to 16:9
     enableAspectRatio: false,
-    autoCrop169: true,
+    autoCrop169: true, // Default enabled
     leftPaneWidth: 360,
     topPaneHeight: 330,
     resolution: '1K',
@@ -48,7 +48,7 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     framePrompts: {},
     sequenceOutputs: [],
     checkedSequenceOutputIndices: [],
-    autoDownload: true,
+    autoDownload: true, // Default enabled
     createZip: false, // Default false
     checkedInputIndices: [],
     selectedSourceFrameIndex: null

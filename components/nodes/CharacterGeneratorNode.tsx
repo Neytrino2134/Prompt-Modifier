@@ -164,6 +164,13 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
     const parsedValue = useMemo(() => {
         try {
             const parsed = JSON.parse(node.value || '{}');
+            let chars = Array.isArray(parsed.characters) ? parsed.characters : [];
+            // Ensure aspect ratio property exists
+            chars = chars.map((c: any) => ({
+                ...c,
+                aspectRatio: c.aspectRatio || '1:1'
+            }));
+
             return {
                 prompt: parsed.prompt || '',
                 numberOfCharacters: parsed.numberOfCharacters || 1,
@@ -171,7 +178,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                 characterType: parsed.characterType || 'simple',
                 style: parsed.style || 'simple',
                 customStyle: parsed.customStyle || '',
-                characters: Array.isArray(parsed.characters) ? parsed.characters : [],
+                characters: chars,
                 additionalPrompt: parsed.additionalPrompt !== undefined ? parsed.additionalPrompt : SUFFIX_CHAR,
                 error: parsed.error || null,
             };
@@ -231,16 +238,12 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
             name: charToCopy.name,
             index: charIndex,
             image: charToCopy.imageBase64 ? `data:image/png;base64,${charToCopy.imageBase64}` : null,
-            selectedRatio: '1:1',
+            selectedRatio: charToCopy.aspectRatio || '1:1',
             prompt: charToCopy.prompt,
             fullDescription: charToCopy.fullDescription,
             imageSources: imageSources,
             additionalPrompt: charToCopy.additionalPrompt || additionalPrompt
         };
-
-        // We wrap in array because pasting expects an array of cards usually, or handlePaste supports single object handling?
-        // CharacterCardNode handlePaste supports both.
-        // But to be safe and consistent with "Copy Node", we stick to the single object format designated for card transfer.
 
         const dataStr = JSON.stringify(characterData, null, 2);
         navigator.clipboard.writeText(dataStr);
@@ -270,7 +273,7 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
             name: char.name,
             index: charIndex,
             image: char.imageBase64 ? `data:image/png;base64,${char.imageBase64}` : null,
-            selectedRatio: '1:1',
+            selectedRatio: char.aspectRatio || '1:1',
             prompt: char.prompt,
             fullDescription: char.fullDescription,
             imageSources: imageSources,
@@ -342,8 +345,11 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                 charAdditionalPrompt = additionalPrompt || SUFFIX_CHAR;
             }
 
-            if (idx !== c.index || charAdditionalPrompt !== c.additionalPrompt) {
-                return { ...c, index: idx, additionalPrompt: charAdditionalPrompt };
+            // Ensure aspect ratio is set
+            const charRatio = c.aspectRatio || '1:1';
+
+            if (idx !== c.index || charAdditionalPrompt !== c.additionalPrompt || charRatio !== c.aspectRatio) {
+                return { ...c, index: idx, additionalPrompt: charAdditionalPrompt, aspectRatio: charRatio };
             }
             return c;
         });
@@ -664,11 +670,24 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
                                                         </div>
                                                     </>
                                                 ) : (
-                                                    <div className="text-gray-500 text-xs text-center px-2">
+                                                    <div className="text-gray-500 text-xs text-center px-2 flex flex-col gap-1 items-center justify-center h-full">
                                                         {isGeneratingCharacterImage === `${node.id}-${char.id}` ? (
                                                             <svg className="animate-spin h-6 w-6 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                                         ) : (
-                                                            <button onClick={(e) => { e.stopPropagation(); onGenerateCharacterImage && onGenerateCharacterImage(node.id, char.id); }} className="text-accent-text hover:text-accent-hover underline font-semibold">Generate Image</button>
+                                                            <>
+                                                                <div className="flex gap-1 justify-center w-full">
+                                                                     {['1:1', '16:9', '9:16'].map(r => (
+                                                                        <button 
+                                                                            key={r}
+                                                                            onClick={(e) => { e.stopPropagation(); updateCharacter(char.id, 'aspectRatio', r); }}
+                                                                            className={`px-1 py-0.5 text-[8px] rounded border transition-colors ${char.aspectRatio === r ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700'}`}
+                                                                        >
+                                                                            {r}
+                                                                        </button>
+                                                                     ))}
+                                                                </div>
+                                                                <button onClick={(e) => { e.stopPropagation(); onGenerateCharacterImage && onGenerateCharacterImage(node.id, char.id); }} className="text-accent-text hover:text-accent-hover underline font-semibold mt-1">Generate Image</button>
+                                                            </>
                                                         )}
                                                     </div>
                                                 )}

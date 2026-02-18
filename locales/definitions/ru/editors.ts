@@ -1,4 +1,5 @@
 
+
 export const editors = {
     'imageEditor.title': 'Растровый редактор',
     'imageEditor.canvasResolution': 'Разрешение холста',
@@ -73,10 +74,10 @@ export const editors = {
     'image_sequence.invert_selection': 'Инвертировать',
     'image_sequence.run_selected': 'Запустить выбранные',
     'image_sequence.start_queue': 'Запустить очередь',
-    'image_sequence.character_prompt_combination': 'Комбинация промптов персонажа',
+    'image_sequence.character_prompt_combination': 'Режим интеграции персонажа',
     'image_sequence.combination_none': 'Нет',
-    'image_sequence.combination_combine': 'Комбинировать',
-    'image_sequence.combination_replace': 'Заменять теги',
+    'image_sequence.combination_combine': 'Объединение (Combine)',
+    'image_sequence.combination_replace': 'Заменять теги (Replace)',
     'image_sequence.status.error': 'Ошибка',
     'image_sequence.status.pending': 'В очереди',
     'image_sequence.clear_selected_prompts': 'Очистить выбранные промпты',
@@ -98,6 +99,8 @@ export const editors = {
     'image_sequence.force_refresh': 'Принудительное обновление',
     'image_sequence.select_scene_frames': 'Выбрать все кадры сцены',
     'image_sequence.collapse_other_scenes': 'Свернуть другие сцены',
+    'image_sequence.auto_crop': 'Авто-кадрирование 16:9',
+    'image_sequence.create_zip': 'Создать ZIP-архив',
     'prompt_sequence_editor.instructionPlaceholder': 'Введите инструкцию для изменения промптов...',
     'prompt_sequence_editor.modifying': 'Изменение...',
     'prompt_sequence_editor.modifySelected': 'Изменить выбранные ({count})',
@@ -113,5 +116,8 @@ export const editors = {
     'image_sequence.shot_type.MS': "Интегрируйте Сущность со средним планом (MS) в сцену. Персонаж по пояс.",
     'image_sequence.shot_type.CU': "Интегрируйте Сущность с крупным планом (CU) в сцену.",
     'image_sequence.shot_type.ECU': "Интегрируйте Сущность с экстремально крупным планом (ECU) в сцену. Максимальная детализация.",
-    'image_sequence.shot_type.LS': "Интегрируйте Сущность с дальним планом (LS) в сцену, чтобы показать масштаб."
+    'image_sequence.shot_type.LS': "Интегрируйте Сущность с дальним планом (LS) в сцену, чтобы показать масштаб.",
+    'image_sequence.tooltip.autoCrop': 'Автоматически обрезает сгенерированные изображения до соотношения 16:9.',
+    'image_sequence.tooltip.autoDownload': 'Автоматически сохраняет каждое изображение на устройство после генерации.',
+    'image_sequence.tooltip.createZip': 'Упаковывает все выбранные изображения в единый ZIP-архив при скачивании.'
 };

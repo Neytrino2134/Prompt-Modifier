@@ -236,6 +236,7 @@ export const nodes = {
     'node.content.additionalPromptSuffix': 'Additional Prompt (Suffix)',
     'node.content.suffix': 'Suffix',
     'node.content.insertSceneContext': 'Insert Scene Context',
+    'node.content.insertStyle': 'Insert Visual Style',
     'node.content.modificationRequest': 'Modification Request',
     'search.node.text_input.title': 'Text Input',
     'search.node.text_input.description': 'A simple multiline text field.',
@@ -303,5 +304,15 @@ export const nodes = {
     'image_sequence.shot_type.MS': "Integrate the Entity with a Medium Shot (MS) into the scene. Character from waist up.",
     'image_sequence.shot_type.CU': "Integrate the Entity with a Close-Up (CU) into the scene.",
     'image_sequence.shot_type.ECU': "Integrate the Entity with an Extreme Close-Up (ECU) into the scene. Maximum detail.",
-    'image_sequence.shot_type.LS': "Integrate the Entity with a Long Shot (LS) into the scene to show scale."
+    'image_sequence.shot_type.LS': "Integrate the Entity with a Long Shot (LS) into the scene to show scale.",
+    'node.content.technicalPrompt': 'Technical Prompt',
+    
+    'node.promptProcessor.safePromptTooltip': 'Rewrites the prompt to comply with safety guidelines and avoid policy violations.',
+    'node.promptProcessor.technicalPromptTooltip': 'Converts the prompt into a highly detailed technical specification (lighting, camera, render settings).',
+    'node.promptProcessor.enhanceTooltip': 'Uses AI to expand and enrich the prompt with descriptive details.',
+    'node.promptProcessor.chainTooltip': 'Executes this node and triggers all connected downstream nodes.',
+
+    'image_sequence.tooltip.autoCrop': 'Automatically crops generated images to 16:9 ratio.',
+    'image_sequence.tooltip.autoDownload': 'Automatically saves each image to your device upon generation.',
+    'image_sequence.tooltip.createZip': 'Packages all selected images into a single ZIP archive for download.'
 };

@@ -150,10 +150,13 @@ export const useSequenceNode = ({
                 try {
                     // 1. Prepare images first
                     let charNames = promptItem.characters || [];
-                    if (charNames.length === 0 && promptItem.prompt) {
-                        const foundTags = promptItem.prompt.match(/(?:character|entity)-\d+/gi);
+                    
+                    // ALWAYS scan prompt text for entity tags to ensure we capture characters mentioned in text
+                    // even if not explicitly listed in the characters array.
+                    if (promptItem.prompt) {
+                        const foundTags = promptItem.prompt.match(/(?:character|entity)[-\s]?\d+/gi);
                         if (foundTags) {
-                             charNames = [...new Set(foundTags)];
+                             charNames = [...new Set([...charNames, ...foundTags])];
                         }
                     }
 
@@ -237,7 +240,7 @@ export const useSequenceNode = ({
                     }
 
                     const imageUrl = await raceWithAbort(
-                        generateImage(fullPrompt, parsed.aspectRatio, finalImagesToSend.length > 0 ? finalImagesToSend : undefined, parsed.model),
+                        generateImage(fullPrompt, parsed.aspectRatio, finalImagesToSend.length > 0 ? finalImagesToSend : undefined, parsed.model, parsed.resolution),
                         abortControllerRef.current!.signal
                     );
                     
@@ -333,11 +336,15 @@ export const useSequenceNode = ({
                 }));
 
                 try {
+                    // 1. Prepare images first
                     let charNames = promptItem.characters || [];
-                    if (charNames.length === 0 && promptItem.prompt) {
-                        const foundTags = promptItem.prompt.match(/(?:character|entity)-\d+/gi);
+                    
+                    // ALWAYS scan prompt text for entity tags to ensure we capture characters mentioned in text
+                    // even if not explicitly listed in the characters array.
+                    if (promptItem.prompt) {
+                        const foundTags = promptItem.prompt.match(/(?:character|entity)[-\s]?\d+/gi);
                         if (foundTags) {
-                             charNames = [...new Set(foundTags)];
+                             charNames = [...new Set([...charNames, ...foundTags])];
                         }
                     }
 
@@ -419,7 +426,7 @@ export const useSequenceNode = ({
                     }
 
                     const imageUrl = await raceWithAbort(
-                        generateImage(fullPrompt, parsed.aspectRatio, finalImagesToSend.length > 0 ? finalImagesToSend : undefined, parsed.model),
+                        generateImage(fullPrompt, parsed.aspectRatio, finalImagesToSend.length > 0 ? finalImagesToSend : undefined, parsed.model, parsed.resolution),
                         abortControllerRef.current!.signal
                     );
 

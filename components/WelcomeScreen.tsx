@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage, getTranslation, LanguageCode, TranslationKey, languages } from '../localization';
 import { useAppContext } from '../contexts/AppContext';
@@ -501,15 +502,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
 
   const handleDeveloperStart = () => {
     localStorage.setItem('settings_useDevKey', 'true');
-    if (context) context.setIsInstantCloseEnabled(true);
-    
-    // Auto-select Russian language
-    setSecondaryLanguage('ru');
-    setLanguage('ru');
-    setVisualLang('ru');
-
-    // Force reset to apply Russian titles to the default nodes (true), suppress tutorial (true), use 'ru' override
-    triggerExit(true, true, 'ru');
+    triggerExit(true, true);
   };
 
   return (
