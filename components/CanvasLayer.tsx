@@ -72,7 +72,7 @@ const CanvasLayer: React.FC = () => {
         handleCanvasMouseDown, handleCanvasContextMenu, handleCanvasTouchStart, handleCanvasTouchMove, handleCanvasTouchEnd,
         updatePointerPosition, handleWheel, handleCanvasDoubleClick,
         handleDrop, handleDragOver, handleDragEnter, handleDragLeave,
-        getCanvasCursor, setCanvasRef,
+        getCanvasCursor,
         dockHoverMode, handleDockNode, handleUndockNode, focusedNodeId,
         selectedNodeIds, hoveredNodeId, setHoveredNodeId, dragOverNodeId,
         draggingInfo, connectingInfo, connectionTarget, spawnLine,
@@ -180,8 +180,6 @@ const CanvasLayer: React.FC = () => {
         const isGroupDragging = !!activeGroupId && groupId === activeGroupId;
 
         return {
-            key: node.id,
-            node: node,
             isGrouped: isGrouped,
             isGroupDragging: isGroupDragging,
             onMouseDown: (e: any) => context.handleNodeMouseDown(e, node.id),

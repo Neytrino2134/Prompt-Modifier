@@ -145,17 +145,15 @@ export const useCanvas = (initialTransform?: { scale: number; translate: Point }
     }, [canvasElement, handleWheel]);
 
     const startPanning = useCallback((point: Point) => {
-        setViewTransform(current => {
-            if (!Number.isFinite(current.translate.x) || !Number.isFinite(current.translate.y)) {
-                return { scale: 1, translate: { x: window.innerWidth / 2, y: window.innerHeight / 2 } };
-            }
-            setPanInfo({
-                startPoint: point,
-                startTranslate: { ...current.translate },
-            });
-            return current;
+        if (!Number.isFinite(viewTransform.translate.x) || !Number.isFinite(viewTransform.translate.y)) {
+            setViewTransform({ scale: 1, translate: { x: window.innerWidth / 2, y: window.innerHeight / 2 } });
+            return;
+        }
+        setPanInfo({
+            startPoint: point,
+            startTranslate: { ...viewTransform.translate },
         });
-    }, []);
+    }, [viewTransform.translate]);
 
     const stopPanning = useCallback(() => setPanInfo(null), []);
 

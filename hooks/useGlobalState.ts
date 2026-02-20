@@ -42,6 +42,7 @@ export const useGlobalState = (currentNodes: Node[]) => {
     }, []);
 
     const clearUnusedFullSizeImages = useCallback(() => {
+        let removedCount = 0;
         setFullSizeImageCache(prev => {
             const newCache: Record<string, Record<number, string>> = {};
             currentNodes.forEach(node => {
@@ -49,11 +50,12 @@ export const useGlobalState = (currentNodes: Node[]) => {
                     newCache[node.id] = prev[node.id];
                 }
             });
-            const removedCount = Object.keys(prev).length - Object.keys(newCache).length;
-            if (removedCount > 0) addToast(`Cleared ${removedCount} unused items from cache`, 'info');
-            else addToast('Cache is already optimized', 'info');
+            removedCount = Object.keys(prev).length - Object.keys(newCache).length;
             return newCache;
         });
+        
+        if (removedCount > 0) addToast(`Cleared ${removedCount} unused items from cache`, 'info');
+        else addToast('Cache is already optimized', 'info');
     }, [currentNodes, addToast]);
 
     // Active Operations
@@ -77,14 +79,16 @@ export const useGlobalState = (currentNodes: Node[]) => {
     const [clearSelectionsSignal, setClearSelectionsSignal] = useState(0);
 
     const setSelectedNodeIds = useCallback((value: string[] | ((prev: string[]) => string[])) => {
-         _setSelectedNodeIds(prev => {
-             const next = typeof value === 'function' ? value(prev) : value;
-             if (next.length === 0 && prev.length > 0) {
-                 setClearSelectionsSignal(s => s + 1);
-             }
-             return next;
-         });
+         _setSelectedNodeIds(value);
     }, []);
+
+    const prevSelectedCount = useRef(0);
+    useEffect(() => {
+        if (selectedNodeIds.length === 0 && prevSelectedCount.current > 0) {
+            setClearSelectionsSignal(s => s + 1);
+        }
+        prevSelectedCount.current = selectedNodeIds.length;
+    }, [selectedNodeIds.length]);
 
     // Global Image Editor
     const [globalImageEditor, setGlobalImageEditor] = useState<{ src: string } | null>(null);
@@ -102,19 +106,41 @@ export const useGlobalState = (currentNodes: Node[]) => {
 
     // Logs & Debug Console
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const logBuffer = useRef<LogEntry[]>([]);
     const [isDebugConsoleOpen, setIsDebugConsoleOpen] = useState(false);
 
     const addLog = useCallback((level: LogLevel, message: string, details?: any) => {
-        setLogs(prev => [...prev, {
+        const newLog = {
             id: `log-${Date.now()}-${Math.random()}`,
             timestamp: Date.now(),
             level,
             message,
             details
-        }].slice(-100)); // Keep last 100 logs
+        };
+        logBuffer.current = [...logBuffer.current, newLog].slice(-100);
     }, []);
 
-    const clearLogs = useCallback(() => setLogs([]), []);
+    // Sync buffer to state periodically to avoid render loops from console capture
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (logBuffer.current.length > 0) {
+                setLogs(prev => {
+                    if (prev.length > 0 && logBuffer.current.length > 0) {
+                        if (prev[prev.length - 1].id === logBuffer.current[logBuffer.current.length - 1].id) {
+                            return prev;
+                        }
+                    }
+                    return [...logBuffer.current];
+                });
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const clearLogs = useCallback(() => {
+        logBuffer.current = [];
+        setLogs([]);
+    }, []);
 
     // View Settings
     const [isSnapToGrid, setIsSnapToGrid] = useState(false);

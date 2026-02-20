@@ -2,7 +2,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useCallback, useRef, useEffect } from 'react';
 import type { AppContextType } from './AppContextTypes';
 import { useLanguage, LanguageCode } from '../localization';
-import { NodeType } from '../types';
+import { NodeType, Tool } from '../types';
 import {
     useNodes,
     useConnections,
@@ -104,6 +104,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [nodesHook, connectionsHook, groupsHook, canvasHook, setFullSizeImageCache]);
 
     // Sync Tabs Effect
+    const tabsRef = useRef(tabs);
+    useEffect(() => {
+        tabsRef.current = tabs;
+    }, [tabs]);
+
+    // Load tab state when switching tabs
     useEffect(() => {
         const newActiveTab = tabs.find(t => t.id === activeTabId);
         if (newActiveTab) {
@@ -113,7 +119,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     useEffect(() => {
         const stateToSave = getCurrentCanvasState();
-        const currentTab = tabs.find(t => t.id === activeTabId);
+        const currentTab = tabsRef.current.find(t => t.id === activeTabId);
 
         // Prevent infinite loops by checking reference equality
         if (currentTab) {
@@ -130,7 +136,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         setTabs(prevTabs => prevTabs.map(tab => tab.id === activeTabId ? { ...tab, state: stateToSave } : tab));
-    }, [getCurrentCanvasState, activeTabId, setTabs, tabs]);
+    }, [getCurrentCanvasState, activeTabId, setTabs]);
 
     const resetCanvasToDefault = useCallback((lang: LanguageCode) => {
         resetTabs(lang);
@@ -934,7 +940,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleDownloadImage: (id: string) => orchestrationHook.handleDownloadImage(id, onDownloadImageFromUrl),
             setLibraryItems: libReplaceAll,
             activeTool: interactionHook.effectiveTool,
-            setActiveTool: interactionHook.setActiveTool,
+            setActiveTool: interactionHook.setActiveTool as React.Dispatch<React.SetStateAction<Tool>>,
             dragOverNodeId: interactionHook.hoveredNodeId,
             isDraggingOverCanvas: false,
             handleOpenNodeContextMenu: handleNodeContextMenuLogic,
