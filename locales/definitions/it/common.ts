@@ -9,6 +9,7 @@ export const common = {
     'error.scriptModifierCanvas': 'Questa tela appartiene a un\'altra applicazione - Script Modifier. Utilizza Script Modifier per aprire questo file.',
     'welcome.title': 'Benvenuto in',
     'welcome.description': 'Benvenuto in Prompt Modifier. Connetti idee per creare capolavori. Usa i nodi per generare e modificare contenuti.',
+    'welcome.paidWarning': 'Nota: questa è un\'applicazione a pagamento. Per funzionare è necessaria una chiave API Google a pagamento.',
     'welcome.apiKeyLabel': 'La tua Chiave API Google Gemini',
     'welcome.apiKeyPlaceholder': 'Inserisci la tua chiave API qui...',
     'welcome.apiKeyHelp': 'La tua chiave API è salvata localmente.',

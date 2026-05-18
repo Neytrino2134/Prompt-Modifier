@@ -89,7 +89,7 @@ const WelcomeContent: React.FC<{
                Stage 3: Moves to Top (translate-y-0) and scales normal. 
             */}
             <div className={`
-                w-full flex items-center justify-between md:justify-center gap-2 md:gap-12 mb-6 px-1 md:px-4 
+                w-full flex items-center justify-between md:justify-center gap-2 md:gap-12 mb-4 md:mb-6 px-1 md:px-4 
                 transition-all ${titleDuration} ${titleEasing}
                 ${animationStage >= 1 ? 'opacity-100' : 'opacity-0'}
                 ${animationStage <= 2 ? 'translate-y-[35vh] scale-125' : 'translate-y-0 scale-100'}
@@ -152,12 +152,15 @@ const WelcomeContent: React.FC<{
 
                 {/* Main Card Window */}
                 <div className="relative z-10 w-full bg-gray-800/80 backdrop-blur-xl rounded-3xl border border-gray-700 shadow-2xl overflow-visible">
-                    <div className="p-8 md:p-10 space-y-8 text-left">
+                    <div className="p-5 md:p-10 space-y-5 md:space-y-8 text-left">
                         
                         {/* Description */}
                         <div className="space-y-4 w-full">
                             <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-light">
                                 {t('welcome.description')}
+                            </p>
+                            <p className="text-sm md:text-base text-yellow-500/90 font-medium">
+                                {t('welcome.paidWarning' as any)}
                             </p>
                             <div className="h-px w-full bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
                         </div>
@@ -285,15 +288,6 @@ const WelcomeContent: React.FC<{
                                     </button>
                                 </div>
                             )}
-
-                            <div>
-                                <button 
-                                    onClick={onDeveloperStart}
-                                    className="w-full py-3 border border-gray-700 hover:border-cyan-500/50 text-gray-500 hover:text-cyan-400 rounded-xl transition-all duration-200 text-xs font-semibold tracking-wide bg-transparent hover:bg-gray-800/30"
-                                >
-                                    {t('welcome.iAmDeveloper')}
-                                </button>
-                            </div>
                         </div>
 
                     </div>
@@ -301,7 +295,7 @@ const WelcomeContent: React.FC<{
             </div>
 
             {/* External Link Buttons - Appear from bottom */}
-            <div className={`mt-10 flex flex-col md:flex-row gap-4 transition-all duration-1000 ease-out ${animationStage >= 5 ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95 pointer-events-none'}`}>
+            <div className={`mt-6 md:mt-10 flex flex-col md:flex-row gap-4 transition-all duration-1000 ease-out ${animationStage >= 5 ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95 pointer-events-none'}`}>
                 <a 
                     href="https://scriptmodifier2.netlify.app/" 
                     target="_blank" 
@@ -352,12 +346,19 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
      if (!ghostLang) setVisualLang(globalLanguage);
   }, [globalLanguage, ghostLang]);
 
-  // Height measurement
   useEffect(() => {
     if (!measureRef.current) return;
     const updateHeight = () => {
         if (measureRef.current) {
-            setContainerHeight(measureRef.current.offsetHeight);
+            setContainerHeight(prev => {
+                const newHeight = measureRef.current?.offsetHeight;
+                // Avoid infinite loops caused by minor sub-pixel rounding or scrollbar toggling
+                if (newHeight === undefined) return prev;
+                if (prev !== undefined && Math.abs(prev - newHeight) < 5) {
+                    return prev;
+                }
+                return newHeight;
+            });
         }
     };
     const observer = new ResizeObserver(updateHeight);
@@ -502,20 +503,23 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
 
   const handleDeveloperStart = () => {
     localStorage.setItem('settings_useDevKey', 'true');
+    // Ensure we don't accidentally trigger settings open logic elsewhere if it depends on missing keys
+    // But primarily, just start the app.
     triggerExit(true, true);
   };
 
   return (
     <div 
-        className={`fixed inset-0 bg-[#111827] z-[200] flex flex-col items-center justify-center overflow-hidden text-white px-4 custom-scrollbar transition-all duration-700 select-none ${exitPhase === 'window-exit' ? 'opacity-0' : 'opacity-100'}`}
+        className={`fixed inset-0 bg-[#111827] z-[200] overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-700 select-none ${exitPhase === 'window-exit' ? 'opacity-0' : 'opacity-100'}`}
         onMouseDown={(e) => {
             // Prevent default behavior (text selection) unless interacting with the input
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
                 return;
             }
-            e.preventDefault();
+            // e.preventDefault(); // Allow default for scrolling interaction
         }}
     >
+        <div className="min-h-screen w-full flex flex-col items-center justify-center py-8 px-4">
         <style>{`
             .bg-size-200 { background-size: 200% auto; }
             @keyframes gradient-x {
@@ -628,6 +632,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
         </div>
 
       </div>
+        </div>
     </div>
   );
 };

@@ -7,12 +7,12 @@ export const useGlobalState = (currentNodes: Node[]) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
     const toastIdCounter = useRef(0);
 
-    const addToast = useCallback((message: string, type: ToastType = 'info') => {
+    const addToast = useCallback((message: string, type: ToastType = 'info', action?: { label: string, onClick: () => void }) => {
         const id = toastIdCounter.current++;
-        setToasts(prev => [...prev, { id, message, type }]);
+        setToasts(prev => [...prev, { id, message, type, action }]);
         setTimeout(() => {
             setToasts(prev => prev.filter(t => t.id !== id));
-        }, 3000);
+        }, action ? 6000 : 3000);
     }, []);
 
     // Full Size Image Cache (In-Memory + React State for reactivity if needed)

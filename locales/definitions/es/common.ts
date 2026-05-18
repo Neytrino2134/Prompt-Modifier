@@ -9,6 +9,7 @@ export const common = {
     'error.scriptModifierCanvas': 'Este lienzo pertenece a otra aplicación: Modificador de Guiones. Por favor usa esa aplicación para abrir este archivo.',
     'welcome.title': 'Bienvenido a',
     'welcome.description': 'Bienvenido a Prompt Modifier. Conecta ideas para crear obras maestras. Usa nodos para generar y editar contenido.',
+    'welcome.paidWarning': 'Nota: Esta es una aplicación de pago. Se requiere una clave API de Google de pago para que funcione.',
     'welcome.apiKeyLabel': 'Tu Clave API de Google Gemini',
     'welcome.apiKeyPlaceholder': 'Ingresa tu clave API aquí...',
     'welcome.apiKeyHelp': 'Tu clave API se almacena localmente.',

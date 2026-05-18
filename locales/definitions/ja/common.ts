@@ -10,6 +10,7 @@ export const common = {
     'error.scriptModifierCanvas': 'このキャンバスは別のアプリケーション「Script Modifier」のものです。このファイルを開くにはScript Modifierを使用してください。',
     'welcome.title': 'ようこそ',
     'welcome.description': 'Prompt Modifierへようこそ。アイデアをつなぎ合わせて傑作を作りましょう。ノードを使用してコンテンツを生成・編集します。',
+    'welcome.paidWarning': '注意：これは有料アプリケーションです。機能させるには、有料のGoogle APIキーが必要です。',
     'welcome.apiKeyLabel': 'Google Gemini APIキー',
     'welcome.apiKeyPlaceholder': 'ここにAPIキーを入力...',
     'welcome.apiKeyHelp': 'APIキーはブラウザ内にローカル保存されます。',

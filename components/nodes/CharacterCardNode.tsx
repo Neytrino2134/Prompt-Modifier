@@ -885,8 +885,8 @@ export const CharacterCardNode: React.FC<NodeContentProps> = ({
                         deselectAllNodes={deselectAllNodes}
                         languages={languages}
                         secondaryLanguage={secondaryLanguage}
-                        isModifyingCharacter={isModifyingCharacter}
-                        isUpdatingDescription={isUpdatingDescription}
+                        isModifyingCharacter={isModifyingCharacter || null}
+                        isUpdatingDescription={isUpdatingDescription || null}
                         onUpdateDescription={() => onUpdateCharacterDescription && onUpdateCharacterDescription(node.id, idx)}
 
                         // Pass new personality update handler

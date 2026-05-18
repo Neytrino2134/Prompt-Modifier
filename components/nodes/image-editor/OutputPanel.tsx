@@ -139,7 +139,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     const [scrollTop, setScrollTop] = useState(0);
     const [containerWidth, setContainerWidth] = useState(0);
 
-    const isFlashImage = model === 'gemini-2.5-flash-image';
+    const isFlashImage = model === 'gemini-2.5-flash-image' || model === 'gemini-3.1-flash-image';
     const isPro = model === 'gemini-3-pro-image-preview';
     const showAspectRatio = isFlashImage || isPro;
     const showResolution = isPro;
@@ -155,7 +155,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
     // Layout Calculations
     const layout = useMemo(() => {
-        if (!isSequenceMode) return { columns: 0, totalHeight: 0, items: [] };
+        if (!isSequenceMode) return { columns: 0, totalHeight: 0, totalItems: 0 };
 
         const effectiveWidth = Math.max(0, containerWidth - 16); // p-2 is 8px * 2
         const columns = Math.max(1, Math.floor((effectiveWidth + GAP) / (ITEM_SIZE + GAP)));
@@ -553,31 +553,24 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
             {/* Bottom Controls Area: Integrated Model Switcher & Single Mode Buttons */}
             <div className="flex-shrink-0 flex items-center gap-2 mt-2 pt-2 border-t border-gray-700/50">
-                {/* Model Switch Toggle (Flash / Pro) */}
-                <div className="flex bg-gray-700 rounded-md p-1 space-x-1 h-[36px] flex-shrink-0">
-                     <Tooltip content="Gemini 2.5 Flash Image (Nano Banana)" className="h-full">
-                         <button 
-                             onClick={() => onUpdateState({ model: 'gemini-2.5-flash-image' })}
-                             disabled={isEditing}
-                             className={`px-2 text-xs font-bold rounded flex items-center transition-colors h-full ${model === 'gemini-2.5-flash-image' ? 'bg-cyan-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
-                         >
-                             Flash
-                         </button>
-                     </Tooltip>
-                     <Tooltip content="Gemini 3.0 Image (Nano Banana Pro)" className="h-full">
-                         <button 
-                             onClick={() => onUpdateState({ model: 'gemini-3-pro-image-preview' })}
-                             disabled={isEditing}
-                             className={`px-2 text-xs font-bold rounded flex items-center transition-colors h-full ${model === 'gemini-3-pro-image-preview' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
-                         >
-                             Pro
-                         </button>
-                     </Tooltip>
+                {/* Model Switch Dropdown */}
+                <div className="flex-shrink flex-grow-0 min-w-[120px] max-w-[200px]">
+                     <CustomSelect
+                         value={model}
+                         onChange={(value) => onUpdateState({ model: value })}
+                         disabled={isEditing}
+                         options={[
+                             { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image...' },
+                             { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image...' },
+                             { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image...' }
+                         ]}
+                         id="model-selector"
+                     />
                 </div>
 
                 {/* Aspect Ratio Selector */}
                 {showAspectRatio && (
-                    <div className="w-20">
+                    <div className="flex-shrink-0 w-20">
                          <CustomSelect
                             value={aspectRatio || '1:1'}
                             onChange={(value) => onUpdateState({ aspectRatio: value })}
@@ -591,7 +584,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
                  {/* Resolution Selector (Only for Pro) */}
                  {showResolution && (
-                    <div className="w-20">
+                    <div className="flex-shrink-0 w-20">
                          <CustomSelect
                             value={resolution || '1K'}
                             onChange={(value) => onUpdateState({ resolution: value })}
@@ -606,7 +599,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                 {/* Auto Crop Toggle (Moved here) */}
                 <div 
                     onClick={() => onUpdateState({ autoCrop169: !autoCrop169 })}
-                    className={`h-[36px] flex items-center gap-2 px-3 rounded-md cursor-pointer transition-colors border ${autoCrop169 ? 'bg-indigo-900/40 border-indigo-500/50' : 'bg-gray-800 border-gray-700 hover:border-gray-600'}`}
+                    className={`h-[36px] flex-shrink-0 flex items-center gap-2 px-2 rounded-md cursor-pointer transition-colors border ${autoCrop169 ? 'bg-indigo-900/40 border-indigo-500/50' : 'bg-gray-800 border-gray-700 hover:border-gray-600'}`}
                     title={t('image_sequence.tooltip.autoCrop')}
                 >
                      <span className={`text-[10px] font-bold uppercase whitespace-nowrap ${autoCrop169 ? 'text-indigo-300' : 'text-gray-400'}`}>Crop 16:9</span>
@@ -618,12 +611,12 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                 <div className="flex-1 flex space-x-2">
                     {/* Main Action Button */}
                     {isEditing && isSequenceMode ? (
-                        <button onClick={onStop} className="flex-1 h-[36px] font-bold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors">{isStopping ? t('node.action.stopping') : t('node.action.stop')}</button>
+                        <button onClick={onStop} className="flex-1 flex-shrink-0 min-w-max px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors">{isStopping ? t('node.action.stopping') : t('node.action.stop')}</button>
                     ) : (
                         <button 
                             onClick={isSequenceMode ? onRunSelected : onEdit}
                             disabled={isEditing || (!hasInputImages && !isSequentialEditingWithPrompts) || (!(isTextConnected ? upstreamPrompt : prompt) && !isSequenceMode)} 
-                            className="flex-1 h-[36px] font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
+                            className="flex-1 flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
                         >
                             {isEditing ? t('node.content.editing') : (isSequenceMode ? t('image_sequence.run_selected') : t('node.content.applyEdit'))}
                         </button>
@@ -640,14 +633,14 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     
                     {/* Sequence Mode: Download Button */}
                     {isSequenceMode && (
-                        <button onClick={onDownloadSelected} disabled={checkedSequenceOutputIndices.length === 0} className="flex-1 h-[36px] py-2 text-sm font-bold text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
+                        <button onClick={onDownloadSelected} disabled={checkedSequenceOutputIndices.length === 0} className="flex-1 flex-shrink-0 min-w-max px-3 h-[36px] py-2 text-sm items-center justify-center whitespace-nowrap font-bold text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
                              {createZip ? 'Download ZIP' : `${t('image_sequence.download_selected')} (${checkedSequenceOutputIndices.length})`}
                         </button>
                     )}
                 </div>
                 
                 {/* Single Mode: Output to Input */}
-                {!isSequenceMode && outputImage && <ActionButton title={t('node.action.outputToInput')} onClick={onSetOutputToInput} className="h-[36px]"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg></ActionButton>}
+                {!isSequenceMode && outputImage && <ActionButton title={t('node.action.outputToInput')} onClick={onSetOutputToInput} className="flex-shrink-0 h-[36px]"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg></ActionButton>}
             </div>
             
              {/* No Extra Controls Row - Removed Outpainting Checkboxes Here */}

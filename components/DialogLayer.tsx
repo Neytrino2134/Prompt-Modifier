@@ -51,7 +51,8 @@ const DialogLayer: React.FC = () => {
                 setIsSettingsOpen(true);
             }
         };
-        checkKey();
+        // Small delay to allow WelcomeScreen to set localStorage if it's the first run
+        setTimeout(checkKey, 500);
     }, []);
 
     if (!context) return null;

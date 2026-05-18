@@ -152,8 +152,6 @@ const RadialMenu: React.FC<RadialMenuProps> = ({
 
     useEffect(() => {
         if (!isOpen) {
-            setHoveredItem(null);
-            onSelectItem(null);
             return;
         }
 

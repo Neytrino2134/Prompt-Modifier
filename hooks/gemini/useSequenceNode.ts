@@ -133,7 +133,7 @@ export const useSequenceNode = ({
                     if (newStatuses[k] === 'generating') newStatuses[k] = 'idle';
                 });
                 // Set pending for queue
-                framesToProcess.forEach(p => { newStatuses[p.frameNumber] = 'pending'; });
+                framesToProcess.forEach((p: any) => { newStatuses[p.frameNumber] = 'pending'; });
                 return { ...prev, frameStatuses: newStatuses };
             });
 
@@ -322,7 +322,7 @@ export const useSequenceNode = ({
                 Object.keys(newStatuses).forEach(k => {
                     if (newStatuses[k] === 'generating') newStatuses[k] = 'idle';
                 });
-                framesToProcessIndices.forEach(fNum => { newStatuses[fNum] = 'pending'; });
+                framesToProcessIndices.forEach((fNum: number) => { newStatuses[fNum] = 'pending'; });
                 return { ...prev, frameStatuses: newStatuses };
             });
 

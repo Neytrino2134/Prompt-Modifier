@@ -1,11 +1,11 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import type { LibraryItem, Tab, CanvasState, ConnectingInfo, Point, NodeType } from '../types';
+import type { LibraryItem, Tab, CanvasState, ConnectingInfo, Point, NodeType, Group } from '../types';
 import { defaultCanvasState } from './useTabs';
 import type { useContentCatalog } from './useCatalog';
 
 interface UseDialogsAndUIProps {
-    setGroups: React.Dispatch<React.SetStateAction<any>>;
+    setGroups: React.Dispatch<React.SetStateAction<Group[]>>;
     renameCatalogItem: (itemId: string, newName: string) => void;
     updateLibraryItem: (itemId: string, updates: Partial<Pick<LibraryItem, "name" | "content">>) => void;
     handleRenameTab: (tabId: string, newName: string) => void;

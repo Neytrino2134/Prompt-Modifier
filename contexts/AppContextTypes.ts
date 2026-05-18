@@ -2,7 +2,7 @@
 import React from 'react';
 import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, LogEntry, LogLevel } from '../types';
 import { NodeType } from '../types';
-import { LanguageCode } from '../localization';
+import { LanguageCode, TranslationKey } from '../localization';
 import {
   useNodes,
   useConnections,
@@ -57,7 +57,7 @@ export type AppContextType =
   handleLoadCanvasIntoCurrentTab: (text: string) => void; 
   handleLoadFromExternal: (text: string) => void;
 
-  t: (key: string, options?: { [key: string]: string | number }) => string;
+  t: (key: TranslationKey | string, options?: { [key: string]: string | number }) => string;
   isSnapToGrid: boolean;
   setIsSnapToGrid: React.Dispatch<React.SetStateAction<boolean>>;
   lineStyle: LineStyle;
@@ -124,7 +124,7 @@ export type AppContextType =
   onRenameScript: (itemId: string, newName: string) => void;
   onRenameSequence: (itemId: string, newName: string) => void;
   toasts: Toast[];
-  addToast: (message: string, type?: ToastType) => void;
+  addToast: (message: string, type?: ToastType, action?: { label: string, onClick: () => void }) => void;
   getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
   setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void;
   imageViewer: { sources: { src: string; frameNumber: number; prompt?: string; }[], initialIndex: number } | null;

@@ -36,8 +36,8 @@ const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       localStorage.setItem('settings_secondaryLanguage', secondaryLanguage);
   }, [secondaryLanguage]);
 
-  const t = useCallback((key: TranslationKey, options?: { [key: string]: string | number }) => {
-    return getTranslation(language, key, options);
+  const t = useCallback((key: TranslationKey | string, options?: { [key: string]: string | number }) => {
+    return getTranslation(language, key as TranslationKey, options);
   }, [language]);
 
   return (
@@ -53,6 +53,11 @@ const Editor: React.FC = () => {
   const [isCanvasReady, setIsCanvasReady] = useState(false);
   const [isAppLoaded, setIsAppLoaded] = useState(false);
   const hasContentRef = useRef(false);
+
+  // Safe access for effects
+  const addToast = context?.addToast;
+  const t = context?.t;
+  const setConfirmInfo = context?.setConfirmInfo;
 
   // Update hasContentRef whenever context updates
   useEffect(() => {
@@ -84,13 +89,13 @@ const Editor: React.FC = () => {
       // 2. Electron Handler (Custom Dialog)
       let removeElectronListener: (() => void) | undefined;
 
-      if (isElectron && context?.setConfirmInfo && context?.t) {
+      if (isElectron && setConfirmInfo && t) {
           removeElectronListener = (window as any).electronAPI.onCloseRequested(() => {
               if (hasContentRef.current) {
                   // Show in-app custom dialog
-                  context.setConfirmInfo({
-                      title: context.t('dialog.exitApp.title'),
-                      message: context.t('dialog.exitApp.message'),
+                  setConfirmInfo({
+                      title: t('dialog.exitApp.title'),
+                      message: t('dialog.exitApp.message'),
                       onConfirm: () => {
                           (window as any).electronAPI.forceClose();
                       }
@@ -131,6 +136,21 @@ const Editor: React.FC = () => {
     }
   }, []);
 
+  // Listen for download completion from Electron
+  useEffect(() => {
+    if ((window as any).electronAPI && (window as any).electronAPI.onDownloadComplete) {
+        const removeListener = (window as any).electronAPI.onDownloadComplete((event: any, { state, path }: { state: string, path: string }) => {
+            if (state === 'completed') {
+                addToast(t('toast.downloadSuccess'), 'success', {
+                    label: t('toast.openFolder'),
+                    onClick: () => (window as any).electronAPI.showItemInFolder(path)
+                });
+            }
+        });
+        return () => removeListener();
+    }
+  }, [addToast, t]);
+
   // Deferred loading effect for Canvas
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -157,12 +177,9 @@ const Editor: React.FC = () => {
     handlePromptSequenceFileChange, characterCardFileInputRef, 
     handleCharacterCardFileChange, scriptFileInputRef, handleScriptFileChange,
     toasts,
-    addToast,
     imageViewer, setImageViewer,
     onDownloadImageFromUrl, onCopyImageToClipboard,
     isDockingMenuVisible, dockHoverMode, clientPointerPositionRef,
-    t,
-    setConfirmInfo // Ensure this is destructured for use in effect
   } = context;
 
   return (
@@ -252,7 +269,18 @@ const Editor: React.FC = () => {
 
             return (
               <div key={toast.id} className={classes}>
-                {toast.message}
+                <span>{toast.message}</span>
+                {toast.action && (
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            toast.action?.onClick();
+                        }}
+                        className="ml-3 px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs font-bold uppercase tracking-wider transition-colors"
+                    >
+                        {toast.action.label}
+                    </button>
+                )}
               </div>
             );
           })}

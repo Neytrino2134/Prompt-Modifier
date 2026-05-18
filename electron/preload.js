@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  showItemInFolder: (path) => ipcRenderer.invoke('shell:showItemInFolder', path),
   setDownloadPath: (path) => ipcRenderer.send('app:setDownloadPath', path),
   // Listen for close request from Main
   onCloseRequested: (callback) => {
@@ -9,6 +10,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('app:close-request', subscription);
     // Return unsubscribe function
     return () => ipcRenderer.removeListener('app:close-request', subscription);
+  },
+  // Listen for download completion
+  onDownloadComplete: (callback) => {
+    const subscription = (event, ...args) => callback(...args);
+    ipcRenderer.on('app:download-complete', subscription);
+    return () => ipcRenderer.removeListener('app:download-complete', subscription);
   },
   // Send force close signal to Main
   forceClose: () => ipcRenderer.send('app:force-close')

@@ -10,6 +10,7 @@ export const common = {
     'error.scriptModifierCanvas': '이 캔버스는 다른 애플리케이션인 "Script Modifier"에 속합니다. 이 파일을 열려면 Script Modifier를 사용해 주세요.',
     'welcome.title': '환영합니다',
     'welcome.description': 'Prompt Modifier에 오신 것을 환영합니다. 아이디어를 연결하여 걸작을 만드세요. 노드를 사용하여 콘텐츠를 생성하고 편집하세요.',
+    'welcome.paidWarning': '참고: 유료 애플리케이션입니다. 작동하려면 유료 Google API 키가 필요합니다.',
     'welcome.apiKeyLabel': 'Google Gemini API 키',
     'welcome.apiKeyPlaceholder': '여기에 API 키를 입력하세요...',
     'welcome.apiKeyHelp': 'API 키는 브라우저에 로컬로 저장됩니다.',

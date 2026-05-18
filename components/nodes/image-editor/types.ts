@@ -62,7 +62,7 @@ export interface ImageSlot {
 
 // Layout Constants
 export const MIN_LEFT_PANE_WIDTH = 280;
-export const MIN_RIGHT_PANE_WIDTH = 300;
+export const MIN_RIGHT_PANE_WIDTH = 700;
 export const MIN_TOP_PANE_HEIGHT = 330;
 export const MIN_BOTTOM_PANE_HEIGHT = 180;
 export const MIN_BOTTOM_PANE_HEIGHT_WITH_PREVIEW = 450;

@@ -11,6 +11,7 @@ export const common = {
     'error.scriptModifierCanvas': 'Bu xolst boshqa ilovaga tegishli - Script Modifier. Iltimos, ushbu faylni ochish uchun Script Modifier-dan foydalaning.',
     'welcome.title': 'Xush kelibsiz',
     'welcome.description': 'Prompt Modifier-ga xush kelibsiz. G\'oyalarni bog\'lab, shoh asar yarating. Tarkibni yaratish va tahrirlash uchun tugunlardan foydalaning.',
+    'welcome.paidWarning': 'Eslatma: Bu pullik ilova. U ishlashi uchun pullik Google API kaliti kerak.',
     'welcome.apiKeyLabel': 'Sizning Google Gemini API Kalitingiz',
     'welcome.apiKeyPlaceholder': 'API kalitingizni shu yerga kiriting...',
     'welcome.apiKeyHelp': 'Sizning API kalitingiz lokal tarzda saqlanadi.',

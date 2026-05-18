@@ -71,20 +71,34 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
       { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0 (Quality)' },
       { value: 'imagen-4.0-ultra-generate-preview-06-06', label: 'Imagen 4.0 Ultra (Preview)' },
       { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro (Nano Banana Pro)' },
+      { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)' },
       { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)' }
     ];
     
-    const isNanoBanana = node.model === 'gemini-3-pro-image-preview';
+    const isNanoBananaPro = node.model === 'gemini-3-pro-image-preview';
+    const isFlashImagePreview = node.model === 'gemini-3.1-flash-image-preview' || node.model === 'gemini-3.1-flash-image';
     const isFlashImage = node.model === 'gemini-2.5-flash-image';
     // An 'imagen' model is selected if the model string is not set (default) or starts with 'imagen-4.0'
     const isImagenModel = !node.model || node.model.startsWith('imagen-4.0');
-    const isAspectRatioEnabled = isImagenModel || isNanoBanana || isFlashImage;
+    const isAspectRatioEnabled = isImagenModel || isNanoBananaPro || isFlashImage || isFlashImagePreview;
 
-    const resolutions = [
+    let availableResolutions = [
         { value: '1K', label: '1K' },
         { value: '2K', label: '2K' },
         { value: '4K', label: '4K' },
     ];
+
+    if (isFlashImagePreview) {
+        availableResolutions = [
+            { value: '512px', label: '512px' },
+            ...availableResolutions
+        ];
+    }
+
+    let availableAspectRatios = aspectRatios;
+    if (isFlashImagePreview) {
+        availableAspectRatios = [...aspectRatios, "1:4", "1:8", "4:1", "8:1"];
+    }
 
     const handleClick = () => {
         if (!node.value) return;
@@ -236,14 +250,14 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                     options={modelOptions}
                 />
             </div>
-            {isNanoBanana && (
+            {(isNanoBananaPro || isFlashImagePreview) && (
                 <div className="mb-2">
                     <label className="block text-xs font-medium text-gray-400 mb-1">Resolution</label>
                     <CustomSelect
-                        value={node.resolution && ['1K', '2K', '4K'].includes(node.resolution) ? node.resolution : '1K'}
-                        onChange={(value) => onResolutionChange(node.id, value as '1K'|'2K'|'4K')}
+                        value={node.resolution && availableResolutions.some(r => r.value === node.resolution) ? node.resolution : '1K'}
+                        onChange={(value) => onResolutionChange(node.id, value as any)}
                         disabled={isGeneratingImage || isExecutingChain}
-                        options={resolutions}
+                        options={availableResolutions}
                     />
                 </div>
             )}
@@ -257,7 +271,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                     onChange={(value) => onAspectRatioChange(node.id, value)}
                     disabled={isGeneratingImage || !isAspectRatioEnabled || isExecutingChain}
                     title={!isAspectRatioEnabled ? t('node.content.aspectRatioNotSupportedFast') : t('node.content.aspectRatioHelp')}
-                    options={aspectRatios.map(ratio => ({ value: ratio, label: ratio }))}
+                    options={availableAspectRatios.map(ratio => ({ value: ratio, label: ratio }))}
                 />
             </div>
             <div className="mb-2">

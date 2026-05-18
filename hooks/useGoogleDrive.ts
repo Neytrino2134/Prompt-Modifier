@@ -12,23 +12,31 @@ import {
     searchFiles,
     deleteFile
 } from '../services/googleDriveService';
-import { ToastType } from '../types';
-import { ContentCatalogItemType, CatalogItemType } from './useCatalog';
+import { ToastType, CanvasState, Tab, LibraryItem } from '../types';
+import { ContentCatalogItemType, CatalogItemType, ContentCatalogItem, CatalogItem, useContentCatalog } from './useCatalog';
 import { LibraryItemType } from '../types';
+
+interface GoogleDriveFile {
+    id: string;
+    name: string;
+    modifiedTime: string;
+    parents?: string[];
+    [key: string]: any;
+}
 
 interface UseGoogleDriveProps {
     addToast: (message: string, type?: ToastType) => void;
-    getCurrentCanvasState: () => any;
-    tabs: any[];
+    getCurrentCanvasState: () => CanvasState;
+    tabs: Tab[];
     activeTabId: string;
     language: string;
     isSnapToGrid: boolean;
     lineStyle: string;
-    catalogItems: any[];
-    libraryItems: any[];
-    characterCatalog: any;
-    scriptCatalog: any;
-    sequenceCatalog: any;
+    catalogItems: CatalogItem[];
+    libraryItems: LibraryItem[];
+    characterCatalog: ReturnType<typeof useContentCatalog>;
+    scriptCatalog: ReturnType<typeof useContentCatalog>;
+    sequenceCatalog: ReturnType<typeof useContentCatalog>;
     t: (key: string) => string;
 }
 
@@ -139,7 +147,7 @@ export const useGoogleDrive = ({
 
             // Filter for catalog export files
             // They always start with Catalog_
-            const catalogFiles = files.filter((f: any) => f.name.startsWith('Catalog_'));
+            const catalogFiles = files.filter((f: GoogleDriveFile) => f.name.startsWith('Catalog_'));
             let importedCount = 0;
 
             for (const file of catalogFiles) {
@@ -211,9 +219,9 @@ export const useGoogleDrive = ({
         try {
             const folderId = await getAppFolderId();
             const files = await listFilesInAppFolder(folderId);
-            const catalogFiles = files.filter((f: any) => f.name.startsWith('Catalog_'));
+            const catalogFiles = files.filter((f: GoogleDriveFile) => f.name.startsWith('Catalog_'));
             
-            const groupedFiles: Record<string, any[]> = {};
+            const groupedFiles: Record<string, GoogleDriveFile[]> = {};
             
             catalogFiles.forEach(file => {
                 const lastUnderscoreIndex = file.name.lastIndexOf('_');
@@ -251,7 +259,7 @@ export const useGoogleDrive = ({
         }
     }, [isInitialized, addToast]);
 
-    const handleDeleteFromDrive = useCallback(async (item: any, context: string) => {
+    const handleDeleteFromDrive = useCallback(async (item: ContentCatalogItem | CatalogItem | LibraryItem, context: string) => {
          if (!isInitialized) return;
          setIsSyncing(true);
 
@@ -304,7 +312,7 @@ export const useGoogleDrive = ({
              const folderId = await getAppFolderId();
              const files = await listFilesInAppFolder(folderId);
              const contextPrefix = `Catalog_${context}_`;
-             const filesToDelete = files.filter((f: any) => f.name.startsWith(contextPrefix));
+             const filesToDelete = files.filter((f: GoogleDriveFile) => f.name.startsWith(contextPrefix));
              
              if (filesToDelete.length === 0) {
                  addToast("Cloud folder is already empty.", 'info');
@@ -336,14 +344,14 @@ export const useGoogleDrive = ({
     }, [isInitialized, addToast, characterCatalog, scriptCatalog, sequenceCatalog, t]);
 
 
-    const uploadCatalogItem = useCallback(async (item: any, context: string) => {
+    const uploadCatalogItem = useCallback(async (item: ContentCatalogItem | CatalogItem | LibraryItem, context: string) => {
          if (!isInitialized) {
              addToast(t('error.googleDriveInit'), 'error');
              return;
          }
 
          try {
-             let sourceItems: any[] = [];
+             let sourceItems: (ContentCatalogItem | CatalogItem | LibraryItem)[] = [];
              if (context === 'characters') sourceItems = characterCatalog.items || [];
              else if (context === 'scripts') sourceItems = scriptCatalog.items || [];
              else if (context === 'sequences') sourceItems = sequenceCatalog.items || [];
@@ -357,29 +365,39 @@ export const useGoogleDrive = ({
 
              if (!isFolder) {
                  if (context === 'groups') {
-                     rootData = { type: 'prompModifierGroup', name: item.name, nodes: item.nodes, connections: item.connections, fullSizeImages: item.fullSizeImages };
+                     const groupItem = item as CatalogItem;
+                     rootData = { type: 'prompModifierGroup', name: item.name, nodes: groupItem.nodes, connections: groupItem.connections, fullSizeImages: groupItem.fullSizeImages };
                  } else if (context === 'library') {
-                     rootData = { type: 'prompt', name: item.name, content: item.content };
+                     const libItem = item as LibraryItem;
+                     rootData = { type: 'prompt', name: item.name, content: libItem.content };
                  } else {
-                     let contentObj = item.content;
-                     try { if (typeof item.content === 'string') contentObj = JSON.parse(item.content); } catch (e) { contentObj = item.content || {}; }
+                     const contentItem = item as ContentCatalogItem;
+                     let contentObj = contentItem.content;
+                     try { if (typeof contentItem.content === 'string') contentObj = JSON.parse(contentItem.content); } catch (e) { contentObj = contentItem.content || {}; }
                      rootData = { type: 'item', name: item.name, content: contentObj };
                  }
              } else {
                  const getFolderContents = (folderId: string): any => {
-                    const folder = sourceItems.find((i:any) => i.id === folderId);
+                    const folder = sourceItems.find((i) => i.id === folderId);
                     if (!folder) return null;
-                    const children = sourceItems.filter((i:any) => i.parentId === folderId);
+                    const children = sourceItems.filter((i) => i.parentId === folderId);
                     return {
                         name: folder.name,
                         type: 'folder',
-                        children: children.map((child:any) => {
+                        children: children.map((child) => {
                             const childIsFolder = child.type === ContentCatalogItemType.FOLDER || child.type === CatalogItemType.FOLDER || child.type === LibraryItemType.FOLDER;
                             if (childIsFolder) return getFolderContents(child.id);
                             else {
-                                if (context === 'groups') return { type: 'prompModifierGroup', name: child.name, nodes: child.nodes, connections: child.connections, fullSizeImages: child.fullSizeImages };
-                                if (context === 'library') return { name: child.name, type: 'prompt', content: child.content || '' };
-                                let c = child.content; try { if(typeof c === 'string') c = JSON.parse(c); } catch {}
+                                if (context === 'groups') {
+                                    const gChild = child as CatalogItem;
+                                    return { type: 'prompModifierGroup', name: child.name, nodes: gChild.nodes, connections: gChild.connections, fullSizeImages: gChild.fullSizeImages };
+                                }
+                                if (context === 'library') {
+                                    const lChild = child as LibraryItem;
+                                    return { name: child.name, type: 'prompt', content: lChild.content || '' };
+                                }
+                                const cChild = child as ContentCatalogItem;
+                                let c = cChild.content; try { if(typeof c === 'string') c = JSON.parse(c); } catch {}
                                 return { name: child.name, type: 'item', content: c };
                             }
                         }).filter(Boolean)

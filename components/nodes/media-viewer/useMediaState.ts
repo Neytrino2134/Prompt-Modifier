@@ -178,7 +178,7 @@ export const useMediaState = (
         }
 
         // 2. Sync Time
-        if (incoming.currentTime > 0.1 && Math.abs(incoming.currentTime - currentTime) > 0.5 && !isInteractingRef.current) {
+        if (incoming.currentTime !== undefined && incoming.currentTime > 0.1 && Math.abs(incoming.currentTime - (currentTime || 0)) > 0.5 && !isInteractingRef.current) {
              setCurrentTimeInternal(incoming.currentTime);
              if (mediaRef.current && Math.abs(mediaRef.current.currentTime - incoming.currentTime) > 0.5) {
                  mediaRef.current.currentTime = incoming.currentTime;
@@ -305,7 +305,7 @@ export const useMediaState = (
             mediaRef.current.volume = s.volume !== undefined ? s.volume : 0.4;
             
             // Restore time if needed
-            if (s.currentTime > 0 && Math.abs(mediaRef.current.currentTime - s.currentTime) > 0.5) {
+            if (s.currentTime !== undefined && s.currentTime > 0 && Math.abs(mediaRef.current.currentTime - s.currentTime) > 0.5) {
                 mediaRef.current.currentTime = s.currentTime;
             }
             

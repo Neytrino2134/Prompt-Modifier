@@ -269,7 +269,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const handleDeleteConcept = useCallback((index: number) => {
         const localIndex = index - upstreamCount;
         if (localIndex >= 0) {
-            const newLocalConcepts = characterConcepts.filter((_, i) => i !== localIndex);
+            const newLocalConcepts = characterConcepts.filter((_: CharacterConcept, i: number) => i !== localIndex);
             const reindexed = reindexLocalConcepts(newLocalConcepts);
             handleValueUpdate({ characterConcepts: reindexed });
         }
@@ -601,17 +601,17 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
 
         if (src) {
             // Filter frames that actually have images to prevent viewer errors
-            const validPrompts = prompts.filter(p => (getFullSizeImage(node.id, 1000 + p.frameNumber) || images[p.frameNumber]));
+            const validPrompts = prompts.filter((p: any) => (getFullSizeImage(node.id, 1000 + p.frameNumber) || images[p.frameNumber]));
 
             // Map to viewer source format
-            const viewerSources = validPrompts.map(p => ({
+            const viewerSources = validPrompts.map((p: any) => ({
                 src: getFullSizeImage(node.id, 1000 + p.frameNumber) || images[p.frameNumber],
                 frameNumber: p.frameNumber,
                 prompt: p.prompt
             }));
 
             // Find index in the VALID filtered list
-            const initialIndex = validPrompts.findIndex(p => p.frameNumber === frameNumber);
+            const initialIndex = validPrompts.findIndex((p: any) => p.frameNumber === frameNumber);
 
             if (initialIndex !== -1) {
                 setImageViewer({
@@ -625,7 +625,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
     const handleOpenAI = useCallback((imageUrl: string) => {
         if (!onAddNode) return;
 
-        let targetNodeId = null;
+        let targetNodeId: string | null = null;
 
         // Check if we already have an opened editor for this generator (via ref)
         // AND verify if that node still exists
@@ -693,7 +693,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
 
     const handleSelectByAspectRatio = useCallback((type: 'square' | 'landscape' | 'portrait') => {
         const currentDimensions = parsedValueRef.current.imageDimensions || {};
-        const newChecked = prompts.filter(p => {
+        const newChecked = prompts.filter((p: any) => {
             const dims = currentDimensions[p.frameNumber];
             if (!dims) return false;
             const ratio = dims.width / dims.height;
@@ -701,7 +701,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             if (type === 'portrait') return ratio < 0.85;
             if (type === 'square') return ratio >= 0.85 && ratio <= 1.2;
             return false;
-        }).map(p => p.frameNumber);
+        }).map((p: any) => p.frameNumber);
 
         if (newChecked.length === 0) {
             if (addToast) addToast("No images match this aspect ratio", "info");

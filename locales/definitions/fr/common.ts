@@ -9,6 +9,7 @@ export const common = {
     'error.scriptModifierCanvas': 'Ce canevas appartient à une autre application - Script Modifier. Veuillez utiliser Script Modifier pour ouvrir ce fichier.',
     'welcome.title': 'Bienvenue dans',
     'welcome.description': 'Bienvenue dans Prompt Modifier. Connectez des idées pour créer des chefs-d\'œuvre. Utilisez les nœuds pour générer et éditer du contenu.',
+    'welcome.paidWarning': 'Attention : Il s\'agit d\'une application payante. Une clé API Google payante est requise pour son fonctionnement.',
     'welcome.apiKeyLabel': 'Votre clé API Google Gemini',
     'welcome.apiKeyPlaceholder': 'Entrez votre clé API ici...',
     'welcome.apiKeyHelp': 'Votre clé API est stockée localement.',

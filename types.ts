@@ -1,5 +1,18 @@
 import React from 'react';
 
+declare global {
+    interface Window {
+        aistudio?: any;
+        electronAPI?: {
+            setDownloadPath: (path: string) => void;
+            onDownloadComplete: (callback: (event: any, data: { state: string, path: string }) => void) => () => void;
+            showItemInFolder: (path: string) => void;
+            onCloseRequested: (callback: () => void) => () => void;
+            forceClose: () => void;
+        };
+    }
+}
+
 export type Resolution = '720p' | '1080p' | '1K' | '2K' | '4K';
 export type Theme = 'cyan' | 'orange' | 'pink' | 'gray' | 'lime' | 'purple' | 'azure' | 'red' | 'emerald';
 
@@ -207,6 +220,10 @@ export interface Toast {
     id: number;
     message: string;
     type: ToastType;
+    action?: {
+        label: string;
+        onClick: () => void;
+    };
 }
 
 // Global Operation Tracking
@@ -317,7 +334,7 @@ export interface NodeContentProps {
   onSaveSequenceToCatalog: (nodeId: string) => void;
   setError: (error: string | null) => void;
   setImageViewer: (viewerState: { sources: { src: string; frameNumber: number; prompt?: string; }[], initialIndex: number } | null) => void;
-  addToast: (message: string, type?: ToastType) => void;
+  addToast: (message: string, type?: ToastType, action?: { label: string, onClick: () => void }) => void;
   getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
   setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void;
   clearImagesForNodeFromCache: (nodeId: string) => void;

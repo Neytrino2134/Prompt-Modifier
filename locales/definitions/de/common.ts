@@ -9,6 +9,7 @@ export const common = {
     'error.scriptModifierCanvas': 'Diese Leinwand gehört zu einer anderen Anwendung - Script Modifier. Bitte verwenden Sie Script Modifier, um diese Datei zu öffnen.',
     'welcome.title': 'Willkommen bei',
     'welcome.description': 'Willkommen beim Prompt Modifier. Verbinden Sie Ideen, um Meisterwerke zu schaffen. Verwenden Sie Knoten, um Inhalte zu generieren und zu bearbeiten.',
+    'welcome.paidWarning': 'Bitte beachten Sie: Dies ist eine kostenpflichtige Anwendung. Für die Funktion ist ein kostenpflichtiger Google-API-Schlüssel erforderlich.',
     'welcome.apiKeyLabel': 'Ihr Google Gemini API-Schlüssel',
     'welcome.apiKeyPlaceholder': 'Geben Sie hier Ihren API-Schlüssel ein...',
     'welcome.apiKeyHelp': 'Ihr API-Schlüssel wird lokal gespeichert.',

@@ -453,7 +453,7 @@ export const generateImage = async (
     const ai = createAIClient();
     
     try {
-      if (model === 'gemini-3-pro-image-preview') {
+      if (model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image-preview') {
            const imageParts = (images || []).map(image => ({
                inlineData: { data: image.base64ImageData, mimeType: image.mimeType },
           }));
@@ -461,12 +461,12 @@ export const generateImage = async (
           if (prompt && prompt.trim() !== '') parts.push({ text: prompt });
 
           const response = await ai.models.generateContent({
-              model: 'gemini-3-pro-image-preview',
+              model: model,
               contents: { parts },
               config: {
                   imageConfig: {
                       aspectRatio: aspectRatio,
-                      imageSize: resolution // '1K', '2K', '4K'
+                      imageSize: resolution // '512px', '1K', '2K', '4K'
                   }
               }
           });

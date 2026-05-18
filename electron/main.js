@@ -99,6 +99,13 @@ function createWindow() {
       item.setSavePath(path.join(customDownloadPath, item.getFilename()));
     }
     // If no path is set, Electron's default behavior (usually asking or Downloads folder) applies.
+
+    item.once('done', (event, state) => {
+      if (state === 'completed') {
+        const savePath = item.getSavePath();
+        webContents.send('app:download-complete', { state, path: savePath });
+      }
+    });
   });
 
   // Load the app
@@ -123,6 +130,11 @@ ipcMain.handle('dialog:selectFolder', async () => {
   } else {
     return result.filePaths[0];
   }
+});
+
+// Handle show item in folder
+ipcMain.handle('shell:showItemInFolder', (event, fullPath) => {
+  shell.showItemInFolder(fullPath);
 });
 
 // Receive download path from Renderer

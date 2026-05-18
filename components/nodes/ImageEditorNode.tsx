@@ -33,7 +33,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
 
     const parsedValue = useMemo(() => {
         try {
-            return { ...DEFAULT_EDITOR_STATE, ...JSON.parse(node.value || '{}') };
+            return { ...DEFAULT_EDITOR_STATE, ...JSON.parse(node.value || '{}') } as ImageEditorState;
         } catch {
             return DEFAULT_EDITOR_STATE;
         }
@@ -535,7 +535,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
             currentOutputs.splice(index, 1);
         }
         
-        let newSelection = selectedSourceFrameIndex;
+        let newSelection = selectedSourceFrameIndex ?? null;
         if (newSelection === index) newSelection = null;
         else if (newSelection !== null && newSelection > index) newSelection--;
 
@@ -573,7 +573,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         const [movedOutput] = currentOutputs.splice(from, 1);
         currentOutputs.splice(to, 0, movedOutput);
         
-        let newSelection = selectedSourceFrameIndex;
+        let newSelection = selectedSourceFrameIndex ?? null;
         if (newSelection === from) newSelection = to;
         else if (newSelection !== null) {
             if (from < to) {
@@ -671,8 +671,8 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 libraryItems={libraryItems}
                 upstreamPrompt={upstreamPrompt}
                 upstreamPromptsMap={upstreamPromptsMap}
-                isTextConnected={isTextConnected}
-                isInputConnected={isInputConnected}
+                isTextConnected={!!isTextConnected}
+                isInputConnected={!!isInputConnected}
                 isEditing={isEditingImage}
                 seqTotalFrames={isSequenceMode && isSequentialEditingWithPrompts ? seqTotalFrames : imageSlots.length}
                 handleDetachAndPasteInput={handleDetachAndPasteInput}

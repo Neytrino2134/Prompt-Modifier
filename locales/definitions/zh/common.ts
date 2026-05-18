@@ -9,6 +9,7 @@ export const common = {
     'error.scriptModifierCanvas': '此画布属于另一个应用程序 - Script Modifier。请使用 Script Modifier 打开此文件。',
     'welcome.title': '欢迎来到',
     'welcome.description': '欢迎使用提示词修改器。连接创意，打造杰作。使用节点生成和编辑内容。',
+    'welcome.paidWarning': '请注意：这是一个付费应用程序。需要付费的Google API密钥才能工作。',
     'welcome.apiKeyLabel': '您的 Google Gemini API 密钥',
     'welcome.apiKeyPlaceholder': '在此输入您的 API 密钥...',
     'welcome.apiKeyHelp': '您的 API 密钥将存储在本地。',

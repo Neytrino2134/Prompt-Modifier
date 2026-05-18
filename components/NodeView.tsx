@@ -49,7 +49,8 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
 
     const context = useAppContext();
     // Default isHoverHighlightEnabled to true if context is not yet available, but prefer context value
-    const { handleOpenNodeContextMenu, requestDeleteNodes, handleUndockNode, selectNode, nodeAnimationMode, connectedInputTypes, handleClearNodeNewFlag, isHoverHighlightEnabled = true } = context || {};
+    const { handleOpenNodeContextMenu, requestDeleteNodes, handleUndockNode, selectNode, nodeAnimationMode, connectedInputTypes, handleClearNodeNewFlag, isHoverHighlightEnabled: contextHoverHighlightEnabled } = context || {};
+    const isHoverHighlightEnabled = contextHoverHighlightEnabled === undefined ? true : contextHoverHighlightEnabled;
     const { t } = useLanguage();
 
     const isRerouteDot = node.type === NodeType.REROUTE_DOT;
@@ -70,7 +71,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
 
     const minSize = useMemo(() => getMinNodeSize(node.type), [node.type]);
     const isDockedWindow = !!node.dockState && !isProxy;
-    const isProxyMode = !!node.dockState && isProxy;
+    const isProxyMode = !!node.dockState && !!isProxy;
 
     // Get override type for generic inputs like DataReader
     const connectedInputType = connectedInputTypes?.get(node.id);
@@ -91,7 +92,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
 
     // --- Styles & Classes ---
     // Pass group context to style generator
-    const styles = getNodeStyles(node, isDockedWindow, isProxyMode, isRerouteDot, isSelected, isHovered, minSize, isFocused, isGrouped, isGroupDragging);
+    const styles = getNodeStyles(node, isDockedWindow, isProxyMode, isRerouteDot, isSelected, isHovered, minSize, !!isFocused, isGrouped, isGroupDragging);
     const classes = getNodeClasses(
         node,
         isDockedWindow,
@@ -104,7 +105,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
         connectionTarget?.nodeId === node.id,
         !!props.isExecuting,
         rerouteType,
-        isFocused,
+        !!isFocused,
         isHoverHighlightEnabled // Pass current setting
     );
     const handleCursor = activeTool === 'edit' ? (isDockedWindow ? 'default' : 'crosshair') : 'inherit';
@@ -141,7 +142,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
         }
     }, [node.isNewlyCreated, node.id, handleClearNodeNewFlag]);
 
-    const getHandleColor = React.useCallback((type: 'text' | 'image' | 'character_data' | null, handleId?: string): string => {
+    const getHandleColor = React.useCallback((type: 'text' | 'image' | 'character_data' | 'video' | 'audio' | null, handleId?: string): string => {
         // Logic moved to utility, but wrapper kept for context closure
         return getHandleColorClass(type, handleId, node, isRerouteDot, rerouteType, isHovered, connectingInfo, connectionTarget);
     }, [node, isRerouteDot, rerouteType, connectingInfo, isHovered, connectionTarget]);

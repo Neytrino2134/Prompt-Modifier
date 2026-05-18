@@ -147,6 +147,8 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
         [NodeType.DATA_READER]: t('node.help.data_reader'),
         [NodeType.VIDEO_EDITOR]: t('node.help.video_editor'),
         [NodeType.MEDIA_VIEWER]: t('node.help.media_viewer'),
+        [NodeType.DATA_PROTECTION]: t('node.help.data_protection'),
+        [NodeType.POSE_CREATOR]: t('node.help.pose_creator'),
     }), [t]);
 
     const handleClearContent = (e: React.MouseEvent) => {

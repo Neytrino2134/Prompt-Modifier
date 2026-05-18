@@ -1,6 +1,6 @@
 
 import React, { useCallback } from 'react';
-import { Node, NodeType, Connection, Group, LibraryItem, Point, ToastType } from '../types';
+import { Node, NodeType, Connection, Group, LibraryItem, Point, ToastType, ConnectingInfo } from '../types';
 import { getEmptyValueForNodeType, getDuplicatedValueForNodeType, RATIO_INDICES, getOutputHandleType, getInputHandleType } from '../utils/nodeUtils';
 import { generateThumbnail } from '../utils/imageUtils';
 import { readPromptFromPNG } from '../utils/pngMetadata';
@@ -38,7 +38,7 @@ export const useAppOrchestration = (
     clearImagesForNodeFromCache: (nodeId: string) => void
 ) => {
 
-    const handleDownloadImage = useCallback((nodeId: string, onDownloadImageFromUrl: any) => {
+    const handleDownloadImage = useCallback((nodeId: string, onDownloadImageFromUrl: (url: string, frameNumber: number, prompt: string) => void) => {
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
 
@@ -155,17 +155,16 @@ export const useAppOrchestration = (
         return nodesHook.handlePasteImageToNode(nodeId, imageFile);
     }, [nodesHook]);
 
-    const handlePaste = useCallback(async (selectedNodeIds: string[], pasteNodeValueFn: any, pasteImageToNodeFn: any, canvasHook: any, entityActionsHook: any, nodesHook: any, isAlternativeMode?: boolean) => {
-        let clipboardItems;
+    const handlePaste = useCallback(async (selectedNodeIds: string[], pasteNodeValueFn: (nodeId: string) => Promise<boolean | string>, pasteImageToNodeFn: (nodeId: string, file?: File | null) => Promise<boolean | string>, canvasHook: any, entityActionsHook: any, nodesHook: any, isAlternativeMode?: boolean) => {
+        let clipboardItems: any[] = [];
         try {
-            clipboardItems = await navigator.clipboard.read();
+            clipboardItems = (await navigator.clipboard.read()) || [];
         } catch (e) {
             // Firefox or security restriction
-            clipboardItems = []; 
         }
         
         // Check if there is an image in the clipboard
-        const hasImage = clipboardItems.some(i => i.types.some(t => t.startsWith('image/')));
+        const hasImage = clipboardItems.some(i => i.types.some((t: string) => t.startsWith('image/')));
 
         // Priority 1: Paste into Selected Node
         if (selectedNodeIds.length === 1 && !isAlternativeMode) {
@@ -362,7 +361,7 @@ export const useAppOrchestration = (
         entityActionsHook.pasteGroup(data, pos);
     }, [catalogHook.catalogItems, canvasHook.pointerPosition, entityActionsHook]);
 
-    const handleAddNodeAndConnect = useCallback((nodeType: NodeType, info: any, onClose: () => void) => {
+    const handleAddNodeAndConnect = useCallback((nodeType: NodeType, info: { position: Point, connectingInfo: ConnectingInfo }, onClose: () => void) => {
         const { position, connectingInfo } = info;
         const { scale, translate } = canvasHook.viewTransform;
 
