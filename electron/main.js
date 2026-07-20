@@ -20,12 +20,7 @@ let isQuitting = false;
 function createWindow() {
   const isDev = !app.isPackaged;
   
-  // Determine correct icon path based on environment
-  // In dev, it's in public/. In prod, it's copied to dist/.
-  // Note: For Windows, .ico is preferred over .svg for the window icon.
-  const iconPath = isDev 
-    ? path.join(__dirname, '../public/favicon.svg') 
-    : path.join(__dirname, '../dist/favicon.svg');
+  const iconPath = path.join(__dirname, '../assets/icon.ico');
 
   const win = new BrowserWindow({
     width: 1280,

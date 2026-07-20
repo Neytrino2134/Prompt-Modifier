@@ -12,7 +12,8 @@ export const useCharacterNode = ({
     updateNodeInStorage,
     activeTabId,
     activeTabName,
-    activeTabIdRef
+    activeTabIdRef,
+    addToHistory
 }: GeminiGenerationCommonProps) => {
     const [isGeneratingCharacterImage, setIsGeneratingCharacterImage] = useState<string | null>(null);
 
@@ -40,6 +41,11 @@ export const useCharacterNode = ({
             const aspectRatio = char.aspectRatio || '1:1';
 
             const imageUrl = await generateImage(prompt, aspectRatio, undefined, 'gemini-3-flash-preview');
+            
+            if (addToHistory) {
+                addToHistory(imageUrl, prompt);
+            }
+            
             const base64 = imageUrl.split(',')[1];
             
             const newCharacters = characters.map((c: any) => c.id === characterId ? { ...c, imageBase64: base64 } : c);
@@ -52,7 +58,7 @@ export const useCharacterNode = ({
             setIsGeneratingCharacterImage(null);
             unregisterOperation(nodeId);
         }
-    }, [nodes, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef]);
+    }, [nodes, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, addToHistory]);
 
     return {
         isGeneratingCharacterImage,

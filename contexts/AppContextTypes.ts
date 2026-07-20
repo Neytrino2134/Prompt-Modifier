@@ -50,6 +50,7 @@ export type AppContextType =
   ReturnType<typeof useGeminiModification> &
   ReturnType<typeof useNodePositionHistory> &
   ReturnType<typeof useGoogleDrive> & 
+  ReturnType<typeof import('../hooks/useGenerationHistory').useGenerationHistory> &
    {
   replaceAllItems: (newItems: LibraryItem[]) => void;
   importItemsData: (data: any) => Promise<void>;

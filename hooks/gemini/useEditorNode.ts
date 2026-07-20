@@ -57,7 +57,8 @@ export const useEditorNode = ({
     getFullSizeImage,
     activeTabId,
     activeTabName,
-    activeTabIdRef
+    activeTabIdRef,
+    addToHistory
 }: GeminiGenerationCommonProps) => {
     const [isEditingImage, setIsEditingImage] = useState<boolean>(false);
     const [isStoppingEdit, setIsStoppingEdit] = useState(false);
@@ -246,6 +247,10 @@ export const useEditorNode = ({
                             abortControllerRef.current.signal
                         );
                         
+                        if (addToHistory) {
+                            addToHistory(imageUrl, promptToUse);
+                        }
+                        
                         let finalImageUrl = imageUrl;
                         if (parsed.autoCrop169) {
                              try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
@@ -339,6 +344,10 @@ export const useEditorNode = ({
                      abortControllerRef.current.signal
                 );
                 
+                if (addToHistory) {
+                     addToHistory(imageUrl, promptToUse);
+                }
+                
                 let finalImageUrl = imageUrl;
                 if (parsed.autoCrop169) {
                      try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
@@ -364,7 +373,7 @@ export const useEditorNode = ({
             abortControllerRef.current = null;
             unregisterOperation(nodeId);
         }
-    }, [nodes, getUpstreamNodeValues, getFullSizeImage, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef]);
+    }, [nodes, getUpstreamNodeValues, getFullSizeImage, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, addToHistory]);
 
     const handleStopEdit = useCallback(() => {
         if (abortControllerRef.current) {

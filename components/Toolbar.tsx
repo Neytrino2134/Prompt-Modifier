@@ -70,7 +70,7 @@ const ToolGroup: React.FC<{ title: string; children: React.ReactNode; isDetached
 const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCatalog, onSaveCanvas, onLoadCanvas, isDetached, onSaveProject, isCompact }) => {
   const { t } = useLanguage();
   const context = useAppContext();
-  const { tutorialStep, advanceTutorial, skipTutorial, handleSaveToDrive, isGoogleDriveSaving } = context || {};
+  const { tutorialStep, advanceTutorial, skipTutorial, handleSaveToDrive, isGoogleDriveSaving, setIsHistoryPanelOpen, isHistoryPanelOpen } = context || {};
 
   const containerClasses = isDetached
     ? "grid grid-cols-3 gap-2"
@@ -91,6 +91,11 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
             <ToolButton title={t('toolbar.catalog')} onClick={onToggleCatalog}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+            </ToolButton>
+            <ToolButton title={t('ui.generation_history') || 'Generation History'} onClick={() => setIsHistoryPanelOpen?.(!isHistoryPanelOpen)} isActive={isHistoryPanelOpen}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </ToolButton>
           </ToolGroup>

@@ -25,6 +25,7 @@ import {
     useGeminiModification,
     useNodePositionHistory,
     useContentCatalog,
+    useGenerationHistory,
     calculateGroupBounds,
     CatalogItemType,
     ContentCatalogItemType,
@@ -45,6 +46,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Core Hooks
     const tabsHook = useTabs();
+    const generationHistoryHook = useGenerationHistory();
     const { tabs, setTabs, activeTabId, setActiveTabId, handleAddTab, handleSwitchTab, handleRenameTab, handleCloseTab, resetTabs, resetCurrentTab, getLocalizedCanvasState } = tabsHook;
 
     const activeTab = useMemo(() => {
@@ -216,7 +218,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     const geminiGenerationHook = useGeminiGeneration({
-        nodes: nodesHook.nodes, connections: connectionsHook.connections, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, showApiKeyDialog: (cb) => dialogsHook.showApiKeyDialog(cb), t, setFullSizeImage, getFullSizeImage, connectedCharacterData: derivedMemoHook.connectedCharacterData, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, isGlobalProcessing: activeOperations.size > 0, addToast
+        nodes: nodesHook.nodes, connections: connectionsHook.connections, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, showApiKeyDialog: (cb) => dialogsHook.showApiKeyDialog(cb), t, setFullSizeImage, getFullSizeImage, connectedCharacterData: derivedMemoHook.connectedCharacterData, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, isGlobalProcessing: activeOperations.size > 0, addToast, addToHistory: generationHistoryHook.addToHistory
     });
 
     const geminiChainExecutionHook = useGeminiChainExecution({
@@ -884,7 +886,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ...permissionsHook, ...canvasIOHook,
             ...entityActionsHook, ...interactionHook, ...derivedMemoHook, ...canvasEventsHook,
             ...geminiAnalysisHook, ...geminiConversationHook, ...geminiChainExecutionHook, ...geminiGenerationHook, ...geminiModificationHook,
-            ...positionHistoryHook, ...globalState, ...orchestrationHook, ...googleDriveHook,
+            ...positionHistoryHook, ...globalState, ...orchestrationHook, ...googleDriveHook, ...generationHistoryHook,
 
             tutorialStep: tutorialHook.tutorialStep,
             advanceTutorial: tutorialHook.advanceTutorial,
@@ -1009,7 +1011,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dialogsHook, catalogHook, libraryHook, permissionsHook, canvasIOHook,
         entityActionsHook, interactionHook, derivedMemoHook, canvasEventsHook,
         geminiAnalysisHook, geminiConversationHook, geminiChainExecutionHook, geminiGenerationHook, geminiModificationHook,
-        positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook,
+        positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook, generationHistoryHook,
         handleToggleNodeCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,

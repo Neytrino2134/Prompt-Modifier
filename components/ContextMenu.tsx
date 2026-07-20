@@ -69,11 +69,14 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ isOpen, position, onCl
               });
           });
       } else {
-          setMenuStyle({ 
-              opacity: 0, 
-              pointerEvents: 'none',
-              transform: 'scale(0.95)',
-              transition: 'opacity 0.1s ease-in, transform 0.1s ease-in'
+          setMenuStyle(prev => {
+              if (prev.opacity === 0) return prev;
+              return { 
+                  opacity: 0, 
+                  pointerEvents: 'none',
+                  transform: 'scale(0.95)',
+                  transition: 'opacity 0.1s ease-in, transform 0.1s ease-in'
+              };
           });
       }
   }, [isOpen, position]); 

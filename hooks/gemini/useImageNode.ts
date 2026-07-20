@@ -36,7 +36,8 @@ export const useImageNode = ({
     activeTabId,
     activeTabName,
     activeTabIdRef,
-    setFullSizeImage
+    setFullSizeImage,
+    addToHistory
 }: GeminiGenerationCommonProps) => {
     const [isGeneratingImage, setIsGeneratingImage] = useState<string | null>(null);
 
@@ -87,6 +88,10 @@ export const useImageNode = ({
             const imageUrl = await generateImage(prompt, aspectRatio, undefined, node.model, node.resolution);
             const thumbnailUrl = await generateThumbnail(imageUrl, 256, 256);
             
+            if (addToHistory) {
+                addToHistory(imageUrl, prompt);
+            }
+            
             if (node.type === NodeType.CHARACTER_CARD) {
                 const ratioIdx = RATIO_INDICES[aspectRatio] || 1;
                 // Calculate precise frame index for cache: (cardIndex * 10) + ratioIndex
@@ -124,7 +129,7 @@ export const useImageNode = ({
             setIsGeneratingImage(null);
             unregisterOperation(nodeId);
         }
-    }, [nodes, getUpstreamNodeValues, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, setFullSizeImage]);
+    }, [nodes, getUpstreamNodeValues, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, setFullSizeImage, addToHistory]);
 
     return {
         isGeneratingImage,

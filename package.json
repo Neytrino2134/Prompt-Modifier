@@ -45,11 +45,12 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "assets/**/*",
       "package.json"
     ],
     "win": {
       "target": "nsis",
-      "icon": "resources/icon.ico"
+      "icon": "assets/icon.ico"
     },
     "linux": {
       "target": "AppImage",

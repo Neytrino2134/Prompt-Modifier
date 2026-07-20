@@ -88,12 +88,15 @@ const NodeAlignContextMenu: React.FC<NodeAlignContextMenuProps> = ({ isOpen, pos
                 });
             });
         } else {
-            setStyle(prev => ({
-                ...prev,
-                opacity: 0,
-                pointerEvents: 'none',
-                transform: 'scale(0.95)'
-            }));
+            setStyle(prev => {
+                if (prev.opacity === 0) return prev;
+                return {
+                    ...prev,
+                    opacity: 0,
+                    pointerEvents: 'none',
+                    transform: 'scale(0.95)'
+                };
+            });
         }
     }, [isOpen, position]);
 

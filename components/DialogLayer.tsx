@@ -17,8 +17,11 @@ import NodeDeleteConfirm from './NodeDeleteConfirm';
 import SettingsDialog from './SettingsDialog';
 import ErrorDialog from './ErrorDialog';
 import { DebugConsole } from './DebugConsole';
+import { HistoryPanel } from './HistoryPanel';
 import { CatalogItemType } from '../hooks/useCatalog';
 import { Point } from '../types';
+
+const DEFAULT_POSITION = { x: 0, y: 0 };
 
 const DialogLayer: React.FC = () => {
     const context = useAppContext();
@@ -137,14 +140,14 @@ const DialogLayer: React.FC = () => {
 
             <ContextMenu
                 isOpen={!!contextMenu?.isOpen}
-                position={contextMenu?.position || { x: 0, y: 0 }}
+                position={contextMenu?.position || DEFAULT_POSITION}
                 onClose={handleCloseContextMenu}
                 onToolSelect={setActiveTool}
                 slots={quickSlots}
                 onSlotUpdate={updateQuickSlot}
                 onSetSlots={setAllQuickSlots}
                 onAddNode={(type) => {
-                    const pos = getTransformedPoint(contextMenu?.position || { x: 0, y: 0 });
+                    const pos = getTransformedPoint(contextMenu?.position || DEFAULT_POSITION);
                     onAddNode(type, pos);
                 }}
                 isPinned={isContextMenuPinned}
@@ -158,7 +161,7 @@ const DialogLayer: React.FC = () => {
 
             <NodeAlignContextMenu
                 isOpen={!!nodeContextMenu?.isOpen}
-                position={nodeContextMenu?.position || { x: 0, y: 0 }}
+                position={nodeContextMenu?.position || DEFAULT_POSITION}
                 onClose={handleCloseNodeContextMenu}
                 onAlign={(alignment) => handleAlignNodes(selectedNodeIds, alignment)}
             />
@@ -289,6 +292,7 @@ const DialogLayer: React.FC = () => {
                 setIsInstantCloseEnabled={setIsInstantCloseEnabled}
                 anchorPosition={settingsAnchor}
             />
+            <HistoryPanel />
         </>
     );
 };

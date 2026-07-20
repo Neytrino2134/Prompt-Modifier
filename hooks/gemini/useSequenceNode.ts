@@ -57,7 +57,8 @@ export const useSequenceNode = ({
     activeTabName,
     activeTabIdRef,
     addToast,
-    setFullSizeImage
+    setFullSizeImage,
+    addToHistory
 }: UseSequenceNodeProps) => {
     const [isGeneratingSequence, setIsGeneratingSequence] = useState<string | null>(null);
     const [isStoppingSequence, setIsStoppingSequence] = useState(false);
@@ -244,6 +245,10 @@ export const useSequenceNode = ({
                         abortControllerRef.current!.signal
                     );
                     
+                    if (addToHistory) {
+                        addToHistory(imageUrl, fullPrompt);
+                    }
+                    
                     let finalUrl = imageUrl;
                     if (parsed.autoCrop169 && parsed.aspectRatio === '16:9') {
                          try { finalUrl = await cropImageTo169(imageUrl); } catch(e) {}
@@ -291,7 +296,7 @@ export const useSequenceNode = ({
             abortControllerRef.current = null;
             unregisterOperation(nodeId);
         }
-    }, [nodes, connectedCharacterData, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, addToast, setFullSizeImage, cleanupNodeStatuses]);
+    }, [nodes, connectedCharacterData, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, addToast, setFullSizeImage, cleanupNodeStatuses, addToHistory]);
 
     const handleGenerateSelectedFrames = useCallback(async (nodeId: string, framesOverride?: number[]) => {
         const currentTabId = activeTabIdRef.current;
@@ -430,6 +435,7 @@ export const useSequenceNode = ({
                         abortControllerRef.current!.signal
                     );
 
+                    if (addToHistory) addToHistory(imageUrl, fullPrompt);
                     let finalUrl = imageUrl;
                     if (parsed.autoCrop169 && parsed.aspectRatio === '16:9') {
                          try { finalUrl = await cropImageTo169(imageUrl); } catch(e) {}
@@ -476,7 +482,7 @@ export const useSequenceNode = ({
             abortControllerRef.current = null;
             unregisterOperation(nodeId);
         }
-    }, [nodes, connectedCharacterData, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, addToast, setFullSizeImage, cleanupNodeStatuses]);
+    }, [nodes, connectedCharacterData, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, addToast, setFullSizeImage, cleanupNodeStatuses, addToHistory]);
 
     const handleStopImageSequence = useCallback(() => {
         if (abortControllerRef.current) {

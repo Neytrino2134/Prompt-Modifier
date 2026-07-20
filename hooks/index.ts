@@ -29,3 +29,4 @@ export * from './interactions/useCanvasGestures';
 export * from './interactions/useNodeDrag';
 export * from './interactions/useConnectionHandling';
 export * from './interactions/useHotkeys';
+export * from './useGenerationHistory';

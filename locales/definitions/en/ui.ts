@@ -147,4 +147,13 @@ export const ui = {
     'toolbar.enterFullScreen': 'Full Screen',
     'toolbar.exitFullScreen': 'Exit Full Screen',
     'dialog.settings.hoverHighlightLabel': 'Node Hover Highlight',
+    'ui.generation_history': 'Generation History',
+    'ui.select': 'Select',
+    'ui.delete': 'Delete',
+    'ui.cancel': 'Cancel',
+    'ui.clear_all': 'Clear All',
+    'ui.confirm_clear_history': 'Are you sure you want to clear all history?',
+    'ui.history_empty': 'History is empty',
+    'ui.copy': 'Copy',
+    'ui.copied_to_clipboard': 'Copied to clipboard',
 };
