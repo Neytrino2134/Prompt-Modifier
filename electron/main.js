@@ -12,7 +12,7 @@ const FAKE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 const DEV_PORT = process.env.PORT || 5173;
 
 // Store user defined download path in memory (syncs from renderer)
-let customDownloadPath = '';
+let customDownloadPath = app.getPath('downloads');
 
 // Flag to track if we should actually close the app or ask the renderer first
 let isQuitting = false;
@@ -20,7 +20,12 @@ let isQuitting = false;
 function createWindow() {
   const isDev = !app.isPackaged;
   
-  const iconPath = path.join(__dirname, '../assets/icon.ico');
+  // Determine correct icon path based on environment
+  // In dev, it's in public/. In prod, it's copied to dist/.
+  // Note: For Windows, .ico is preferred over .svg for the window icon.
+  const iconPath = isDev 
+    ? path.join(__dirname, '../public/favicon.svg') 
+    : path.join(__dirname, '../dist/favicon.svg');
 
   const win = new BrowserWindow({
     width: 1280,

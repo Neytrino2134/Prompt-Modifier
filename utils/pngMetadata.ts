@@ -26,13 +26,16 @@ function bytesToText(bytes: Uint8Array): string {
 }
 
 export const addMetadataToPNG = (base64Image: string, key: string, value: string): string => {
-  if (!base64Image.startsWith('data:image/png;base64,')) {
+  if (!base64Image.startsWith('data:image/png')) {
     console.warn("Attempted to add metadata to a non-PNG image.");
     return base64Image;
   }
 
   try {
-    const base64Data = base64Image.substring('data:image/png;base64,'.length);
+    const base64Parts = base64Image.split('base64,');
+    if (base64Parts.length !== 2) return base64Image;
+    const base64Data = base64Parts[1];
+    
     const binaryString = atob(base64Data);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < bytes.length; i++) {
@@ -130,12 +133,15 @@ export const addMetadataToPNG = (base64Image: string, key: string, value: string
 
 export const readMetadataFromPNG = async (base64Image: string): Promise<Record<string, string>> => {
     return new Promise((resolve) => {
-        if (!base64Image || !base64Image.startsWith('data:image/png;base64,')) {
+        if (!base64Image || !base64Image.startsWith('data:image/png')) {
             return resolve({});
         }
 
         try {
-            const base64Data = base64Image.substring('data:image/png;base64,'.length);
+            const base64Parts = base64Image.split('base64,');
+            if (base64Parts.length !== 2) return resolve({});
+            const base64Data = base64Parts[1];
+            
             const binaryString = atob(base64Data);
             const bytes = new Uint8Array(binaryString.length);
             for (let i = 0; i < bytes.length; i++) {

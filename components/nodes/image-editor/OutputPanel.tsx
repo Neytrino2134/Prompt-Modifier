@@ -554,16 +554,12 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             {/* Bottom Controls Area: Integrated Model Switcher & Single Mode Buttons */}
             <div className="flex-shrink-0 flex items-center gap-2 mt-2 pt-2 border-t border-gray-700/50">
                 {/* Model Switch Dropdown */}
-                <div className="flex-shrink flex-grow-0 min-w-[120px] max-w-[200px]">
+                <div className="flex-1 min-w-[120px]">
                      <CustomSelect
                          value={model}
                          onChange={(value) => onUpdateState({ model: value })}
                          disabled={isEditing}
-                         options={[
-                             { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image...' },
-                             { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image...' },
-                             { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image...' }
-                         ]}
+                         options={modelOptions}
                          id="model-selector"
                      />
                 </div>
@@ -608,15 +604,15 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                      </div>
                 </div>
 
-                <div className="flex-1 flex space-x-2">
+                <div className="flex-shrink-0 flex space-x-2">
                     {/* Main Action Button */}
                     {isEditing && isSequenceMode ? (
-                        <button onClick={onStop} className="flex-1 flex-shrink-0 min-w-max px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors">{isStopping ? t('node.action.stopping') : t('node.action.stop')}</button>
+                        <button onClick={onStop} className="flex-shrink-0 min-w-max px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors">{isStopping ? t('node.action.stopping') : t('node.action.stop')}</button>
                     ) : (
                         <button 
                             onClick={isSequenceMode ? onRunSelected : onEdit}
                             disabled={isEditing || (!hasInputImages && !isSequentialEditingWithPrompts) || (!(isTextConnected ? upstreamPrompt : prompt) && !isSequenceMode)} 
-                            className="flex-1 flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
+                            className="flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
                         >
                             {isEditing ? t('node.content.editing') : (isSequenceMode ? t('image_sequence.run_selected') : t('node.content.applyEdit'))}
                         </button>
@@ -633,7 +629,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     
                     {/* Sequence Mode: Download Button */}
                     {isSequenceMode && (
-                        <button onClick={onDownloadSelected} disabled={checkedSequenceOutputIndices.length === 0} className="flex-1 flex-shrink-0 min-w-max px-3 h-[36px] py-2 text-sm items-center justify-center whitespace-nowrap font-bold text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
+                        <button onClick={onDownloadSelected} disabled={checkedSequenceOutputIndices.length === 0} className="flex-shrink-0 min-w-max px-3 h-[36px] py-2 text-sm items-center justify-center whitespace-nowrap font-bold text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
                              {createZip ? 'Download ZIP' : `${t('image_sequence.download_selected')} (${checkedSequenceOutputIndices.length})`}
                         </button>
                     )}

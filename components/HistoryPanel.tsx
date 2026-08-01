@@ -27,22 +27,43 @@ export const HistoryPanel: React.FC = () => {
     setIsSelectMode(false);
   };
 
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, url: string, prompt: string) => {
+  const handleDragStart = (e: React.DragEvent<HTMLImageElement>, url: string, prompt: string) => {
     e.dataTransfer.setData('text/plain', url);
     e.dataTransfer.setData('application/prompt-modifier-drag-info', JSON.stringify({ src: url, prompt }));
+    e.dataTransfer.setData('application/prompt-modifier-drag-image', url);
+    
+    const safeName = (prompt || 'image').slice(0, 40).replace(/[^a-z0-9]/gi, '_');
+    const filename = `${safeName}.png`;
+    e.dataTransfer.setData("DownloadURL", `image/png:${filename}:${url}`);
+    e.dataTransfer.setData("text/html", `<img src="${url}" alt="${safeName}" />`);
+    e.dataTransfer.setData("text/uri-list", url);
+    
     e.dataTransfer.effectAllowed = 'copy';
   };
 
   const handleCopy = async (url: string) => {
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = url;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No 2d context');
+      ctx.drawImage(img, 0, 0);
+
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Failed to create blob');
+      
       await navigator.clipboard.write([
-        new ClipboardItem({
-          [blob.type]: blob
-        })
+        new ClipboardItem({ 'image/png': blob })
       ]);
-      // Optional: Add a toast notification here
       context.addToast?.(t('ui.copied_to_clipboard') || 'Copied to clipboard', 'success');
     } catch (e) {
       console.error('Failed to copy image', e);
@@ -107,49 +128,54 @@ export const HistoryPanel: React.FC = () => {
             <p className="text-sm">{t('ui.history_empty') || 'History is empty'}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-4">
             {historyItems.map((item) => (
               <div
                 key={item.id}
-                className={`relative aspect-square bg-gray-800 rounded-lg overflow-hidden group cursor-pointer transition-all ${
+                className={`relative bg-gray-800 rounded-lg overflow-hidden group cursor-pointer transition-all flex flex-col ${
                   isSelectMode && selectedIds.has(item.id) ? 'ring-2 ring-accent' : 'hover:ring-2 hover:ring-gray-600'
                 }`}
                 onClick={() => isSelectMode ? toggleSelection(item.id) : null}
               >
-                <img
-                  src={item.url}
-                  alt={item.prompt}
-                  className="w-full h-full object-cover"
-                  draggable={!isSelectMode}
-                  onDragStart={(e) => !isSelectMode && handleDragStart(e, item.url, item.prompt)}
-                  title={item.prompt}
-                />
-                {!isSelectMode && (
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
-                    <p className="text-xs text-gray-300 line-clamp-2 mb-2">{item.prompt}</p>
-                    <div className="flex gap-2">
+                <div className="relative w-full aspect-square bg-gray-900">
+                  <img
+                    src={item.url}
+                    alt={item.prompt}
+                    className="w-full h-full object-contain"
+                    draggable={!isSelectMode}
+                    onDragStart={(e) => !isSelectMode && handleDragStart(e, item.url, item.prompt)}
+                    title={item.prompt}
+                  />
+                  {isSelectMode && (
+                    <div className="absolute top-2 left-2">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        selectedIds.has(item.id) ? 'bg-accent border-accent' : 'border-gray-400 bg-black/50'
+                      }`}>
+                        {selectedIds.has(item.id) && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Prompt frame below */}
+                <div className="p-3 bg-gray-800/80 border-t border-gray-700 flex flex-col gap-2">
+                  <p className="text-xs text-gray-300 line-clamp-3 select-text cursor-text" onMouseDown={(e) => e.stopPropagation()}>{item.prompt}</p>
+                  {!isSelectMode && (
+                    <div className="flex gap-2 mt-1">
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleCopy(item.url); }}
-                        className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-1 rounded text-xs transition-colors"
+                        className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1"
                       >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                         {t('ui.copy') || 'Copy'}
                       </button>
                     </div>
-                  </div>
-                )}
-                {isSelectMode && (
-                  <div className="absolute top-2 left-2">
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      selectedIds.has(item.id) ? 'bg-accent border-accent' : 'border-gray-400 bg-black/50'
-                    }`}>
-                      {selectedIds.has(item.id) && (
-                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ))}
           </div>

@@ -368,19 +368,47 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         return imageSlots.length;
     }, [isSequentialEditingWithPrompts, framePrompts, upstreamPromptsMap, imageSlots.length]);
 
+    const prevImageSlotsLengthRef = useRef(imageSlots.length);
+    const prevSeqTotalFramesRef = useRef(seqTotalFrames);
+
     // Handle initial selection for new mode
     useEffect(() => {
          if (isSequentialEditingWithPrompts) {
-             if (!checkedSequenceOutputIndices || checkedSequenceOutputIndices.length !== seqTotalFrames) {
+             const previousSeqLength = prevSeqTotalFramesRef.current;
+             if (checkedSequenceOutputIndices === undefined) {
                   handleValueUpdate({ checkedSequenceOutputIndices: Array.from({length: seqTotalFrames}, (_, i) => i) });
+             } else if (seqTotalFrames > previousSeqLength) {
+                 const newChecked = [...checkedSequenceOutputIndices];
+                 for (let i = previousSeqLength; i < seqTotalFrames; i++) {
+                     newChecked.push(i);
+                 }
+                 handleValueUpdate({ checkedSequenceOutputIndices: newChecked });
+             } else if (seqTotalFrames < previousSeqLength) {
+                 const validIndices = checkedSequenceOutputIndices.filter(i => i < seqTotalFrames);
+                 if (validIndices.length !== checkedSequenceOutputIndices.length) {
+                     handleValueUpdate({ checkedSequenceOutputIndices: validIndices });
+                 }
              }
          } else {
-             const currentLength = checkedInputIndices ? checkedInputIndices.length : 0;
-             if (imageSlots.length > currentLength || checkedInputIndices === undefined) {
+             const previousLength = prevImageSlotsLengthRef.current;
+             if (checkedInputIndices === undefined) {
                  handleValueUpdate({ checkedInputIndices: imageSlots.map((_, i) => i) });
+             } else if (imageSlots.length > previousLength) {
+                 const newChecked = [...checkedInputIndices];
+                 for (let i = previousLength; i < imageSlots.length; i++) {
+                     newChecked.push(i);
+                 }
+                 handleValueUpdate({ checkedInputIndices: newChecked });
+             } else if (imageSlots.length < previousLength) {
+                 const validIndices = checkedInputIndices.filter(i => i < imageSlots.length);
+                 if (validIndices.length !== checkedInputIndices.length) {
+                     handleValueUpdate({ checkedInputIndices: validIndices });
+                 }
              }
          }
-    }, [imageSlots.length, isSequentialEditingWithPrompts, seqTotalFrames]);
+         prevImageSlotsLengthRef.current = imageSlots.length;
+         prevSeqTotalFramesRef.current = seqTotalFrames;
+    }, [imageSlots.length, isSequentialEditingWithPrompts, seqTotalFrames, checkedInputIndices, checkedSequenceOutputIndices]);
 
     const hasInputImages = isSequentialEditingWithPrompts ? imageSlotsB.length > 0 : imageSlots.length > 0;
     
@@ -703,7 +731,13 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 currentGeneratingDisplay={(sequenceOutputs.findIndex(o => o?.status === 'generating') + 1) || '-'}
                 fullSizeOutputForCopy={getFullSizeImage(node.id, 0) || outputImage}
                 imageForEditor={getFullSizeImage(node.id, 0) || outputImage}
-                modelOptions={[]}
+                modelOptions={[
+                    { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0' },
+                    { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)' },
+                    { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)' },
+                    { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nana Banana 2 Lite)' },
+                    { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)' }
+                ]}
                 isNanoBanana={isNanoBanana}
                 onUpdateState={handleValueUpdate}
                 onRunSelected={handleStartEdit} 

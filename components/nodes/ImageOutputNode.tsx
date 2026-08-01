@@ -72,6 +72,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
       { value: 'imagen-4.0-ultra-generate-preview-06-06', label: 'Imagen 4.0 Ultra (Preview)' },
       { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro (Nano Banana Pro)' },
       { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)' },
+      { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nano Banana 2 Lite)' },
       { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)' }
     ];
     

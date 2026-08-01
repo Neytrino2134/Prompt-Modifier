@@ -1,5 +1,7 @@
 
 import { GoogleGenAI, GenerateContentResponse, Modality, Type } from "@google/genai";
+import { convertToPNG } from '../utils/imageUtils';
+import { addMetadataToPNG } from '../utils/pngMetadata';
 
 export const getApiKey = () => {
   const useDevKey = localStorage.getItem('settings_useDevKey') === 'true';
@@ -452,6 +454,18 @@ export const generateImage = async (
   return callWithRetry(async () => {
     const ai = createAIClient();
     
+    // Helper to process the returned image
+    const processReturnedImage = async (mimeType: string, base64Data: string, originalPrompt: string): Promise<string> => {
+        let dataUrl = `data:${mimeType};base64,${base64Data}`;
+        try {
+            const pngDataUrl = await convertToPNG(dataUrl);
+            return addMetadataToPNG(pngDataUrl, 'prompt', originalPrompt);
+        } catch (e) {
+            console.error("Failed to add metadata:", e);
+            return dataUrl;
+        }
+    };
+    
     try {
       if (model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image-preview') {
            const imageParts = (images || []).map(image => ({
@@ -474,7 +488,7 @@ export const generateImage = async (
           const candidate = response.candidates?.[0];
           const part = candidate?.content?.parts?.find(p => p.inlineData);
           if (part?.inlineData) {
-               return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+               return await processReturnedImage(part.inlineData.mimeType, part.inlineData.data, prompt);
           }
           throw new Error("No image returned. The prompt may have been blocked or the model encountered an error.");
       }
@@ -515,7 +529,7 @@ export const generateImage = async (
           const candidate = response.candidates?.[0];
           const part = candidate?.content?.parts?.find(p => p.inlineData);
           if (part?.inlineData) {
-              return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+              return await processReturnedImage(part.inlineData.mimeType, part.inlineData.data, prompt);
           }
           throw new Error("No image returned. The prompt may have been blocked.");
 
@@ -531,7 +545,7 @@ export const generateImage = async (
                   config: { numberOfImages: 1, outputMimeType: 'image/png', aspectRatio: aspectRatio },
               });
               if (response.generatedImages?.[0]?.image?.imageBytes) {
-                  return `data:image/png;base64,${response.generatedImages[0].image.imageBytes}`;
+                  return await processReturnedImage('image/png', response.generatedImages[0].image.imageBytes, prompt);
               }
               throw new Error("No image returned.");
           } else {
@@ -549,7 +563,7 @@ export const generateImage = async (
               });
               const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
               if (part?.inlineData) {
-                  return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                  return await processReturnedImage(part.inlineData.mimeType, part.inlineData.data, prompt);
               }
               throw new Error("No image returned.");
           }

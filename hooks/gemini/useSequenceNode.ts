@@ -38,7 +38,7 @@ const triggerDownload = (url: string, frameNumber: number, prompt: string) => {
     const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
     
     const paddedFrame = String(frameNumber).padStart(3, '0');
-    link.download = `Frame_${paddedFrame}_seq_gen_${date}_${time}.png`;
+    link.download = `Image_${paddedFrame}_${date}_${time}.png`;
 
     document.body.appendChild(link);
     link.click();

@@ -42,9 +42,11 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
 }) => {
     
     const modelOptions = [
-        { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash (Nano Banana)' },
+        { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0' },
         { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)' },
-        { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0' }
+        { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)' },
+        { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nana Banana 2 Lite)' },
+        { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)' }
     ];
 
     const aspectRatios = [

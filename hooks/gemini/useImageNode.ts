@@ -17,7 +17,7 @@ const triggerDownload = (url: string, prompt: string) => {
     const now = new Date();
     const date = now.toISOString().split('T')[0];
     const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-    const filename = `Image_Output_${date}_${time}.png`;
+    const filename = `Image_000_${date}_${time}.png`;
     
     link.download = filename;
     document.body.appendChild(link);

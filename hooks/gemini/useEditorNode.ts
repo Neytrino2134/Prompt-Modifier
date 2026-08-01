@@ -10,7 +10,7 @@ import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { GeminiGenerationCommonProps } from './types';
 
 // Helper for local download triggering within the hook
-const triggerDownload = (url: string, prompt: string) => {
+const triggerDownload = (url: string, prompt: string, frameNumber: number = 0) => {
     let assetUrl = url;
     if (url.startsWith('data:image/png')) {
         assetUrl = addMetadataToPNG(url, 'prompt', prompt);
@@ -21,7 +21,9 @@ const triggerDownload = (url: string, prompt: string) => {
     
     const now = new Date();
     const date = now.toISOString().split('T')[0];
-    const filename = `Image_Editor_Frame_001_${date}.png`;
+    const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+    const paddedFrame = String(frameNumber).padStart(3, '0');
+    const filename = `Image_${paddedFrame}_${date}_${time}.png`;
     
     link.download = filename;
     document.body.appendChild(link);
@@ -266,23 +268,7 @@ export const useEditorNode = ({
 
                         // Auto-Download for Sequence Mode
                         if (parsed.autoDownload) {
-                             // Use unified filename format for manual/auto consistency
-                             // Image_Editor_Frame_XXX_Date
-                             const now = new Date();
-                             const date = now.toISOString().split('T')[0];
-                             const paddedFrame = String(i + 1).padStart(3, '0');
-                             const filename = `Image_Editor_Frame_${paddedFrame}_${date}.png`;
-                             
-                             let assetUrl = finalImageUrl;
-                             if (finalImageUrl.startsWith('data:image/png')) {
-                                 assetUrl = addMetadataToPNG(finalImageUrl, 'prompt', promptToUse);
-                             }
-                             const link = document.createElement('a');
-                             link.href = assetUrl;
-                             link.download = filename;
-                             document.body.appendChild(link);
-                             link.click();
-                             document.body.removeChild(link);
+                             triggerDownload(finalImageUrl, promptToUse, i + 1);
                         }
 
                     } catch (err: any) {

@@ -38,7 +38,7 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     aspectRatio: '16:9', // Default changed to 16:9
     enableAspectRatio: false,
     autoCrop169: true, // Default enabled
-    leftPaneWidth: 360,
+    leftPaneWidth: 400,
     topPaneHeight: 330,
     resolution: '1K',
     isSequenceMode: false,
@@ -61,7 +61,7 @@ export interface ImageSlot {
 }
 
 // Layout Constants
-export const MIN_LEFT_PANE_WIDTH = 280;
+export const MIN_LEFT_PANE_WIDTH = 400;
 export const MIN_RIGHT_PANE_WIDTH = 700;
 export const MIN_TOP_PANE_HEIGHT = 330;
 export const MIN_BOTTOM_PANE_HEIGHT = 180;
