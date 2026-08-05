@@ -139,10 +139,10 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     const [scrollTop, setScrollTop] = useState(0);
     const [containerWidth, setContainerWidth] = useState(0);
 
-    const isFlashImage = model === 'gemini-2.5-flash-image' || model === 'gemini-3.1-flash-image';
+    const isFlashImage = model === 'gemini-2.5-flash-image' || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
     const isPro = model === 'gemini-3-pro-image-preview';
     const showAspectRatio = isFlashImage || isPro;
-    const showResolution = isPro;
+    const showResolution = isPro || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
 
     useEffect(() => {
         if (!isSequenceMode || !containerRef.current) return;

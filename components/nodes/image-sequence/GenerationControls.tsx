@@ -63,7 +63,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
         { value: '4K', label: '4K' },
     ];
 
-    const isPro = model === 'gemini-3-pro-image-preview';
+    const isPro = model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
 
     return (
         <div className="flex-shrink-0 space-y-2 mt-2">

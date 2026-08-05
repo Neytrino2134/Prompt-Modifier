@@ -117,10 +117,12 @@ export const addMetadataToPNG = (base64Image: string, key: string, value: string
     newBytes.set(textChunkBytes, iendChunkStart);
     newBytes.set(bytes.slice(iendChunkStart), iendChunkStart + textChunkBytes.length);
     
-    let newBinaryString = '';
-    for (let i = 0; i < newBytes.length; i++) {
-      newBinaryString += String.fromCharCode(newBytes[i]);
+    const CHUNK_SIZE = 0x8000;
+    const stringChunks = [];
+    for (let i = 0; i < newBytes.length; i += CHUNK_SIZE) {
+        stringChunks.push(String.fromCharCode.apply(null, Array.from(newBytes.subarray(i, i + CHUNK_SIZE))));
     }
+    const newBinaryString = stringChunks.join('');
     const newBase64 = btoa(newBinaryString);
     
     return `data:image/png;base64,${newBase64}`;

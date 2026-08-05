@@ -40,7 +40,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, d
     if (isOpen) {
       const selectedIdx = options.findIndex(opt => opt.value === value);
       setFocusedIndex(selectedIdx > -1 ? selectedIdx : 0);
-      setTimeout(() => optionsRef.current[selectedIdx > -1 ? selectedIdx : 0]?.focus(), 0);
+      setTimeout(() => optionsRef.current[selectedIdx > -1 ? selectedIdx : 0]?.focus({ preventScroll: true }), 0);
     }
   }, [isOpen, options, value]);
 
@@ -53,7 +53,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, d
         } else {
           const newIndex = Math.min(focusedIndex + 1, options.length - 1);
           setFocusedIndex(newIndex);
-          optionsRef.current[newIndex]?.focus();
+          optionsRef.current[newIndex]?.focus({ preventScroll: true });
         }
         break;
       case 'ArrowUp':
@@ -61,7 +61,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, d
         if (isOpen) {
           const newIndex = Math.max(focusedIndex - 1, 0);
           setFocusedIndex(newIndex);
-          optionsRef.current[newIndex]?.focus();
+          optionsRef.current[newIndex]?.focus({ preventScroll: true });
         }
         break;
       case 'Enter':

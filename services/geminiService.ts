@@ -467,7 +467,7 @@ export const generateImage = async (
     };
     
     try {
-      if (model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image-preview') {
+      if (model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image-preview' || model === 'gemini-3.1-flash-image') {
            const imageParts = (images || []).map(image => ({
                inlineData: { data: image.base64ImageData, mimeType: image.mimeType },
           }));
@@ -488,7 +488,7 @@ export const generateImage = async (
           const candidate = response.candidates?.[0];
           const part = candidate?.content?.parts?.find(p => p.inlineData);
           if (part?.inlineData) {
-               return await processReturnedImage(part.inlineData.mimeType, part.inlineData.data, prompt);
+               return await processReturnedImage(part.inlineData.mimeType || 'image/png', part.inlineData.data || '', prompt || '');
           }
           throw new Error("No image returned. The prompt may have been blocked or the model encountered an error.");
       }
@@ -529,7 +529,7 @@ export const generateImage = async (
           const candidate = response.candidates?.[0];
           const part = candidate?.content?.parts?.find(p => p.inlineData);
           if (part?.inlineData) {
-              return await processReturnedImage(part.inlineData.mimeType, part.inlineData.data, prompt);
+              return await processReturnedImage(part.inlineData.mimeType || 'image/png', part.inlineData.data || '', prompt || '');
           }
           throw new Error("No image returned. The prompt may have been blocked.");
 
@@ -545,7 +545,7 @@ export const generateImage = async (
                   config: { numberOfImages: 1, outputMimeType: 'image/png', aspectRatio: aspectRatio },
               });
               if (response.generatedImages?.[0]?.image?.imageBytes) {
-                  return await processReturnedImage('image/png', response.generatedImages[0].image.imageBytes, prompt);
+                  return await processReturnedImage('image/png', response.generatedImages[0].image.imageBytes || '', prompt || '');
               }
               throw new Error("No image returned.");
           } else {
@@ -563,7 +563,7 @@ export const generateImage = async (
               });
               const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
               if (part?.inlineData) {
-                  return await processReturnedImage(part.inlineData.mimeType, part.inlineData.data, prompt);
+                  return await processReturnedImage(part.inlineData.mimeType || 'image/png', part.inlineData.data || '', prompt || '');
               }
               throw new Error("No image returned.");
           }

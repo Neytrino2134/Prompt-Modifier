@@ -238,8 +238,8 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
 
                         if (node.type === NodeType.IMAGE_EDITOR) {
                             const newImages = [...(parsed.inputImages || []), thumbnailUrl];
-                            setFullSizeImage(nodeId, newImages.length, dataUrl);
-                            newValue = JSON.stringify({ ...parsed, inputImages: newImages });
+                            setFullSizeImage(nodeId, newImages.length - 1, dataUrl);
+                            newValue = JSON.stringify({ ...parsed, inputImages: newImages, prompt: prompt || parsed.prompt || '' });
                         } else if (node.type === NodeType.NOTE) {
                              // Note Node Image Paste Logic (Append to References)
                              const references = parsed.references || [];

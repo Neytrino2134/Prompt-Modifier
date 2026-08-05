@@ -161,7 +161,7 @@ const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onC
       }
       
       // Focus input
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50);
     } else {
         setIsVisible(false);
     }
