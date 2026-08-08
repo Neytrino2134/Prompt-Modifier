@@ -238,7 +238,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
 
                         if (node.type === NodeType.IMAGE_EDITOR) {
                             const newImages = [...(parsed.inputImages || []), thumbnailUrl];
-                            setFullSizeImage(nodeId, newImages.length - 1, dataUrl);
+                            setFullSizeImage(nodeId, newImages.length, dataUrl);
                             newValue = JSON.stringify({ ...parsed, inputImages: newImages, prompt: prompt || parsed.prompt || '' });
                         } else if (node.type === NodeType.NOTE) {
                              // Note Node Image Paste Logic (Append to References)
@@ -326,6 +326,9 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                         } else if (node.type === NodeType.TRANSLATOR) {
                             setFullSizeImage(nodeId, 0, dataUrl);
                             newValue = JSON.stringify({ image: thumbnailUrl });
+                        } else if (node.type === NodeType.IMAGE_EDITOR) {
+                            setFullSizeImage(nodeId, 1, dataUrl);
+                            newValue = JSON.stringify({ inputImages: [thumbnailUrl], prompt: prompt || '' });
                         } else if (node.type === NodeType.NOTE) {
                              // Fresh Note Node
                              const newRefId = `ref-${Date.now()}`;
@@ -519,6 +522,10 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, model } : n));
     };
 
+    const handleCustomPromptChange = (nodeId: string, customPrompt: string) => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, customPrompt } : n));
+    };
+
     const handleAutoDownloadChange = (nodeId: string, enabled: boolean) => {
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, autoDownload: enabled } : n));
     };
@@ -584,6 +591,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         handleAspectRatioChange,
         handleResolutionChange,
         handleModelChange,
+        handleCustomPromptChange,
         handleAutoDownloadChange,
         handleSetImageEditorOutputToInput,
         handleRefreshImageEditor,

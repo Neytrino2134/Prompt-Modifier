@@ -139,6 +139,8 @@ export const nodes = {
     'node.content.enhancedPromptHere': 'Обработанный промпт появится здесь...',
     'node.content.safePrompt': 'Безопасно для коммерческого использования',
     'node.content.generating': 'Генерация...',
+    'node.content.enterPrompt': 'Введите промпт...',
+    'node.content.promptOverridden': 'Получено от узла...',
     'node.content.imageHere': 'Изображение появится здесь',
     'node.content.generationMode': 'Модель генерации',
     'node.content.aspectRatio': 'Соотношение сторон',

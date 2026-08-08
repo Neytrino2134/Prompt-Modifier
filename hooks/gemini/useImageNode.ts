@@ -76,9 +76,9 @@ export const useImageNode = ({
                 }
                 
             } else {
-                // Standard Image Output uses upstream data
+                // Standard Image Output uses upstream data or custom prompt
                 const texts = getUpstreamNodeValues(nodeId).filter(v => typeof v === 'string') as string[];
-                prompt = texts.join(', ');
+                prompt = texts.length > 0 ? texts.join(', ') : (node.customPrompt || '');
             }
 
             if (!prompt) {

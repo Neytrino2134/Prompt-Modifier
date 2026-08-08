@@ -276,7 +276,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     {image ? (
                         <>
                             <img
-                                src={image || getFullSizeImage(node.id, 0)}
+                                src={getFullSizeImage(node.id, 0) || image}
                                 alt="Input"
                                 className="object-contain w-full h-full"
                                 draggable={true}

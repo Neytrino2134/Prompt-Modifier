@@ -91,7 +91,7 @@ export const CharacterImageArea: React.FC<CharacterImageAreaProps> = ({
                 {char.thumbnails[char.selectedRatio] || char.image ? (
                     <>
                         <img 
-                            src={char.thumbnails[char.selectedRatio] || char.image!} 
+                            src={getFullSizeImage((cardIdx * 10) + (RATIO_INDICES[char.selectedRatio] || 1)) || char.thumbnails[char.selectedRatio] || char.image!} 
                             className="object-contain w-full h-full transition-opacity group-hover:opacity-80" 
                             style={{ imageRendering: 'auto' }} 
                             draggable={true} 

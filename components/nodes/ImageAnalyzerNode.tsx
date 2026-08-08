@@ -49,7 +49,7 @@ export const ImageAnalyzerNode: React.FC<NodeContentProps> = ({
 
     const { image, description, softPrompt = false } = parsedValue;
     const isConnected = connectedImageSources && connectedImageSources.length > 0;
-    const finalImage = isConnected ? connectedImageSources![0] : image;
+    const finalImage = isConnected ? connectedImageSources![0] : (getFullSizeImage(node.id, 0) || image);
 
 
     const handleValueUpdate = (updates: Partial<typeof parsedValue>) => {

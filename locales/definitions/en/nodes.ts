@@ -139,6 +139,8 @@ export const nodes = {
     'node.content.enhancedPromptHere': 'Processed prompt will appear here...',
     'node.content.safePrompt': 'Safe for commercial use',
     'node.content.generating': 'Generating...',
+    'node.content.enterPrompt': 'Enter prompt here...',
+    'node.content.promptOverridden': 'Receiving from node...',
     'node.content.imageHere': 'Image will appear here',
     'node.content.generationMode': 'Generation Model',
     'node.content.aspectRatio': 'Aspect Ratio',

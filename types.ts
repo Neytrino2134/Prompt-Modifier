@@ -135,6 +135,7 @@ export interface Node {
   autoDownload?: boolean;
   resolution?: Resolution;
   dockState?: DockState;
+  customPrompt?: string; // New property for custom prompts within nodes without inputs
 }
 
 export interface Connection {
@@ -283,6 +284,7 @@ export interface NodeContentProps {
   onAspectRatioChange: (nodeId: string, aspectRatio: string) => void;
   onModelChange: (nodeId: string, model: string) => void;
   onAutoDownloadChange: (nodeId: string, enabled: boolean) => void;
+  onCustomPromptChange?: (nodeId: string, prompt: string) => void;
   onSendMessage: (nodeId: string) => void;
   isChatting: boolean;
   onTranslate: (nodeId: string) => void;

@@ -407,7 +407,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             
             {!isSequenceMode && (
                 <div onClick={onOutputClick} onWheel={(e) => e.stopPropagation()} className="relative w-full flex-grow bg-gray-900/50 rounded-md flex items-center justify-center overflow-hidden group cursor-pointer">
-                    {outputImage ? <img src={outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { e.dataTransfer.setData('application/prompt-modifier-drag-image', imageToDrag); e.dataTransfer.effectAllowed = 'copy'; e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
+                    {outputImage ? <img src={fullSizeOutputForCopy || outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { e.dataTransfer.setData('application/prompt-modifier-drag-image', imageToDrag); e.dataTransfer.effectAllowed = 'copy'; e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
                     {outputImage && !isEditing && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-4">
                             <button onClick={(e) => { e.stopPropagation(); onCopy(); }} className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto" aria-label={t('node.action.copy')} title={t('node.action.copy')}>
@@ -476,9 +476,9 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                     style={{ top, left, width: ITEM_SIZE, height: ITEM_SIZE }}
                                     onClick={(e) => { e.stopPropagation(); onSequenceOutputClick(index, srcToView || ''); }}
                                 >
-                                    {displaySrc ? (
+                                     {displaySrc ? (
                                         <img 
-                                            src={displaySrc} 
+                                            src={fullSizeUrl || displaySrc} 
                                             alt={`Output ${index + 1}`} 
                                             className={`w-full h-full object-contain ${isPreview ? 'opacity-60' : ''}`}
                                             draggable={true}
@@ -611,10 +611,10 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     ) : (
                         <button 
                             onClick={isSequenceMode ? onRunSelected : onEdit}
-                            disabled={isEditing || (!hasInputImages && !isSequentialEditingWithPrompts) || (!(isTextConnected ? upstreamPrompt : prompt) && !isSequenceMode)} 
+                            disabled={isEditing || (!hasInputImages && !isSequentialEditingWithPrompts && !(isTextConnected ? upstreamPrompt : prompt))} 
                             className="flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
                         >
-                            {isEditing ? t('node.content.editing') : (isSequenceMode ? t('image_sequence.run_selected') : t('node.content.applyEdit'))}
+                            {isEditing ? (hasInputImages ? t('node.content.editing') : t('node.content.generating')) : (isSequenceMode ? t('image_sequence.run_selected') : (!hasInputImages ? t('node.content.generateImage') : t('node.content.applyEdit')))}
                         </button>
                     )}
                     

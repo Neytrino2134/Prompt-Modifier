@@ -474,7 +474,7 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                 >
                                     {slot.src ? (
                                         <img 
-                                            src={slot.src || ''} 
+                                            src={fullRes || slot.src || ''} 
                                             alt={`Input ${index + 1}`} 
                                             className={`object-contain w-full h-full ${!isChecked && slot.type === 'local' ? 'opacity-50' : ''}`}
                                             onMouseDown={(e) => e.stopPropagation()} 

@@ -20,7 +20,14 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
 
     // Calculate prompt for drag/drop context
     const texts = getUpstreamNodeValues(node.id).filter(v => typeof v === 'string') as string[];
-    const currentPrompt = texts.join(', ');
+    const hasUpstreamText = texts.length > 0;
+    const currentPrompt = hasUpstreamText ? texts.join(', ') : (node.customPrompt || '');
+
+    const handleCustomPromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        if (context?.handleCustomPromptChange) {
+            context.handleCustomPromptChange(node.id, e.target.value);
+        }
+    };
 
     const handleGenerateClick = () => {
         onGenerateImage(node.id);
@@ -131,7 +138,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
             <div onClick={handleClick} onWheel={(e) => e.stopPropagation()} className="relative w-full flex-grow bg-gray-700 rounded-md flex items-center justify-center overflow-hidden mb-2 group cursor-pointer border border-gray-600 hover:border-gray-500 transition-colors">
                 {node.value ? (
                     <img
-                        src={node.value || getFullSizeImage(node.id, 0)}
+                        src={getFullSizeImage(node.id, 0) || node.value}
                         alt="Generated result"
                         className="object-contain w-full h-full"
                         draggable={true}
@@ -240,6 +247,16 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                         </button>
                     </div>
                 )}
+            </div>
+            <div className="mb-2">
+                <textarea
+                    value={node.customPrompt || ''}
+                    onChange={handleCustomPromptChange}
+                    disabled={hasUpstreamText || isGeneratingImage || isExecutingChain}
+                    placeholder={hasUpstreamText ? t('node.content.promptOverridden') : t('node.content.enterPrompt')}
+                    className={`w-full text-sm bg-gray-800 border ${hasUpstreamText ? 'border-gray-600 text-gray-500' : 'border-gray-600 text-gray-200'} rounded-md p-2 resize-none focus:outline-none focus:ring-1 focus:ring-accent`}
+                    rows={2}
+                />
             </div>
             <div className="mb-2">
                 <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.generationMode')}</label>
