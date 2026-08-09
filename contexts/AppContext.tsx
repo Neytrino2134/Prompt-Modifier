@@ -581,7 +581,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsDockingMenuVisible: globalState.setIsDockingMenuVisible,
         undoPosition: positionHistoryHook.undoPosition,
         redoPosition: positionHistoryHook.redoPosition,
-        handleToggleNodePin: nodesHook.handleToggleNodePin
+        handleToggleNodePin: nodesHook.handleToggleNodePin,
+        setIsHistoryPanelOpen: generationHistoryHook.setIsHistoryPanelOpen
     });
 
     const handleNodeContextMenuLogic = useCallback((e: React.MouseEvent, nodeId: string) => {

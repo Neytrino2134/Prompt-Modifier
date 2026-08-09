@@ -27,6 +27,25 @@ const getDB = (): Promise<IDBDatabase> => {
 export const useGenerationHistory = () => {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
+  const [historyLimit, setHistoryLimit] = useState<number>(() => {
+    const saved = localStorage.getItem('historyLimit');
+    return saved ? parseInt(saved, 10) : 100;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('historyLimit', historyLimit.toString());
+  }, [historyLimit]);
+
+  const enforceLimit = useCallback(async (items: HistoryItem[], db: IDBDatabase, limit: number) => {
+    if (items.length > limit) {
+        const toDelete = items.slice(limit);
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        toDelete.forEach(item => store.delete(item.id));
+        return items.slice(0, limit);
+    }
+    return items;
+  }, []);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -35,16 +54,17 @@ export const useGenerationHistory = () => {
       const store = transaction.objectStore(STORE_NAME);
       const request = store.getAll();
       
-      request.onsuccess = () => {
+      request.onsuccess = async () => {
         const items = request.result as HistoryItem[];
         // Sort by timestamp descending
         items.sort((a, b) => b.timestamp - a.timestamp);
-        setHistoryItems(items);
+        const limitedItems = await enforceLimit(items, db, historyLimit);
+        setHistoryItems(limitedItems);
       };
     } catch (e) {
       console.error("Failed to load generation history", e);
     }
-  }, []);
+  }, [historyLimit, enforceLimit]);
 
   useEffect(() => {
     loadHistory();
@@ -67,12 +87,24 @@ export const useGenerationHistory = () => {
       store.add(newItem);
       
       transaction.oncomplete = () => {
-        setHistoryItems(prev => [newItem, ...prev]);
+        setHistoryItems(prev => {
+           const newItems = [newItem, ...prev];
+           if (newItems.length > historyLimit) {
+               // Schedule cleanup of DB in background
+               getDB().then(db2 => {
+                   const t2 = db2.transaction([STORE_NAME], 'readwrite');
+                   const s2 = t2.objectStore(STORE_NAME);
+                   newItems.slice(historyLimit).forEach(item => s2.delete(item.id));
+               });
+               return newItems.slice(0, historyLimit);
+           }
+           return newItems;
+        });
       };
     } catch (e) {
       console.error("Failed to add to generation history", e);
     }
-  }, []);
+  }, [historyLimit]);
 
   const removeHistoryItems = useCallback(async (ids: string[]) => {
     try {
@@ -111,6 +143,8 @@ export const useGenerationHistory = () => {
     setIsHistoryPanelOpen,
     addToHistory,
     removeHistoryItems,
-    clearHistory
+    clearHistory,
+    historyLimit,
+    setHistoryLimit
   };
 };

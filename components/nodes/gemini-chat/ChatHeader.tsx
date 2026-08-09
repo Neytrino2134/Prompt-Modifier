@@ -137,14 +137,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ currentStyle, currentMod
                 <div className="relative flex bg-gray-800 rounded p-0.5 border border-gray-700 h-9 items-center w-16 isolate">
                     {/* Animated Background Pill */}
                     <div 
-                        className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] bg-accent rounded-sm shadow-md transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] z-0 ${currentModel === 'gemini-3-flash-preview' ? 'left-0.5' : 'left-[calc(50%+1px)]'}`} 
+                        className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] bg-accent rounded-sm shadow-md transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] z-0 ${currentModel === 'gemini-3.6-flash' || currentModel === 'gemini-3-flash-preview' ? 'left-0.5' : 'left-[calc(50%+1px)]'}`} 
                     />
 
-                    <Tooltip content="Flash 3.0" position="top" className="h-full flex-1" usePortal={false}>
+                    <Tooltip content="Flash 3.6" position="top" className="h-full flex-1" usePortal={false}>
                         <button
-                            onClick={() => onModelChange('gemini-3-flash-preview')}
+                            onClick={() => onModelChange('gemini-3.6-flash')}
                             disabled={isChatting}
-                            className={`relative z-10 w-full h-full flex items-center justify-center rounded-sm transition-colors duration-200 ${currentModel === 'gemini-3-flash-preview' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            className={`relative z-10 w-full h-full flex items-center justify-center rounded-sm transition-colors duration-200 ${currentModel === 'gemini-3.6-flash' || currentModel === 'gemini-3-flash-preview' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -152,11 +152,11 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ currentStyle, currentMod
                         </button>
                     </Tooltip>
                     
-                    <Tooltip content="Pro 3.0" position="top" className="h-full flex-1" usePortal={false}>
+                    <Tooltip content="Pro 3.1" position="top" className="h-full flex-1" usePortal={false}>
                         <button
-                            onClick={() => onModelChange('gemini-3-pro-preview')}
+                            onClick={() => onModelChange('gemini-3.1-pro-preview')}
                             disabled={isChatting}
-                            className={`relative z-10 w-full h-full flex items-center justify-center rounded-sm transition-colors duration-200 ${currentModel === 'gemini-3-pro-preview' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            className={`relative z-10 w-full h-full flex items-center justify-center rounded-sm transition-colors duration-200 ${currentModel === 'gemini-3.1-pro-preview' || currentModel === 'gemini-3-pro-preview' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z" />

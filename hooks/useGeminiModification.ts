@@ -179,6 +179,9 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
             const upstreamTexts = getUpstreamNodeValues(nodeId).filter(v => typeof v === 'string') as string[];
             let textToTranslate = upstreamTexts.length > 0 ? upstreamTexts.join('\n') : initialParsed.inputText;
             const targetLanguage = initialParsed.targetLanguage || 'en';
+            let model = initialParsed.model || 'gemini-3.6-flash';
+            if (model === 'gemini-3-flash-preview') model = 'gemini-3.6-flash';
+            if (model === 'gemini-3-pro-preview') model = 'gemini-3.1-pro-preview';
 
             // Check if there is an image to extract text from (OCR)
             if (initialParsed.image && typeof initialParsed.image === 'string' && initialParsed.image.startsWith('data:image')) {
@@ -198,7 +201,7 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
                  }
             }
             
-            const translatedText = await translateText(textToTranslate, targetLanguage);
+            const translatedText = await translateText(textToTranslate, targetLanguage, model);
             
             updateNodeInStorage(currentTabId, nodeId, (prev) => ({ ...prev, inputText: textToTranslate, translatedText }));
 

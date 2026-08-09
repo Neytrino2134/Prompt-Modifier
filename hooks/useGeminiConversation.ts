@@ -132,7 +132,9 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
         if (!node || node.type !== 'GEMINI_CHAT') return;
     
         const initialParsed = JSON.parse(node.value || '{}');
-        let { messages = [], currentInput, style = 'general', model = 'gemini-3-flash-preview', useSearch = false } = initialParsed;
+        let { messages = [], currentInput, style = 'general', model = 'gemini-3.6-flash', useSearch = false } = initialParsed;
+        if (model === 'gemini-3-flash-preview') model = 'gemini-3.6-flash';
+        if (model === 'gemini-3-pro-preview') model = 'gemini-3.1-pro-preview';
         
         // Handle Attachments: Ensure array structure
         const attachments = initialParsed.attachments || (initialParsed.attachment ? [initialParsed.attachment] : []);
@@ -254,7 +256,7 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
             lastPrompt: '', 
             attachments: [],
             style: prev.style || 'general',
-            model: prev.model || 'gemini-3-flash-preview', // Preserve model
+            model: prev.model || 'gemini-3.6-flash', // Preserve model
             useSearch: prev.useSearch || false
         }));
     }, [updateNodeInStorage]);

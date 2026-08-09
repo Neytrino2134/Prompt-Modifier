@@ -38,17 +38,20 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
         try {
             const parsed = JSON.parse(node.value || '{}');
             if (typeof parsed === 'object' && parsed !== null) {
+                let model = parsed.model || 'gemini-3.6-flash';
+                if (model === 'gemini-3-flash-preview') model = 'gemini-3.6-flash';
+                if (model === 'gemini-3-pro-preview') model = 'gemini-3.1-pro-preview';
                 return { 
                     inputPrompt: parsed.inputPrompt || '',
                     prompt: parsed.prompt || '', 
                     safePrompt: parsed.safePrompt !== false,
                     technicalPrompt: parsed.technicalPrompt === true,
-                    model: parsed.model || 'gemini-3-flash-preview'
+                    model
                 };
             }
-            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'gemini-3-flash-preview' };
+            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'gemini-3.6-flash' };
         } catch (e) {
-            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'gemini-3-flash-preview' };
+            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'gemini-3.6-flash' };
         }
     }, [node.value]);
 
@@ -231,23 +234,23 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
             </div>
             
             <div className="flex space-x-2 h-10">
-                <div className="flex bg-gray-700 rounded-md p-1 space-x-1 h-10 flex-shrink-0 w-24">
-                     <Tooltip content="Gemini 3.0 Flash" className="h-full flex-1">
+                <div className="flex bg-gray-700 rounded-md p-1 space-x-1 h-10 flex-shrink-0 w-28">
+                     <Tooltip content="Gemini 3.6 Flash" className="h-full flex-1">
                          <button
-                             onClick={() => handleModelChange('gemini-3-flash-preview')}
+                             onClick={() => handleModelChange('gemini-3.6-flash')}
                              disabled={isEnhancing || isExecutingChain}
-                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${parsedValue.model === 'gemini-3-flash-preview' ? 'bg-accent text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${parsedValue.model === 'gemini-3.6-flash' ? 'bg-accent text-white shadow' : 'text-gray-400 hover:text-white'}`}
                          >
-                             Flash
+                             Flash 3.6
                          </button>
                      </Tooltip>
-                     <Tooltip content="Gemini 3.0 Pro" className="h-full flex-1">
+                     <Tooltip content="Gemini 3.1 Pro" className="h-full flex-1">
                          <button
-                             onClick={() => handleModelChange('gemini-3-pro-preview')}
+                             onClick={() => handleModelChange('gemini-3.1-pro-preview')}
                              disabled={isEnhancing || isExecutingChain}
-                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${parsedValue.model === 'gemini-3-pro-preview' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${parsedValue.model === 'gemini-3.1-pro-preview' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                          >
-                             Pro
+                             Pro 3.1
                          </button>
                      </Tooltip>
                 </div>

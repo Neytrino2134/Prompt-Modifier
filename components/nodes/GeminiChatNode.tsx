@@ -19,16 +19,19 @@ export const GeminiChatNodeComponent: React.FC<NodeContentProps> = ({ node, onVa
                 val.attachments = [val.attachment];
                 delete val.attachment;
             }
+            let model = val.model || 'gemini-3.6-flash';
+            if (model === 'gemini-3-flash-preview') model = 'gemini-3.6-flash';
+            if (model === 'gemini-3-pro-preview') model = 'gemini-3.1-pro-preview';
             return {
                 messages: val.messages || [],
                 currentInput: val.currentInput || '',
                 style: val.style || 'general',
                 attachments: val.attachments || [],
-                model: val.model || 'gemini-3-flash-preview',
+                model,
                 useSearch: val.useSearch || false
             };
         } catch {
-            return { messages: [], currentInput: '', style: 'general', attachments: [], model: 'gemini-3-flash-preview', useSearch: false };
+            return { messages: [], currentInput: '', style: 'general', attachments: [], model: 'gemini-3.6-flash', useSearch: false };
         }
     }, [node.value]);
 

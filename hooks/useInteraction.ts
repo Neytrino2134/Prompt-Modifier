@@ -83,6 +83,7 @@ interface UseInteractionProps {
     setIsDockingMenuVisible: (visible: boolean) => void;
     undoPosition: (nodes: Node[]) => void;
     redoPosition: (nodes: Node[]) => void;
+    setIsHistoryPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const useInteraction = (props: UseInteractionProps) => {
@@ -96,7 +97,7 @@ export const useInteraction = (props: UseInteractionProps) => {
         selectedNodeIds, setSelectedNodeIds, handleRenameNode, setFullSizeImage,
         handleOpenQuickAdd, requestDeleteNodes, isInstantCloseEnabled, handleAlignNodes, handleDockNode, handlePaste, selectNode,
         dockHoverMode, setDockHoverMode, isDockingMenuVisible, setIsDockingMenuVisible,
-        undoPosition, redoPosition
+        undoPosition, redoPosition, setIsHistoryPanelOpen
     } = props;
 
     const nodesRef = useRef(nodes);
@@ -156,7 +157,7 @@ export const useInteraction = (props: UseInteractionProps) => {
         setIsZDown, setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition,
         radialMenuSelectedItem, setRadialMenuSelectedItem, getTransformedPoint, radialMenuPosition,
         quickSlots, isConnectionQuickAddOpen, isInstantCloseEnabled, handleAlignNodes,
-        undoPosition, redoPosition, handleValueChange
+        undoPosition, redoPosition, handleValueChange, setIsHistoryPanelOpen
     });
 
     const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {

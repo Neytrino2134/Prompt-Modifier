@@ -10,13 +10,17 @@ import { Tooltip } from '../Tooltip';
 export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onTranslate, isTranslating, connectedInputs, t, onSelectNode, onPasteImage, getFullSizeImage, setImageViewer }) => {
     const parsedValue = useMemo(() => {
         try {
-            return JSON.parse(node.value || '{}');
+            const val = JSON.parse(node.value || '{}');
+            let model = val.model || 'gemini-3.6-flash';
+            if (model === 'gemini-3-flash-preview') model = 'gemini-3.6-flash';
+            if (model === 'gemini-3-pro-preview') model = 'gemini-3.1-pro-preview';
+            return { ...val, model };
         } catch {
-            return { inputText: '', targetLanguage: 'ru', translatedText: '', image: null };
+            return { inputText: '', targetLanguage: 'ru', translatedText: '', image: null, model: 'gemini-3.6-flash' };
         }
     }, [node.value]);
 
-    const { inputText = '', targetLanguage = 'ru', translatedText = '', image = null } = parsedValue;
+    const { inputText = '', targetLanguage = 'ru', translatedText = '', image = null, model = 'gemini-3.6-flash' } = parsedValue;
     const isInputConnected = connectedInputs?.has(undefined);
 
     const handleValueUpdate = (updates: Partial<typeof parsedValue>) => {
@@ -55,7 +59,7 @@ export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange
     return (
         <div className="flex flex-col h-full">
             <div className="flex-shrink-0 mb-2 flex items-end space-x-2" onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}>
-                <div className="flex-grow">
+                <div className="flex-grow min-w-0">
                     <label htmlFor={`lang-select-${node.id}`} className="block text-xs font-medium text-gray-400 mb-1">
                         {t('node.content.targetLanguage')}
                     </label>
@@ -68,9 +72,32 @@ export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange
                     />
                 </div>
                 
+                <div className="flex bg-gray-800 rounded-md p-0.5 border border-gray-700 h-[38px] items-center space-x-0.5 flex-shrink-0">
+                    <Tooltip content="Gemini 3.6 Flash" position="top">
+                        <button
+                            type="button"
+                            onClick={() => handleValueUpdate({ model: 'gemini-3.6-flash' })}
+                            disabled={isTranslating}
+                            className={`px-2 h-full rounded text-[10px] font-bold transition-colors ${model === 'gemini-3.6-flash' ? 'bg-accent text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Flash
+                        </button>
+                    </Tooltip>
+                    <Tooltip content="Gemini 3.1 Pro" position="top">
+                        <button
+                            type="button"
+                            onClick={() => handleValueUpdate({ model: 'gemini-3.1-pro-preview' })}
+                            disabled={isTranslating}
+                            className={`px-2 h-full rounded text-[10px] font-bold transition-colors ${model === 'gemini-3.1-pro-preview' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Pro
+                        </button>
+                    </Tooltip>
+                </div>
+
                 <button 
                     onClick={handlePaste}
-                    className="h-[38px] px-3 bg-accent-secondary hover:bg-accent-secondary-hover text-white rounded-md transition-colors flex items-center justify-center shadow-sm"
+                    className="h-[38px] px-3 bg-accent-secondary hover:bg-accent-secondary-hover text-white rounded-md transition-colors flex items-center justify-center shadow-sm flex-shrink-0"
                     title={t('node.action.paste')}
                 >
                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -78,7 +105,7 @@ export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange
                     </svg>
                 </button>
 
-                <Tooltip content="Model: gemini-3-flash-preview" position="top">
+                <Tooltip content={`Model: ${model === 'gemini-3.1-pro-preview' ? 'Gemini 3.1 Pro' : 'Gemini 3.6 Flash'}`} position="top">
                     <button
                         onClick={() => onTranslate(node.id)}
                         disabled={isTranslating || (!isInputConnected && !inputText.trim() && !image)}

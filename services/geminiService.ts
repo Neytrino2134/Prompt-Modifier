@@ -42,7 +42,7 @@ const callWithRetry = async <T>(fn: () => Promise<T>, retries = 3, baseDelay = 1
   throw new Error("Max retries reached");
 };
 
-export const enhancePrompt = async (texts: string[], safePrompt: boolean, technicalPrompt: boolean, model: string = 'gemini-3-flash-preview'): Promise<string> => {
+export const enhancePrompt = async (texts: string[], safePrompt: boolean, technicalPrompt: boolean, model: string = 'gemini-3.6-flash'): Promise<string> => {
   return callWithRetry(async () => {
     const ai = createAIClient();
     const validTexts = texts.filter(text => text && text.trim() !== '');
@@ -109,9 +109,8 @@ export const sanitizePrompt = async (promptToSanitize: string): Promise<string> 
     const systemInstruction = `You are a prompt safety expert. Rewrite the user's prompt to be safer for image generation policies while preserving artistic intent. Replace age-specific terms (teenager, child) with neutral terms (young person, figure). Output only the sanitized prompt.`;
 
     try {
-      // Fix: Use 'gemini-3-flash-preview' for basic text tasks per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.6-flash',
         contents: `Sanitize: "${promptToSanitize}"`,
         config: { systemInstruction },
       });
@@ -139,9 +138,8 @@ export const enhanceVideoPrompt = async (texts: string[]): Promise<string> => {
     `;
 
     try {
-      // Fix: Use 'gemini-3-flash-preview' for basic text tasks per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.6-flash',
         contents: prompt,
       });
       return response.text || "";
@@ -219,9 +217,8 @@ export const analyzePrompt = async (text: string, softPrompt: boolean | undefine
     };
 
     try {
-      // Fix: Use 'gemini-3-pro-preview' for complex analysis tasks per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3.1-pro-preview',
         contents: prompt,
         config: { responseMimeType: "application/json", responseSchema: schema },
       });
@@ -264,9 +261,8 @@ export const analyzeCharacter = async (text: string): Promise<{ character: strin
     };
 
     try {
-      // Fix: Use 'gemini-3-flash-preview' for basic text tasks per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.6-flash',
         contents: prompt,
         config: { responseMimeType: "application/json", responseSchema: schema },
       });
@@ -314,9 +310,8 @@ export const updateCharacterDescription = async (imagePrompt: string, currentFul
     ${currentFullDescription}`;
 
     try {
-      // Fix: Use 'gemini-3-flash-preview' for basic text tasks per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.6-flash',
         contents,
         config: { systemInstruction },
       });
@@ -354,7 +349,7 @@ export const updateCharacterSection = async (sectionName: string, imagePrompt: s
 
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3.6-flash',
                 contents,
                 config: { systemInstruction },
             });
@@ -387,7 +382,7 @@ export const updateCharacterPersonality = async (currentPersonality: string, tar
 
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3.6-flash',
                 contents,
                 config: { systemInstruction },
             });
@@ -429,9 +424,8 @@ export const modifyCharacter = async (instruction: string, currentPrompt: string
     const contents = `INSTRUCTION: ${instruction}\nCURRENT PROMPT: ${currentPrompt}\nCURRENT DESCRIPTION: ${currentDescription}`;
 
     try {
-      // Fix: Use 'gemini-3-pro-preview' for complex text tasks per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3.1-pro-preview',
         contents,
         config: { systemInstruction, responseMimeType: "application/json", responseSchema: schema },
       });
@@ -639,9 +633,8 @@ export const describeImage = async (base64ImageData: string, mimeType: string, s
     const prompt = `${softInstruction} Describe this image in detail (subject, setting, colors, mood).`;
 
     try {
-      // Fix: Use 'gemini-3-flash-preview' for image description per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.6-flash',
         contents: { parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] },
       });
       return response.text || "";
@@ -670,7 +663,7 @@ export const generatePromptFromImage = async (base64ImageData: string, mimeType:
         
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3.6-flash',
                 contents: { parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] },
             });
             return response.text || "";
@@ -688,9 +681,8 @@ export const extractTextFromImage = async (base64ImageData: string, mimeType: st
     const prompt = `Extract all text from this image. Return only the text found, without any description. If no text is found, say "No text found".`;
 
     try {
-      // Fix: Use 'gemini-3-flash-preview' for OCR per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.6-flash',
         contents: { parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] },
       });
       return response.text || "";
@@ -701,15 +693,14 @@ export const extractTextFromImage = async (base64ImageData: string, mimeType: st
   });
 };
 
-export const translateText = async (text: string, targetLanguageName: string): Promise<string> => {
+export const translateText = async (text: string, targetLanguageName: string, model: string = 'gemini-3.6-flash'): Promise<string> => {
   return callWithRetry(async () => {
     const ai = createAIClient();
     if (!text || text.trim() === '') throw new Error("Input empty.");
 
     try {
-      // Fix: Use 'gemini-3-flash-preview' for basic text tasks per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: model,
         contents: text,
         config: { systemInstruction: `Translate to ${targetLanguageName}. Return only translated text.` },
       });
@@ -741,9 +732,8 @@ export const generateScript = async (prompt: string, targetLanguageName: string)
     };
 
     try {
-      // Fix: Use 'gemini-3-pro-preview' for complex script generation per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3.1-pro-preview',
         contents: prompt,
         config: { 
             systemInstruction: `Generate a script structure in ${targetLanguageName}. Use markdown in fullDescription.`,
@@ -777,9 +767,8 @@ export const generateCharacters = async (prompt: string): Promise<any[]> => {
     };
 
     try {
-      // Fix: Use 'gemini-3-flash-preview' for basic text tasks per guidelines
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.6-flash',
         contents: prompt,
         config: { 
             systemInstruction: "Generate detailed characters. Use markdown headings in fullDescription. Ensure 'index' is provided (e.g. 'Entity-1', 'Entity-2').",
@@ -802,7 +791,7 @@ export const translateScript = async (script: any, targetLanguageName: string): 
     
     try {
       const response = await ai.models.generateContent({
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-3.1-pro-preview',
           contents: `Translate:\n${JSON.stringify(script)}`,
           config: { systemInstruction, responseMimeType: "application/json" }
       });
@@ -817,7 +806,7 @@ export const modifyPromptSequence = async (
     prompts: any[], 
     instruction: string, 
     targetLanguage: string = 'en', 
-    modelName: string = 'gemini-3-flash-preview',
+    modelName: string = 'gemini-3.6-flash',
     includeVideoPrompts: boolean = false,
     sceneContexts: Record<string, string> = {}
 ): Promise<{ modifiedFrames: any[], modifiedSceneContexts: { sceneNumber: number, context: string }[] }> => {

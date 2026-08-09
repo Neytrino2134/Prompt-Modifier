@@ -54,6 +54,7 @@ interface UseHotkeysProps {
     undoPosition: (nodes: Node[]) => void;
     redoPosition: (nodes: Node[]) => void;
     handleValueChange: (nodeId: string, value: string) => void;
+    setIsHistoryPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const useHotkeys = (props: UseHotkeysProps) => {
@@ -68,7 +69,7 @@ export const useHotkeys = (props: UseHotkeysProps) => {
         setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition,
         radialMenuSelectedItem, setRadialMenuSelectedItem, getTransformedPoint, radialMenuPosition,
         quickSlots, isConnectionQuickAddOpen, isInstantCloseEnabled, handleAlignNodes,
-        undoPosition, redoPosition, handleValueChange
+        undoPosition, redoPosition, handleValueChange, setIsHistoryPanelOpen
     } = props;
 
     useEffect(() => {
@@ -174,9 +175,10 @@ export const useHotkeys = (props: UseHotkeysProps) => {
             // Standard Alignment Shortcuts (Legacy or backup, keep for now if user reverts selection)
             // (Previous block handles 2+ selection logic authoritatively)
 
-            // Save/Load
+            // Save/Load/History
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') { e.preventDefault(); handleSaveCanvas(); return; }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyO') { e.preventDefault(); handleLoadCanvas(); return; }
+            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyH' && !e.shiftKey && !e.altKey) { e.preventDefault(); setIsHistoryPanelOpen(prev => !prev); return; }
 
             // Copy/Paste
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyC') {
