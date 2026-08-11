@@ -1,0 +1,41 @@
+{
+  "name": "prompt-modifier-site-wrapper",
+  "private": true,
+  "version": "0.1.12-alpha.1",
+  "description": "Electron wrapper for the Prompt Modifier GitHub Pages site",
+  "main": "main.cjs",
+  "scripts": {
+    "build": "electron-builder --win portable --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "43.2.0",
+    "electron-builder": "latest"
+  },
+  "build": {
+    "appId": "com.promptmodifier.site",
+    "productName": "Prompt Modifier Site",
+    "directories": {
+      "output": "../dist-nativefier"
+    },
+    "files": [
+      "main.cjs"
+    ],
+    "extraResources": [
+      {
+        "from": "icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  }
+}
