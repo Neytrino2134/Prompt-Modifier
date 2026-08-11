@@ -300,7 +300,7 @@ export interface NodeContentProps {
   isExecutingChain: boolean;
   onStopChainExecution: () => void;
   onEditImage: (nodeId: string, indices?: number[]) => void;
-  onStopEdit?: () => void;
+  onStopEdit?: (nodeId?: string) => void;
   isEditingImage: boolean;
   onCopyNodeValue: (nodeId: string) => void;
   onDuplicateNodeWithContent: (nodeId: string) => void;

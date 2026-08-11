@@ -206,7 +206,7 @@ const CanvasLayer: React.FC = () => {
             isExecuting: executingNodeId === node.id,
             onStopChainExecution: stopChainExecution,
             onEditImage: handleEditImage,
-            isEditingImage: isEditingImage,
+            isEditingImage: typeof isEditingImage === 'function' ? isEditingImage(node.id) : (isEditingImage === node.id || isEditingImage === true),
             onSendMessage: handleSendMessage,
             isChatting: isChatting === node.id,
             onTranslate: handleTranslate,

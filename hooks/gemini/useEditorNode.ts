@@ -71,7 +71,7 @@ export const useEditorNode = ({
         if (nodeId && taskQueue) {
             return taskQueue.isTaskRunningForNode(nodeId);
         }
-        return isEditingImageLocal || (taskQueue ? taskQueue.activeTaskCount > 0 : false);
+        return isEditingImageLocal;
     }, [taskQueue, isEditingImageLocal]);
 
     const handleEditImage = useCallback(async (nodeId: string, indicesToProcess?: number[]) => {
@@ -392,7 +392,7 @@ export const useEditorNode = ({
     }, [taskQueue]);
 
     return {
-        isEditingImage: isEditingImage(),
+        isEditingImage,
         isStoppingEdit,
         handleEditImage,
         handleStopEdit

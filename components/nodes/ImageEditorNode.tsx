@@ -111,8 +111,8 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     }, [isSequenceMode, node.id, checkedSequenceOutputIndices, onEditImage]);
 
     const handleStop = useCallback(() => {
-        if (onStopEdit) onStopEdit();
-    }, [onStopEdit]);
+        if (onStopEdit) onStopEdit(node.id);
+    }, [onStopEdit, node.id]);
 
     const handleManualRefresh = useCallback(() => {
         const currentOutputs = parsedValueRef.current.sequenceOutputs || [];
