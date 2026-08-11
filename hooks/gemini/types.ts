@@ -20,4 +20,5 @@ export interface GeminiGenerationCommonProps {
     activeTabIdRef: React.MutableRefObject<string>;
     addToast: (message: string, type?: ToastType) => void;
     addToHistory?: (url: string, prompt: string) => void;
+    taskQueue?: ReturnType<typeof import('../useTaskQueue').useTaskQueue>;
 }

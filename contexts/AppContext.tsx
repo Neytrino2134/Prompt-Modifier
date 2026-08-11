@@ -33,6 +33,7 @@ import {
 import { useGoogleDrive } from '../hooks/useGoogleDrive'; 
 import { useGlobalState } from '../hooks/useGlobalState';
 import { useAppOrchestration } from '../hooks/useAppOrchestration';
+import { useTaskQueue } from '../hooks/useTaskQueue';
 import { useTutorial } from '../hooks/useTutorial';
 import { addMetadataToPNG } from '../utils/pngMetadata';
 import { getConnectionPoints, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
@@ -213,12 +214,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, t, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, addToast
     });
 
+    const taskQueueHook = useTaskQueue();
+
     const geminiConversationHook = useGeminiConversation({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, setError: globalState.setError, t, getUpstreamNodeValues, activeTabId, setTabs
     });
 
     const geminiGenerationHook = useGeminiGeneration({
-        nodes: nodesHook.nodes, connections: connectionsHook.connections, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, showApiKeyDialog: (cb) => dialogsHook.showApiKeyDialog(cb), t, setFullSizeImage, getFullSizeImage, connectedCharacterData: derivedMemoHook.connectedCharacterData, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, isGlobalProcessing: activeOperations.size > 0, addToast, addToHistory: generationHistoryHook.addToHistory
+        nodes: nodesHook.nodes, connections: connectionsHook.connections, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, showApiKeyDialog: (cb) => dialogsHook.showApiKeyDialog(cb), t, setFullSizeImage, getFullSizeImage, connectedCharacterData: derivedMemoHook.connectedCharacterData, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, isGlobalProcessing: activeOperations.size > 0, addToast, addToHistory: generationHistoryHook.addToHistory, taskQueue: taskQueueHook
     });
 
     const geminiChainExecutionHook = useGeminiChainExecution({
@@ -1005,14 +1008,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             closeGlobalImageEditor: globalState.closeGlobalImageEditor,
             handleDeleteFromDrive: googleDriveHook.handleDeleteFromDrive, // Exposed
             handleClearCloudFolder: googleDriveHook.handleClearCloudFolder, // Exposed NEW Function
-            handleCleanupDuplicates: googleDriveHook.handleCleanupDuplicates // Exposed
+            handleCleanupDuplicates: googleDriveHook.handleCleanupDuplicates, // Exposed
+            ...taskQueueHook
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,
         dialogsHook, catalogHook, libraryHook, permissionsHook, canvasIOHook,
         entityActionsHook, interactionHook, derivedMemoHook, canvasEventsHook,
         geminiAnalysisHook, geminiConversationHook, geminiChainExecutionHook, geminiGenerationHook, geminiModificationHook,
-        positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook, generationHistoryHook,
+        positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook, generationHistoryHook, taskQueueHook,
         handleToggleNodeCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,

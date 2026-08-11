@@ -18,6 +18,7 @@ import SettingsDialog from './SettingsDialog';
 import ErrorDialog from './ErrorDialog';
 import { DebugConsole } from './DebugConsole';
 import { HistoryPanel } from './HistoryPanel';
+import { TaskQueuePanel } from './TaskQueuePanel';
 import { CatalogItemType } from '../hooks/useCatalog';
 import { Point } from '../types';
 
@@ -293,6 +294,7 @@ const DialogLayer: React.FC = () => {
                 anchorPosition={settingsAnchor}
             />
             <HistoryPanel />
+            <TaskQueuePanel />
         </>
     );
 };

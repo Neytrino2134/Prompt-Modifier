@@ -227,6 +227,31 @@ export interface Toast {
     };
 }
 
+// Global Task Queue System
+export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface GenerationTask {
+    id: string;
+    nodeId: string;
+    nodeTitle?: string;
+    frameIndex?: number;
+    prompt: string;
+    type: 'image_edit' | 'image_gen' | 'sequence_frame' | 'character_gen' | 'video_gen';
+    status: TaskStatus;
+    createdAt: number;
+    startedAt?: number;
+    completedAt?: number;
+    error?: string;
+    resultUrl?: string;
+    thumbnailUrl?: string;
+    tabId?: string;
+    tabName?: string;
+    abortController?: AbortController;
+    execute?: (signal: AbortSignal) => Promise<string>;
+    onSuccess?: (resultUrl: string) => void | Promise<void>;
+    onError?: (error: any) => void;
+}
+
 // Global Operation Tracking
 export interface ActiveOperation {
     id: string; // usually nodeId

@@ -26,6 +26,7 @@ interface UseGeminiGenerationProps {
     isGlobalProcessing: boolean;
     addToast: (message: string, type?: ToastType) => void;
     addToHistory: (url: string, prompt: string) => void;
+    taskQueue?: ReturnType<typeof import('./useTaskQueue').useTaskQueue>;
 }
 
 export const useGeminiGeneration = ({ 
@@ -46,7 +47,8 @@ export const useGeminiGeneration = ({
     unregisterOperation,
     isGlobalProcessing,
     addToast,
-    addToHistory
+    addToHistory,
+    taskQueue
 }: UseGeminiGenerationProps) => {
     
     const activeTabIdRef = useRef(activeTabId);
@@ -120,7 +122,8 @@ export const useGeminiGeneration = ({
         updateNodeInStorage,
         activeTabIdRef,
         addToast,
-        addToHistory
+        addToHistory,
+        taskQueue
     };
 
     const imageNode = useImageNode(commonProps);

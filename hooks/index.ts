@@ -20,6 +20,7 @@ export * from './useGeminiGeneration';
 export * from './useGeminiModification';
 export * from './useNodePositionHistory';
 export * from './useTutorial';
+export * from './useTaskQueue';
 export { CatalogItemType, ContentCatalogItemType } from './useCatalog';
 export * from '../utils/nodeUtils';
 export * from './useAppOrchestration';

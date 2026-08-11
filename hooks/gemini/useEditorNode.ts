@@ -60,11 +60,19 @@ export const useEditorNode = ({
     activeTabId,
     activeTabName,
     activeTabIdRef,
-    addToHistory
+    addToHistory,
+    taskQueue
 }: GeminiGenerationCommonProps) => {
-    const [isEditingImage, setIsEditingImage] = useState<boolean>(false);
+    const [isEditingImageLocal, setIsEditingImageLocal] = useState<boolean>(false);
     const [isStoppingEdit, setIsStoppingEdit] = useState(false);
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    const isEditingImage = useCallback((nodeId?: string) => {
+        if (nodeId && taskQueue) {
+            return taskQueue.isTaskRunningForNode(nodeId);
+        }
+        return isEditingImageLocal || (taskQueue ? taskQueue.activeTaskCount > 0 : false);
+    }, [taskQueue, isEditingImageLocal]);
 
     const handleEditImage = useCallback(async (nodeId: string, indicesToProcess?: number[]) => {
         const currentTabId = activeTabIdRef.current;
@@ -85,23 +93,19 @@ export const useEditorNode = ({
         const upstreamPromptMap = new Map<number, string>(); // Key: FrameIndex (0-based)
         textInputs.forEach(text => {
             try {
-                // Try to parse as JSON (Script Modifier Data or generic prompts)
                 const json = JSON.parse(text);
                 let prompts = [];
                 
-                // Handle Prompt Sequence Editor Data (sourcePrompts/modifiedPrompts)
                 if (json.sourcePrompts || json.modifiedPrompts) {
                     const source = json.sourcePrompts || [];
                     const mod = json.modifiedPrompts || [];
                     
-                    // Merge logic: Modified takes precedence if it exists
                     const mergedPromptsMap = new Map();
                     source.forEach((p: any) => mergedPromptsMap.set(p.frameNumber, p));
                     mod.forEach((p: any) => mergedPromptsMap.set(p.frameNumber, { ...mergedPromptsMap.get(p.frameNumber), ...p }));
                     
                     prompts = Array.from(mergedPromptsMap.values());
                 } 
-                // Handle Script Modifier Data
                 else if (json.type === 'script-prompt-modifier-data') {
                     prompts = json.finalPrompts || json.prompts || [];
                 } else if (Array.isArray(json)) {
@@ -110,7 +114,7 @@ export const useEditorNode = ({
                 
                 if (prompts.length > 0) {
                     prompts.forEach((p: any, i: number) => {
-                        const frameIdx = (p.frameNumber !== undefined ? p.frameNumber : i + 1) - 1; // Convert 1-based to 0-based for internal loop
+                        const frameIdx = (p.frameNumber !== undefined ? p.frameNumber : i + 1) - 1;
                         if (p.prompt) upstreamPromptMap.set(frameIdx, p.prompt);
                     });
                 }
@@ -152,163 +156,158 @@ export const useEditorNode = ({
              }
         }
 
-        setIsEditingImage(true);
         setError(null);
         setIsStoppingEdit(false);
-        abortControllerRef.current = new AbortController();
-        registerOperation({ id: nodeId, type: 'generation', description: t('node.content.editing'), tabId: activeTabId, tabName: activeTabName });
 
-        try {
-            if (isSequenceMode) {
-                 // Sequence Mode Logic
-                 // If indicesToProcess is provided (Run Selected from Output), use it.
-                 // Otherwise, use checkedInputIndices (Apply from Main Toolbar).
-                 const targetIndices = indicesToProcess || (
-                     // If using sequential editing with prompts, default to all frames (based on B inputs or total count)
-                     // because checkedInputIndices usually tracks Input A.
-                     parsed.isSequentialEditingWithPrompts 
-                        ? (parsed.checkedSequenceOutputIndices || allInputImagesB.map((_: any, i: number) => i))
-                        : (parsed.checkedInputIndices ?? allInputImages.map((_: any, i: number) => i))
-                 );
+        if (isSequenceMode) {
+             const targetIndices = indicesToProcess || (
+                 parsed.isSequentialEditingWithPrompts 
+                    ? (parsed.checkedSequenceOutputIndices || allInputImagesB.map((_: any, i: number) => i))
+                    : (parsed.checkedInputIndices ?? allInputImages.map((_: any, i: number) => i))
+             );
 
-                 const sequenceOutputs = parsed.sequenceOutputs || [];
-                 
-                 // Initialize status for targeted indices
-                 const newOutputs = [...sequenceOutputs];
-                 targetIndices.forEach((i: number) => {
-                     newOutputs[i] = { status: 'pending', thumbnail: null };
-                 });
-                 updateNodeInStorage(currentTabId, nodeId, (prev) => ({ ...prev, sequenceOutputs: newOutputs }));
+             const sequenceOutputs = parsed.sequenceOutputs || [];
+             const newOutputs = [...sequenceOutputs];
+             targetIndices.forEach((i: number) => {
+                 newOutputs[i] = { status: 'queued', thumbnail: null };
+             });
+             updateNodeInStorage(currentTabId, nodeId, (prev) => ({ ...prev, sequenceOutputs: newOutputs }));
 
-                 for (const i of targetIndices) {
-                    if (abortControllerRef.current.signal.aborted) break;
+             for (const i of targetIndices) {
+                let imagesForFrame: { base64ImageData: string, mimeType: string }[] = [];
+
+                if (parsed.isSequentialEditingWithPrompts) {
+                    imagesForFrame = allInputImagesB;
+                } else {
+                    const imgA = allInputImages[i];
+                    if (!imgA && parsed.model !== 'gemini-3-pro-image-preview') continue;
+                    if (imgA) imagesForFrame = [imgA];
                     
-                    let imagesForFrame: { base64ImageData: string, mimeType: string }[] = [];
-
-                    if (parsed.isSequentialEditingWithPrompts) {
-                        // Use ALL images from B for every frame
-                        imagesForFrame = allInputImagesB;
-                    } else {
-                        const imgA = allInputImages[i];
-                        if (!imgA && parsed.model !== 'gemini-3-pro-image-preview') continue;
-                        if (imgA) imagesForFrame = [imgA];
-                        
-                        if (parsed.isSequentialCombinationMode) {
-                            if (allInputImagesB.length > 0) {
-                                imagesForFrame.push(...allInputImagesB);
-                            }
+                    if (parsed.isSequentialCombinationMode) {
+                        if (allInputImagesB.length > 0) {
+                            imagesForFrame.push(...allInputImagesB);
                         }
                     }
+                }
 
-                    // Mark as generating
+                // PROMPT LOGIC
+                let basePrompt = parsed.prompt;
+                if (parsed.isSequentialPromptMode || parsed.isSequentialEditingWithPrompts) {
+                    if (upstreamPromptMap.has(i)) {
+                        basePrompt = upstreamPromptMap.get(i);
+                    } else if (parsed.framePrompts && parsed.framePrompts[i]) {
+                        basePrompt = parsed.framePrompts[i];
+                    }
+                }
+
+                const genericTexts = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
+                let promptToUse = [basePrompt, ...genericTexts].filter(Boolean).join(', ');
+                if (!promptToUse.trim()) promptToUse = "High quality image";
+
+                const executeFrame = async (signal: AbortSignal) => {
                     updateNodeInStorage(currentTabId, nodeId, (prev) => {
                         const nextOutputs = [...(prev.sequenceOutputs || [])];
                         nextOutputs[i] = { ...nextOutputs[i], status: 'generating' };
                         return { ...prev, sequenceOutputs: nextOutputs };
                     });
 
-                    try {
-                        // PROMPT LOGIC
-                        let basePrompt = parsed.prompt;
-                        
-                        // If specific prompt for this frame exists (from Upstream or Local)
-                        if (parsed.isSequentialPromptMode || parsed.isSequentialEditingWithPrompts) {
-                            // Upstream takes priority
-                            if (upstreamPromptMap.has(i)) {
-                                basePrompt = upstreamPromptMap.get(i);
-                            } else if (parsed.framePrompts && parsed.framePrompts[i]) {
-                                basePrompt = parsed.framePrompts[i];
-                            }
-                        }
+                    const imagesToUse = await Promise.all(imagesForFrame.map(async (image) => {
+                         const imageDataUrl = `data:${image.mimeType};base64,${image.base64ImageData}`;
+                         if (parsed.enableAspectRatio && parsed.aspectRatio && parsed.aspectRatio !== 'Auto') {
+                             const { formattedImage } = await formatImageForAspectRatio(imageDataUrl, parsed.aspectRatio);
+                             return {
+                                 base64ImageData: formattedImage.split(',')[1],
+                                 mimeType: formattedImage.match(/:(.*?);/)?.[1] || 'image/png'
+                             };
+                         }
+                         return image;
+                    }));
 
-                        // Append generic text inputs (that weren't JSON strings)
-                        const genericTexts = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
-                        let promptToUse = [basePrompt, ...genericTexts].filter(Boolean).join(', ');
-                        
-                        if (!promptToUse.trim()) promptToUse = "High quality image"; // Default for editing
-
-                        const imagesToUse = await Promise.all(imagesForFrame.map(async (image) => {
-                             const imageDataUrl = `data:${image.mimeType};base64,${image.base64ImageData}`;
-                             if (parsed.enableAspectRatio && parsed.aspectRatio && parsed.aspectRatio !== 'Auto') {
-                                 const { formattedImage } = await formatImageForAspectRatio(imageDataUrl, parsed.aspectRatio);
-                                 return {
-                                     base64ImageData: formattedImage.split(',')[1],
-                                     mimeType: formattedImage.match(/:(.*?);/)?.[1] || 'image/png'
-                                 };
-                             }
-                             return image;
-                        }));
-
-                        if (parsed.enableOutpainting) {
-                             const outpaintingTemplate = parsed.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.';
-                             promptToUse = outpaintingTemplate.replace('{main_prompt}', promptToUse);
-                        }
-
-                        // WRAP GENERATION IN RACE WITH ABORT SIGNAL
-                        const imageUrl = await raceWithAbort(
-                            generateImage(promptToUse, parsed.aspectRatio, imagesToUse, parsed.model, parsed.resolution),
-                            abortControllerRef.current.signal
-                        );
-                        
-                        if (addToHistory) {
-                            addToHistory(imageUrl, promptToUse);
-                        }
-                        
-                        let finalImageUrl = imageUrl;
-                        if (parsed.autoCrop169) {
-                             try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
-                        }
-                        
-                        const thumb = await generateThumbnail(finalImageUrl, 256, 256);
-                        
-                        updateNodeInStorage(currentTabId, nodeId, (prev) => {
-                            const nextOutputs = [...(prev.sequenceOutputs || [])];
-                            nextOutputs[i] = { status: 'done', thumbnail: thumb };
-                            return { ...prev, sequenceOutputs: nextOutputs };
-                        }, { frame: 1000 + i, url: finalImageUrl });
-
-                        // Auto-Download for Sequence Mode
-                        if (parsed.autoDownload) {
-                             triggerDownload(finalImageUrl, promptToUse, i + 1);
-                        }
-
-                    } catch (err: any) {
-                        if (err.name === 'AbortError' || err.message === 'Aborted') {
-                             updateNodeInStorage(currentTabId, nodeId, (prev) => {
-                                const nextOutputs = [...(prev.sequenceOutputs || [])];
-                                nextOutputs[i] = { ...nextOutputs[i], status: 'pending' }; 
-                                return { ...prev, sequenceOutputs: nextOutputs };
-                            });
-                             break; // Exit loop immediately
-                        } else {
-                            console.error(`Frame ${i} failed`, err);
-                            updateNodeInStorage(currentTabId, nodeId, (prev) => {
-                                const nextOutputs = [...(prev.sequenceOutputs || [])];
-                                nextOutputs[i] = { status: 'error', thumbnail: null };
-                                return { ...prev, sequenceOutputs: nextOutputs };
-                            });
-                        }
+                    let promptWithOutpaint = promptToUse;
+                    if (parsed.enableOutpainting) {
+                         const outpaintingTemplate = parsed.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.';
+                         promptWithOutpaint = outpaintingTemplate.replace('{main_prompt}', promptToUse);
                     }
-                 }
 
-            } else {
-                // Single Mode Logic
-                let imagesToUse: { base64ImageData: string; mimeType: string; }[] = [];
-                const checkedInputIndices = parsed.checkedInputIndices;
-                
-                if (checkedInputIndices && Array.isArray(checkedInputIndices)) {
-                    imagesToUse = allInputImages.filter((_, i) => checkedInputIndices.includes(i));
+                    return await raceWithAbort(
+                        generateImage(promptWithOutpaint, parsed.aspectRatio, imagesToUse, parsed.model, parsed.resolution),
+                        signal
+                    );
+                };
+
+                const onSuccess = async (imageUrl: string) => {
+                    if (addToHistory) addToHistory(imageUrl, promptToUse);
+                    let finalImageUrl = imageUrl;
+                    if (parsed.autoCrop169) {
+                         try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
+                    }
+                    const thumb = await generateThumbnail(finalImageUrl, 256, 256);
+                    
+                    updateNodeInStorage(currentTabId, nodeId, (prev) => {
+                        const nextOutputs = [...(prev.sequenceOutputs || [])];
+                        nextOutputs[i] = { status: 'done', thumbnail: thumb };
+                        return { ...prev, sequenceOutputs: nextOutputs };
+                    }, { frame: 1000 + i, url: finalImageUrl });
+
+                    if (parsed.autoDownload) {
+                         triggerDownload(finalImageUrl, promptToUse, i + 1);
+                    }
+                };
+
+                const onError = (err: any) => {
+                    updateNodeInStorage(currentTabId, nodeId, (prev) => {
+                        const nextOutputs = [...(prev.sequenceOutputs || [])];
+                        nextOutputs[i] = { status: err?.name === 'AbortError' || err?.message === 'Aborted' ? 'pending' : 'error', thumbnail: null };
+                        return { ...prev, sequenceOutputs: nextOutputs };
+                    });
+                };
+
+                if (taskQueue) {
+                    taskQueue.enqueueTask({
+                        nodeId,
+                        nodeTitle: node.title || 'Image Editor',
+                        frameIndex: i,
+                        prompt: promptToUse,
+                        type: 'sequence_frame',
+                        tabId: currentTabId,
+                        tabName: activeTabName,
+                        execute: executeFrame,
+                        onSuccess,
+                        onError
+                    });
                 } else {
-                     imagesToUse = allInputImages;
+                    // Fallback local execution if taskQueue not present
+                    try {
+                        const abortCtrl = new AbortController();
+                        abortControllerRef.current = abortCtrl;
+                        setIsEditingImageLocal(true);
+                        const res = await executeFrame(abortCtrl.signal);
+                        await onSuccess(res);
+                    } catch (e) {
+                        onError(e);
+                    } finally {
+                        setIsEditingImageLocal(false);
+                    }
                 }
+             }
 
-                // Filter out JSON strings from text inputs for Single Mode prompt
-                const genericTexts = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
-                let promptToUse = [parsed.prompt, ...genericTexts].filter(Boolean).join(', ');
-                
-                if (!promptToUse.trim()) promptToUse = "High quality image"; // Default for editing
+        } else {
+            // Single Mode Logic
+            let imagesToUseInputs: { base64ImageData: string; mimeType: string; }[] = [];
+            const checkedInputIndices = parsed.checkedInputIndices;
+            
+            if (checkedInputIndices && Array.isArray(checkedInputIndices)) {
+                imagesToUseInputs = allInputImages.filter((_, i) => checkedInputIndices.includes(i));
+            } else {
+                 imagesToUseInputs = allInputImages;
+            }
 
-                const processedImages = await Promise.all(imagesToUse.map(async (image) => {
+            const genericTexts = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
+            let promptToUse = [parsed.prompt, ...genericTexts].filter(Boolean).join(', ');
+            if (!promptToUse.trim()) promptToUse = "High quality image";
+
+            const executeSingle = async (signal: AbortSignal) => {
+                const processedImages = await Promise.all(imagesToUseInputs.map(async (image) => {
                      const imageDataUrl = `data:${image.mimeType};base64,${image.base64ImageData}`;
                      if (parsed.enableAspectRatio && parsed.aspectRatio && parsed.aspectRatio !== 'Auto') {
                          const { formattedImage } = await formatImageForAspectRatio(imageDataUrl, parsed.aspectRatio);
@@ -320,57 +319,80 @@ export const useEditorNode = ({
                      return image;
                 }));
 
+                let promptWithOutpaint = promptToUse;
                 if (parsed.enableOutpainting) {
                      const outpaintingTemplate = parsed.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.';
-                     promptToUse = outpaintingTemplate.replace('{main_prompt}', promptToUse);
+                     promptWithOutpaint = outpaintingTemplate.replace('{main_prompt}', promptToUse);
                 }
 
-                // WRAP GENERATION IN RACE WITH ABORT SIGNAL
-                const imageUrl = await raceWithAbort(
-                     generateImage(promptToUse, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution),
-                     abortControllerRef.current.signal
+                return await raceWithAbort(
+                     generateImage(promptWithOutpaint, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution),
+                     signal
                 );
-                
-                if (addToHistory) {
-                     addToHistory(imageUrl, promptToUse);
-                }
-                
+            };
+
+            const onSuccess = async (imageUrl: string) => {
+                if (addToHistory) addToHistory(imageUrl, promptToUse);
                 let finalImageUrl = imageUrl;
                 if (parsed.autoCrop169) {
                      try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
                 }
-
                 const thumb = await generateThumbnail(finalImageUrl, 256, 256);
                 
                 updateNodeInStorage(currentTabId, nodeId, (prev) => ({ ...prev, outputImage: thumb }), { frame: 0, url: finalImageUrl });
 
-                // Auto-Download for Single Mode
                 if (parsed.autoDownload) {
                      triggerDownload(finalImageUrl, promptToUse);
                 }
-            }
+            };
 
-        } catch (e: any) {
-            if (e.name !== 'AbortError' && e.message !== 'Aborted') {
-                setError(e.message);
+            const onError = (e: any) => {
+                if (e.name !== 'AbortError' && e.message !== 'Aborted') {
+                    setError(e.message);
+                }
+            };
+
+            if (taskQueue) {
+                taskQueue.enqueueTask({
+                    nodeId,
+                    nodeTitle: node.title || 'Image Editor',
+                    frameIndex: 0,
+                    prompt: promptToUse,
+                    type: 'image_edit',
+                    tabId: currentTabId,
+                    tabName: activeTabName,
+                    execute: executeSingle,
+                    onSuccess,
+                    onError
+                });
+            } else {
+                try {
+                    const abortCtrl = new AbortController();
+                    abortControllerRef.current = abortCtrl;
+                    setIsEditingImageLocal(true);
+                    const res = await executeSingle(abortCtrl.signal);
+                    await onSuccess(res);
+                } catch (e) {
+                    onError(e);
+                } finally {
+                    setIsEditingImageLocal(false);
+                }
             }
-        } finally {
-            setIsEditingImage(false);
-            setIsStoppingEdit(false);
-            abortControllerRef.current = null;
-            unregisterOperation(nodeId);
         }
-    }, [nodes, getUpstreamNodeValues, getFullSizeImage, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, addToHistory]);
+    }, [nodes, getUpstreamNodeValues, getFullSizeImage, setError, updateNodeInStorage, activeTabName, activeTabIdRef, addToHistory, taskQueue]);
 
-    const handleStopEdit = useCallback(() => {
+    const handleStopEdit = useCallback((nodeId?: string) => {
+        if (nodeId && taskQueue) {
+            taskQueue.cancelAllNodeTasks(nodeId);
+        }
         if (abortControllerRef.current) {
             setIsStoppingEdit(true);
             abortControllerRef.current.abort();
         }
-    }, []);
+    }, [taskQueue]);
 
     return {
-        isEditingImage,
+        isEditingImage: isEditingImage(),
         isStoppingEdit,
         handleEditImage,
         handleStopEdit

@@ -51,6 +51,7 @@ export type AppContextType =
   ReturnType<typeof useNodePositionHistory> &
   ReturnType<typeof useGoogleDrive> & 
   ReturnType<typeof import('../hooks/useGenerationHistory').useGenerationHistory> &
+  ReturnType<typeof import('../hooks/useTaskQueue').useTaskQueue> &
    {
   replaceAllItems: (newItems: LibraryItem[]) => void;
   importItemsData: (data: any) => Promise<void>;
