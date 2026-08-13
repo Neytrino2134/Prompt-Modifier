@@ -152,7 +152,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                      // Fallback to thumbnail of selected ratio or general image
                      return outputChar?.thumbnails?.[ratio] || outputChar?.image || null;
 
-                case NodeType.IMAGE_OUTPUT: return getFullSizeImage(node.id, 0) || (node.value.startsWith('data:') ? node.value : null);
+                case NodeType.IMAGE_OUTPUT: return getFullSizeImage(node.id, 0) || parsed.image || parsed.outputImage || (typeof node.value === 'string' && node.value.startsWith('data:') ? node.value : null);
                 case NodeType.IMAGE_EDITOR: return optimizedForUI ? parsed.outputImage : (getFullSizeImage(node.id, 0) || parsed.outputImage || null);
             }
         } catch {

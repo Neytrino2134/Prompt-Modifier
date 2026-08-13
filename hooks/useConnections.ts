@@ -3,12 +3,14 @@ import { useState, useCallback } from 'react';
 import { Connection, ToastType } from '../types';
 
 export const useConnections = (initialConnections: Connection[], addToast: (message: string, type?: ToastType) => void, t: (key: string) => string) => {
-    const [connections, setConnections] = useState<Connection[]>(() => 
-        initialConnections.map((c: any, i) => ({
+    const [connections, setConnections] = useState<Connection[]>(() => {
+        const needsId = initialConnections.some((c: any) => !c.id);
+        if (!needsId) return initialConnections;
+        return initialConnections.map((c: any, i) => ({
             ...c,
             id: c.id || `initial-conn-${Date.now()}-${i}` 
-        }))
-    );
+        }));
+    });
 
     const addConnection = useCallback((newConnection: Omit<Connection, 'id'>) => {
         setConnections(current => {

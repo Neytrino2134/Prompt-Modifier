@@ -55,6 +55,7 @@ interface UseHotkeysProps {
     redoPosition: (nodes: Node[]) => void;
     handleValueChange: (nodeId: string, value: string) => void;
     setIsHistoryPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsTaskQueuePanelOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const useHotkeys = (props: UseHotkeysProps) => {
@@ -69,7 +70,7 @@ export const useHotkeys = (props: UseHotkeysProps) => {
         setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition,
         radialMenuSelectedItem, setRadialMenuSelectedItem, getTransformedPoint, radialMenuPosition,
         quickSlots, isConnectionQuickAddOpen, isInstantCloseEnabled, handleAlignNodes,
-        undoPosition, redoPosition, handleValueChange, setIsHistoryPanelOpen
+        undoPosition, redoPosition, handleValueChange, setIsHistoryPanelOpen, setIsTaskQueuePanelOpen
     } = props;
 
     useEffect(() => {
@@ -84,6 +85,9 @@ export const useHotkeys = (props: UseHotkeysProps) => {
             const target = e.target as HTMLElement;
             // Basic check if user is typing in an input
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+            // Do not handle global canvas hotkeys when connection quick add menu is open
+            if (isConnectionQuickAddOpen) return;
 
             if (e.key === 'Shift' && !e.repeat) setIsShiftDown(true);
             if (e.key === 'Control' && !e.repeat) setIsCtrlDown(true);
@@ -179,6 +183,7 @@ export const useHotkeys = (props: UseHotkeysProps) => {
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') { e.preventDefault(); handleSaveCanvas(); return; }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyO') { e.preventDefault(); handleLoadCanvas(); return; }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyH' && !e.shiftKey && !e.altKey) { e.preventDefault(); setIsHistoryPanelOpen(prev => !prev); return; }
+            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyT' && !e.shiftKey && !e.altKey) { e.preventDefault(); setIsTaskQueuePanelOpen?.(prev => !prev); return; }
 
             // Copy/Paste
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyC') {

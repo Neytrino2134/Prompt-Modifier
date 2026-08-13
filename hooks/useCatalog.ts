@@ -89,7 +89,7 @@ const defaultCatalogItems: CatalogItem[] = [
           "position": { "x": 460, "y": 0 },
           "value": "{\"inputImage\":null,\"prompt\":\"\",\"outputImage\":null,\"aspectRatio\":\"1:1\",\"enableOutpainting\":true,\"inputImages\":[],\"outpaintingPrompt\":\"{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.\",\"topPaneHeight\":645.6608879498896,\"leftPaneRatio\":0.4960591133004926}",
           "title": "Редактор изображений",
-          "width": 1040,
+          "width": 1200,
           "height": 1380,
           "autoDownload": true
         },

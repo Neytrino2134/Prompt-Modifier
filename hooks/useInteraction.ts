@@ -84,6 +84,7 @@ interface UseInteractionProps {
     undoPosition: (nodes: Node[]) => void;
     redoPosition: (nodes: Node[]) => void;
     setIsHistoryPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsTaskQueuePanelOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const useInteraction = (props: UseInteractionProps) => {
@@ -97,7 +98,7 @@ export const useInteraction = (props: UseInteractionProps) => {
         selectedNodeIds, setSelectedNodeIds, handleRenameNode, setFullSizeImage,
         handleOpenQuickAdd, requestDeleteNodes, isInstantCloseEnabled, handleAlignNodes, handleDockNode, handlePaste, selectNode,
         dockHoverMode, setDockHoverMode, isDockingMenuVisible, setIsDockingMenuVisible,
-        undoPosition, redoPosition, setIsHistoryPanelOpen
+        undoPosition, redoPosition, setIsHistoryPanelOpen, setIsTaskQueuePanelOpen
     } = props;
 
     const nodesRef = useRef(nodes);
@@ -157,7 +158,7 @@ export const useInteraction = (props: UseInteractionProps) => {
         setIsZDown, setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition,
         radialMenuSelectedItem, setRadialMenuSelectedItem, getTransformedPoint, radialMenuPosition,
         quickSlots, isConnectionQuickAddOpen, isInstantCloseEnabled, handleAlignNodes,
-        undoPosition, redoPosition, handleValueChange, setIsHistoryPanelOpen
+        undoPosition, redoPosition, handleValueChange, setIsHistoryPanelOpen, setIsTaskQueuePanelOpen
     });
 
     const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {

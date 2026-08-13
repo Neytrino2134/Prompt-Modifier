@@ -10,6 +10,20 @@ interface ConnectionQuickAddMenuProps {
   onSelect: (type: NodeType) => void;
 }
 
+const NODE_HOTKEY_MAP: Partial<Record<NodeType, string>> = {
+  [NodeType.IMAGE_OUTPUT]: 'O',
+  [NodeType.PROMPT_ANALYZER]: 'A',
+  [NodeType.IMAGE_ANALYZER]: 'A',
+  [NodeType.PROMPT_PROCESSOR]: 'P',
+  [NodeType.VIDEO_PROMPT_PROCESSOR]: 'V',
+  [NodeType.TRANSLATOR]: 'L',
+  [NodeType.IMAGE_EDITOR]: 'I',
+  [NodeType.REROUTE_DOT]: 'R',
+  [NodeType.DATA_READER]: 'D',
+  [NodeType.VIDEO_EDITOR]: 'E',
+  [NodeType.IMAGE_SEQUENCE_GENERATOR]: 'Q',
+};
+
 const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen, info, onClose, onSelect }) => {
   const { t } = useLanguage();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -70,6 +84,16 @@ const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen,
     };
     
     const handleKeyDown = (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+            return;
+        }
+
         const key = parseInt(e.key);
         if (!isNaN(key) && key > 0 && key <= 9) {
             const index = key - 1;
@@ -77,20 +101,35 @@ const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen,
                 e.preventDefault();
                 e.stopPropagation();
                 onSelect(currentOptions[index].type);
+                return;
             }
-        } else if (e.key === 'Escape') {
-            onClose();
+        }
+
+        const pressedKey = e.key.toUpperCase();
+        const pressedCode = e.code;
+
+        const matchedItem = currentOptions.find(item => {
+            const expectedHotkey = NODE_HOTKEY_MAP[item.type];
+            if (!expectedHotkey) return false;
+            return pressedKey === expectedHotkey || pressedCode === `Key${expectedHotkey}`;
+        });
+
+        if (matchedItem) {
+            e.preventDefault();
+            e.stopPropagation();
+            onSelect(matchedItem.type);
+            return;
         }
     };
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keydown', handleKeyDown, true);
     }
     
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isOpen, onClose, currentOptions, onSelect]);
 
@@ -130,17 +169,27 @@ const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen,
       style={style}
       onMouseDown={e => e.stopPropagation()}
     >
-      {currentOptions.map((item, index) => (
-        <button
-          key={item.type}
-          onClick={() => onSelect(item.type)}
-          className="flex items-center space-x-3 p-2 rounded-md text-left w-full text-gray-200 hover:bg-accent hover:text-white transition-colors group"
-        >
-          <span className="text-xs font-mono font-bold text-gray-500 group-hover:text-white w-4 text-right">{index + 1}.</span>
-          <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">{item.icon}</div>
-          <span className="text-sm font-semibold">{item.title}</span>
-        </button>
-      ))}
+      {currentOptions.map((item, index) => {
+        const hotkey = NODE_HOTKEY_MAP[item.type];
+        return (
+          <button
+            key={item.type}
+            onClick={() => onSelect(item.type)}
+            className="flex items-center justify-between p-2 rounded-md text-left w-full text-gray-200 hover:bg-accent hover:text-white transition-colors group"
+          >
+            <div className="flex items-center space-x-3">
+              <span className="text-xs font-mono font-bold text-gray-500 group-hover:text-white w-4 text-right">{index + 1}.</span>
+              <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">{item.icon}</div>
+              <span className="text-sm font-semibold">{item.title}</span>
+            </div>
+            {hotkey && (
+              <span className="ml-3 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-gray-700/80 group-hover:bg-accent-hover text-gray-400 group-hover:text-white border border-gray-600/50 transition-colors">
+                {hotkey}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 };

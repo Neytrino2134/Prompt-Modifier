@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../contexts/AppContext';
+import { Tooltip } from './Tooltip';
 
 export const HistoryPanel: React.FC = () => {
   const context = useAppContext();
   if (!context) return null;
 
-  const { historyItems, isHistoryPanelOpen, setIsHistoryPanelOpen, removeHistoryItems, clearHistory, historyLimit, setHistoryLimit, t } = context;
+  const { historyItems, isHistoryPanelOpen, setIsHistoryPanelOpen, removeHistoryItems, clearHistory, historyLimit, setHistoryLimit, setImageViewer, t } = context;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  if (!isHistoryPanelOpen) return null;
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -86,7 +85,7 @@ export const HistoryPanel: React.FC = () => {
   };
 
   return (
-    <div className="fixed top-0 right-0 bottom-0 w-80 bg-gray-900 border-l border-gray-700 shadow-2xl z-[200] flex flex-col">
+    <div className={`fixed top-0 right-0 bottom-0 w-80 bg-gray-900 border-l border-gray-700 shadow-2xl z-[200] flex flex-col transition-transform duration-300 ease-in-out ${isHistoryPanelOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
       {/* Header */}
       <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur-sm z-10 sticky top-0">
         <h2 className="text-gray-100 font-semibold flex items-center gap-2">
@@ -186,16 +185,37 @@ export const HistoryPanel: React.FC = () => {
                 </div>
                 <div 
                   className="relative w-full aspect-square bg-gray-900 cursor-pointer"
-                  onClick={() => isSelectMode ? toggleSelection(item.id) : null}
+                  onClick={() => {
+                    if (isSelectMode) {
+                      toggleSelection(item.id);
+                    } else if (item.url && setImageViewer) {
+                      setImageViewer({
+                        sources: [{ src: item.url, frameNumber: 0, prompt: item.prompt }],
+                        initialIndex: 0
+                      });
+                    }
+                  }}
                 >
-                  <img
-                    src={item.url}
-                    alt={item.prompt}
-                    className="w-full h-full object-contain"
-                    draggable={!isSelectMode}
-                    onDragStart={(e) => !isSelectMode && handleDragStart(e, item.url, item.prompt)}
-                    title={item.prompt}
-                  />
+                  <Tooltip
+                    content={
+                      item.prompt ? (
+                        <div className="max-w-xs text-xs text-gray-100 leading-relaxed whitespace-normal break-words p-1 font-sans">
+                          {item.prompt}
+                        </div>
+                      ) : null
+                    }
+                    position="left"
+                    className="w-full h-full"
+                    delay={150}
+                  >
+                    <img
+                      src={item.url}
+                      alt={item.prompt || 'Generated image'}
+                      className="w-full h-full object-contain"
+                      draggable={!isSelectMode}
+                      onDragStart={(e) => !isSelectMode && handleDragStart(e, item.url, item.prompt)}
+                    />
+                  </Tooltip>
                   
                   {/* Floating Actions on Image */}
                   {!isSelectMode && (
@@ -203,21 +223,21 @@ export const HistoryPanel: React.FC = () => {
                       <button 
                         onClick={(e) => { e.stopPropagation(); toggleSelection(item.id); setIsSelectMode(true); }}
                         className="text-gray-300 hover:text-white p-1 rounded hover:bg-white/20 transition-colors"
-                        title="Select"
+                        title={t('ui.select') || 'Select'}
                       >
                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleCopyImage(item.url); }}
                         className="text-gray-300 hover:text-white p-1 rounded hover:bg-white/20 transition-colors"
-                        title="Copy Image"
+                        title={t('ui.copy') || 'Copy Image'}
                       >
                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); removeHistoryItems([item.id]); }}
                         className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-500/20 transition-colors"
-                        title="Delete"
+                        title={t('ui.delete') || 'Delete'}
                       >
                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>

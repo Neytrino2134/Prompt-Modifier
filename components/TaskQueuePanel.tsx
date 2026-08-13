@@ -16,12 +16,11 @@ export const TaskQueuePanel: React.FC = () => {
         removeTask,
         selectNode,
         handleNavigateToNodeFrame,
+        setImageViewer,
         t
     } = context;
 
     const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'failed'>('all');
-
-    if (!isTaskQueuePanelOpen) return null;
 
     const filteredTasks = tasks.filter(task => {
         if (filter === 'active') return task.status === 'running' || task.status === 'queued';
@@ -81,7 +80,7 @@ export const TaskQueuePanel: React.FC = () => {
     };
 
     return (
-        <div className="fixed top-0 right-0 bottom-0 w-80 sm:w-96 bg-gray-900 border-l border-gray-800 shadow-2xl z-[200] flex flex-col font-sans">
+        <div className={`fixed top-0 right-0 bottom-0 w-80 sm:w-96 bg-gray-900 border-l border-gray-800 shadow-2xl z-[200] flex flex-col font-sans transition-transform duration-300 ease-in-out ${isTaskQueuePanelOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
             {/* Header */}
             <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur-sm z-10 sticky top-0">
                 <div className="flex items-center gap-2">
@@ -207,8 +206,23 @@ export const TaskQueuePanel: React.FC = () => {
 
                             {/* Result Preview or Error Message */}
                             {task.status === 'completed' && task.resultUrl && (
-                                <div className="mt-2 relative rounded overflow-hidden aspect-video bg-black flex items-center justify-center border border-emerald-900/50">
+                                <div
+                                    className="mt-2 relative rounded overflow-hidden aspect-video bg-black flex items-center justify-center border border-emerald-900/50 cursor-pointer group"
+                                    onClick={() => setImageViewer && setImageViewer({
+                                        sources: [{ src: task.resultUrl!, frameNumber: (task.frameIndex ?? 0) + 1, prompt: task.prompt }],
+                                        initialIndex: 0
+                                    })}
+                                >
                                     <img src={task.resultUrl} alt="Result" className="w-full h-full object-contain" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                        <span className="text-xs text-white bg-black/60 px-2.5 py-1 rounded-md shadow flex items-center gap-1 font-sans">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                <circle cx="12" cy="12" r="3"></circle>
+                                            </svg>
+                                            {t('ui.preview') || 'Preview'}
+                                        </span>
+                                    </div>
                                 </div>
                             )}
 

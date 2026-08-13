@@ -200,7 +200,7 @@ const CanvasLayer: React.FC = () => {
             isAnalyzingImage: isAnalyzingImage === node.id,
             onImageToText: onImageToText,
             onGenerateImage: handleGenerateImage,
-            isGeneratingImage: isGeneratingImage === node.id,
+            isGeneratingImage: typeof isGeneratingImage === 'function' ? isGeneratingImage(node.id) : (isGeneratingImage === node.id || isGeneratingImage === true),
             onExecuteChain: handleExecuteChain,
             isExecutingChain: isExecutingChain,
             isExecuting: executingNodeId === node.id,

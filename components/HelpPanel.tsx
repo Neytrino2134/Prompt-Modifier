@@ -243,6 +243,8 @@ const HelpPanel: React.FC = () => {
     windows: [
       { key: 'Space', description: t('hotkeys.windows.search') },
       { key: 'Ctrl+Space', description: t('hotkeys.windows.catalog') },
+      { key: 'Ctrl+H', description: t('ui.generation_history') || 'Generation History' },
+      { key: 'Ctrl+T', description: t('queue.title') || 'Task Queue' },
       { key: 'Shift+F', description: t('hotkeys.windows.fullscreen') },
       { key: 'F1', description: t('help.panelTitle') }, 
     ],

@@ -143,8 +143,8 @@ export const useEditorNode = ({
              };
         });
 
-        const allInputImages = [...localImages, ...imageInputs];
-        const allInputImagesB = [...localImagesB, ...imageInputsB];
+        const allInputImages = [...imageInputs, ...localImages];
+        const allInputImagesB = [...imageInputsB, ...localImagesB];
 
         // Validation - Relaxed for text-only potential
         if (!parsed.isSequentialEditingWithPrompts) {

@@ -135,6 +135,7 @@ export const useGeminiGeneration = ({
     return {
         isGeneratingImage: imageNode.isGeneratingImage,
         handleGenerateImage: imageNode.handleGenerateImage,
+        handleStopImage: imageNode.handleStopImage,
 
         isGeneratingVideo: videoNode.isGeneratingVideo,
         handleGenerateVideo: videoNode.handleGenerateVideo,

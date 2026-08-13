@@ -432,7 +432,7 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                     onDragStart={(e) => slot.type === 'local' ? handleItemDragStart(e, index) : e.preventDefault()}
                                 >
                                      <div className="flex items-center space-x-1">
-                                        {!isB && slot.type === 'local' && (
+                                        {!isB && (
                                             <input 
                                                 type="checkbox" 
                                                 checked={isChecked} 
@@ -476,7 +476,7 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                         <img 
                                             src={fullRes || slot.src || ''} 
                                             alt={`Input ${index + 1}`} 
-                                            className={`object-contain w-full h-full ${!isChecked && slot.type === 'local' ? 'opacity-50' : ''}`}
+                                            className={`object-contain w-full h-full ${!isChecked ? 'opacity-50' : ''}`}
                                             onMouseDown={(e) => e.stopPropagation()} 
                                             draggable={true} 
                                             onDragStart={(e) => { 

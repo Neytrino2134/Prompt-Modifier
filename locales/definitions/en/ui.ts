@@ -148,6 +148,7 @@ export const ui = {
     'toolbar.exitFullScreen': 'Exit Full Screen',
     'dialog.settings.hoverHighlightLabel': 'Node Hover Highlight',
     'ui.generation_history': 'Generation History',
+    'ui.preview': 'Preview',
     'ui.select': 'Select',
     'ui.delete': 'Delete',
     'ui.cancel': 'Cancel',

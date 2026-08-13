@@ -61,7 +61,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         newNode.value = options.initialValue !== undefined ? options.initialValue : getEmptyValueForNodeType(newNode);
 
         switch (type) {
-            case NodeType.IMAGE_EDITOR: newNode.width = 1000; newNode.height = 920; break;
+            case NodeType.IMAGE_EDITOR: newNode.width = 1200; newNode.height = 920; break;
             case NodeType.PROMPT_ANALYZER: newNode.width = 460; newNode.height = 1000; break;
             case NodeType.IMAGE_INPUT: newNode.width = 460; newNode.height = 340; break;
             case NodeType.IMAGE_ANALYZER: case NodeType.VIDEO_OUTPUT: newNode.width = 460; newNode.height = 680; break;

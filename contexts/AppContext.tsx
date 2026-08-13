@@ -87,7 +87,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
     const { getUpstreamNodeValues } = derivedMemoHook;
 
-    // Helper for Sync
+    // Helper for Canvas IO / export
     const getCurrentCanvasState = useCallback(() => ({
         nodes: nodesHook.nodes,
         connections: connectionsHook.connections,
@@ -97,49 +97,99 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         fullSizeImageCache: fullSizeImageCache,
     }), [nodesHook.nodes, connectionsHook.connections, groupsHook.groups, canvasHook.viewTransform, nodesHook.nodeIdCounter, fullSizeImageCache]);
 
+    // Flags and refs to safely manage tab synchronization
+    const isLoadingStateRef = useRef(false);
+    const lastLoadedTabIdRef = useRef<string | null>(null);
+    const isTabLoadedFromDBRef = useRef(false);
+
     const loadCanvasState = useCallback((state: any) => {
-        nodesHook.setNodes(state.nodes);
-        connectionsHook.setConnections(state.connections);
+        if (!state) return;
+        isLoadingStateRef.current = true;
+        nodesHook.setNodes(state.nodes || []);
+        connectionsHook.setConnections(state.connections || []);
         groupsHook.setGroups(state.groups || []);
-        canvasHook.setViewTransform(state.viewTransform);
-        nodesHook.nodeIdCounter.current = state.nodeIdCounter;
+        canvasHook.setViewTransform(state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
+        nodesHook.nodeIdCounter.current = state.nodeIdCounter || 0;
         setFullSizeImageCache(state.fullSizeImageCache || {});
-    }, [nodesHook, connectionsHook, groupsHook, canvasHook, setFullSizeImageCache]);
 
-    // Sync Tabs Effect
-    const tabsRef = useRef(tabs);
-    useEffect(() => {
-        tabsRef.current = tabs;
-    }, [tabs]);
+        setTimeout(() => {
+            isLoadingStateRef.current = false;
+        }, 0);
+    }, [
+        nodesHook.setNodes,
+        connectionsHook.setConnections,
+        groupsHook.setGroups,
+        canvasHook.setViewTransform,
+        setFullSizeImageCache
+    ]);
 
-    // Load tab state when switching tabs
+    // Load active tab state into canvas hooks when activeTabId changes or when initial DB session completes loading
     useEffect(() => {
-        const newActiveTab = tabs.find(t => t.id === activeTabId);
-        if (newActiveTab) {
-            loadCanvasState(newActiveTab.state);
+        if (!tabsHook.isLoaded) return;
+
+        const currentActiveTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+        if (!currentActiveTab) return;
+
+        const tabChanged = lastLoadedTabIdRef.current !== activeTabId;
+        const initialDBLoaded = !isTabLoadedFromDBRef.current;
+
+        if (tabChanged || initialDBLoaded) {
+            lastLoadedTabIdRef.current = activeTabId;
+            isTabLoadedFromDBRef.current = true;
+            loadCanvasState(currentActiveTab.state);
         }
-    }, [activeTabId]);
+    }, [activeTabId, tabsHook.isLoaded, tabs, loadCanvasState]);
 
+    // Sync live canvas state back to active tab in tabs array when user modifies canvas
     useEffect(() => {
-        const stateToSave = getCurrentCanvasState();
-        const currentTab = tabsRef.current.find(t => t.id === activeTabId);
+        if (isLoadingStateRef.current) return;
+        if (!tabsHook.isLoaded) return;
 
-        // Prevent infinite loops by checking reference equality
-        if (currentTab) {
-            const prevState = currentTab.state;
-            const isIdentical =
-                prevState.nodes === stateToSave.nodes &&
-                prevState.connections === stateToSave.connections &&
-                prevState.groups === stateToSave.groups &&
-                prevState.viewTransform === stateToSave.viewTransform &&
-                prevState.fullSizeImageCache === stateToSave.fullSizeImageCache &&
-                prevState.nodeIdCounter === stateToSave.nodeIdCounter;
+        const currentTab = tabs.find(t => t.id === activeTabId);
+        if (!currentTab) return;
 
-            if (isIdentical) return;
-        }
+        const liveNodes = nodesHook.nodes;
+        const liveConnections = connectionsHook.connections;
+        const liveGroups = groupsHook.groups;
+        const liveViewTransform = canvasHook.viewTransform;
+        const liveNodeIdCounter = nodesHook.nodeIdCounter.current;
 
-        setTabs(prevTabs => prevTabs.map(tab => tab.id === activeTabId ? { ...tab, state: stateToSave } : tab));
-    }, [getCurrentCanvasState, activeTabId, setTabs]);
+        const prevState = currentTab.state;
+
+        // Prevent redundant updates using reference equality
+        const isIdentical =
+            prevState.nodes === liveNodes &&
+            prevState.connections === liveConnections &&
+            prevState.groups === liveGroups &&
+            prevState.viewTransform === liveViewTransform &&
+            prevState.fullSizeImageCache === fullSizeImageCache &&
+            prevState.nodeIdCounter === liveNodeIdCounter;
+
+        if (isIdentical) return;
+
+        const stateToSave = {
+            nodes: liveNodes,
+            connections: liveConnections,
+            groups: liveGroups,
+            viewTransform: liveViewTransform,
+            nodeIdCounter: liveNodeIdCounter,
+            fullSizeImageCache: fullSizeImageCache,
+        };
+
+        setTabs(prevTabs =>
+            prevTabs.map(tab => (tab.id === activeTabId ? { ...tab, state: stateToSave } : tab))
+        );
+    }, [
+        nodesHook.nodes,
+        connectionsHook.connections,
+        groupsHook.groups,
+        canvasHook.viewTransform,
+        fullSizeImageCache,
+        activeTabId,
+        tabs,
+        tabsHook.isLoaded,
+        setTabs
+    ]);
 
     const resetCanvasToDefault = useCallback((lang: LanguageCode) => {
         resetTabs(lang);
@@ -543,6 +593,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [nodesHook.nodes, sequenceCatalogHook, addToast]);
 
+    const setIsHistoryPanelOpen = useCallback((action: React.SetStateAction<boolean>) => {
+        generationHistoryHook.setIsHistoryPanelOpen(prev => {
+            const next = typeof action === 'function' ? action(prev) : action;
+            if (next) {
+                taskQueueHook.setIsTaskQueuePanelOpen(false);
+            }
+            return next;
+        });
+    }, [generationHistoryHook, taskQueueHook]);
+
+    const setIsTaskQueuePanelOpen = useCallback((action: React.SetStateAction<boolean>) => {
+        taskQueueHook.setIsTaskQueuePanelOpen(prev => {
+            const next = typeof action === 'function' ? action(prev) : action;
+            if (next) {
+                generationHistoryHook.setIsHistoryPanelOpen(false);
+            }
+            return next;
+        });
+    }, [generationHistoryHook, taskQueueHook]);
+
     const interactionHook = useInteraction({
         ...nodesHook, ...connectionsHook, ...groupsHook, ...canvasHook,
         ...dialogsHook, handleToggleCatalog: dialogsHook.handleToggleCatalog,
@@ -585,7 +655,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         undoPosition: positionHistoryHook.undoPosition,
         redoPosition: positionHistoryHook.redoPosition,
         handleToggleNodePin: nodesHook.handleToggleNodePin,
-        setIsHistoryPanelOpen: generationHistoryHook.setIsHistoryPanelOpen
+        setIsHistoryPanelOpen,
+        setIsTaskQueuePanelOpen
     });
 
     const handleNodeContextMenuLogic = useCallback((e: React.MouseEvent, nodeId: string) => {
@@ -1009,7 +1080,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleDeleteFromDrive: googleDriveHook.handleDeleteFromDrive, // Exposed
             handleClearCloudFolder: googleDriveHook.handleClearCloudFolder, // Exposed NEW Function
             handleCleanupDuplicates: googleDriveHook.handleCleanupDuplicates, // Exposed
-            ...taskQueueHook
+            ...taskQueueHook,
+            setIsHistoryPanelOpen,
+            setIsTaskQueuePanelOpen
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,

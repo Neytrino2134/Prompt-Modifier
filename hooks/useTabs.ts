@@ -240,8 +240,9 @@ export const useTabs = () => {
 
         const SAVE_DELAY = 60000; // 60 seconds
         
-        // Update the expected save time so UI can show countdown
-        setNextAutoSaveTime(Date.now() + SAVE_DELAY);
+        // Update the expected save time so UI can show countdown without causing re-render loops
+        const newTargetTime = Date.now() + SAVE_DELAY;
+        setNextAutoSaveTime(prev => (prev === null || Math.abs(prev - newTargetTime) > 1000) ? newTargetTime : prev);
 
         saveTimeoutRef.current = setTimeout(() => {
             setIsAutoSaving(true);
@@ -359,6 +360,7 @@ export const useTabs = () => {
         resetCurrentTab, // Export new function
         getLocalizedCanvasState, 
         nextAutoSaveTime, 
-        isAutoSaving 
+        isAutoSaving,
+        isLoaded
     };
 };
