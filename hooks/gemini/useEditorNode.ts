@@ -236,7 +236,7 @@ export const useEditorNode = ({
                 };
 
                 const onSuccess = async (imageUrl: string) => {
-                    if (addToHistory) addToHistory(imageUrl, promptToUse);
+                    if (addToHistory) addToHistory(imageUrl, promptToUse, parsed.model || 'imagen-4.0-generate-001', { aspectRatio: parsed.aspectRatio, resolution: parsed.resolution });
                     let finalImageUrl = imageUrl;
                     if (parsed.autoCrop169) {
                          try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
@@ -332,7 +332,7 @@ export const useEditorNode = ({
             };
 
             const onSuccess = async (imageUrl: string) => {
-                if (addToHistory) addToHistory(imageUrl, promptToUse);
+                if (addToHistory) addToHistory(imageUrl, promptToUse, parsed.model || 'imagen-4.0-generate-001', { aspectRatio: parsed.aspectRatio, resolution: parsed.resolution });
                 let finalImageUrl = imageUrl;
                 if (parsed.autoCrop169) {
                      try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}

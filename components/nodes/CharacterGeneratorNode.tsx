@@ -377,7 +377,13 @@ export const CharacterGeneratorNode: React.FC<NodeContentProps> = ({
         e.stopPropagation();
         if (setImageViewer) {
             setImageViewer({
-                sources: [{ src: url, frameNumber: 0, prompt: charName || "Character Concept" }],
+                sources: [{ 
+                    src: url, 
+                    frameNumber: 0, 
+                    prompt: charName || "Character Concept",
+                    model: 'gemini-3-flash-preview',
+                    aspectRatio: '1:1'
+                }],
                 initialIndex: 0
             });
         }

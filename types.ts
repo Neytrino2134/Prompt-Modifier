@@ -324,7 +324,7 @@ export interface NodeContentProps {
   connectedImageSources?: (string | null)[];
   connectedCharacterData?: any[];
   libraryItems: LibraryItem[];
-  t: (key: string) => string;
+  t: (key: string, options?: { [key: string]: string | number }) => string;
   deselectAllNodes: () => void;
   onSelectNode: () => void; // New prop for selecting the node
   onProcessChainForward: (nodeId: string) => void;
@@ -360,7 +360,7 @@ export interface NodeContentProps {
   onSaveScriptToCatalog: (nodeId: string) => void;
   onSaveSequenceToCatalog: (nodeId: string) => void;
   setError: (error: string | null) => void;
-  setImageViewer: (viewerState: { sources: { src: string; frameNumber: number; prompt?: string; }[], initialIndex: number } | null) => void;
+  setImageViewer: (viewerState: { sources: { src: string; frameNumber: number; prompt?: string; model?: string; aspectRatio?: string; resolution?: string; }[], initialIndex: number } | null) => void;
   addToast: (message: string, type?: ToastType, action?: { label: string, onClick: () => void }) => void;
   getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
   setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void;

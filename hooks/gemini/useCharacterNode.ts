@@ -43,7 +43,7 @@ export const useCharacterNode = ({
             const imageUrl = await generateImage(prompt, aspectRatio, undefined, 'gemini-3-flash-preview');
             
             if (addToHistory) {
-                addToHistory(imageUrl, prompt);
+                addToHistory(imageUrl, prompt, 'gemini-3-flash-preview', { aspectRatio });
             }
             
             const base64 = imageUrl.split(',')[1];

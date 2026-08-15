@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import type { NodeContentProps } from '../../types';
+import { LibraryItem, LibraryItemType } from '../../types';
 import { useLanguage } from '../../localization';
 import { getRandomWord } from '../../utils/wordBank';
 import { PromptLibraryToolbar } from '../PromptLibraryToolbar';
@@ -8,11 +9,14 @@ import { ActionButton } from '../ActionButton';
 import { DebouncedTextarea } from '../DebouncedTextarea';
 import { useAppContext } from '../../contexts/AppContext';
 import { TutorialTooltip } from '../TutorialTooltip';
+import { AddToLibraryPopover } from '../AddToLibraryPopover';
 
 export const TextInputNode: React.FC<NodeContentProps> = ({ node, onValueChange, libraryItems, t, onSelectNode }) => {
     const { language } = useLanguage();
     const context = useAppContext();
     const { tutorialStep, tutorialTargetId, advanceTutorial, skipTutorial } = context || {};
+    const [isAddToLibraryOpen, setIsAddToLibraryOpen] = useState(false);
+    const addToLibraryBtnRef = useRef<HTMLDivElement>(null);
 
     // Check if this node is the current target of the tutorial
     const isTutorialActive = tutorialTargetId === node.id && (
@@ -32,9 +36,66 @@ export const TextInputNode: React.FC<NodeContentProps> = ({ node, onValueChange,
         }
     };
 
+    const handleSaveToLibrary = (promptName: string, folderId: string | null, newFolderName?: string) => {
+        const textToSave = (node.value || '').trim();
+        if (!textToSave) {
+            if (context?.addToast) context.addToast(t('library.emptyPromptWarning'), 'error');
+            return;
+        }
+
+        const currentItems = [...(libraryItems || [])];
+        let actualParentId = folderId;
+
+        if (newFolderName && newFolderName.trim()) {
+            const trimmedFolder = newFolderName.trim();
+            const existing = currentItems.find(
+                item => item.type === LibraryItemType.FOLDER && item.parentId === null && item.name.toLowerCase() === trimmedFolder.toLowerCase()
+            );
+            if (existing) {
+                actualParentId = existing.id;
+            } else {
+                const newFolderId = `lib-item-folder-${Date.now()}`;
+                const newFolder: LibraryItem = {
+                    id: newFolderId,
+                    type: LibraryItemType.FOLDER,
+                    name: trimmedFolder,
+                    parentId: null
+                };
+                currentItems.push(newFolder);
+                actualParentId = newFolderId;
+            }
+        }
+
+        let finalPromptName = promptName.trim() || 'New Prompt';
+        let counter = 1;
+        while (currentItems.some(item => item.parentId === actualParentId && item.name === finalPromptName && item.type === LibraryItemType.PROMPT)) {
+            finalPromptName = `${promptName.trim() || 'New Prompt'} (${counter++})`;
+        }
+
+        const newPrompt: LibraryItem = {
+            id: `lib-item-prompt-${Date.now()}`,
+            type: LibraryItemType.PROMPT,
+            name: finalPromptName,
+            parentId: actualParentId,
+            content: textToSave
+        };
+
+        currentItems.push(newPrompt);
+
+        if (context?.setLibraryItems) {
+            context.setLibraryItems(currentItems);
+        } else {
+            localStorage.setItem('prompt-library-items', JSON.stringify(currentItems));
+        }
+
+        if (context?.addToast) {
+            context.addToast(t('toast.promptSaved', { promptName: finalPromptName }), 'success');
+        }
+    };
+
     return (
         <div className="flex flex-col h-full">
-            <div className="flex items-center mb-1 flex-shrink-0 space-x-2">
+            <div className="flex items-center mb-1 flex-shrink-0 space-x-1.5">
                 <div className="flex-grow">
                     <PromptLibraryToolbar
                         libraryItems={libraryItems}
@@ -43,6 +104,22 @@ export const TextInputNode: React.FC<NodeContentProps> = ({ node, onValueChange,
                             onValueChange(node.id, newText);
                         }}
                     />
+                </div>
+
+                {/* Add to Library Button with Category Menu */}
+                <div ref={addToLibraryBtnRef} className="flex items-center">
+                    <ActionButton
+                        title={t('library.addToLibrary')}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsAddToLibraryOpen(prev => !prev);
+                        }}
+                        disabled={!node.value || !node.value.trim()}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </ActionButton>
                 </div>
                 
                 <TutorialTooltip content={t('tutorial.step1')} isActive={!!isTutorialActive} position="left" onSkip={skipTutorial}>
@@ -53,6 +130,17 @@ export const TextInputNode: React.FC<NodeContentProps> = ({ node, onValueChange,
                     </ActionButton>
                 </TutorialTooltip>
             </div>
+
+            {/* Popover for selecting category and saving prompt */}
+            <AddToLibraryPopover
+                isOpen={isAddToLibraryOpen}
+                onClose={() => setIsAddToLibraryOpen(false)}
+                anchorRef={addToLibraryBtnRef}
+                promptContent={node.value || ''}
+                libraryItems={libraryItems}
+                onSave={handleSaveToLibrary}
+            />
+
             <div className="flex-grow min-h-0">
                 <DebouncedTextarea
                     value={node.value}

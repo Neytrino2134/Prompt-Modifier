@@ -125,7 +125,7 @@ export const useImageNode = ({
             const thumbnailUrl = await generateThumbnail(imageUrl, 256, 256);
             
             if (addToHistory) {
-                addToHistory(imageUrl, prompt);
+                addToHistory(imageUrl, prompt, node.model || 'imagen-4.0-generate-001', { aspectRatio, resolution: node.resolution });
             }
             
             if (node.type === NodeType.CHARACTER_CARD) {

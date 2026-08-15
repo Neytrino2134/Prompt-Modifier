@@ -368,10 +368,13 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         return imageSlots.length;
     }, [isSequentialEditingWithPrompts, framePrompts, upstreamPromptsMap, imageSlots.length]);
 
+    const prevUpstreamCountRef = useRef(upstreamImagesRaw.length);
+    const prevLocalCountRef = useRef(inputImages.length);
     const prevImageSlotsLengthRef = useRef(imageSlots.length);
     const prevSeqTotalFramesRef = useRef(seqTotalFrames);
+    const isInitialMountRef = useRef(true);
 
-    // Handle initial selection for new mode
+    // Handle selection synchronization for connected and local images
     useEffect(() => {
          if (isSequentialEditingWithPrompts) {
              const previousSeqLength = prevSeqTotalFramesRef.current;
@@ -390,25 +393,92 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                  }
              }
          } else {
-             const previousLength = prevImageSlotsLengthRef.current;
-             if (checkedInputIndices === undefined) {
-                 handleValueUpdate({ checkedInputIndices: imageSlots.map((_, i) => i) });
-             } else if (imageSlots.length > previousLength) {
-                 const newChecked = [...checkedInputIndices];
-                 for (let i = previousLength; i < imageSlots.length; i++) {
-                     newChecked.push(i);
+             const prevUpstreamCount = prevUpstreamCountRef.current;
+             const newUpstreamCount = upstreamImagesRaw.length;
+             const prevLocalCount = prevLocalCountRef.current;
+             const newLocalCount = inputImages.length;
+             const isInitial = isInitialMountRef.current;
+             isInitialMountRef.current = false;
+
+             const currentChecked = checkedInputIndices || [];
+
+             if (isInitial) {
+                 // Initial mount: if checkedInputIndices is uninitialized or empty but slots exist, check all slots
+                 if ((!checkedInputIndices || checkedInputIndices.length === 0) && imageSlots.length > 0) {
+                     handleValueUpdate({ checkedInputIndices: imageSlots.map((_, i) => i) });
+                 } else if (newUpstreamCount > 0) {
+                     // Ensure connected image slots are checked on load
+                     const connectedIndices = Array.from({ length: newUpstreamCount }, (_, i) => i);
+                     const missing = connectedIndices.filter(i => !currentChecked.includes(i));
+                     if (missing.length > 0) {
+                         const merged = Array.from(new Set([...currentChecked, ...connectedIndices]))
+                             .filter(i => i < imageSlots.length)
+                             .sort((a, b) => a - b);
+                         handleValueUpdate({ checkedInputIndices: merged });
+                     }
                  }
-                 handleValueUpdate({ checkedInputIndices: newChecked });
-             } else if (imageSlots.length < previousLength) {
-                 const validIndices = checkedInputIndices.filter(i => i < imageSlots.length);
-                 if (validIndices.length !== checkedInputIndices.length) {
-                     handleValueUpdate({ checkedInputIndices: validIndices });
+             } else {
+                 let updatedChecked: number[] | null = null;
+                 const baseChecked = [...currentChecked];
+
+                 // 1. Upstream connection changes
+                 if (newUpstreamCount !== prevUpstreamCount) {
+                     const upstreamDiff = newUpstreamCount - prevUpstreamCount;
+                     if (upstreamDiff > 0) {
+                         // New upstream images connected: shift existing checked local indices by upstreamDiff
+                         const shifted = baseChecked.map(idx => (idx >= prevUpstreamCount ? idx + upstreamDiff : idx));
+                         // All newly added connected indices must be checked immediately
+                         const newConnectedIndices = Array.from({ length: newUpstreamCount }, (_, i) => i);
+                         updatedChecked = Array.from(new Set([...shifted, ...newConnectedIndices]))
+                             .filter(i => i < imageSlots.length)
+                             .sort((a, b) => a - b);
+                     } else {
+                         // Upstream images disconnected
+                         const removeDiff = prevUpstreamCount - newUpstreamCount;
+                         const shifted = baseChecked
+                             .filter(idx => idx < newUpstreamCount || idx >= prevUpstreamCount)
+                             .map(idx => (idx >= prevUpstreamCount ? idx - removeDiff : idx));
+                         updatedChecked = Array.from(new Set(shifted))
+                             .filter(i => i >= 0 && i < imageSlots.length)
+                             .sort((a, b) => a - b);
+                     }
+                 }
+
+                 // 2. Local images changes
+                 if (newLocalCount !== prevLocalCount) {
+                     const currentWorking = updatedChecked !== null ? updatedChecked : baseChecked;
+                     const localDiff = newLocalCount - prevLocalCount;
+                     if (localDiff > 0) {
+                         // New local images added at the end
+                         const newLocalIndices: number[] = [];
+                         for (let i = 0; i < localDiff; i++) {
+                             newLocalIndices.push(newUpstreamCount + prevLocalCount + i);
+                         }
+                         updatedChecked = Array.from(new Set([...currentWorking, ...newLocalIndices]))
+                             .filter(i => i < imageSlots.length)
+                             .sort((a, b) => a - b);
+                     } else {
+                         // Local images removed
+                         updatedChecked = currentWorking
+                             .filter(i => i < imageSlots.length)
+                             .sort((a, b) => a - b);
+                     }
+                 }
+
+                 if (updatedChecked !== null) {
+                     const isDifferent = updatedChecked.length !== currentChecked.length ||
+                         updatedChecked.some((val, idx) => val !== currentChecked[idx]);
+                     if (isDifferent) {
+                         handleValueUpdate({ checkedInputIndices: updatedChecked });
+                     }
                  }
              }
          }
+         prevUpstreamCountRef.current = upstreamImagesRaw.length;
+         prevLocalCountRef.current = inputImages.length;
          prevImageSlotsLengthRef.current = imageSlots.length;
          prevSeqTotalFramesRef.current = seqTotalFrames;
-    }, [imageSlots.length, isSequentialEditingWithPrompts, seqTotalFrames, checkedInputIndices, checkedSequenceOutputIndices]);
+    }, [imageSlots.length, isSequentialEditingWithPrompts, seqTotalFrames, checkedInputIndices, checkedSequenceOutputIndices, upstreamImagesRaw.length, inputImages.length]);
 
     const hasInputImages = isSequentialEditingWithPrompts ? imageSlotsB.length > 0 : imageSlots.length > 0;
     
@@ -810,21 +880,42 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 }}
                 
                 onManualRefresh={handleManualRefresh}
-                onOutputClick={() => { const src = getFullSizeImage(node.id, 0) || outputImage; if (src) setImageViewer({ sources: [{ src, frameNumber: 0, prompt }], initialIndex: 0 }); }}
+                onOutputClick={() => { 
+                    const src = getFullSizeImage(node.id, 0) || outputImage; 
+                    if (src) {
+                        setImageViewer({ 
+                            sources: [{ 
+                                src, 
+                                frameNumber: 0, 
+                                prompt,
+                                model: parsedValueRef.current.model || node.model || 'imagen-4.0-generate-001',
+                                aspectRatio: parsedValueRef.current.aspectRatio || node.aspectRatio,
+                                resolution: parsedValueRef.current.resolution || node.resolution
+                            }], 
+                            initialIndex: 0 
+                        }); 
+                    }
+                }}
                 
                 onSequenceOutputClick={(i, clickedSrc) => {
                     if (!clickedSrc) return;
-                    const validSources = sequenceOutputs.map((output, idx) => {
+                    const modelToUse = parsedValueRef.current.model || node.model || 'imagen-4.0-generate-001';
+                    const ratioToUse = parsedValueRef.current.aspectRatio || node.aspectRatio;
+                    const resToUse = parsedValueRef.current.resolution || node.resolution;
+                    const validSources: { src: string; frameNumber: number; prompt: string; model?: string; aspectRatio?: string; resolution?: string }[] = [];
+                    sequenceOutputs.forEach((output, idx) => {
                          const s = getFullSizeImage(node.id, 1000 + idx) || output?.thumbnail;
                          if (s) {
-                             return {
+                             validSources.push({
                                  src: s,
                                  frameNumber: idx + 1,
-                                 prompt: `Output ${idx + 1}`
-                             };
+                                 prompt: `Output ${idx + 1}`,
+                                 model: modelToUse,
+                                 aspectRatio: ratioToUse,
+                                 resolution: resToUse
+                             });
                          }
-                         return null;
-                    }).filter((s): s is { src: string; frameNumber: number; prompt: string } => s !== null);
+                    });
 
                     const internalIndex = validSources.findIndex(s => s.frameNumber === (i + 1));
                     if (internalIndex !== -1) {

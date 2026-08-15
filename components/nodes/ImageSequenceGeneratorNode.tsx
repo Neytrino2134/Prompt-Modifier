@@ -607,7 +607,10 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
             const viewerSources = validPrompts.map((p: any) => ({
                 src: getFullSizeImage(node.id, 1000 + p.frameNumber) || images[p.frameNumber],
                 frameNumber: p.frameNumber,
-                prompt: p.prompt
+                prompt: p.prompt,
+                model: parsedValue.model || node.model || 'imagen-4.0-generate-001',
+                aspectRatio: parsedValue.aspectRatio || node.aspectRatio,
+                resolution: parsedValue.resolution || node.resolution
             }));
 
             // Find index in the VALID filtered list
@@ -620,7 +623,7 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
                 });
             }
         }
-    }, [images, prompts, setImageViewer, getFullSizeImage, node.id]);
+    }, [images, prompts, setImageViewer, getFullSizeImage, node.id, parsedValue, node.model, node.aspectRatio, node.resolution]);
 
     const handleOpenAI = useCallback((imageUrl: string) => {
         if (!onAddNode) return;

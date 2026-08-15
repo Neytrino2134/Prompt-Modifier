@@ -38,7 +38,7 @@ export const useDialogsAndUI = (props: UseDialogsAndUIProps) => {
     const [isErrorCopied, setIsErrorCopied] = useState(false);
     const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
     const apiKeyCallbacks = useRef({ onSelect: () => {}, onClose: () => {} });
-    const [imageViewer, setImageViewer] = useState<{ sources: { src: string; frameNumber: number; prompt?: string; }[], initialIndex: number } | null>(null);
+    const [imageViewer, setImageViewer] = useState<{ sources: { src: string; frameNumber: number; prompt?: string; model?: string; aspectRatio?: string; resolution?: string; }[], initialIndex: number } | null>(null);
     
     // Node Deletion Confirmation State
     const [nodeDeleteConfirm, setNodeDeleteConfirm] = useState<{ nodeIds: string[]; position: Point } | null>(null);

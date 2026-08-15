@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { Tooltip } from './Tooltip';
+import { getModelDisplayName } from '../utils/imageUtils';
 
 export const HistoryPanel: React.FC = () => {
   const context = useAppContext();
@@ -180,8 +181,16 @@ export const HistoryPanel: React.FC = () => {
                   isSelectMode && selectedIds.has(item.id) ? 'ring-2 ring-accent' : 'hover:ring-2 hover:ring-gray-600'
                 }`}
               >
-                <div className="px-3 pt-2 pb-1 bg-gray-800 flex justify-between items-center text-xs text-gray-400">
-                   <span className="truncate">{formatTimestamp(item.timestamp)}</span>
+                <div className="px-3 pt-2 pb-1 bg-gray-800 flex justify-between items-center text-xs text-gray-400 gap-1.5 min-w-0">
+                   <span className="truncate text-gray-400 text-[11px] shrink min-w-0">{formatTimestamp(item.timestamp)}</span>
+                   {item.model && (
+                     <span 
+                       className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 truncate max-w-[130px] shrink-0" 
+                       title={item.model}
+                     >
+                       {getModelDisplayName(item.model)}
+                     </span>
+                   )}
                 </div>
                 <div 
                   className="relative w-full aspect-square bg-gray-900 cursor-pointer"
@@ -190,7 +199,14 @@ export const HistoryPanel: React.FC = () => {
                       toggleSelection(item.id);
                     } else if (item.url && setImageViewer) {
                       setImageViewer({
-                        sources: [{ src: item.url, frameNumber: 0, prompt: item.prompt }],
+                        sources: [{ 
+                          src: item.url, 
+                          frameNumber: 0, 
+                          prompt: item.prompt,
+                          model: item.model,
+                          aspectRatio: item.aspectRatio,
+                          resolution: item.resolution
+                        }],
                         initialIndex: 0
                       });
                     }

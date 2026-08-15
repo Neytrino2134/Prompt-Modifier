@@ -486,7 +486,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
   };
 
   const handleStandardStart = () => {
-    localStorage.setItem('settings_useDevKey', 'false');
     if (apiKey.trim()) {
       localStorage.setItem('settings_userApiKey', apiKey.trim());
     }
@@ -494,7 +493,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
   };
 
   const handleStartNew = () => {
-    localStorage.setItem('settings_useDevKey', 'false');
     if (apiKey.trim()) {
       localStorage.setItem('settings_userApiKey', apiKey.trim());
     }
@@ -502,9 +500,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
   };
 
   const handleDeveloperStart = () => {
-    localStorage.setItem('settings_useDevKey', 'true');
-    // Ensure we don't accidentally trigger settings open logic elsewhere if it depends on missing keys
-    // But primarily, just start the app.
+    // Primarily, just start the app with tutorial suppressed
     triggerExit(true, true);
   };
 

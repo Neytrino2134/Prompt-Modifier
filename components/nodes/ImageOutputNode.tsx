@@ -113,7 +113,14 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
         const fullSizeSrc = getFullSizeImage(node.id, 0) || node.value; // Frame 0 for single image nodes
         if (fullSizeSrc) {
             setImageViewer({
-                sources: [{ src: fullSizeSrc, frameNumber: 0, prompt: currentPrompt }],
+                sources: [{ 
+                    src: fullSizeSrc, 
+                    frameNumber: 0, 
+                    prompt: currentPrompt,
+                    model: node.model || 'imagen-4.0-generate-001',
+                    aspectRatio: node.aspectRatio,
+                    resolution: node.resolution
+                }],
                 initialIndex: 0,
             });
         }

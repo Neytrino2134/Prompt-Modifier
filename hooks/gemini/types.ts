@@ -19,6 +19,6 @@ export interface GeminiGenerationCommonProps {
     updateNodeInStorage: (targetTabId: string, nodeId: string, valueUpdater: (prevVal: any) => any, imageCacheUpdate?: { frame: number, url: string }) => void;
     activeTabIdRef: React.MutableRefObject<string>;
     addToast: (message: string, type?: ToastType) => void;
-    addToHistory?: (url: string, prompt: string) => void;
+    addToHistory?: (url: string, prompt: string, model?: string, metadataOrRatio?: { aspectRatio?: string; resolution?: string } | string, resolution?: string) => void;
     taskQueue?: ReturnType<typeof import('../useTaskQueue').useTaskQueue>;
 }

@@ -246,7 +246,7 @@ export const useSequenceNode = ({
                     );
                     
                     if (addToHistory) {
-                        addToHistory(imageUrl, fullPrompt);
+                        addToHistory(imageUrl, fullPrompt, parsed.model || node.model || 'imagen-4.0-generate-001', { aspectRatio: parsed.aspectRatio || node.aspectRatio, resolution: parsed.resolution || node.resolution });
                     }
                     
                     let finalUrl = imageUrl;
@@ -435,7 +435,7 @@ export const useSequenceNode = ({
                         abortControllerRef.current!.signal
                     );
 
-                    if (addToHistory) addToHistory(imageUrl, fullPrompt);
+                    if (addToHistory) addToHistory(imageUrl, fullPrompt, parsed.model || node.model || 'imagen-4.0-generate-001', { aspectRatio: parsed.aspectRatio || node.aspectRatio, resolution: parsed.resolution || node.resolution });
                     let finalUrl = imageUrl;
                     if (parsed.autoCrop169 && parsed.aspectRatio === '16:9') {
                          try { finalUrl = await cropImageTo169(imageUrl); } catch(e) {}

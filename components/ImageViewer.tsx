@@ -5,9 +5,17 @@ import { ActionButton } from './ActionButton';
 import { useLanguage } from '../localization';
 import { getNextFloatingZIndex } from '../utils/ui';
 import { FullScreenIcon, ExitFullScreenIcon, CopyIcon } from './icons/AppIcons';
+import { getModelDisplayName, getAspectRatioFromDimensions } from '../utils/imageUtils';
 
 interface ImageViewerProps {
-  sources: { src: string; frameNumber: number; prompt?: string }[];
+  sources: { 
+    src: string; 
+    frameNumber: number; 
+    prompt?: string;
+    model?: string;
+    aspectRatio?: string;
+    resolution?: string;
+  }[];
   initialIndex: number;
   initialPosition: Point;
   onClose: () => void;
@@ -91,6 +99,12 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
   const [imgStats, setImgStats] = useState<{ width: number, height: number, size: string | null }>({ width: 0, height: 0, size: null });
 
   const currentSource = sources[currentIndex];
+
+  const headerModel = currentSource?.model ? getModelDisplayName(currentSource.model) : null;
+  const headerAspectRatio = currentSource?.aspectRatio || (imgStats.width && imgStats.height ? getAspectRatioFromDimensions(imgStats.width, imgStats.height) : null);
+  const headerResolution = imgStats.width && imgStats.height 
+    ? (currentSource?.resolution ? `${currentSource.resolution} (${imgStats.width}×${imgStats.height})` : `${imgStats.width}×${imgStats.height}`)
+    : (currentSource?.resolution || null);
 
   const calculateFileSize = (src: string) => {
       if (src.startsWith('data:')) {
@@ -374,10 +388,52 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
         onPointerDown={handleHeaderPointerDown}
         onPointerMove={handleHeaderPointerMove}
         onPointerUp={handleHeaderPointerUp}
-        className="bg-gray-700 text-white font-bold p-2 rounded-t-md flex justify-between items-center cursor-move flex-shrink-0 select-none"
+        className="bg-gray-700 text-white font-bold px-3 py-2 rounded-t-md flex justify-between items-center cursor-move flex-shrink-0 select-none gap-2"
       >
-        <span>{t('imageViewer.title')} - Frame {currentSource.frameNumber}</span>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center gap-2 min-w-0 overflow-hidden text-sm">
+          <span className="font-semibold text-white whitespace-nowrap shrink-0">
+            {t('imageViewer.title')} - Frame {currentSource.frameNumber}
+          </span>
+
+          {(headerModel || headerAspectRatio || headerResolution) && (
+            <div className="flex items-center gap-1.5 min-w-0 text-xs font-normal overflow-hidden">
+              {headerModel && (
+                <>
+                  <span className="text-gray-400 select-none shrink-0 font-light">/</span>
+                  <span 
+                    className="px-2 py-0.5 rounded bg-gray-800/90 text-cyan-300 font-medium border border-gray-600/70 truncate max-w-[200px] shrink-0" 
+                    title={currentSource.model || headerModel}
+                  >
+                    {headerModel}
+                  </span>
+                </>
+              )}
+              {headerAspectRatio && (
+                <>
+                  <span className="text-gray-400 select-none shrink-0 font-light">/</span>
+                  <span 
+                    className="px-2 py-0.5 rounded bg-gray-800/90 text-gray-200 font-mono font-medium border border-gray-600/70 whitespace-nowrap shrink-0"
+                    title="Aspect Ratio"
+                  >
+                    {headerAspectRatio}
+                  </span>
+                </>
+              )}
+              {headerResolution && (
+                <>
+                  <span className="text-gray-400 select-none shrink-0 font-light">/</span>
+                  <span 
+                    className="px-2 py-0.5 rounded bg-gray-800/90 text-emerald-300 font-mono font-medium border border-gray-600/70 whitespace-nowrap shrink-0"
+                    title="Resolution"
+                  >
+                    {headerResolution}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center space-x-1 shrink-0">
             <ActionButton 
                 title="Copy Image" 
                 onClick={(e) => { e.stopPropagation(); onCopyImageToClipboard(currentSource.src); }}

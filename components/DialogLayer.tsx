@@ -47,11 +47,10 @@ const DialogLayer: React.FC = () => {
             // If user hasn't passed welcome screen (fresh install), let WelcomeScreen handle it.
             if (!hasVisited) return;
 
-            const useDevKey = localStorage.getItem('settings_useDevKey') === 'true';
             const userKey = localStorage.getItem('settings_userApiKey');
             
-            // If configured to use Personal Key (useDevKey=false) but no key is present, open settings.
-            if (!useDevKey && !userKey) {
+            // If no user API key and no env API key present, open settings.
+            if (!process.env.API_KEY && !userKey) {
                 setIsSettingsOpen(true);
             }
         };

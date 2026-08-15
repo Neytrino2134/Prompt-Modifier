@@ -25,7 +25,7 @@ interface UseGeminiGenerationProps {
     unregisterOperation: (id: string) => void;
     isGlobalProcessing: boolean;
     addToast: (message: string, type?: ToastType) => void;
-    addToHistory: (url: string, prompt: string) => void;
+    addToHistory: (url: string, prompt: string, model?: string, metadataOrRatio?: { aspectRatio?: string; resolution?: string } | string, resolution?: string) => void;
     taskQueue?: ReturnType<typeof import('./useTaskQueue').useTaskQueue>;
 }
 

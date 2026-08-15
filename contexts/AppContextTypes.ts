@@ -129,8 +129,8 @@ export type AppContextType =
   addToast: (message: string, type?: ToastType, action?: { label: string, onClick: () => void }) => void;
   getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
   setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void;
-  imageViewer: { sources: { src: string; frameNumber: number; prompt?: string; }[], initialIndex: number } | null;
-  setImageViewer: (viewerState: { sources: { src: string; frameNumber: number; }[], initialIndex: number } | null) => void;
+  imageViewer: { sources: { src: string; frameNumber: number; prompt?: string; model?: string; aspectRatio?: string; resolution?: string; }[], initialIndex: number } | null;
+  setImageViewer: (viewerState: { sources: { src: string; frameNumber: number; prompt?: string; model?: string; aspectRatio?: string; resolution?: string; }[], initialIndex: number } | null) => void;
   onGenerateSelectedFrames: (nodeId: string) => void;
   onTranslateScript: (nodeId: string) => void;
   isTranslatingScript: string | null;

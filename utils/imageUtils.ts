@@ -218,3 +218,58 @@ export const generateThumbnail = async (
         img.src = base64Image;
     });
 };
+
+export const getModelDisplayName = (model?: string): string => {
+    if (!model) return 'Imagen 4.0';
+    const cleanModel = model.trim();
+    const map: Record<string, string> = {
+        'imagen-4.0-generate-001': 'Imagen 4.0',
+        'imagen-4.0-ultra-generate-preview-06-06': 'Imagen 4.0 Ultra',
+        'imagen-3.0-generate-002': 'Imagen 3.0',
+        'imagen-3.0-generate-001': 'Imagen 3.0',
+        'imagen-3.0-capability-001': 'Imagen 3.0',
+        'imagen-4.0-upscale-preview': 'Imagen 4.0 Upscale',
+        'gemini-3-pro-image-preview': 'Gemini 3.0 Pro Image',
+        'gemini-3.1-flash-image': 'Gemini 3.1 Flash Image',
+        'gemini-3.1-flash-image-preview': 'Gemini 3.1 Flash Image Preview',
+        'gemini-2.5-flash-image': 'Gemini 2.5 Flash Image',
+    };
+    if (map[cleanModel]) return map[cleanModel];
+    if (cleanModel.startsWith('imagen-4.0')) return 'Imagen 4.0';
+    if (cleanModel.startsWith('imagen-3.0')) return 'Imagen 3.0';
+    return cleanModel;
+};
+
+export const getAspectRatioFromDimensions = (w: number, h: number): string | null => {
+    if (!w || !h) return null;
+    const actualRatio = w / h;
+    const standardRatios: [number, string][] = [
+        [1, '1:1'],
+        [16 / 9, '16:9'],
+        [9 / 16, '9:16'],
+        [4 / 3, '4:3'],
+        [3 / 4, '3:4'],
+        [3 / 2, '3:2'],
+        [2 / 3, '2:3'],
+        [21 / 9, '21:9'],
+        [4 / 1, '4:1'],
+        [1 / 4, '1:4'],
+        [8 / 1, '8:1'],
+        [1 / 8, '1:8']
+    ];
+    for (const [r, name] of standardRatios) {
+        if (Math.abs(actualRatio - r) < 0.04) {
+            return name;
+        }
+    }
+    const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+    const divisor = gcd(Math.round(w), Math.round(h));
+    if (divisor > 0) {
+        const ratioW = Math.round(w / divisor);
+        const ratioH = Math.round(h / divisor);
+        if (ratioW <= 32 && ratioH <= 32) {
+            return `${ratioW}:${ratioH}`;
+        }
+    }
+    return null;
+};

@@ -4,13 +4,8 @@ import { convertToPNG } from '../utils/imageUtils';
 import { addMetadataToPNG } from '../utils/pngMetadata';
 
 export const getApiKey = () => {
-  const useDevKey = localStorage.getItem('settings_useDevKey') === 'true';
   const userKey = localStorage.getItem('settings_userApiKey');
-  
-  if (useDevKey) {
-      return process.env.API_KEY;
-  }
-  return userKey || process.env.API_KEY;
+  return (userKey && userKey.trim()) ? userKey.trim() : process.env.API_KEY;
 };
 
 const createAIClient = () => {

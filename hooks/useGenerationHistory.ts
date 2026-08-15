@@ -5,6 +5,9 @@ export interface HistoryItem {
   url: string;
   prompt: string;
   timestamp: number;
+  model?: string;
+  aspectRatio?: string;
+  resolution?: string;
 }
 
 const DB_NAME = 'GenerationHistoryDB';
@@ -70,14 +73,34 @@ export const useGenerationHistory = () => {
     loadHistory();
   }, [loadHistory]);
 
-  const addToHistory = useCallback(async (url: string, prompt: string) => {
+  const addToHistory = useCallback(async (
+    url: string, 
+    prompt: string, 
+    model?: string, 
+    metadataOrRatio?: { aspectRatio?: string; resolution?: string } | string, 
+    resolutionArg?: string
+  ) => {
     if (!url || !url.startsWith('data:image')) return; // Store only base64 data URLs
+
+    let aspectRatio: string | undefined;
+    let resolution: string | undefined;
+
+    if (typeof metadataOrRatio === 'object' && metadataOrRatio !== null) {
+      aspectRatio = metadataOrRatio.aspectRatio;
+      resolution = metadataOrRatio.resolution;
+    } else if (typeof metadataOrRatio === 'string') {
+      aspectRatio = metadataOrRatio;
+      resolution = resolutionArg;
+    }
 
     const newItem: HistoryItem = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       url,
       prompt,
       timestamp: Date.now(),
+      model: model || undefined,
+      aspectRatio: aspectRatio || undefined,
+      resolution: resolution || undefined,
     };
 
     try {

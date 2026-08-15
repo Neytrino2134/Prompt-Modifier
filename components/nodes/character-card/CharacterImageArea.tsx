@@ -104,7 +104,16 @@ export const CharacterImageArea: React.FC<CharacterImageAreaProps> = ({
                                 const fullRes = getFullSizeImage((cardIdx * 10) + (RATIO_INDICES[char.selectedRatio] || 1));
                                 const thumb = char.thumbnails[char.selectedRatio] || char.image;
                                 if (fullRes || thumb) {
-                                    setImageViewer({ sources: [{ src: fullRes || thumb!, frameNumber: 0 }], initialIndex: 0 }); 
+                                    setImageViewer({ 
+                                        sources: [{ 
+                                            src: fullRes || thumb!, 
+                                            frameNumber: 0,
+                                            prompt: char.name || 'Character',
+                                            aspectRatio: char.selectedRatio,
+                                            model: 'imagen-4.0-generate-001'
+                                        }], 
+                                        initialIndex: 0 
+                                    }); 
                                 }
                             }} 
                         />

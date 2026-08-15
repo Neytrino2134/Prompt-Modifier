@@ -38,7 +38,7 @@ export const useVideoNode = ({
             if (!prompt) throw new Error("Video generation requires a text prompt.");
 
             // Check if user has API Key
-            if (!process.env.API_KEY && localStorage.getItem('settings_useDevKey') !== 'true' && !localStorage.getItem('settings_userApiKey')) {
+            if (!process.env.API_KEY && !localStorage.getItem('settings_userApiKey')) {
                  showApiKeyDialog({
                      onSelect: () => { /* Logic to refresh key is implicit via localStorage */ },
                      onClose: () => { setIsGeneratingVideo(null); unregisterOperation(nodeId); }
