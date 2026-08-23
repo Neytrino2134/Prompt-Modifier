@@ -3,6 +3,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import type { Node, Tab } from '../types';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { getApiKey } from '../services/geminiService'; // Import the key getter
+import { getModelForMode } from '../services/modelConfig';
 
 interface UseGeminiConversationProps {
     nodes: Node[];
@@ -132,9 +133,8 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
         if (!node || node.type !== 'GEMINI_CHAT') return;
     
         const initialParsed = JSON.parse(node.value || '{}');
-        let { messages = [], currentInput, style = 'general', model = 'gemini-3.6-flash', useSearch = false } = initialParsed;
-        if (model === 'gemini-3-flash-preview') model = 'gemini-3.6-flash';
-        if (model === 'gemini-3-pro-preview') model = 'gemini-3.1-pro-preview';
+        let { messages = [], currentInput, style = 'general', model = 'flash', useSearch = false } = initialParsed;
+        const resolvedModel = getModelForMode(model);
         
         // Handle Attachments: Ensure array structure
         const attachments = initialParsed.attachments || (initialParsed.attachment ? [initialParsed.attachment] : []);
@@ -171,7 +171,7 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
             // Check if session exists AND if the style/model matches
             const existingSession = chatSessions.current.get(nodeId);
             
-            if (!existingSession || existingSession.style !== style || existingSession.model !== model) {
+            if (!existingSession || existingSession.style !== style || existingSession.model !== resolvedModel) {
                 // Initialize new session with specific persona and model
                 const apiKey = getApiKey();
                 if (!apiKey) throw new Error("API Key is missing.");
@@ -180,13 +180,13 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
                 const systemInstruction = PERSONAS[style] || PERSONAS['general'];
                 
                 const chat = ai.chats.create({ 
-                    model: model,
+                    model: resolvedModel,
                     config: {
                         systemInstruction: systemInstruction,
                     },
                 });
                 
-                chatSessions.current.set(nodeId, { chat, style, model });
+                chatSessions.current.set(nodeId, { chat, style, model: resolvedModel });
             }
 
             const session = chatSessions.current.get(nodeId)!;

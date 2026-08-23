@@ -66,6 +66,13 @@ export const dialogs = {
 
     // New Keys
     'settings.group.api': 'API и Доступ',
+    'settings.group.llm': 'Модели LLM (Flash и Pro)',
+    'settings.llmFlashModelLabel': 'Модель для Flash',
+    'settings.llmFlashModelDesc': 'Используется во всех нодах в режиме "Flash" (улучшение промптов, перевод, чат, модификация последовательностей).',
+    'settings.llmProModelLabel': 'Модель для Pro',
+    'settings.llmProModelDesc': 'Используется во всех нодах в режиме "Pro" (глубокий анализ, генерация сценариев, продвинутый чат).',
+    'settings.llmCustomModel': 'Пользовательский ID модели',
+    'settings.llmAddCustom': 'Добавить в пул',
     'settings.group.style': 'Внешний вид и Поведение',
     'settings.group.drive': 'Облачное хранилище',
     'settings.themeLabel': 'Тема оформления',

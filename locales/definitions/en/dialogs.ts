@@ -66,6 +66,13 @@ export const dialogs = {
     
     // New Keys
     'settings.group.api': 'API & Access',
+    'settings.group.llm': 'LLM Models (Flash & Pro)',
+    'settings.llmFlashModelLabel': 'Default Flash Model',
+    'settings.llmFlashModelDesc': 'Used across all nodes set to "Flash" mode (prompt enhancements, translation, quick chat, sequence modifications).',
+    'settings.llmProModelLabel': 'Default Pro Model',
+    'settings.llmProModelDesc': 'Used across all nodes set to "Pro" mode (complex reasoning, script generation, advanced chat).',
+    'settings.llmCustomModel': 'Custom Model ID',
+    'settings.llmAddCustom': 'Add to Pool',
     'settings.group.style': 'Appearance & Behavior',
     'settings.group.drive': 'Cloud Storage',
     'settings.themeLabel': 'Interface Theme',

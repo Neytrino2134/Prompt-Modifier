@@ -182,12 +182,12 @@ export const AddToLibraryPopover: React.FC<AddToLibraryPopoverProps> = ({
             onMouseDown={(e) => e.stopPropagation()}
         >
             {/* Header */}
-            <div className="flex items-center justify-between px-3 py-2.5 bg-slate-900/60 border-b border-slate-700/60">
-                <div className="flex items-center space-x-1.5 font-semibold text-cyan-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="flex items-center justify-between px-3 py-2.5 bg-slate-900/60 border-b border-slate-700/60 select-none">
+                <div className="flex items-center space-x-1.5 font-semibold text-cyan-400 select-none cursor-default">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>{t('library.addToLibrary')}</span>
+                    <span className="select-none cursor-default">{t('library.addToLibrary')}</span>
                 </div>
                 <button
                     onClick={onClose}
@@ -202,7 +202,7 @@ export const AddToLibraryPopover: React.FC<AddToLibraryPopoverProps> = ({
 
             {/* Prompt Title Field */}
             <div className="p-3 border-b border-slate-700/50 bg-slate-900/30">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 select-none cursor-default">
                     {t('library.promptTitle')}
                 </label>
                 <input
@@ -216,15 +216,15 @@ export const AddToLibraryPopover: React.FC<AddToLibraryPopoverProps> = ({
 
             {/* Categories Section */}
             <div className="p-2 flex flex-col flex-1 max-h-56 overflow-hidden">
-                <div className="flex items-center justify-between px-1 mb-1.5">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                <div className="flex items-center justify-between px-1 mb-1.5 select-none">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider select-none cursor-default">
                         {t('library.selectCategory')}
                     </span>
                     {!isCreatingNewFolder && (
                         <button
                             type="button"
                             onClick={() => setIsCreatingNewFolder(true)}
-                            className="text-[10px] text-cyan-400 hover:text-cyan-300 font-medium flex items-center space-x-1 hover:underline"
+                            className="text-[10px] text-cyan-400 hover:text-cyan-300 font-medium flex items-center space-x-1 hover:underline select-none"
                         >
                             <span>+ {t('library.newCategory')}</span>
                         </button>

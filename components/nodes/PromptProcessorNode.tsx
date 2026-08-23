@@ -12,9 +12,11 @@ import { Tooltip } from '../Tooltip';
 import { getRandomWord } from '../../utils/wordBank';
 import { useLanguage } from '../../localization';
 import { CustomCheckbox } from '../CustomCheckbox';
+import { useLLMModelConfig } from '../../hooks/useLLMModelConfig';
 
 export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onEnhance, isEnhancing, onProcessChainForward, isExecutingChain, t, onSelectNode, onSavePromptToLibrary, addToast, connectedInputs, getUpstreamNodeValues }) => {
     const { language } = useLanguage();
+    const { flashModel, proModel, flashLabel, proLabel } = useLLMModelConfig();
     const context = useAppContext();
     const { tutorialStep, tutorialTargetId, advanceTutorial, skipTutorial } = context || {};
 
@@ -38,9 +40,9 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
         try {
             const parsed = JSON.parse(node.value || '{}');
             if (typeof parsed === 'object' && parsed !== null) {
-                let model = parsed.model || 'gemini-3.6-flash';
-                if (model === 'gemini-3-flash-preview') model = 'gemini-3.6-flash';
-                if (model === 'gemini-3-pro-preview') model = 'gemini-3.1-pro-preview';
+                let model = parsed.model || 'flash';
+                if (model === 'gemini-3-flash-preview' || model === 'gemini-3.6-flash') model = 'flash';
+                if (model === 'gemini-3-pro-preview' || model === 'gemini-3.1-pro-preview') model = 'pro';
                 return { 
                     inputPrompt: parsed.inputPrompt || '',
                     prompt: parsed.prompt || '', 
@@ -49,13 +51,14 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
                     model
                 };
             }
-            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'gemini-3.6-flash' };
+            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'flash' };
         } catch (e) {
-            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'gemini-3.6-flash' };
+            return { inputPrompt: '', prompt: node.value, safePrompt: true, technicalPrompt: false, model: 'flash' };
         }
     }, [node.value]);
 
     const isInputConnected = connectedInputs?.has(undefined);
+    const isFlash = parsedValue.model === 'flash' || parsedValue.model.includes('flash') || (!parsedValue.model.includes('pro') && parsedValue.model !== 'pro');
     
     const upstreamText = useMemo(() => {
         if (!isInputConnected) return '';
@@ -235,22 +238,22 @@ export const PromptProcessorNode: React.FC<NodeContentProps> = ({ node, onValueC
             
             <div className="flex space-x-2 h-10">
                 <div className="flex bg-gray-700 rounded-md p-1 space-x-1 h-10 flex-shrink-0 w-28">
-                     <Tooltip content="Gemini 3.6 Flash" className="h-full flex-1">
+                     <Tooltip content={`Flash (${flashLabel || flashModel})`} className="h-full flex-1">
                          <button
-                             onClick={() => handleModelChange('gemini-3.6-flash')}
+                             onClick={() => handleModelChange('flash')}
                              disabled={isEnhancing || isExecutingChain}
-                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${parsedValue.model === 'gemini-3.6-flash' ? 'bg-accent text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${isFlash ? 'bg-accent text-white shadow' : 'text-gray-400 hover:text-white'}`}
                          >
-                             Flash 3.6
+                             Flash
                          </button>
                      </Tooltip>
-                     <Tooltip content="Gemini 3.1 Pro" className="h-full flex-1">
+                     <Tooltip content={`Pro (${proLabel || proModel})`} className="h-full flex-1">
                          <button
-                             onClick={() => handleModelChange('gemini-3.1-pro-preview')}
+                             onClick={() => handleModelChange('pro')}
                              disabled={isEnhancing || isExecutingChain}
-                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${parsedValue.model === 'gemini-3.1-pro-preview' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                             className={`flex-1 rounded text-[10px] font-bold transition-colors h-full ${!isFlash ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                          >
-                             Pro 3.1
+                             Pro
                          </button>
                      </Tooltip>
                 </div>

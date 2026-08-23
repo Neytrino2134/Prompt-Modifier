@@ -2,6 +2,7 @@
 import { GoogleGenAI, GenerateContentResponse, Modality, Type } from "@google/genai";
 import { convertToPNG } from '../utils/imageUtils';
 import { addMetadataToPNG } from '../utils/pngMetadata';
+import { getModelForMode } from './modelConfig';
 
 export const getApiKey = () => {
   const userKey = localStorage.getItem('settings_userApiKey');
@@ -37,7 +38,7 @@ const callWithRetry = async <T>(fn: () => Promise<T>, retries = 3, baseDelay = 1
   throw new Error("Max retries reached");
 };
 
-export const enhancePrompt = async (texts: string[], safePrompt: boolean, technicalPrompt: boolean, model: string = 'gemini-3.6-flash'): Promise<string> => {
+export const enhancePrompt = async (texts: string[], safePrompt: boolean, technicalPrompt: boolean, model: string = 'flash'): Promise<string> => {
   return callWithRetry(async () => {
     const ai = createAIClient();
     const validTexts = texts.filter(text => text && text.trim() !== '');
@@ -84,7 +85,7 @@ export const enhancePrompt = async (texts: string[], safePrompt: boolean, techni
 
     try {
       const response = await ai.models.generateContent({
-        model: model,
+        model: getModelForMode(model),
         contents: prompt,
         config: { systemInstruction }
       });
@@ -105,7 +106,7 @@ export const sanitizePrompt = async (promptToSanitize: string): Promise<string> 
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: getModelForMode('flash'),
         contents: `Sanitize: "${promptToSanitize}"`,
         config: { systemInstruction },
       });
@@ -134,7 +135,7 @@ export const enhanceVideoPrompt = async (texts: string[]): Promise<string> => {
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: getModelForMode('flash'),
         contents: prompt,
       });
       return response.text || "";
@@ -213,7 +214,7 @@ export const analyzePrompt = async (text: string, softPrompt: boolean | undefine
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: getModelForMode('pro'),
         contents: prompt,
         config: { responseMimeType: "application/json", responseSchema: schema },
       });
@@ -257,7 +258,7 @@ export const analyzeCharacter = async (text: string): Promise<{ character: strin
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: getModelForMode('flash'),
         contents: prompt,
         config: { responseMimeType: "application/json", responseSchema: schema },
       });
@@ -306,7 +307,7 @@ export const updateCharacterDescription = async (imagePrompt: string, currentFul
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: getModelForMode('flash'),
         contents,
         config: { systemInstruction },
       });
@@ -344,7 +345,7 @@ export const updateCharacterSection = async (sectionName: string, imagePrompt: s
 
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3.6-flash',
+                model: getModelForMode('flash'),
                 contents,
                 config: { systemInstruction },
             });
@@ -377,7 +378,7 @@ export const updateCharacterPersonality = async (currentPersonality: string, tar
 
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3.6-flash',
+                model: getModelForMode('flash'),
                 contents,
                 config: { systemInstruction },
             });
@@ -420,7 +421,7 @@ export const modifyCharacter = async (instruction: string, currentPrompt: string
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: getModelForMode('pro'),
         contents,
         config: { systemInstruction, responseMimeType: "application/json", responseSchema: schema },
       });
@@ -629,7 +630,7 @@ export const describeImage = async (base64ImageData: string, mimeType: string, s
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: getModelForMode('flash'),
         contents: { parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] },
       });
       return response.text || "";
@@ -658,7 +659,7 @@ export const generatePromptFromImage = async (base64ImageData: string, mimeType:
         
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3.6-flash',
+                model: getModelForMode('flash'),
                 contents: { parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] },
             });
             return response.text || "";
@@ -677,7 +678,7 @@ export const extractTextFromImage = async (base64ImageData: string, mimeType: st
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: getModelForMode('flash'),
         contents: { parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] },
       });
       return response.text || "";
@@ -688,14 +689,14 @@ export const extractTextFromImage = async (base64ImageData: string, mimeType: st
   });
 };
 
-export const translateText = async (text: string, targetLanguageName: string, model: string = 'gemini-3.6-flash'): Promise<string> => {
+export const translateText = async (text: string, targetLanguageName: string, model: string = 'flash'): Promise<string> => {
   return callWithRetry(async () => {
     const ai = createAIClient();
     if (!text || text.trim() === '') throw new Error("Input empty.");
 
     try {
       const response = await ai.models.generateContent({
-        model: model,
+        model: getModelForMode(model),
         contents: text,
         config: { systemInstruction: `Translate to ${targetLanguageName}. Return only translated text.` },
       });
@@ -728,7 +729,7 @@ export const generateScript = async (prompt: string, targetLanguageName: string)
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: getModelForMode('pro'),
         contents: prompt,
         config: { 
             systemInstruction: `Generate a script structure in ${targetLanguageName}. Use markdown in fullDescription.`,
@@ -763,7 +764,7 @@ export const generateCharacters = async (prompt: string): Promise<any[]> => {
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: getModelForMode('flash'),
         contents: prompt,
         config: { 
             systemInstruction: "Generate detailed characters. Use markdown headings in fullDescription. Ensure 'index' is provided (e.g. 'Entity-1', 'Entity-2').",
@@ -786,7 +787,7 @@ export const translateScript = async (script: any, targetLanguageName: string): 
     
     try {
       const response = await ai.models.generateContent({
-          model: 'gemini-3.1-pro-preview',
+          model: getModelForMode('pro'),
           contents: `Translate:\n${JSON.stringify(script)}`,
           config: { systemInstruction, responseMimeType: "application/json" }
       });
@@ -801,7 +802,7 @@ export const modifyPromptSequence = async (
     prompts: any[], 
     instruction: string, 
     targetLanguage: string = 'en', 
-    modelName: string = 'gemini-3.6-flash',
+    modelName: string = 'flash',
     includeVideoPrompts: boolean = false,
     sceneContexts: Record<string, string> = {}
 ): Promise<{ modifiedFrames: any[], modifiedSceneContexts: { sceneNumber: number, context: string }[] }> => {
@@ -871,7 +872,7 @@ export const modifyPromptSequence = async (
 
     try {
       const response = await ai.models.generateContent({
-        model: modelName, 
+        model: getModelForMode(modelName), 
         contents: `Instruction: ${instruction}\n${contextInstruction}\nData: ${JSON.stringify(prompts)}`,
         config: { 
             systemInstruction: `Modify prompts based on instruction. Return a structured object with modified frames and modified scene contexts. ${languageInstruction} ${videoInstruction} For every frame, you MUST either preserve or generate a logical 'shotType' value (e.g., WS, MS, CU, etc.) representing the camera angle. Also, always ensure to return the correct 'sceneNumber' for each frame corresponding to the source.`,

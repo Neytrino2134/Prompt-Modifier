@@ -6,6 +6,16 @@ import { CustomCheckbox } from './CustomCheckbox';
 import CustomSelect from './CustomSelect';
 import { useAppContext } from '../contexts/AppContext';
 import { Theme, Point } from '../types';
+import { 
+    getAvailableFlashModels, 
+    getAvailableProModels, 
+    getConfiguredFlashModel, 
+    getConfiguredProModel, 
+    setConfiguredFlashModel, 
+    setConfiguredProModel,
+    addCustomModel,
+    ModelOption
+} from '../services/modelConfig';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -41,6 +51,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   // Collapsible sections state
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     api: false,
+    llm: false,
     appearance: false,
     cloud: false,
   });
@@ -131,6 +142,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   const [animMode, setAnimMode] = useState<string>('pulse');
   const [downloadPath, setDownloadPath] = useState('');
 
+  // LLM Models State
+  const [flashModel, setFlashModel] = useState<string>(getConfiguredFlashModel);
+  const [proModel, setProModel] = useState<string>(getConfiguredProModel);
+  const [availableFlash, setAvailableFlash] = useState<ModelOption[]>(getAvailableFlashModels);
+  const [availablePro, setAvailablePro] = useState<ModelOption[]>(getAvailableProModels);
+  const [customModelInput, setCustomModelInput] = useState('');
+  const [customModelTier, setCustomModelTier] = useState<'flash' | 'pro'>('flash');
+
   // Check if running in Electron context
   const isElectron = !!(window as any).electronAPI;
 
@@ -150,6 +169,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       setHoverHighlight(storedHoverHighlight === null ? true : storedHoverHighlight === 'true'); 
       setDownloadPath(storedDownloadPath);
       
+      setFlashModel(getConfiguredFlashModel());
+      setProModel(getConfiguredProModel());
+      setAvailableFlash(getAvailableFlashModels());
+      setAvailablePro(getAvailableProModels());
+
       if (storedAnimMode) {
           setAnimMode(storedAnimMode);
       } else if (legacyAnim === 'false') {
@@ -159,6 +183,33 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       }
     }
   }, [isOpen, nodeAnimationMode, googleClientId]);
+
+  const handleAddCustomModel = () => {
+      const trimmed = customModelInput.trim();
+      if (!trimmed) return;
+      
+      const newModel: ModelOption = {
+          id: trimmed,
+          name: trimmed,
+          description: `Custom ${customModelTier.toUpperCase()} Model`,
+          tier: customModelTier
+      };
+
+      addCustomModel(newModel);
+      setAvailableFlash(getAvailableFlashModels());
+      setAvailablePro(getAvailableProModels());
+      
+      if (customModelTier === 'flash') {
+          setFlashModel(trimmed);
+          setConfiguredFlashModel(trimmed);
+      } else {
+          setProModel(trimmed);
+          setConfiguredProModel(trimmed);
+      }
+      
+      setCustomModelInput('');
+      addToast(`Added model ${trimmed} to pool`, 'success');
+  };
 
   // Handler for API Key Input changes
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -402,6 +453,124 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                             </button>
                         </div>
                       </div>
+                 </div>
+             )}
+          </div>
+
+          {/* Group: LLM Models Selection */}
+          <div className="space-y-1.5">
+             <button 
+                type="button"
+                onClick={() => toggleSection('llm')}
+                className="w-full flex justify-between items-center px-3.5 py-2.5 bg-gray-900/80 hover:bg-gray-700/60 rounded-lg border border-gray-700/70 transition-all text-left group select-none shadow-sm"
+             >
+                <div className="flex items-center gap-2.5">
+                    <span className="text-amber-400 group-hover:scale-110 transition-transform">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </span>
+                    <span className="text-xs font-bold text-gray-200 group-hover:text-white uppercase tracking-wider">
+                        {t('settings.group.llm')}
+                    </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-400 group-hover:text-gray-200">
+                    <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        className={`h-4 w-4 transition-transform duration-200 ${!collapsedSections.llm ? 'rotate-180 text-amber-400' : 'rotate-0'}`} 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor" 
+                        strokeWidth={2}
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+             </button>
+             
+             {!collapsedSections.llm && (
+                 <div className="bg-gray-900/50 p-3.5 rounded-lg border border-gray-700/50 space-y-3.5">
+                     {/* Flash Model Selection */}
+                     <div className="space-y-1">
+                         <div className="flex items-center justify-between">
+                             <label className="block text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                                 <span className="text-amber-400">⚡</span>
+                                 {t('settings.llmFlashModelLabel')}
+                             </label>
+                             <span className="text-[10px] text-amber-400/80 font-mono">{flashModel}</span>
+                         </div>
+                         <p className="text-[11px] text-gray-400 leading-tight">
+                             {t('settings.llmFlashModelDesc')}
+                         </p>
+                         <CustomSelect
+                             value={flashModel}
+                             onChange={(val) => {
+                                 setFlashModel(val);
+                                 setConfiguredFlashModel(val);
+                             }}
+                             options={availableFlash.map(m => ({
+                                 value: m.id,
+                                 label: `${m.name} (${m.id})`
+                             }))}
+                         />
+                     </div>
+
+                     {/* Pro Model Selection */}
+                     <div className="space-y-1 pt-2 border-t border-gray-800">
+                         <div className="flex items-center justify-between">
+                             <label className="block text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                                 <span className="text-purple-400">✨</span>
+                                 {t('settings.llmProModelLabel')}
+                             </label>
+                             <span className="text-[10px] text-purple-400/80 font-mono">{proModel}</span>
+                         </div>
+                         <p className="text-[11px] text-gray-400 leading-tight">
+                             {t('settings.llmProModelDesc')}
+                         </p>
+                         <CustomSelect
+                             value={proModel}
+                             onChange={(val) => {
+                                 setProModel(val);
+                                 setConfiguredProModel(val);
+                             }}
+                             options={availablePro.map(m => ({
+                                 value: m.id,
+                                 label: `${m.name} (${m.id})`
+                             }))}
+                         />
+                     </div>
+
+                     {/* Add Custom Model to Pool */}
+                     <div className="space-y-1.5 pt-2 border-t border-gray-800">
+                         <label className="block text-[11px] font-medium text-gray-400">
+                             {t('settings.llmCustomModel')}
+                         </label>
+                         <div className="flex gap-2">
+                             <input
+                                 type="text"
+                                 value={customModelInput}
+                                 onChange={(e) => setCustomModelInput(e.target.value)}
+                                 placeholder="e.g. gemini-3.7-flash or gemini-3.5-pro"
+                                 className="flex-1 p-2 bg-gray-900 border border-gray-700 rounded-md text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-accent"
+                             />
+                             <select
+                                 value={customModelTier}
+                                 onChange={(e) => setCustomModelTier(e.target.value as 'flash' | 'pro')}
+                                 className="bg-gray-900 border border-gray-700 rounded-md text-xs text-gray-300 px-2 focus:outline-none"
+                             >
+                                 <option value="flash">Flash</option>
+                                 <option value="pro">Pro</option>
+                             </select>
+                             <button
+                                 type="button"
+                                 disabled={!customModelInput.trim()}
+                                 onClick={handleAddCustomModel}
+                                 className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-md disabled:bg-gray-700 disabled:text-gray-500 transition-colors shadow-sm whitespace-nowrap"
+                             >
+                                 {t('settings.llmAddCustom')}
+                             </button>
+                         </div>
+                     </div>
                  </div>
              )}
           </div>

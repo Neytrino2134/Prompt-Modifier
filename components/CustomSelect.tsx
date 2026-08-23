@@ -14,9 +14,11 @@ interface CustomSelectProps {
   disabled?: boolean;
   id?: string;
   title?: string;
+  className?: string;
+  buttonClassName?: string;
 }
 
-const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, disabled, id, title }) => {
+const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, disabled, id, title, className, buttonClassName }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -91,7 +93,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, d
   };
 
   return (
-    <div ref={wrapperRef} className="relative w-full" title={title}>
+    <div ref={wrapperRef} className={`relative w-full ${className || ''}`} title={title}>
       <button
         id={id}
         disabled={disabled}
@@ -100,13 +102,13 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, d
         type="button"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed flex justify-between items-center text-left group"
+        className={`w-full ${buttonClassName || 'h-[38px] px-3 py-1.5'} bg-gray-700 border border-gray-600 rounded-md text-white text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed flex justify-between items-center text-left group`}
       >
         <span className="truncate flex items-center gap-2">
             {selectedOption?.icon && <span className="text-gray-400">{selectedOption.icon}</span>}
             {selectedLabel}
         </span>
-        <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform duration-200 flex-shrink-0 ml-1 ${isOpen ? 'transform rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-gray-400 group-hover:text-gray-200 transition-transform duration-200 flex-shrink-0 ml-1.5 ${isOpen ? 'transform rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
         </svg>
       </button>

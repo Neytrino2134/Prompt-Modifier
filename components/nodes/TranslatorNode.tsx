@@ -6,22 +6,25 @@ import CustomSelect from '../CustomSelect';
 import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { Tooltip } from '../Tooltip';
+import { useLLMModelConfig } from '../../hooks/useLLMModelConfig';
 
 export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onTranslate, isTranslating, connectedInputs, t, onSelectNode, onPasteImage, getFullSizeImage, setImageViewer }) => {
+    const { flashModel, proModel, flashLabel, proLabel } = useLLMModelConfig();
     const parsedValue = useMemo(() => {
         try {
             const val = JSON.parse(node.value || '{}');
-            let model = val.model || 'gemini-3.6-flash';
-            if (model === 'gemini-3-flash-preview') model = 'gemini-3.6-flash';
-            if (model === 'gemini-3-pro-preview') model = 'gemini-3.1-pro-preview';
+            let model = val.model || 'flash';
+            if (model === 'gemini-3-flash-preview' || model === 'gemini-3.6-flash') model = 'flash';
+            if (model === 'gemini-3-pro-preview' || model === 'gemini-3.1-pro-preview') model = 'pro';
             return { ...val, model };
         } catch {
-            return { inputText: '', targetLanguage: 'ru', translatedText: '', image: null, model: 'gemini-3.6-flash' };
+            return { inputText: '', targetLanguage: 'ru', translatedText: '', image: null, model: 'flash' };
         }
     }, [node.value]);
 
-    const { inputText = '', targetLanguage = 'ru', translatedText = '', image = null, model = 'gemini-3.6-flash' } = parsedValue;
+    const { inputText = '', targetLanguage = 'ru', translatedText = '', image = null, model = 'flash' } = parsedValue;
     const isInputConnected = connectedInputs?.has(undefined);
+    const isFlash = model === 'flash' || model.includes('flash') || (!model.includes('pro') && model !== 'pro');
 
     const handleValueUpdate = (updates: Partial<typeof parsedValue>) => {
         const newValue = { ...parsedValue, ...updates };
@@ -60,7 +63,7 @@ export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange
         <div className="flex flex-col h-full">
             <div className="flex-shrink-0 mb-2 flex items-end space-x-2" onMouseDown={(e) => { e.stopPropagation(); onSelectNode(); }}>
                 <div className="flex-grow min-w-0">
-                    <label htmlFor={`lang-select-${node.id}`} className="block text-xs font-medium text-gray-400 mb-1">
+                    <label htmlFor={`lang-select-${node.id}`} className="block text-xs font-medium text-gray-400 mb-1 select-none">
                         {t('node.content.targetLanguage')}
                     </label>
                     <CustomSelect
@@ -68,27 +71,36 @@ export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange
                         value={targetLanguage}
                         onChange={(value) => handleValueUpdate({ targetLanguage: value })}
                         disabled={isTranslating}
+                        buttonClassName="h-[38px] px-3 text-sm"
                         options={languageList.map(([code, { name }]) => ({ value: code, label: name }))}
                     />
                 </div>
                 
-                <div className="flex bg-gray-800 rounded-md p-0.5 border border-gray-700 h-[38px] items-center space-x-0.5 flex-shrink-0">
-                    <Tooltip content="Gemini 3.6 Flash" position="top">
+                <div className="flex bg-gray-800 rounded-md p-1 border border-gray-700 h-[38px] items-stretch space-x-1 flex-shrink-0 box-border">
+                    <Tooltip content={`Flash (${flashLabel || flashModel})`} position="top" className="h-full flex items-stretch">
                         <button
                             type="button"
-                            onClick={() => handleValueUpdate({ model: 'gemini-3.6-flash' })}
+                            onClick={() => handleValueUpdate({ model: 'flash' })}
                             disabled={isTranslating}
-                            className={`px-2 h-full rounded text-[10px] font-bold transition-colors ${model === 'gemini-3.6-flash' ? 'bg-accent text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                            className={`px-2.5 h-full rounded text-[11px] font-semibold flex items-center justify-center transition-all ${
+                                isFlash 
+                                    ? 'bg-accent text-white shadow-sm font-bold' 
+                                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                            }`}
                         >
                             Flash
                         </button>
                     </Tooltip>
-                    <Tooltip content="Gemini 3.1 Pro" position="top">
+                    <Tooltip content={`Pro (${proLabel || proModel})`} position="top" className="h-full flex items-stretch">
                         <button
                             type="button"
-                            onClick={() => handleValueUpdate({ model: 'gemini-3.1-pro-preview' })}
+                            onClick={() => handleValueUpdate({ model: 'pro' })}
                             disabled={isTranslating}
-                            className={`px-2 h-full rounded text-[10px] font-bold transition-colors ${model === 'gemini-3.1-pro-preview' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                            className={`px-2.5 h-full rounded text-[11px] font-semibold flex items-center justify-center transition-all ${
+                                !isFlash 
+                                    ? 'bg-purple-600 text-white shadow-sm font-bold' 
+                                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                            }`}
                         >
                             Pro
                         </button>
@@ -97,19 +109,19 @@ export const TranslatorNode: React.FC<NodeContentProps> = ({ node, onValueChange
 
                 <button 
                     onClick={handlePaste}
-                    className="h-[38px] px-3 bg-accent-secondary hover:bg-accent-secondary-hover text-white rounded-md transition-colors flex items-center justify-center shadow-sm flex-shrink-0"
+                    className="h-[38px] w-[38px] bg-accent-secondary hover:bg-accent-secondary-hover text-white rounded-md transition-colors flex items-center justify-center shadow-sm flex-shrink-0"
                     title={t('node.action.paste')}
                 >
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                 </button>
 
-                <Tooltip content={`Model: ${model === 'gemini-3.1-pro-preview' ? 'Gemini 3.1 Pro' : 'Gemini 3.6 Flash'}`} position="top">
+                <Tooltip content={`Model: ${isFlash ? (flashLabel || flashModel) : (proLabel || proModel)}`} position="top" className="h-[38px] flex-shrink-0">
                     <button
                         onClick={() => onTranslate(node.id)}
                         disabled={isTranslating || (!isInputConnected && !inputText.trim() && !image)}
-                        className="h-[38px] px-4 font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0 shadow-sm"
+                        className="h-[38px] px-4 font-bold text-sm text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0 shadow-sm flex items-center justify-center"
                     >
                         {isTranslating ? t('node.content.translating') : t('node.content.translate')}
                     </button>

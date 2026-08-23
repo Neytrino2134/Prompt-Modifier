@@ -3,6 +3,7 @@ import React from 'react';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { useLanguage, languages } from '../../../localization';
 import { Tooltip } from '../../Tooltip';
+import { useLLMModelConfig } from '../../../hooks/useLLMModelConfig';
 
 interface PromptSequenceControlsProps {
     instruction: string;
@@ -42,6 +43,9 @@ export const PromptSequenceControls: React.FC<PromptSequenceControlsProps> = ({
     t
 }) => {
     const { secondaryLanguage } = useLanguage();
+    const { flashModel, proModel, flashLabel, proLabel } = useLLMModelConfig();
+
+    const isFlash = modificationModel === 'flash' || modificationModel.includes('flash') || (!modificationModel.includes('pro') && modificationModel !== 'pro');
 
     // Enable button if frames are selected OR context scenes are selected
     const isModifyDisabled = isModifying || totalPrompts === 0 || (checkedCount === 0 && checkedContextCount === 0);
@@ -82,19 +86,19 @@ export const PromptSequenceControls: React.FC<PromptSequenceControlsProps> = ({
                     </Tooltip>
                     
                     {/* Model Buttons */}
-                    <Tooltip content="Gemini 3.0 Flash (Fast & Efficient)">
+                    <Tooltip content={`Flash (${flashLabel || flashModel})`}>
                         <button
-                            onClick={() => onModelChange('gemini-3-flash-preview')}
-                            className={`h-10 px-3 rounded-md text-xs font-bold transition-colors flex items-center justify-center ${modificationModel === 'gemini-3-flash-preview' ? 'bg-accent text-white' : 'bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                            onClick={() => onModelChange('flash')}
+                            className={`h-10 px-3 rounded-md text-xs font-bold transition-colors flex items-center justify-center ${isFlash ? 'bg-accent text-white' : 'bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-700'}`}
                         >
                             Flash
                         </button>
                     </Tooltip>
 
-                    <Tooltip content="Gemini 3.0 Pro (High Reasoning)">
+                    <Tooltip content={`Pro (${proLabel || proModel})`}>
                         <button
-                            onClick={() => onModelChange('gemini-3-pro-preview')}
-                            className={`h-10 px-3 rounded-md text-xs font-bold transition-colors flex items-center justify-center ${modificationModel === 'gemini-3-pro-preview' ? 'bg-accent text-white' : 'bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                            onClick={() => onModelChange('pro')}
+                            className={`h-10 px-3 rounded-md text-xs font-bold transition-colors flex items-center justify-center ${!isFlash ? 'bg-accent text-white' : 'bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-700'}`}
                         >
                             Pro
                         </button>
