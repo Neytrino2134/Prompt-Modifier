@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useRef, useEffect, useCallback, useReducer } from 'react';
 import { NodeContentProps, NodeType } from '../../types';
-import { formatImageForAspectRatio, generateThumbnail, cropImageTo169 } from '../../utils/imageUtils';
+import { formatImageForAspectRatio, generateThumbnail, cropImageTo169, setupImageDragData } from '../../utils/imageUtils';
 import ImageEditorModal from '../ImageEditorModal';
 import { useAppContext } from '../../contexts/AppContext';
 import { HEADER_HEIGHT, CONTENT_PADDING } from '../../utils/nodeUtils';
@@ -100,15 +100,6 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
             isSequentialPromptMode: false
         });
     }, [handleValueUpdate]);
-
-    const handleStartEdit = useCallback(() => {
-        if (isSequenceMode) {
-            const indices = checkedSequenceOutputIndices ? [...checkedSequenceOutputIndices].sort((a, b) => a - b) : [];
-            onEditImage(node.id, indices);
-        } else {
-            onEditImage(node.id);
-        }
-    }, [isSequenceMode, node.id, checkedSequenceOutputIndices, onEditImage]);
 
     const handleStop = useCallback(() => {
         if (onStopEdit) onStopEdit(node.id);
@@ -367,6 +358,23 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         }
         return imageSlots.length;
     }, [isSequentialEditingWithPrompts, framePrompts, upstreamPromptsMap, imageSlots.length]);
+
+    const handleStartEdit = useCallback(() => {
+        if (isSequenceMode) {
+            let indices = checkedSequenceOutputIndices ? [...checkedSequenceOutputIndices].sort((a, b) => a - b) : [];
+            if (!isSequentialEditingWithPrompts && checkedInputIndices) {
+                indices = indices.filter(idx => checkedInputIndices.includes(idx));
+            }
+            if (indices.length === 0) {
+                indices = isSequentialEditingWithPrompts 
+                    ? Array.from({ length: seqTotalFrames }, (_, i) => i)
+                    : (checkedInputIndices ? imageSlots.map((_, i) => i).filter(i => checkedInputIndices.includes(i)) : imageSlots.map((_, i) => i));
+            }
+            onEditImage(node.id, indices);
+        } else {
+            onEditImage(node.id);
+        }
+    }, [isSequenceMode, node.id, checkedSequenceOutputIndices, onEditImage, isSequentialEditingWithPrompts, checkedInputIndices, seqTotalFrames, imageSlots]);
 
     const prevUpstreamCountRef = useRef(upstreamImagesRaw.length);
     const prevLocalCountRef = useRef(inputImages.length);
@@ -697,7 +705,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
              <div className="relative group flex-shrink-0 mt-2 h-40 bg-gray-900/50 rounded-md flex items-center justify-center">
                 {previewImage ? (
                     <>
-                        <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain" draggable={true} onDragStart={(e) => { if(previewHighResRef.current || previewImage) { e.dataTransfer.setData('application/prompt-modifier-drag-image', previewHighResRef.current || previewImage); e.dataTransfer.effectAllowed = 'copy'; e.stopPropagation(); }}} />
+                        <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain" draggable={true} onDragStart={(e) => { const srcToDrag = previewHighResRef.current || previewImage; if(srcToDrag) { setupImageDragData(e, srcToDrag, `Preview_${Date.now()}.png`); e.stopPropagation(); }}} />
                         <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ActionButton title="Copy" onClick={(e) => { e.stopPropagation(); onCopyImageToClipboard(previewHighResRef.current || previewImage!); }}>
                                 <CopyIcon className="h-4 w-4" />
@@ -869,14 +877,21 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 onDownload={() => onDownloadImage(node.id)}
                 onCopy={() => { const img = getFullSizeImage(node.id, 0) || outputImage; if (img) onCopyImageToClipboard(img); }}
                 
-                onSelectAll={() => handleValueUpdate({ checkedSequenceOutputIndices: Array.from({length: isSequentialEditingWithPrompts ? seqTotalFrames : imageSlots.length}, (_, i) => i) })}
+                onSelectAll={() => {
+                    const allActive = isSequentialEditingWithPrompts 
+                        ? Array.from({length: seqTotalFrames}, (_, i) => i) 
+                        : (checkedInputIndices ? imageSlots.map((_, i) => i).filter(i => checkedInputIndices.includes(i)) : imageSlots.map((_, i) => i));
+                    handleValueUpdate({ checkedSequenceOutputIndices: allActive });
+                }}
                 onSelectNone={() => handleValueUpdate({ checkedSequenceOutputIndices: [] })}
                 
                 onInvertSelection={() => {
-                     const total = isSequentialEditingWithPrompts ? seqTotalFrames : imageSlots.length;
-                     const current = parsedValueRef.current.checkedSequenceOutputIndices || [];
-                     const inverted = Array.from({length: total}, (_, i) => i).filter(i => !current.includes(i));
-                     handleValueUpdate({ checkedSequenceOutputIndices: inverted });
+                    const allActive = isSequentialEditingWithPrompts 
+                        ? Array.from({length: seqTotalFrames}, (_, i) => i) 
+                        : (checkedInputIndices ? imageSlots.map((_, i) => i).filter(i => checkedInputIndices.includes(i)) : imageSlots.map((_, i) => i));
+                    const current = parsedValueRef.current.checkedSequenceOutputIndices || [];
+                    const inverted = allActive.filter(i => !current.includes(i));
+                    handleValueUpdate({ checkedSequenceOutputIndices: inverted });
                 }}
                 
                 onManualRefresh={handleManualRefresh}
@@ -920,6 +935,18 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                     const internalIndex = validSources.findIndex(s => s.frameNumber === (i + 1));
                     if (internalIndex !== -1) {
                          setImageViewer({ sources: validSources, initialIndex: internalIndex });
+                    } else {
+                         setImageViewer({
+                             sources: [{
+                                 src: clickedSrc,
+                                 frameNumber: i + 1,
+                                 prompt: `Frame ${i + 1}`,
+                                 model: modelToUse,
+                                 aspectRatio: ratioToUse,
+                                 resolution: resToUse
+                             }],
+                             initialIndex: 0
+                         });
                     }
                 }}
 

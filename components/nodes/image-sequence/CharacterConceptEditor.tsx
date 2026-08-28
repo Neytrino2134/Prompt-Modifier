@@ -5,6 +5,7 @@ import { ActionButton } from '../../ActionButton';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { DebouncedInput } from '../../DebouncedInput';
 import { CopyIcon } from '../../../components/icons/AppIcons'; // Imported CopyIcon
+import { setupImageDragData } from '../../../utils/imageUtils';
 
 interface CharacterConceptEditorProps {
     concept: { id: string; name: string; prompt: string; image: string | null; fullDescription?: string; isConnected: boolean };
@@ -153,8 +154,7 @@ export const CharacterConceptEditor: React.FC<CharacterConceptEditorProps> = ({
     const handleImageDragStart = (e: React.DragEvent) => {
          const imageToDrag = fullResImage || displayImage;
          if (imageToDrag) {
-             e.dataTransfer.setData('application/prompt-modifier-drag-image', imageToDrag);
-             e.dataTransfer.effectAllowed = 'copy';
+             setupImageDragData(e, imageToDrag, `${(concept.name || 'Concept').replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.png`, concept.prompt || concept.name);
              e.stopPropagation();
          }
     };

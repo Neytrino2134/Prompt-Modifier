@@ -6,6 +6,7 @@ import { ActionButton } from '../ActionButton';
 import { useAppContext } from '../../contexts/AppContext';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { CustomCheckbox } from '../CustomCheckbox';
+import { setupImageDragData } from '../../utils/imageUtils';
 
 export const ImageAnalyzerNode: React.FC<NodeContentProps> = ({ 
     node, 
@@ -235,8 +236,7 @@ export const ImageAnalyzerNode: React.FC<NodeContentProps> = ({
                                     }
 
                                     if (sourceToDrag) {
-                                        e.dataTransfer.setData('application/prompt-modifier-drag-image', sourceToDrag);
-                                        e.dataTransfer.effectAllowed = 'copy';
+                                        setupImageDragData(e, sourceToDrag, `Analyzed_Image_${Date.now()}.png`);
                                         e.stopPropagation();
                                     }
                                 }}

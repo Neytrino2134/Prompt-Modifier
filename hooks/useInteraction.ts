@@ -337,6 +337,8 @@ export const useInteraction = (props: UseInteractionProps) => {
         handleGroupTouchStart: nodeDrag.handleGroupTouchStart,
         handleStartConnection: connectionsHandler.handleStartConnection,
         handleStartConnectionTouch: connectionsHandler.handleStartConnectionTouch,
+        handleStartInputConnection: connectionsHandler.handleStartInputConnection,
+        handleStartInputConnectionTouch: connectionsHandler.handleStartInputConnectionTouch,
         isRadialMenuOpen, setIsRadialMenuOpen,
         radialMenuPosition, setRadialMenuPosition,
         radialMenuSelectedItem, setRadialMenuSelectedItem,

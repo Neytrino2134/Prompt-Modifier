@@ -160,6 +160,9 @@ export interface ConnectingInfo {
   fromPoint: Point;
   fromHandleId?: string;
   fromType: 'text' | 'image' | 'character_data' | 'video' | 'audio' | null;
+  isReconnecting?: boolean;
+  originalToNodeId?: string;
+  originalToHandleId?: string;
 }
 
 export interface DraggingInfo {

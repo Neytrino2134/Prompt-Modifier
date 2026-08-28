@@ -273,3 +273,233 @@ export const getAspectRatioFromDimensions = (w: number, h: number): string | nul
     }
     return null;
 };
+
+export const cropImageNormalized = (
+    base64Image: string,
+    rect: { x: number; y: number; width: number; height: number }
+): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        if (!base64Image) {
+            return reject(new Error('Source image is empty for cropping.'));
+        }
+
+        const img = new Image();
+        img.onload = () => {
+            const naturalW = img.naturalWidth || img.width;
+            const naturalH = img.naturalHeight || img.height;
+
+            // Clamp and sanitize coordinates
+            const clampedX = Math.max(0, Math.min(1, rect.x));
+            const clampedY = Math.max(0, Math.min(1, rect.y));
+            const clampedW = Math.max(0.01, Math.min(1 - clampedX, rect.width));
+            const clampedH = Math.max(0.01, Math.min(1 - clampedY, rect.height));
+
+            const sx = Math.round(clampedX * naturalW);
+            const sy = Math.round(clampedY * naturalH);
+            const sw = Math.round(clampedW * naturalW);
+            const sh = Math.round(clampedH * naturalH);
+
+            if (sw <= 0 || sh <= 0) {
+                return resolve(base64Image);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = sw;
+            canvas.height = sh;
+            const ctx = canvas.getContext('2d');
+
+            if (!ctx) {
+                return reject(new Error('Could not get canvas context for cropping.'));
+            }
+
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => {
+            reject(new Error('Failed to load image for cropping.'));
+        };
+        img.src = base64Image;
+    });
+};
+
+export const sliceImageGrid = (
+    base64Image: string,
+    cols: number,
+    rows: number,
+    bounds: { x: number; y: number; width: number; height: number } = { x: 0, y: 0, width: 1, height: 1 },
+    borderConfig?: { enableBorder?: boolean; borderWidth?: number; borderMode?: 'inner' | 'all' }
+): Promise<{ slices: string[]; thumbs: string[] }> => {
+    return new Promise((resolve, reject) => {
+        if (!base64Image) {
+            return reject(new Error('Source image is empty for grid slicing.'));
+        }
+
+        const safeCols = Math.max(1, Math.min(50, Math.round(cols)));
+        const safeRows = Math.max(1, Math.min(50, Math.round(rows)));
+
+        const img = new Image();
+        img.onload = async () => {
+            try {
+                const naturalW = img.naturalWidth || img.width;
+                const naturalH = img.naturalHeight || img.height;
+
+                const gridX = Math.max(0, Math.min(1, bounds.x)) * naturalW;
+                const gridY = Math.max(0, Math.min(1, bounds.y)) * naturalH;
+                const gridW = Math.max(0.01, Math.min(1 - bounds.x, bounds.width)) * naturalW;
+                const gridH = Math.max(0.01, Math.min(1 - bounds.y, bounds.height)) * naturalH;
+
+                const enableBorder = Boolean(borderConfig?.enableBorder);
+                const rawBw = enableBorder ? Math.max(0, Number(borderConfig?.borderWidth) || 0) : 0;
+                const borderMode = borderConfig?.borderMode || 'inner';
+
+                let cellW: number;
+                let cellH: number;
+                let bwX = 0;
+                let bwY = 0;
+                let offsetX = 0;
+                let offsetY = 0;
+
+                if (rawBw > 0) {
+                    if (borderMode === 'all') {
+                        // Both outer borders and inner gutters have thickness rawBw
+                        const maxBwX = Math.max(0, (gridW - safeCols * 2) / (safeCols + 1));
+                        const maxBwY = Math.max(0, (gridH - safeRows * 2) / (safeRows + 1));
+                        bwX = Math.min(rawBw, maxBwX);
+                        bwY = Math.min(rawBw, maxBwY);
+                        const availW = Math.max(safeCols * 2, gridW - (safeCols + 1) * bwX);
+                        const availH = Math.max(safeRows * 2, gridH - (safeRows + 1) * bwY);
+                        cellW = availW / safeCols;
+                        cellH = availH / safeRows;
+                        offsetX = bwX;
+                        offsetY = bwY;
+                    } else {
+                        // 'inner': Only inner gutters between adjacent cells
+                        const maxBwX = safeCols > 1 ? Math.max(0, (gridW - safeCols * 2) / (safeCols - 1)) : 0;
+                        const maxBwY = safeRows > 1 ? Math.max(0, (gridH - safeRows * 2) / (safeRows - 1)) : 0;
+                        bwX = safeCols > 1 ? Math.min(rawBw, maxBwX) : 0;
+                        bwY = safeRows > 1 ? Math.min(rawBw, maxBwY) : 0;
+                        const availW = Math.max(safeCols * 2, gridW - (safeCols - 1) * bwX);
+                        const availH = Math.max(safeRows * 2, gridH - (safeRows - 1) * bwY);
+                        cellW = availW / safeCols;
+                        cellH = availH / safeRows;
+                        offsetX = 0;
+                        offsetY = 0;
+                    }
+                } else {
+                    cellW = gridW / safeCols;
+                    cellH = gridH / safeRows;
+                }
+
+                const slices: string[] = [];
+                const thumbs: string[] = [];
+
+                for (let r = 0; r < safeRows; r++) {
+                    for (let c = 0; c < safeCols; c++) {
+                        const sx = Math.round(gridX + offsetX + c * (cellW + bwX));
+                        const sy = Math.round(gridY + offsetY + r * (cellH + bwY));
+                        const maxAllowedW = Math.max(1, naturalW - sx);
+                        const maxAllowedH = Math.max(1, naturalH - sy);
+                        const sw = Math.max(1, Math.min(Math.round(cellW), maxAllowedW));
+                        const sh = Math.max(1, Math.min(Math.round(cellH), maxAllowedH));
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = sw;
+                        canvas.height = sh;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+                            const fullData = canvas.toDataURL('image/png');
+                            slices.push(fullData);
+
+                            // Create small thumbnail for UI
+                            const thumb = await generateThumbnail(fullData, 200, 200);
+                            thumbs.push(thumb);
+                        }
+                    }
+                }
+
+                resolve({ slices, thumbs });
+            } catch (err) {
+                reject(err);
+            }
+        };
+        img.onerror = () => {
+            reject(new Error('Failed to load image for grid slicing.'));
+        };
+        img.src = base64Image;
+    });
+};
+
+/**
+ * Helper to convert dataURL or URL to a File and attach all necessary DataTransfer formats
+ * so that dragging works seamlessly into:
+ * 1. Internal canvas / nodes (application/prompt-modifier-drag-image)
+ * 2. Other browser windows / tabs (HTML img, File, uri-list, URL, plain text)
+ * 3. External applications (Telegram, Discord, Photoshop, Desktop file drop)
+ */
+export const setupImageDragData = (
+    e: React.DragEvent | DragEvent,
+    imageSrc: string,
+    filename: string = `Image_${Date.now()}.png`,
+    prompt?: string
+) => {
+    if (!imageSrc || !e.dataTransfer) return;
+
+    try {
+        e.dataTransfer.effectAllowed = 'copy';
+
+        // 1. Internal App drag keys
+        e.dataTransfer.setData('application/prompt-modifier-drag-image', imageSrc);
+        if (prompt) {
+            e.dataTransfer.setData('application/prompt-modifier-drag-info', JSON.stringify({
+                src: imageSrc,
+                prompt
+            }));
+        }
+
+        // 2. Standard Text, URL, and URI List for browsers
+        e.dataTransfer.setData('text/uri-list', imageSrc);
+        e.dataTransfer.setData('URL', imageSrc);
+        e.dataTransfer.setData('text/plain', imageSrc);
+
+        // 3. HTML snippet for rich text drops and other browsers
+        const htmlSnippet = `<img src="${imageSrc}" alt="${filename}" />`;
+        e.dataTransfer.setData('text/html', htmlSnippet);
+
+        // 4. DownloadURL (Chromium native file drag to desktop/other windows)
+        const mime = imageSrc.startsWith('data:image/jpeg') ? 'image/jpeg' :
+                     imageSrc.startsWith('data:image/webp') ? 'image/webp' : 'image/png';
+        e.dataTransfer.setData('DownloadURL', `${mime}:${filename}:${imageSrc}`);
+
+        // 5. Native File object attachment in DataTransferItems (Crucial for external apps & other browsers drop zones)
+        if (imageSrc.startsWith('data:') && e.dataTransfer.items && typeof File !== 'undefined') {
+            try {
+                const arr = imageSrc.split(',');
+                const mimeMatch = arr[0].match(/:(.*?);/);
+                const fileMime = mimeMatch ? mimeMatch[1] : 'image/png';
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                const file = new File([u8arr], filename, { type: fileMime });
+                e.dataTransfer.items.add(file);
+            } catch (fileErr) {
+                console.warn('Could not add File to dataTransfer items:', fileErr);
+            }
+        }
+    } catch (err) {
+        console.error('Error setting drag data:', err);
+    }
+};
+
+export const getImageTimestampString = (dateObj: Date = new Date()): string => {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    const seconds = String(dateObj.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+};

@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useRef, MutableRefObject } from 'react';
 import { Node, Connection, ConnectingInfo, NodeType, Point } from '../../types';
-import { getOutputHandleType, getInputHandleType, COLLAPSED_NODE_HEIGHT } from '../../utils/nodeUtils';
+import { getOutputHandleType, getInputHandleType, COLLAPSED_NODE_HEIGHT, getConnectionPoints } from '../../utils/nodeUtils';
 
 interface UseConnectionHandlingProps {
     nodesRef: MutableRefObject<Node[]>;
@@ -45,6 +45,71 @@ export const useConnectionHandling = ({
         const startPoint = getTransformedPoint({ x: touch.clientX, y: touch.clientY });
         setConnectingInfo({ fromNodeId, fromHandleId, fromPoint: startPoint, fromType: type });
     }, [getTransformedPoint, setConnectingInfo, nodesRef]);
+
+    const handleStartInputConnection = useCallback((e: React.MouseEvent<HTMLDivElement>, toNodeId: string, toHandleId?: string) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Find existing incoming connection to this node and input handle
+        const incoming = connectionsRef.current.filter(c => 
+            c.toNodeId === toNodeId && 
+            (c.toHandleId === toHandleId || (!c.toHandleId && !toHandleId) || (c.toHandleId === undefined && toHandleId === ''))
+        );
+        if (incoming.length === 0) return;
+
+        const existingConn = incoming[incoming.length - 1];
+        const sourceNode = nodesRef.current.find(n => n.id === existingConn.fromNodeId);
+        const targetNode = nodesRef.current.find(n => n.id === toNodeId);
+        if (!sourceNode || !targetNode) return;
+
+        const fromType = getOutputHandleType(sourceNode, existingConn.fromHandleId);
+        const { start } = getConnectionPoints(sourceNode, targetNode, existingConn);
+
+        // Remove the existing connection so it is detached
+        setConnections(prev => prev.filter(c => c.id !== existingConn.id));
+
+        // Start dragging connection from the source node output handle
+        setConnectingInfo({
+            fromNodeId: existingConn.fromNodeId,
+            fromHandleId: existingConn.fromHandleId,
+            fromPoint: start,
+            fromType,
+            isReconnecting: true,
+            originalToNodeId: toNodeId,
+            originalToHandleId: toHandleId
+        });
+    }, [nodesRef, connectionsRef, setConnections, setConnectingInfo]);
+
+    const handleStartInputConnectionTouch = useCallback((e: React.TouchEvent<HTMLDivElement>, toNodeId: string, toHandleId?: string) => {
+        e.stopPropagation();
+        if (e.touches.length !== 1) return;
+
+        const incoming = connectionsRef.current.filter(c => 
+            c.toNodeId === toNodeId && 
+            (c.toHandleId === toHandleId || (!c.toHandleId && !toHandleId) || (c.toHandleId === undefined && toHandleId === ''))
+        );
+        if (incoming.length === 0) return;
+
+        const existingConn = incoming[incoming.length - 1];
+        const sourceNode = nodesRef.current.find(n => n.id === existingConn.fromNodeId);
+        const targetNode = nodesRef.current.find(n => n.id === toNodeId);
+        if (!sourceNode || !targetNode) return;
+
+        const fromType = getOutputHandleType(sourceNode, existingConn.fromHandleId);
+        const { start } = getConnectionPoints(sourceNode, targetNode, existingConn);
+
+        setConnections(prev => prev.filter(c => c.id !== existingConn.id));
+
+        setConnectingInfo({
+            fromNodeId: existingConn.fromNodeId,
+            fromHandleId: existingConn.fromHandleId,
+            fromPoint: start,
+            fromType,
+            isReconnecting: true,
+            originalToNodeId: toNodeId,
+            originalToHandleId: toHandleId
+        });
+    }, [nodesRef, connectionsRef, setConnections, setConnectingInfo]);
 
     const processConnectionDrag = (currentPointerPosition: Point, e: MouseEvent | TouchEvent) => {
         if (!connectingInfo) return;
@@ -276,8 +341,8 @@ export const useConnectionHandling = ({
             }
             // ------------------------------------
 
-        } else if (!hoveredNodeId && !isPanning && !currentDraggingInfo) {
-            // Quick Add Logic
+        } else if (!hoveredNodeId && !isPanning && !currentDraggingInfo && !connectingInfo.isReconnecting) {
+            // Quick Add Logic (only for drags from outputs, not when detaching to drop on canvas)
             let clientX, clientY;
             if ('changedTouches' in e) {
                 clientX = e.changedTouches[0].clientX;
@@ -315,6 +380,8 @@ export const useConnectionHandling = ({
         setHoveredNodeId,
         handleStartConnection,
         handleStartConnectionTouch,
+        handleStartInputConnection,
+        handleStartInputConnectionTouch,
         processConnectionDrag,
         endConnection,
         setConnectingInfo,

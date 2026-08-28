@@ -157,6 +157,9 @@ export const getOutputHandleType = (node: Node, handleId?: string): 'text' | 'im
 export const getInputHandleType = (node: Node, handleId?: string): 'text' | 'image' | 'character_data' | 'video' | 'audio' | null => {
     switch (node.type) {
         case NodeType.TEXT_INPUT: return null;
+        case NodeType.IMAGE_INPUT:
+            if (handleId === 'text') return 'text';
+            return 'image';
         case NodeType.PROMPT_PROCESSOR: return 'text';
         case NodeType.PROMPT_SANITIZER: return 'text';
         case NodeType.VIDEO_PROMPT_PROCESSOR: return 'text';
@@ -240,7 +243,7 @@ export const getEmptyValueForNodeType = (node: Node): string => {
         case NodeType.IMAGE_SEQUENCE_GENERATOR: return JSON.stringify({ prompts: [], images: {}, currentIndex: -1, isGenerating: false, autoDownload: false, selectedFrameNumber: null, frameStatuses: {}, aspectRatio: '16:9', resolution: '1K', characterConcepts: [], model: 'gemini-2.5-flash-image', characterPromptCombination: 'replace', enableAspectRatio: false, isStyleCollapsed: true, checkedFrameNumbers: [], topPaneHeight: 440, leftPaneWidth: 570, autoCrop169: true });
         case NodeType.PROMPT_SEQUENCE_EDITOR: return JSON.stringify({ instruction: '', sourcePrompts: [], modifiedPrompts: [], leftPaneWidth: 500, checkedSourceFrameNumbers: [], selectedFrameNumber: null, targetLanguage: 'en', modificationModel: 'gemini-3-flash-preview', sceneContexts: {}, expandedSceneContexts: [] });
         // UPDATED DEFAULT FOR IMAGE EDITOR
-        case NodeType.IMAGE_EDITOR: return JSON.stringify({ inputImages: [], prompt: '', outputImage: null, aspectRatio: '16:9', enableAspectRatio: false, enableOutpainting: false, outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: 'gemini-2.5-flash-image', autoDownload: true, autoCrop169: true, leftPaneWidth: 360, topPaneHeight: 330 });
+        case NodeType.IMAGE_EDITOR: return JSON.stringify({ inputImages: [], prompt: '', outputImage: null, aspectRatio: '16:9', enableAspectRatio: false, enableOutpainting: false, outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: 'gemini-3-pro-image-preview', autoDownload: true, autoCrop169: true, leftPaneWidth: 360, topPaneHeight: 330 });
         case NodeType.GEMINI_CHAT: return JSON.stringify({ messages: [], currentInput: '', lastPrompt: '' });
         case NodeType.TRANSLATOR: return JSON.stringify({ targetLanguage: 'ru', inputText: '', translatedText: '', image: null });
         case NodeType.SCRIPT_GENERATOR: return JSON.stringify({ prompt: '', summary: '', detailedCharacters: [], scenes: [], targetLanguage: 'en' });
@@ -280,7 +283,7 @@ export const getDuplicatedValueForNodeType = (node: Node): string => {
              case NodeType.PROMPT_PROCESSOR: return JSON.stringify({ inputPrompt: parsedOriginal.inputPrompt || '', prompt: '', safePrompt: parsedOriginal.safePrompt !== undefined ? parsedOriginal.safePrompt : true });
              case NodeType.VIDEO_PROMPT_PROCESSOR: return JSON.stringify({ inputPrompt: parsedOriginal.inputPrompt || '', prompt: '' });
              case NodeType.TRANSLATOR: return JSON.stringify({ ...parsedEmpty, targetLanguage: parsedOriginal.targetLanguage || 'ru' });
-             case NodeType.IMAGE_EDITOR: return JSON.stringify({ ...parsedEmpty, aspectRatio: parsedOriginal.aspectRatio || '1:1', enableAspectRatio: parsedOriginal.enableAspectRatio !== undefined ? parsedOriginal.enableAspectRatio : false, enableOutpainting: parsedOriginal.enableOutpainting !== undefined ? parsedOriginal.enableOutpainting : false, outpaintingPrompt: parsedOriginal.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: parsedOriginal.model || 'gemini-2.5-flash-image', autoDownload: parsedOriginal.autoDownload !== undefined ? parsedOriginal.autoDownload : true, autoCrop169: parsedOriginal.autoCrop169 !== undefined ? parsedOriginal.autoCrop169 : false, leftPaneWidth: parsedOriginal.leftPaneWidth || 360, topPaneHeight: parsedOriginal.topPaneHeight || 330 });
+             case NodeType.IMAGE_EDITOR: return JSON.stringify({ ...parsedEmpty, aspectRatio: parsedOriginal.aspectRatio || '1:1', enableAspectRatio: parsedOriginal.enableAspectRatio !== undefined ? parsedOriginal.enableAspectRatio : false, enableOutpainting: parsedOriginal.enableOutpainting !== undefined ? parsedOriginal.enableOutpainting : false, outpaintingPrompt: parsedOriginal.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: parsedOriginal.model || 'gemini-3-pro-image-preview', autoDownload: parsedOriginal.autoDownload !== undefined ? parsedOriginal.autoDownload : true, autoCrop169: parsedOriginal.autoCrop169 !== undefined ? parsedOriginal.autoCrop169 : false, leftPaneWidth: parsedOriginal.leftPaneWidth || 360, topPaneHeight: parsedOriginal.topPaneHeight || 330 });
              case NodeType.IMAGE_SEQUENCE_GENERATOR: return JSON.stringify({ ...parsedEmpty, prompts: [], characterConcepts: parsedOriginal.characterConcepts || [], aspectRatio: parsedOriginal.aspectRatio || '16:9', resolution: parsedOriginal.resolution || '1K', autoDownload: parsedOriginal.autoDownload || false, model: parsedOriginal.model || 'gemini-2.5-flash-image', topPaneHeight: parsedOriginal.topPaneHeight || 440, leftPaneWidth: parsedOriginal.leftPaneWidth || 570, enableAspectRatio: parsedOriginal.enableAspectRatio !== undefined ? parsedOriginal.enableAspectRatio : false, isStyleCollapsed: parsedOriginal.isStyleCollapsed !== undefined ? parsedOriginal.isStyleCollapsed : true, autoCrop169: parsedOriginal.autoCrop169 !== undefined ? parsedOriginal.autoCrop169 : true });
              case NodeType.CHARACTER_CARD: return JSON.stringify({ ...parsedEmpty, name: parsedOriginal.name, index: parsedOriginal.index, prompt: parsedOriginal.prompt, fullDescription: parsedOriginal.fullDescription, selectedRatio: parsedOriginal.selectedRatio });
              case NodeType.NOTE: return emptyValue;
@@ -301,11 +304,11 @@ export const getMinNodeSize = (nodeType: NodeType): { minWidth: number, minHeigh
         case NodeType.POSE_CREATOR: return { minWidth: 600, minHeight: 800 };
         case NodeType.VIDEO_EDITOR: return { minWidth: 920, minHeight: 640 };
         case NodeType.TEXT_INPUT: return { minWidth: 460, minHeight: 300 };
-        case NodeType.IMAGE_INPUT: return { minWidth: 460, minHeight: 340 };
+        case NodeType.IMAGE_INPUT: return { minWidth: 520, minHeight: 700 };
         case NodeType.PROMPT_PROCESSOR: return { minWidth: 460, minHeight: 410 };
         case NodeType.PROMPT_SANITIZER: return { minWidth: 460, minHeight: 280 };
         case NodeType.VIDEO_PROMPT_PROCESSOR: return { minWidth: 460, minHeight: 410 };
-        case NodeType.IMAGE_OUTPUT: return { minWidth: 460, minHeight: 700 };
+        case NodeType.IMAGE_OUTPUT: return { minWidth: 520, minHeight: 700 };
         case NodeType.VIDEO_OUTPUT: return { minWidth: 460, minHeight: 680 };
         case NodeType.PROMPT_ANALYZER: return { minWidth: 460, minHeight: 1000 };
         case NodeType.CHARACTER_ANALYZER: return { minWidth: 460, minHeight: 500 };
@@ -456,6 +459,10 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                 else if (handleId === 'image') y = startY + step * 2; // 160px
                 else if (handleId === 'text') y = startY + step * 3; // 210px
                 else y = h / 2; // Fallback
+            } else if (node.type === NodeType.IMAGE_INPUT && isInput) {
+                const contentHeight = h - HEADER_HEIGHT - 2 * CONTENT_PADDING;
+                const availableContentHeight = Math.max(0, contentHeight);
+                y = HEADER_HEIGHT + CONTENT_PADDING + (availableContentHeight / 4);
             } else if (node.type === NodeType.IMAGE_INPUT && !isInput) {
                 // Expanded IMAGE_INPUT Output Handles Calculation
                 const contentHeight = h - HEADER_HEIGHT - 2 * CONTENT_PADDING;

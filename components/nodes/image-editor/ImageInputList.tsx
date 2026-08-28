@@ -2,6 +2,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { ImageSlot } from './types';
+import { setupImageDragData } from '../../../utils/imageUtils';
 
 // Helper component for input with stylish spinners
 const InputWithSpinners: React.FC<{
@@ -482,8 +483,7 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                             onDragStart={(e) => { 
                                                 const dragSrc = fullRes || slot.src;
                                                 if (dragSrc) {
-                                                    e.dataTransfer.setData('application/prompt-modifier-drag-image', dragSrc); 
-                                                    e.dataTransfer.effectAllowed = 'copy'; 
+                                                    setupImageDragData(e, dragSrc, `Input_${index + 1}_${Date.now()}.png`); 
                                                     e.stopPropagation(); 
                                                 }
                                             }} 

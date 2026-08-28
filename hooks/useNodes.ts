@@ -313,7 +313,17 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                                 newValue = JSON.stringify(chars);
                             } else if (node.type !== NodeType.TRANSLATOR) {
                                 // Image Input / Analyzer
-                                newValue = JSON.stringify({ ...parsed, image: thumbnailUrl, prompt: prompt || parsed.prompt || '' });
+                                if (node.type === NodeType.IMAGE_INPUT) {
+                                    newValue = JSON.stringify({ 
+                                        ...parsed, 
+                                        image: thumbnailUrl, 
+                                        prompt: prompt || parsed.prompt || '',
+                                        extractedImages: [], 
+                                        croppedImage: null 
+                                    });
+                                } else {
+                                    newValue = JSON.stringify({ ...parsed, image: thumbnailUrl, prompt: prompt || parsed.prompt || '' });
+                                }
                             }
                         } else {
                             return currentNodes;

@@ -2,6 +2,7 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ReferenceItemCard } from './ReferenceItemCard';
 import { ActionButton } from '../../ActionButton';
+import { setupImageDragData } from '../../../utils/imageUtils';
 
 interface ReferenceItem {
     id: string;
@@ -383,10 +384,8 @@ export const ReferencesTab: React.FC<ReferencesTabProps> = ({
                                      onImageDragStart={(e, img) => {
                                          const dragImg = getFullSizeImage(index) || img;
                                          if (dragImg) {
-                                              e.dataTransfer.setData('application/prompt-modifier-drag-image', dragImg);
-                                              e.dataTransfer.setData('application/prompt-modifier-drag-info', JSON.stringify({ src: dragImg, prompt: ref.caption }));
-                                              e.dataTransfer.effectAllowed = 'copy';
-                                              e.stopPropagation();
+                                             setupImageDragData(e, dragImg, `${(ref.caption || 'Reference').slice(0, 30).replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.png`, ref.caption);
+                                             e.stopPropagation();
                                          }
                                      }}
                                      deselectAllNodes={deselectAllNodes}

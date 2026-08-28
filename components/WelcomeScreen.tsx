@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage, getTranslation, LanguageCode, TranslationKey, languages } from '../localization';
 import { useAppContext } from '../contexts/AppContext';
+import { APP_VERSION } from '../version';
 
 interface WelcomeScreenProps {
   onClose: () => void;
@@ -109,7 +110,7 @@ const WelcomeContent: React.FC<{
 
                 {/* Massive Animated Gradient Text - Split into two lines */}
                 {/* Heartbeat animation applied here */}
-                <div className={`flex flex-col items-center justify-center z-20 gap-3 md:gap-8 py-2 ${triggerHeartbeat ? 'animate-heartbeat' : ''}`}>
+                <div className={`flex flex-col items-center justify-center z-20 gap-3 md:gap-6 py-2 ${triggerHeartbeat ? 'animate-heartbeat' : ''}`}>
                     <h1 
                         className="font-black tracking-tighter leading-none text-center animate-gradient-x bg-size-200 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-sky-500 to-cyan-400 px-1 md:px-4 whitespace-nowrap"
                         style={{ fontSize: 'clamp(2rem, 7vw, 120px)' }}
@@ -122,6 +123,10 @@ const WelcomeContent: React.FC<{
                     >
                         {t('app.title')}
                     </h1>
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-gray-900/70 border border-cyan-500/40 text-cyan-400 font-mono text-xs md:text-sm tracking-wider shadow-[0_0_15px_rgba(6,182,212,0.2)] select-none mt-1 backdrop-blur-sm">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                        <span>{APP_VERSION}</span>
+                    </div>
                 </div>
 
                 <button 
@@ -292,31 +297,6 @@ const WelcomeContent: React.FC<{
 
                     </div>
                 </div>
-            </div>
-
-            {/* External Link Buttons - Appear from bottom */}
-            <div className={`mt-6 md:mt-10 flex flex-col md:flex-row gap-4 transition-all duration-1000 ease-out ${animationStage >= 5 ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95 pointer-events-none'}`}>
-                <a 
-                    href="https://scriptmodifier2.netlify.app/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group flex items-center gap-3 px-6 py-3 rounded-full bg-gray-900/60 hover:bg-gray-800 border border-gray-700 hover:border-cyan-500/50 text-gray-400 hover:text-cyan-400 transition-all duration-300 backdrop-blur-sm shadow-lg hover:shadow-cyan-500/10"
-                >
-                    <span className="font-semibold tracking-wide text-sm">Go to Script Modifier on Netlify</span>
-                     {/* Netlify Icon */}
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 2L2 19.777h20L12 2zm0 3.7l6.6 11.677H5.4L12 5.7z"/></svg>
-                </a>
-                
-                <a 
-                    href="https://github.com/Neytrino2134/Script-Modifier" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group flex items-center gap-3 px-6 py-3 rounded-full bg-gray-900/60 hover:bg-gray-800 border border-gray-700 hover:border-purple-500/50 text-gray-400 hover:text-purple-400 transition-all duration-300 backdrop-blur-sm shadow-lg hover:shadow-purple-500/10"
-                >
-                    <span className="font-semibold tracking-wide text-sm">Go to Script Modifier on GitHub</span>
-                    {/* GitHub Icon */}
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" /></svg>
-                </a>
             </div>
         </div>
     );
@@ -562,13 +542,6 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
                     <path fillRule="evenodd" clipRule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" />
                 </svg>
             </a>
-
-            {/* Netlify Badge */}
-            <div className="transition-opacity hover:opacity-100 opacity-80">
-                <a href="https://www.netlify.com" target="_blank" rel="noopener noreferrer">
-                    <img src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg" alt="Deploys by Netlify" />
-                </a>
-            </div>
         </div>
 
       {/* Background Decoration - Now appears at Stage 5 */}

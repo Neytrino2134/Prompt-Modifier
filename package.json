@@ -1,7 +1,7 @@
 {
   "name": "prompt-modifier",
   "private": true,
-  "version": "0.1.12-alpha.1",
+  "version": "0.1.13",
   "description": "Visual node-based editor for Gemini AI prompts",
   "author": "MeowMaster",
   "type": "module",

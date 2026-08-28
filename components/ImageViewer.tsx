@@ -5,7 +5,7 @@ import { ActionButton } from './ActionButton';
 import { useLanguage } from '../localization';
 import { getNextFloatingZIndex } from '../utils/ui';
 import { FullScreenIcon, ExitFullScreenIcon, CopyIcon } from './icons/AppIcons';
-import { getModelDisplayName, getAspectRatioFromDimensions } from '../utils/imageUtils';
+import { getModelDisplayName, getAspectRatioFromDimensions, setupImageDragData } from '../utils/imageUtils';
 
 interface ImageViewerProps {
   sources: { 
@@ -503,13 +503,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
             const src = currentSource.src;
             const safeName = (currentSource.prompt || 'image').slice(0, 40).replace(/[^a-z0-9]/gi, '_');
             const filename = `${safeName}_frame_${currentSource.frameNumber}.png`;
-  
-            e.dataTransfer.setData('application/prompt-modifier-drag-image', src);
-            // Chrome/Edge Download Trigger
-            e.dataTransfer.setData("DownloadURL", `image/png:${filename}:${src}`);
-            e.dataTransfer.setData("text/html", `<img src="${src}" alt="${safeName}" />`);
-            e.dataTransfer.setData("text/uri-list", src);
-            e.dataTransfer.effectAllowed = 'copy';
+            setupImageDragData(e, src, filename, currentSource.prompt);
           }}
         />
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { Tooltip } from './Tooltip';
-import { getModelDisplayName } from '../utils/imageUtils';
+import { getModelDisplayName, setupImageDragData } from '../utils/imageUtils';
 
 export const HistoryPanel: React.FC = () => {
   const context = useAppContext();
@@ -29,17 +29,9 @@ export const HistoryPanel: React.FC = () => {
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLImageElement>, url: string, prompt: string) => {
-    e.dataTransfer.setData('text/plain', url);
-    e.dataTransfer.setData('application/prompt-modifier-drag-info', JSON.stringify({ src: url, prompt }));
-    e.dataTransfer.setData('application/prompt-modifier-drag-image', url);
-    
     const safeName = (prompt || 'image').slice(0, 40).replace(/[^a-z0-9]/gi, '_');
     const filename = `${safeName}.png`;
-    e.dataTransfer.setData("DownloadURL", `image/png:${filename}:${url}`);
-    e.dataTransfer.setData("text/html", `<img src="${url}" alt="${safeName}" />`);
-    e.dataTransfer.setData("text/uri-list", url);
-    
-    e.dataTransfer.effectAllowed = 'copy';
+    setupImageDragData(e, url, filename, prompt);
   };
 
   const handleCopyImage = async (url: string) => {

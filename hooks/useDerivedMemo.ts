@@ -125,7 +125,19 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
         try {
             const parsed = JSON.parse(node.value || '{}');
             switch (node.type) {
-                case NodeType.IMAGE_INPUT: return (optimizedForUI && parsed.image) ? parsed.image : (getFullSizeImage(node.id, 0) || parsed.image || null);
+                case NodeType.IMAGE_INPUT: {
+                    const mode = parsed.mode || 'full';
+                    if (mode === 'single' && (parsed.cropRect || parsed.croppedImage)) {
+                        const croppedFull = getFullSizeImage(node.id, 1);
+                        if (croppedFull && !optimizedForUI) return croppedFull;
+                        if (parsed.croppedImage) return parsed.croppedImage;
+                    } else if (mode === 'grid' && parsed.grid) {
+                        const firstFull = getFullSizeImage(node.id, 1);
+                        if (firstFull && !optimizedForUI) return firstFull;
+                        if (parsed.extractedImages?.[0]) return parsed.extractedImages[0];
+                    }
+                    return (optimizedForUI && parsed.image) ? parsed.image : (getFullSizeImage(node.id, 0) || parsed.image || null);
+                }
                 case NodeType.POSE_CREATOR: return parsed.renderedImage || null;
                 case NodeType.IMAGE_ANALYZER:
                 case NodeType.CHARACTER_CARD:
@@ -153,7 +165,19 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                      return outputChar?.thumbnails?.[ratio] || outputChar?.image || null;
 
                 case NodeType.IMAGE_OUTPUT: return getFullSizeImage(node.id, 0) || parsed.image || parsed.outputImage || (typeof node.value === 'string' && node.value.startsWith('data:') ? node.value : null);
-                case NodeType.IMAGE_EDITOR: return optimizedForUI ? parsed.outputImage : (getFullSizeImage(node.id, 0) || parsed.outputImage || null);
+                case NodeType.IMAGE_EDITOR: {
+                    if (parsed.isSequenceMode && Array.isArray(parsed.sequenceOutputs) && parsed.sequenceOutputs.length > 0) {
+                        const checked = Array.isArray(parsed.checkedSequenceOutputIndices) && parsed.checkedSequenceOutputIndices.length > 0
+                            ? parsed.checkedSequenceOutputIndices
+                            : parsed.sequenceOutputs.map((_: any, i: number) => i);
+                        const firstIdx = checked[0] !== undefined ? checked[0] : 0;
+                        const out = parsed.sequenceOutputs[firstIdx];
+                        const full = getFullSizeImage(node.id, 1000 + firstIdx);
+                        if (full && !optimizedForUI) return full;
+                        if (out?.thumbnail) return out.thumbnail;
+                    }
+                    return optimizedForUI ? parsed.outputImage : (getFullSizeImage(node.id, 0) || parsed.outputImage || null);
+                }
             }
         } catch {
             if (node.type === NodeType.IMAGE_INPUT && node.value.startsWith('data:image')) return node.value;
@@ -427,6 +451,77 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                              }
                         });
                         if (checked.length > 0) continue; 
+                    } catch {}
+                } else if (fromNode.type === NodeType.IMAGE_INPUT) {
+                    try {
+                        const parsed = JSON.parse(fromNode.value || '{}');
+                        const mode = parsed.mode || 'full';
+                        if (mode === 'grid' && parsed.grid) {
+                            const totalCells = (parsed.grid.cols || 1) * (parsed.grid.rows || 1);
+                            const selectedCells: number[] = Array.isArray(parsed.grid.selectedCells)
+                                ? parsed.grid.selectedCells
+                                : Array.from({ length: totalCells }, (_, i) => i);
+                            
+                            const thumbs = parsed.extractedImages || [];
+                            let pushedAny = false;
+                            selectedCells.forEach((cellIdx) => {
+                                const fullUrl = getFullSizeImage(fromNode.id, 1 + cellIdx);
+                                const thumbUrl = thumbs[cellIdx];
+                                const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
+                                if (url && url.startsWith('data:')) {
+                                    const parts = url.split(',');
+                                    const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                    values.push({ base64ImageData: parts[1], mimeType: mime });
+                                    pushedAny = true;
+                                }
+                            });
+                            if (pushedAny) continue;
+                        } else if (mode === 'single' && (parsed.cropRect || parsed.croppedImage)) {
+                            const fullUrl = getFullSizeImage(fromNode.id, 1);
+                            const thumbUrl = parsed.croppedImage;
+                            const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl || getFullSizeImage(fromNode.id, 0) || parsed.image);
+                            if (url && url.startsWith('data:')) {
+                                const parts = url.split(',');
+                                const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                values.push({ base64ImageData: parts[1], mimeType: mime });
+                                continue;
+                            }
+                        }
+                    } catch {}
+                } else if (fromNode.type === NodeType.IMAGE_EDITOR) {
+                    try {
+                        const parsed = JSON.parse(fromNode.value || '{}');
+                        if (parsed.isSequenceMode && Array.isArray(parsed.sequenceOutputs) && parsed.sequenceOutputs.length > 0) {
+                            const checked: number[] = Array.isArray(parsed.checkedSequenceOutputIndices) && parsed.checkedSequenceOutputIndices.length > 0
+                                ? parsed.checkedSequenceOutputIndices
+                                : parsed.sequenceOutputs.map((_: any, i: number) => i);
+
+                            let pushedAny = false;
+                            checked.forEach((frameIdx: number) => {
+                                const out = parsed.sequenceOutputs[frameIdx];
+                                if (!out) return;
+                                const fullUrl = getFullSizeImage(fromNode.id, 1000 + frameIdx);
+                                const thumbUrl = out.thumbnail;
+                                const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
+                                if (url && url.startsWith('data:')) {
+                                    const parts = url.split(',');
+                                    const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                    values.push({ base64ImageData: parts[1], mimeType: mime });
+                                    pushedAny = true;
+                                }
+                            });
+                            if (pushedAny) continue;
+                        } else if (parsed.outputImage) {
+                            const fullUrl = getFullSizeImage(fromNode.id, 0);
+                            const thumbUrl = parsed.outputImage;
+                            const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
+                            if (url && url.startsWith('data:')) {
+                                const parts = url.split(',');
+                                const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                values.push({ base64ImageData: parts[1], mimeType: mime });
+                                continue;
+                            }
+                        }
                     } catch {}
                 }
 

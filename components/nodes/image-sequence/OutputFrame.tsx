@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { CopyIcon, SparklesIcon } from '../../icons/AppIcons';
 import { CustomCheckbox } from '../../CustomCheckbox';
+import { setupImageDragData } from '../../../utils/imageUtils';
 
 const AspectRatioIcon: React.FC<{ width: number; height: number }> = ({ width, height }) => {
     const ratio = width / height;
@@ -216,9 +217,11 @@ export const OutputFrame: React.FC<OutputFrameProps> = React.memo(({ index, fram
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); onDoubleClick(frameNumber); }}
                     onDragStart={(e) => {
-                        e.dataTransfer.setData('application/prompt-modifier-drag-image', fullSizeImageUrl || imageUrl || '');
-                        e.dataTransfer.effectAllowed = 'copy';
-                        e.stopPropagation();
+                        const imgToDrag = fullSizeImageUrl || imageUrl || '';
+                        if (imgToDrag) {
+                            setupImageDragData(e, imgToDrag, `Frame_${frameNumber}_${Date.now()}.png`);
+                            e.stopPropagation();
+                        }
                     }}
                 />}
                 

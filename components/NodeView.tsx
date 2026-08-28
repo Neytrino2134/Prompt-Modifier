@@ -29,6 +29,8 @@ interface NodeViewProps extends Omit<NodeContentProps, 'onOutputHandleTouchStart
     onToggleCollapse: (nodeId: string) => void;
     isDragOverTarget?: boolean;
     onOutputHandleTouchStart: (e: React.TouchEvent<HTMLDivElement>, nodeId: string, handleId?: string) => void;
+    onInputHandleMouseDown?: (e: React.MouseEvent<HTMLDivElement>, nodeId: string, handleId?: string) => void;
+    onInputHandleTouchStart?: (e: React.TouchEvent<HTMLDivElement>, nodeId: string, handleId?: string) => void;
     isExecuting?: boolean;
     isDragging?: boolean;
     isGlobalProcessing: boolean;
@@ -45,7 +47,7 @@ interface NodeViewProps extends Omit<NodeContentProps, 'onOutputHandleTouchStart
 }
 
 const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
-    const { node, activeTool, onOutputHandleMouseDown, onOutputHandleTouchStart, isHovered, isSelected, onNodeMouseEnter, onNodeMouseLeave, onDeleteNode, connectingInfo, connectionTarget, onDetachNodeFromGroup, isGlobalProcessing, isProxy, isFocused, isGrouped, isGroupDragging } = props;
+    const { node, activeTool, onOutputHandleMouseDown, onOutputHandleTouchStart, onInputHandleMouseDown, onInputHandleTouchStart, isHovered, isSelected, onNodeMouseEnter, onNodeMouseLeave, onDeleteNode, connectingInfo, connectionTarget, onDetachNodeFromGroup, isGlobalProcessing, isProxy, isFocused, isGrouped, isGroupDragging } = props;
 
     const context = useAppContext();
     // Default isHoverHighlightEnabled to true if context is not yet available, but prefer context value
@@ -305,7 +307,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
                 )
             )}
 
-            {!isDockedWindow && !isFocused && <InputHandles node={node} getHandleColor={getHandleColor} handleCursor={handleCursor} t={t} isHovered={isHovered} isCollapsed={node.isCollapsed} isProxy={isProxyMode} connectedInputType={connectedInputType} />}
+            {!isDockedWindow && !isFocused && <InputHandles node={node} getHandleColor={getHandleColor} handleCursor={handleCursor} onInputHandleMouseDown={onInputHandleMouseDown} onInputHandleTouchStart={onInputHandleTouchStart} t={t} isHovered={isHovered} isCollapsed={node.isCollapsed} isProxy={isProxyMode} connectedInputType={connectedInputType} />}
             {!isDockedWindow && !isFocused && <OutputHandles node={node} getHandleColor={getHandleColor} handleCursor={handleCursor} onOutputHandleMouseDown={onOutputHandleMouseDown} onOutputHandleTouchStart={onOutputHandleTouchStart} t={t} isHovered={isHovered} isCollapsed={node.isCollapsed} isProxy={isProxyMode} />}
 
             {/* Resizer Logic - Switched to onPointerDown */}

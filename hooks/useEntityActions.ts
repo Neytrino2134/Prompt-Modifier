@@ -63,12 +63,12 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         switch (type) {
             case NodeType.IMAGE_EDITOR: newNode.width = 1200; newNode.height = 920; break;
             case NodeType.PROMPT_ANALYZER: newNode.width = 460; newNode.height = 1000; break;
-            case NodeType.IMAGE_INPUT: newNode.width = 460; newNode.height = 340; break;
+            case NodeType.IMAGE_INPUT: newNode.width = 520; newNode.height = 700; break;
             case NodeType.IMAGE_ANALYZER: case NodeType.VIDEO_OUTPUT: newNode.width = 460; newNode.height = 680; break;
             case NodeType.PROMPT_PROCESSOR: newNode.width = 460; newNode.height = 410; break;
             case NodeType.VIDEO_PROMPT_PROCESSOR: newNode.width = 460; newNode.height = 410; break;
             case NodeType.IMAGE_OUTPUT:
-                newNode.width = 460;
+                newNode.width = 520;
                 newNode.height = 700;
                 newNode.model = 'gemini-2.5-flash-image';
                 newNode.autoDownload = true;

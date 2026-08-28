@@ -814,6 +814,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         let text = '';
         let image: string | null = null;
+        const images: string[] = [];
         let mediaUrl: string | null = null;
         let mediaType: 'video' | 'audio' = 'video';
 
@@ -821,6 +822,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (typeof val === 'string') {
                 if (val.startsWith('data:image')) {
                     if (!image) image = val;
+                    images.push(val);
                 } else if (val.startsWith('data:video') || val.startsWith('data:audio') || val.match(/^https?:\/\/.*\.(mp4|webm|ogg|mp3|wav)$/i)) {
                     if (!mediaUrl) {
                         mediaUrl = val;
@@ -832,7 +834,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 }
             } else if (typeof val === 'object' && val !== null) {
                 if (val.base64ImageData) {
-                    if (!image) image = `data:${val.mimeType};base64,${val.base64ImageData}`;
+                    const dataUrl = `data:${val.mimeType || 'image/png'};base64,${val.base64ImageData}`;
+                    if (!image) image = dataUrl;
+                    images.push(dataUrl);
                 } else {
                     const str = JSON.stringify(val, null, 2);
                     if (text) text += (text ? '\n\n' : '') + str;
@@ -843,13 +847,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         try {
             const current = JSON.parse(node.value || '{}');
-            const newData = { text, image, mediaUrl, mediaType };
+            const newData = { text, image, images, mediaUrl, mediaType };
 
             if (JSON.stringify(current) !== JSON.stringify(newData)) {
                 nodesHook.handleValueChange(nodeId, JSON.stringify(newData));
             }
         } catch {
-            nodesHook.handleValueChange(nodeId, JSON.stringify({ text, image, mediaUrl, mediaType }));
+            nodesHook.handleValueChange(nodeId, JSON.stringify({ text, image, images, mediaUrl, mediaType }));
         }
 
     }, [getUpstreamNodeValues, nodesHook.handleValueChange]);

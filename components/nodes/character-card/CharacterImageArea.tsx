@@ -5,6 +5,7 @@ import { Tooltip } from '../../Tooltip';
 import { CopyIcon } from '../../../components/icons/AppIcons';
 import { RATIO_INDICES } from '../../../utils/nodeUtils';
 import { CharacterData } from './types';
+import { setupImageDragData } from '../../../utils/imageUtils';
 
 interface CharacterImageAreaProps {
     char: CharacterData;
@@ -97,7 +98,10 @@ export const CharacterImageArea: React.FC<CharacterImageAreaProps> = ({
                             draggable={true} 
                             onDragStart={(e) => { 
                                 const src = getFullSizeImage((cardIdx * 10) + (RATIO_INDICES[char.selectedRatio] || 1)) || char.image; 
-                                if(src) { e.dataTransfer.setData('application/prompt-modifier-drag-image', src); e.stopPropagation(); } 
+                                if(src) { 
+                                    setupImageDragData(e, src, `${(char.name || 'Character').replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.png`, char.name); 
+                                    e.stopPropagation(); 
+                                } 
                             }} 
                             onClick={(e) => { 
                                 e.stopPropagation(); 

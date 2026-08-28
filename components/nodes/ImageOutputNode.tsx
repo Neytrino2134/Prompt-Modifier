@@ -8,7 +8,7 @@ import { CustomCheckbox } from '../CustomCheckbox';
 import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { expandImageAspectRatio } from '../../services/imageActions';
-import { generateThumbnail } from '../../utils/imageUtils';
+import { generateThumbnail, setupImageDragData } from '../../utils/imageUtils';
 
 export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGeneratingImage, isExecutingChain, onModelChange, onAspectRatioChange, onResolutionChange, onAutoDownloadChange, onGenerateImage, onStopChainExecution, onExecuteChain, t, onDownloadImage, setImageViewer, getFullSizeImage, setFullSizeImage, onValueChange, getUpstreamNodeValues, isGlobalProcessing, onCopyImageToClipboard, addToast }) => {
     const context = useAppContext();
@@ -154,26 +154,8 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                             // Prioritize High Resolution Image
                             const imageToDrag = getFullSizeImage(node.id, 0) || node.value;
                             if (imageToDrag) {
-                                // 1. Internal App Drag (Raw Image)
-                                e.dataTransfer.setData('application/prompt-modifier-drag-image', imageToDrag);
-
-                                // 2. Internal App Drag (Rich Info for internal drops)
-                                e.dataTransfer.setData('application/prompt-modifier-drag-info', JSON.stringify({
-                                    src: imageToDrag,
-                                    prompt: currentPrompt
-                                }));
-                                
-                                // 3. External Drag (File Download for Chrome/Edge)
                                 const filename = `Output_Image_${Date.now()}.png`;
-                                e.dataTransfer.setData("DownloadURL", `image/png:${filename}:${imageToDrag}`);
-                                
-                                // 4. External Drag (HTML Insertion for Docs/Other Browsers)
-                                e.dataTransfer.setData("text/html", `<img src="${imageToDrag}" alt="Exported Image" />`);
-
-                                // 5. Standard URI List
-                                e.dataTransfer.setData("text/uri-list", imageToDrag);
-
-                                e.dataTransfer.effectAllowed = 'copy';
+                                setupImageDragData(e, imageToDrag, filename, currentPrompt);
                                 e.stopPropagation();
                             }
                         }}

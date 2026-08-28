@@ -9,6 +9,7 @@ import { Tooltip } from '../../Tooltip';
 import JSZip from 'jszip';
 import { CustomCheckbox } from '../../CustomCheckbox';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
+import { setupImageDragData } from '../../../utils/imageUtils';
 
 // Helper component for input with stylish spinners
 const InputWithSpinners: React.FC<{
@@ -153,6 +154,23 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
         return () => observer.disconnect();
     }, [isSequenceMode]);
 
+    // Active frame indices that should be shown in the sequence output grid
+    const activeFrameIndices = useMemo(() => {
+        if (isSequentialEditingWithPrompts) {
+            return Array.from({ length: totalFrames }, (_, i) => i);
+        }
+        if (!checkedInputIndices) {
+            return imageSlots.map((_, i) => i);
+        }
+        return imageSlots
+            .map((_, i) => i)
+            .filter(i => checkedInputIndices.includes(i));
+    }, [isSequentialEditingWithPrompts, totalFrames, checkedInputIndices, imageSlots]);
+
+    const activeSelectedCount = useMemo(() => {
+        return checkedSequenceOutputIndices.filter(i => activeFrameIndices.includes(i)).length;
+    }, [checkedSequenceOutputIndices, activeFrameIndices]);
+
     // Layout Calculations
     const layout = useMemo(() => {
         if (!isSequenceMode) return { columns: 0, totalHeight: 0, totalItems: 0 };
@@ -160,31 +178,33 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
         const effectiveWidth = Math.max(0, containerWidth - 16); // p-2 is 8px * 2
         const columns = Math.max(1, Math.floor((effectiveWidth + GAP) / (ITEM_SIZE + GAP)));
         
-        // Use totalFrames in Sequential Editing mode, otherwise match input slots
-        const totalItems = isSequentialEditingWithPrompts ? totalFrames : imageSlots.length;
-        
+        const totalItems = activeFrameIndices.length;
         const totalRows = Math.ceil(totalItems / columns);
         const totalHeight = totalRows * (ITEM_SIZE + GAP) + GAP; // Add bottom padding
 
         return { columns, totalHeight, totalItems };
-    }, [containerWidth, imageSlots.length, isSequenceMode, isSequentialEditingWithPrompts, totalFrames]);
+    }, [containerWidth, activeFrameIndices.length, isSequenceMode]);
 
     const getVisibleItems = () => {
         const { columns, totalItems } = layout;
+        if (columns <= 0 || totalItems === 0) return [];
+
         const buffer = 400; // pixels to render offscreen
         const visibleStart = Math.max(0, scrollTop - buffer);
         const visibleEnd = scrollTop + (containerRef.current?.clientHeight || 500) + buffer;
 
-        const startRow = Math.floor(visibleStart / (ITEM_SIZE + GAP));
+        const startRow = Math.max(0, Math.floor(visibleStart / (ITEM_SIZE + GAP)));
         const endRow = Math.ceil(visibleEnd / (ITEM_SIZE + GAP));
         
         const visibleIndices = [];
         for (let r = startRow; r <= endRow; r++) {
             for (let c = 0; c < columns; c++) {
-                const index = (r * columns) + c;
-                if (index < totalItems) {
+                const gridIndex = (r * columns) + c;
+                if (gridIndex < totalItems) {
+                    const originalIndex = activeFrameIndices[gridIndex];
                     visibleIndices.push({
-                        index,
+                        gridIndex,
+                        index: originalIndex,
                         top: r * (ITEM_SIZE + GAP),
                         left: c * (ITEM_SIZE + GAP)
                     });
@@ -211,7 +231,9 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
         const newIndices: number[] = [];
         // Convert 1-based input to 0-based index
         for(let i = effectiveStart - 1; i < effectiveEnd; i++) {
-            newIndices.push(i);
+            if (activeFrameIndices.includes(i)) {
+                newIndices.push(i);
+            }
         }
         onUpdateState({ checkedSequenceOutputIndices: newIndices });
     };
@@ -237,7 +259,9 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
         // Apply Selection immediately
         const newIndices: number[] = [];
         for(let i = newStart - 1; i < newEnd; i++) {
-            newIndices.push(i);
+            if (activeFrameIndices.includes(i)) {
+                newIndices.push(i);
+            }
         }
         onUpdateState({ checkedSequenceOutputIndices: newIndices });
     };
@@ -258,10 +282,10 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                      <label className="text-xs font-medium text-gray-400 pl-1">{isSequenceMode ? t('image_sequence.output_images_title') : t('node.content.outputImage')}</label>
                      {isSequenceMode && (
                          <div className="text-[10px] text-gray-500 flex space-x-2 border-l border-gray-600 pl-3">
-                             <span>Total: <span className="text-gray-300">{totalFrames}</span></span>
+                             <span>Total: <span className="text-gray-300">{activeFrameIndices.length}</span></span>
                              <span className={doneCount > 0 ? "text-cyan-400" : ""}>Done: {doneCount}</span>
-                             <span className="text-emerald-400">Selected: {checkedSequenceOutputIndices.length}</span>
-                             {isEditing && <span className="text-cyan-400 animate-pulse">Processing: {currentGeneratingDisplay} of {totalFrames}</span>}
+                             <span className="text-emerald-400">Selected: {activeSelectedCount}</span>
+                             {isEditing && <span className="text-cyan-400 animate-pulse">Processing: {currentGeneratingDisplay} of {activeFrameIndices.length}</span>}
                          </div>
                      )}
                 </div>
@@ -325,27 +349,28 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
                      {/* Right: Actions */}
                      <div className="flex items-center space-x-1">
-                            <ActionButton title={t('image_sequence.select_all')} onClick={onSelectAll} disabled={totalFrames === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${totalFrames === 0 ? 'text-gray-600' : 'text-green-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <ActionButton title={t('image_sequence.select_all')} onClick={onSelectAll} disabled={activeFrameIndices.length === 0}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${activeFrameIndices.length === 0 ? 'text-gray-600' : 'text-green-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </ActionButton>
-                            <ActionButton title={t('image_sequence.select_none')} onClick={onSelectNone} disabled={checkedSequenceOutputIndices.length === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${checkedSequenceOutputIndices.length === 0 ? 'text-gray-600' : 'text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <ActionButton title={t('image_sequence.select_none')} onClick={onSelectNone} disabled={activeSelectedCount === 0}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${activeSelectedCount === 0 ? 'text-gray-600' : 'text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </ActionButton>
-                            <ActionButton title={t('image_sequence.invert_selection')} onClick={onInvertSelection} disabled={totalFrames === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${totalFrames === 0 ? 'text-gray-600' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                            <ActionButton title={t('image_sequence.invert_selection')} onClick={onInvertSelection} disabled={activeFrameIndices.length === 0}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${activeFrameIndices.length === 0 ? 'text-gray-600' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
                             </ActionButton>
 
                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
 
-                            <ActionButton title={t('image_sequence.run_selected')} onClick={onRunSelected} disabled={isEditing || checkedSequenceOutputIndices.length === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(isEditing || checkedSequenceOutputIndices.length === 0) ? 'text-gray-600' : 'text-emerald-400'}`} viewBox="0 0 20 20" fill="currentColor">
+                            <ActionButton title={t('image_sequence.run_selected')} onClick={onRunSelected} disabled={isEditing || activeSelectedCount === 0}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(isEditing || activeSelectedCount === 0) ? 'text-gray-600' : 'text-emerald-400'}`} viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                                 </svg>
                             </ActionButton>
 
-                            <ActionButton title={`${t('image_sequence.download_selected')} (${checkedSequenceOutputIndices.length})`} onClick={async () => {
+                            <ActionButton title={`${t('image_sequence.download_selected')} (${activeSelectedCount})`} onClick={async () => {
                                  // Handle ZIP logic here if needed or let parent handle
-                                 const sorted = [...checkedSequenceOutputIndices].sort((a, b) => a - b);
+                                 const activeSelected = checkedSequenceOutputIndices.filter(i => activeFrameIndices.includes(i));
+                                 const sorted = [...activeSelected].sort((a, b) => a - b);
                                  const now = new Date();
                                  const date = now.toISOString().split('T')[0];
 
@@ -384,8 +409,8 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                  } else {
                                      onDownloadSelected();
                                  }
-                            }} disabled={checkedSequenceOutputIndices.length === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(checkedSequenceOutputIndices.length === 0) ? 'text-gray-600' : 'text-sky-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            }} disabled={activeSelectedCount === 0}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(activeSelectedCount === 0) ? 'text-gray-600' : 'text-sky-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
                             </ActionButton>
@@ -407,7 +432,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             
             {!isSequenceMode && (
                 <div onClick={onOutputClick} onWheel={(e) => e.stopPropagation()} className="relative w-full flex-grow bg-gray-900/50 rounded-md flex items-center justify-center overflow-hidden group cursor-pointer">
-                    {outputImage ? <img src={fullSizeOutputForCopy || outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { e.dataTransfer.setData('application/prompt-modifier-drag-image', imageToDrag); e.dataTransfer.effectAllowed = 'copy'; e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
+                    {outputImage ? <img src={fullSizeOutputForCopy || outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { setupImageDragData(e, imageToDrag, `Output_${Date.now()}.png`); e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
                     {outputImage && !isEditing && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-4">
                             <button onClick={(e) => { e.stopPropagation(); onCopy(); }} className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto" aria-label={t('node.action.copy')} title={t('node.action.copy')}>
@@ -438,9 +463,6 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     >
                         <div style={{ height: layout.totalHeight, width: '100%', position: 'relative' }}>
                         {getVisibleItems().map(({ index, top, left }) => {
-                            const isInputChecked = isSequentialEditingWithPrompts || (!checkedInputIndices || checkedInputIndices.includes(index));
-                            if (!isInputChecked) return null;
-
                             const slot = imageSlots[index];
                             // Allow slot to be undefined in Sequential Editing mode (we just need index existence)
                             if (!slot && !isSequentialEditingWithPrompts) return null;
@@ -485,8 +507,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                             onDragStart={(e) => {
                                                 const srcToDrag = fullSizeUrl || displaySrc;
                                                 if (srcToDrag) {
-                                                    e.dataTransfer.setData('application/prompt-modifier-drag-image', srcToDrag);
-                                                    e.dataTransfer.effectAllowed = 'copy';
+                                                    setupImageDragData(e, srcToDrag, `Frame_${index + 1}_${Date.now()}.png`);
                                                     e.stopPropagation();
                                                 }
                                             }}

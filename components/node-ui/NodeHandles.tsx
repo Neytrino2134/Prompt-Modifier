@@ -14,6 +14,8 @@ interface HandleProps {
   isProxy?: boolean;
   onOutputHandleMouseDown?: (e: React.MouseEvent<HTMLDivElement>, nodeId: string, handleId?: string) => void;
   onOutputHandleTouchStart?: (e: React.TouchEvent<HTMLDivElement>, nodeId: string, handleId?: string) => void;
+  onInputHandleMouseDown?: (e: React.MouseEvent<HTMLDivElement>, nodeId: string, handleId?: string) => void;
+  onInputHandleTouchStart?: (e: React.TouchEvent<HTMLDivElement>, nodeId: string, handleId?: string) => void;
   connectedInputType?: string; // New prop for Data Reader coloring
 }
 
@@ -29,7 +31,7 @@ const OutputTooltip: React.FC<{ text: string }> = ({ text }) => (
     </div>
 );
 
-export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, handleCursor, isCollapsed, isProxy, connectedInputType }) => {
+export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, handleCursor, isCollapsed, isProxy, connectedInputType, onInputHandleMouseDown, onInputHandleTouchStart }) => {
     
     // Memoize parsed values to avoid repeated JSON.parse
     const imageEditorState = React.useMemo(() => {
@@ -78,9 +80,25 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
         return handleType;
     };
 
+    const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, handleId?: string) => {
+        e.stopPropagation();
+        if (onInputHandleMouseDown) {
+            onInputHandleMouseDown(e, node.id, handleId);
+        }
+    };
+
+    const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>, handleId?: string) => {
+        e.stopPropagation();
+        if (onInputHandleTouchStart) {
+            onInputHandleTouchStart(e, node.id, handleId);
+        }
+    };
+
     const renderHandle = (handle: { handleId?: string; type: 'text' | 'image' | 'character_data' | 'video' | 'audio' | null; title: string }, top: string | number, key: string) => (
         <div 
             key={key} 
+            onMouseDown={(e) => handleMouseDown(e, handle.handleId)}
+            onTouchStart={(e) => handleTouchStart(e, handle.handleId)}
             style={{ top, cursor: handleCursor, ...handleLeftStyle }} 
             className={`absolute w-5 h-5 rounded-full border-2 border-gray-900 transform -translate-y-1/2 ${getHandleColor(getEffectiveType(handle.type), handle.handleId)} group/handle transition-[transform,border-color,background-color] duration-200 hover:scale-125 hover:border-white hover:z-20`}
             data-is-input-handle="true"
@@ -279,6 +297,12 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
     }
     if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
          return renderHandle({ type: 'text', handleId: 'prompts_sequence', title: 'Prompts Sequence Input' }, '50%', 'prompts_sequence');
+    }
+    if (node.type === NodeType.IMAGE_INPUT) {
+        const contentHeight = node.height - HEADER_HEIGHT - 2 * CONTENT_PADDING;
+        const availableContentHeight = Math.max(0, contentHeight);
+        const y = HEADER_HEIGHT + CONTENT_PADDING + (availableContentHeight / 4);
+        return renderHandle({ type: 'image', handleId: 'image', title: 'Image / Batch Input' }, `${y}px`, 'image');
     }
 
     const inputType = getInputHandleType(node, undefined);
