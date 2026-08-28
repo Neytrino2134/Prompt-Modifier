@@ -34,7 +34,19 @@ export const useDialogsAndUI = (props: UseDialogsAndUIProps) => {
     const [isCatalogOpen, setIsCatalogOpen] = useState(false);
     const [renameInfo, setRenameInfo] = useState<{ type: 'group' | 'catalog' | 'library' | 'tab' | 'character' | 'script' | 'sequence' | 'node'; id: string; currentTitle: string } | null>(null);
     const [promptEditInfo, setPromptEditInfo] = useState<LibraryItem | null>(null);
-    const [confirmInfo, setConfirmInfo] = useState<{ title: string; message: string; onConfirm: () => void; } | null>(null);
+    const [confirmInfo, setConfirmInfo] = useState<{
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        confirmLabel?: string;
+        cancelLabel?: string;
+        confirmVariant?: 'accent' | 'danger' | 'primary';
+        secondaryAction?: {
+            label: string;
+            onAction: () => void;
+            className?: string;
+        };
+    } | null>(null);
     const [isErrorCopied, setIsErrorCopied] = useState(false);
     const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
     const apiKeyCallbacks = useRef({ onSelect: () => {}, onClose: () => {} });

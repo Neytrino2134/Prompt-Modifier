@@ -67,6 +67,7 @@ export const editors = {
     'image_sequence.output_images_title': 'Ausgabebilder',
     'image_sequence.prompts_list_title': 'Quell-Prompts',
     'image_sequence.download_selected': 'Auswahl herunterladen',
+    'image_sequence.download_selected_zip': 'Auswahl herunterladen (ZIP)',
     'image_sequence.select_all': 'Alle auswählen',
     'image_sequence.select_none': 'Keine auswählen',
     'image_sequence.invert_selection': 'Auswahl umkehren',

@@ -53,5 +53,7 @@ export const dialogs = {
     'dialog.deleteNode.cancelTooltip': 'Non chiudere - continua a lavorare con il nodo',
     'dialog.deleteNode.dontShowAgain': 'Non mostrare più',
     'dialog.exitApp.title': 'Chiudere il Progetto?',
-    'dialog.exitApp.message': 'Sei sicuro di voler chiudere il progetto? Tutto il lavoro corrente andrà perso e la tela verrà resettata.',
+    'dialog.exitApp.message': 'Sei sicuro di voler chiudere il progetto? Vuoi salvare le modifiche prima di uscire?',
+    'dialog.exitApp.saveAndClose': 'Salva e chiudi',
+    'dialog.exitApp.dontSave': 'Chiudi senza salvare',
 };

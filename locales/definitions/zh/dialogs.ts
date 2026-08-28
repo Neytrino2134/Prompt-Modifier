@@ -53,5 +53,7 @@ export const dialogs = {
     'dialog.deleteNode.cancelTooltip': '不关闭 - 继续使用该节点',
     'dialog.deleteNode.dontShowAgain': '不再显示',
     'dialog.exitApp.title': '关闭项目？',
-    'dialog.exitApp.message': '您确定要关闭项目吗？所有当前工作将丢失，画布将重置。',
+    'dialog.exitApp.message': '您确定要关闭项目吗？退出前是否保存更改？',
+    'dialog.exitApp.saveAndClose': '保存并关闭',
+    'dialog.exitApp.dontSave': '不保存并关闭',
 };

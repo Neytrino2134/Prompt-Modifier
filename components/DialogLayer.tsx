@@ -215,6 +215,10 @@ const DialogLayer: React.FC = () => {
                 message={confirmInfo?.message || ''}
                 onConfirm={confirmInfo?.onConfirm || (() => { })}
                 onClose={() => setConfirmInfo(null)}
+                confirmLabel={confirmInfo?.confirmLabel}
+                cancelLabel={confirmInfo?.cancelLabel}
+                confirmVariant={confirmInfo?.confirmVariant}
+                secondaryAction={confirmInfo?.secondaryAction}
             />
             
             <ErrorDialog 

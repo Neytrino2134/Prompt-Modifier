@@ -69,6 +69,7 @@ export const editors = {
     'image_sequence.output_images_title': 'Готовые изображения',
     'image_sequence.prompts_list_title': 'Исходные промпты',
     'image_sequence.download_selected': 'Скачать выбранные',
+    'image_sequence.download_selected_zip': 'Скачать выбранные (ZIP)',
     'image_sequence.select_all': 'Выбрать все',
     'image_sequence.select_none': 'Снять выделение',
     'image_sequence.invert_selection': 'Инвертировать',

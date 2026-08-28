@@ -87,6 +87,7 @@ interface OutputPanelProps {
     onUpdateState: (updates: Partial<ImageEditorState>) => void;
     onRunSelected: () => void;
     onDownloadSelected: () => void;
+    onDownloadSelectedZip: () => void;
     onStartQueue: () => void;
     onStop: () => void;
     onEdit: () => void;
@@ -123,7 +124,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     state, imageSlots, hasInputImages, isEditing, isStopping, isGlobalProcessing,
     totalFrames, doneCount, currentGeneratingDisplay, fullSizeOutputForCopy, imageForEditor,
     modelOptions, isNanoBanana,
-    onUpdateState, onRunSelected, onDownloadSelected, onStartQueue, onStop, onEdit, onOpenEditor, onSetOutputToInput,
+    onUpdateState, onRunSelected, onDownloadSelected, onDownloadSelectedZip, onStartQueue, onStop, onEdit, onOpenEditor, onSetOutputToInput,
     onDownload, onCopy, onSelectAll, onSelectNone, onInvertSelection, onManualRefresh,
     onOutputClick, onSequenceOutputClick, onCheckOutput, onCopyFrame, onDownloadFrame, onRegenerateFrame, onStopFrame,
     getFullSizeImage, t, upstreamPrompt, isTextConnected,
@@ -367,51 +368,17 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                 </svg>
                             </ActionButton>
 
-                            <ActionButton title={`${t('image_sequence.download_selected')} (${activeSelectedCount})`} onClick={async () => {
-                                 // Handle ZIP logic here if needed or let parent handle
-                                 const activeSelected = checkedSequenceOutputIndices.filter(i => activeFrameIndices.includes(i));
-                                 const sorted = [...activeSelected].sort((a, b) => a - b);
-                                 const now = new Date();
-                                 const date = now.toISOString().split('T')[0];
-
-                                 if (createZip) {
-                                     try {
-                                         const JSZipConstructor = (JSZip as any).default || JSZip;
-                                         const zip = new JSZipConstructor();
-                                         
-                                         for (const idx of sorted) {
-                                             const src = getFullSizeImage(1000 + idx) || sequenceOutputs[idx]?.thumbnail;
-                                             if (src && src.startsWith('data:image')) {
-                                                 const paddedFrame = String(idx + 1).padStart(3, '0');
-                                                 const ext = src.match(/image\/(png|jpeg|jpg)/)?.[1] || 'png';
-                                                 const filename = `Image_Editor_Frame_${paddedFrame}.${ext}`;
-                                                 
-                                                 // Optimize: Convert to blob instead of string split to avoid main thread freeze
-                                                 const blob = await (await fetch(src)).blob();
-                                                 zip.file(filename, blob);
-                                             }
-                                         }
-                                         
-                                         // USE 'STORE' compression to speed up archiving
-                                         const content = await zip.generateAsync({ 
-                                             type: 'blob',
-                                             compression: 'STORE'
-                                         });
-                                         
-                                         const link = document.createElement('a');
-                                         link.href = URL.createObjectURL(content);
-                                         link.download = `Image_Editor_Sequence_${date}.zip`;
-                                         link.click();
-                                         URL.revokeObjectURL(link.href);
-                                     } catch (e) {
-                                         console.error("ZIP Error", e);
-                                     }
-                                 } else {
-                                     onDownloadSelected();
-                                 }
-                            }} disabled={activeSelectedCount === 0}>
+                            {/* Download Selected (individual files) */}
+                            <ActionButton title={`${t('image_sequence.download_selected')} (${activeSelectedCount})`} onClick={onDownloadSelected} disabled={activeSelectedCount === 0}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(activeSelectedCount === 0) ? 'text-gray-600' : 'text-sky-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                            </ActionButton>
+
+                            {/* Download Selected as ZIP */}
+                            <ActionButton title={`${t('image_sequence.download_selected_zip')} (${activeSelectedCount})`} onClick={onDownloadSelectedZip} disabled={activeSelectedCount === 0}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(activeSelectedCount === 0) ? 'text-gray-600' : 'text-amber-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                                 </svg>
                             </ActionButton>
 
@@ -613,7 +580,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     </div>
                 )}
 
-                {/* Auto Crop Toggle (Moved here) */}
+                {/* Auto Crop Toggle */}
                 <div 
                     onClick={() => onUpdateState({ autoCrop169: !autoCrop169 })}
                     className={`h-[36px] flex-shrink-0 flex items-center gap-2 px-2 rounded-md cursor-pointer transition-colors border ${autoCrop169 ? 'bg-indigo-900/40 border-indigo-500/50' : 'bg-gray-800 border-gray-700 hover:border-gray-600'}`}
@@ -622,6 +589,18 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                      <span className={`text-[10px] font-bold uppercase whitespace-nowrap ${autoCrop169 ? 'text-indigo-300' : 'text-gray-400'}`}>Crop 16:9</span>
                      <div className={`w-8 h-4 rounded-full relative transition-colors ${autoCrop169 ? 'bg-indigo-500' : 'bg-gray-600'}`}>
                          <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${autoCrop169 ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
+                     </div>
+                </div>
+
+                {/* Auto Download Toggle */}
+                <div 
+                    onClick={() => onUpdateState({ autoDownload: !autoDownload })}
+                    className={`h-[36px] flex-shrink-0 flex items-center gap-2 px-2 rounded-md cursor-pointer transition-colors border ${autoDownload ? 'bg-indigo-900/40 border-indigo-500/50' : 'bg-gray-800 border-gray-700 hover:border-gray-600'}`}
+                    title={t('image_sequence.tooltip.autoDownload')}
+                >
+                     <span className={`text-[10px] font-bold uppercase whitespace-nowrap ${autoDownload ? 'text-indigo-300' : 'text-gray-400'}`}>{t('node.content.autoDownload')}</span>
+                     <div className={`w-8 h-4 rounded-full relative transition-colors ${autoDownload ? 'bg-indigo-500' : 'bg-gray-600'}`}>
+                         <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${autoDownload ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
                      </div>
                 </div>
 
@@ -648,11 +627,19 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                         </Tooltip>
                     )}
                     
-                    {/* Sequence Mode: Download Button */}
+                    {/* Sequence Mode: Download Selected ZIP Button */}
                     {isSequenceMode && (
-                        <button onClick={onDownloadSelected} disabled={checkedSequenceOutputIndices.length === 0} className="flex-shrink-0 min-w-max px-3 h-[36px] py-2 text-sm items-center justify-center whitespace-nowrap font-bold text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
-                             {createZip ? 'Download ZIP' : `${t('image_sequence.download_selected')} (${checkedSequenceOutputIndices.length})`}
-                        </button>
+                        <Tooltip content={`${t('image_sequence.download_selected_zip')} (${checkedSequenceOutputIndices.length})`}>
+                            <button 
+                                onClick={onDownloadSelectedZip} 
+                                disabled={checkedSequenceOutputIndices.length === 0} 
+                                className="flex-shrink-0 h-[36px] w-[36px] flex items-center justify-center font-bold text-white bg-sky-600 rounded-md hover:bg-sky-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                </svg>
+                            </button>
+                        </Tooltip>
                     )}
                 </div>
                 

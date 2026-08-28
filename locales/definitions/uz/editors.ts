@@ -67,6 +67,7 @@ export const editors = {
     'image_sequence.output_images_title': 'Chiqish Rasmlari',
     'image_sequence.prompts_list_title': 'Manba Promptlar',
     'image_sequence.download_selected': 'Tanlanganlarni Yuklash',
+    'image_sequence.download_selected_zip': 'Tanlanganlarni ZIP sifatida yuklash',
     'image_sequence.select_all': 'Hammasini Tanlash',
     'image_sequence.select_none': 'Tanlovni Bekor Qilish',
     'image_sequence.invert_selection': 'Tanlovni Teskari Qilish',

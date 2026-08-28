@@ -68,6 +68,7 @@ export const editors = {
     'image_sequence.output_images_title': '出力画像',
     'image_sequence.prompts_list_title': 'ソースプロンプト',
     'image_sequence.download_selected': '選択項目をダウンロード',
+    'image_sequence.download_selected_zip': '選択項目をZIPでダウンロード',
     'image_sequence.select_all': 'すべて選択',
     'image_sequence.select_none': '選択解除',
     'image_sequence.invert_selection': '選択反転',

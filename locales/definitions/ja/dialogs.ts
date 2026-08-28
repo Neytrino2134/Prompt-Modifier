@@ -53,5 +53,7 @@ export const dialogs = {
     'dialog.deleteNode.cancelTooltip': '閉じない - ノードでの作業を続ける',
     'dialog.deleteNode.dontShowAgain': '今後表示しない',
     'dialog.exitApp.title': 'プロジェクトを閉じますか？',
-    'dialog.exitApp.message': 'プロジェクトを閉じてもよろしいですか？現在の作業はすべて失われ、キャンバスはリセットされます。',
+    'dialog.exitApp.message': 'プロジェクトを閉じてもよろしいですか？終了する前に変更を保存しますか？',
+    'dialog.exitApp.saveAndClose': '保存して閉じる',
+    'dialog.exitApp.dontSave': '保存せずに閉じる',
 };

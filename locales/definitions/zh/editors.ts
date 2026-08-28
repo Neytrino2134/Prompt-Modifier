@@ -67,6 +67,7 @@ export const editors = {
     'image_sequence.output_images_title': '输出图像',
     'image_sequence.prompts_list_title': '源提示词',
     'image_sequence.download_selected': '下载选中',
+    'image_sequence.download_selected_zip': '以 ZIP 下载选中项',
     'image_sequence.select_all': '全选',
     'image_sequence.select_none': '取消选择',
     'image_sequence.invert_selection': '反向选择',

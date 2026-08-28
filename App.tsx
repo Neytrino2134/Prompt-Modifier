@@ -92,13 +92,28 @@ const Editor: React.FC = () => {
       if (isElectron && setConfirmInfo && t) {
           removeElectronListener = (window as any).electronAPI.onCloseRequested(() => {
               if (hasContentRef.current) {
-                  // Show in-app custom dialog
+                  // Show in-app custom dialog with Save & Close, Close without Saving, and Cancel
                   setConfirmInfo({
                       title: t('dialog.exitApp.title'),
                       message: t('dialog.exitApp.message'),
+                      confirmLabel: t('dialog.exitApp.saveAndClose'),
+                      confirmVariant: 'accent',
                       onConfirm: () => {
-                          (window as any).electronAPI.forceClose();
-                      }
+                          if (context?.handleSaveProject) {
+                              context.handleSaveProject();
+                          }
+                          setTimeout(() => {
+                              (window as any).electronAPI.forceClose();
+                          }, 600);
+                      },
+                      secondaryAction: {
+                          label: t('dialog.exitApp.dontSave'),
+                          onAction: () => {
+                              (window as any).electronAPI.forceClose();
+                          },
+                          className: 'px-4 py-2 font-semibold text-rose-400 bg-rose-950/40 hover:bg-rose-900/60 hover:text-rose-200 rounded-lg transition-colors border border-rose-800/60'
+                      },
+                      cancelLabel: t('dialog.confirmDelete.cancel')
                   });
               } else {
                   // No content, close immediately

@@ -53,5 +53,7 @@ export const dialogs = {
     'dialog.deleteNode.cancelTooltip': 'Ne pas fermer - continuer à travailler',
     'dialog.deleteNode.dontShowAgain': 'Ne plus afficher',
     'dialog.exitApp.title': 'Fermer le projet ?',
-    'dialog.exitApp.message': 'Voulez-vous vraiment fermer le projet ? Tout travail actuel sera perdu et le canevas sera réinitialisé.',
+    'dialog.exitApp.message': 'Voulez-vous vraiment fermer le projet ? Souhaitez-vous enregistrer vos modifications avant de quitter ?',
+    'dialog.exitApp.saveAndClose': 'Enregistrer et fermer',
+    'dialog.exitApp.dontSave': 'Fermer sans enregistrer',
 };

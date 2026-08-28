@@ -53,5 +53,7 @@ export const dialogs = {
     'dialog.deleteNode.cancelTooltip': 'Nicht schließen - weiterarbeiten',
     'dialog.deleteNode.dontShowAgain': 'Nicht mehr anzeigen',
     'dialog.exitApp.title': 'Projekt schließen?',
-    'dialog.exitApp.message': 'Möchten Sie das Projekt wirklich schließen? Alle aktuellen Arbeiten gehen verloren und die Leinwand wird zurückgesetzt.',
+    'dialog.exitApp.message': 'Möchten Sie das Projekt wirklich schließen? Möchten Sie Ihre Änderungen vor dem Beenden speichern?',
+    'dialog.exitApp.saveAndClose': 'Speichern und Schließen',
+    'dialog.exitApp.dontSave': 'Ohne Speichern schließen',
 };

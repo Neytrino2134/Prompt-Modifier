@@ -67,6 +67,7 @@ export const editors = {
     'image_sequence.output_images_title': '출력 이미지',
     'image_sequence.prompts_list_title': '소스 프롬프트',
     'image_sequence.download_selected': '선택 항목 다운로드',
+    'image_sequence.download_selected_zip': '선택 항목 ZIP 다운로드',
     'image_sequence.select_all': '모두 선택',
     'image_sequence.select_none': '선택 해제',
     'image_sequence.invert_selection': '선택 반전',

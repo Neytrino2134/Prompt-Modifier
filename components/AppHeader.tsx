@@ -109,7 +109,12 @@ const AppHeader: React.FC = () => {
         setConfirmInfo({
             title: t('dialog.exitApp.title'),
             message: t('dialog.exitApp.message'),
+            confirmLabel: t('dialog.exitApp.saveAndClose'),
+            confirmVariant: 'accent',
             onConfirm: () => {
+                if (context?.handleSaveProject) {
+                    context.handleSaveProject();
+                }
                 loadCanvasState({
                     nodes: [],
                     connections: [],
@@ -119,7 +124,23 @@ const AppHeader: React.FC = () => {
                     fullSizeImageCache: {}
                 });
                 setShowWelcome(true);
-            }
+            },
+            secondaryAction: {
+                label: t('dialog.exitApp.dontSave'),
+                onAction: () => {
+                    loadCanvasState({
+                        nodes: [],
+                        connections: [],
+                        groups: [],
+                        viewTransform: { scale: 1, translate: { x: 0, y: 0 } },
+                        nodeIdCounter: 1,
+                        fullSizeImageCache: {}
+                    });
+                    setShowWelcome(true);
+                },
+                className: 'px-4 py-2 font-semibold text-rose-400 bg-rose-950/40 hover:bg-rose-900/60 hover:text-rose-200 rounded-lg transition-colors border border-rose-800/60'
+            },
+            cancelLabel: t('dialog.confirmDelete.cancel')
         });
     };
     

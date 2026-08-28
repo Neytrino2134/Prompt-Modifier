@@ -52,6 +52,8 @@ export const dialogs = {
     'dialog.deleteNode.confirmTooltip': 'Tugunni yopish - yo\'qolgan ma\'lumotlarni qaytarib bo\'lmaydi',
     'dialog.deleteNode.cancelTooltip': 'Yopmaslik - tugun bilan ishlashni davom ettirish',
     'dialog.deleteNode.dontShowAgain': 'Qayta ko\'rsatilmasin',
-    'dialog.exitApp.title': 'Loyihani yopishni xohlaysizmi?',
-    'dialog.exitApp.message': 'Loyihani yopishni xohlaysizmi? Barcha joriy ishlar yo\'qoladi va xolst asl holatiga qaytariladi.',
+    'dialog.exitApp.title': 'Loyihani yopish?',
+    'dialog.exitApp.message': 'Haqiqatan ham loyihani yopmoqchimisiz? Chiqishdan oldin o\'zgarishlarni saqlashni xohlaysizmi?',
+    'dialog.exitApp.saveAndClose': 'Saqlash va yopish',
+    'dialog.exitApp.dontSave': 'Saqlamasdan yopish',
 };

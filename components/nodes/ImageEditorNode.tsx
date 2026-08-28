@@ -824,42 +824,65 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                      const now = new Date();
                      const date = now.toISOString().split('T')[0];
 
-                     if (createZip) {
-                         try {
-                             const zip = new JSZip();
-                             
-                             for (const idx of sorted) {
-                                 const src = getFullSizeImage(node.id, 1000 + idx) || sequenceOutputs[idx]?.thumbnail;
-                                 if (src && src.startsWith('data:image')) {
-                                     const paddedFrame = String(idx + 1).padStart(3, '0');
-                                     const filename = `Image_Editor_Frame_${paddedFrame}.png`;
-                                     const base64Data = src.split(',')[1];
-                                     zip.file(filename, base64Data, { base64: true });
-                                 }
-                             }
-                             
-                             const content = await zip.generateAsync({ type: 'blob' });
-                             const link = document.createElement('a');
-                             link.href = URL.createObjectURL(content);
-                             link.download = `Image_Editor_${date}.zip`;
-                             link.click();
-                             URL.revokeObjectURL(link.href);
-                             if(addToast) addToast("ZIP Downloaded", 'success');
-                         } catch (e) {
-                             console.error("ZIP Error", e);
-                             if(addToast) addToast("Failed to create ZIP", 'error');
+                     for (const idx of sorted) {
+                         const src = getFullSizeImage(node.id, 1000 + idx) || sequenceOutputs[idx]?.thumbnail;
+                         const paddedFrame = String(idx + 1).padStart(3, '0');
+                         const filename = `Image_Editor_Frame_${paddedFrame}_${date}.png`;
+                         
+                         if (src) { 
+                             onDownloadImageFromUrl(src, idx + 1, prompt || 'Sequence', filename); 
+                             await new Promise(r => setTimeout(r, 300)); 
                          }
-                     } else {
+                     }
+                }}
+                onDownloadSelectedZip={async () => {
+                     const sorted = [...checkedSequenceOutputIndices].sort((a, b) => a - b);
+                     if (sorted.length === 0) return;
+                     const now = new Date();
+                     const date = now.toISOString().split('T')[0];
+
+                     try {
+                         const JSZipConstructor = (JSZip as any).default || JSZip;
+                         const zip = new JSZipConstructor();
+                         let added = 0;
+                         
                          for (const idx of sorted) {
                              const src = getFullSizeImage(node.id, 1000 + idx) || sequenceOutputs[idx]?.thumbnail;
-                             const paddedFrame = String(idx + 1).padStart(3, '0');
-                             const filename = `Image_Editor_Frame_${paddedFrame}_${date}.png`;
-                             
-                             if (src) { 
-                                 onDownloadImageFromUrl(src, idx + 1, prompt || 'Sequence', filename); 
-                                 await new Promise(r => setTimeout(r, 300)); 
+                             if (src) {
+                                 const paddedFrame = String(idx + 1).padStart(3, '0');
+                                 const ext = src.match(/image\/(png|jpeg|jpg|webp)/)?.[1] || 'png';
+                                 const filename = `Image_Editor_Frame_${paddedFrame}.${ext}`;
+                                 
+                                 if (src.startsWith('data:image')) {
+                                     const blob = await (await fetch(src)).blob();
+                                     zip.file(filename, blob);
+                                     added++;
+                                 } else if (src.startsWith('http') || src.startsWith('blob:')) {
+                                     const blob = await (await fetch(src)).blob();
+                                     zip.file(filename, blob);
+                                     added++;
+                                 }
                              }
                          }
+                         
+                         if (added === 0) {
+                             if (addToast) addToast("No images to download", 'error');
+                             return;
+                         }
+
+                         const content = await zip.generateAsync({ 
+                             type: 'blob',
+                             compression: 'STORE'
+                         });
+                         const link = document.createElement('a');
+                         link.href = URL.createObjectURL(content);
+                         link.download = `Image_Editor_${date}.zip`;
+                         link.click();
+                         URL.revokeObjectURL(link.href);
+                         if (addToast) addToast("ZIP Downloaded", 'success');
+                     } catch (e) {
+                         console.error("ZIP Error", e);
+                         if (addToast) addToast("Failed to create ZIP", 'error');
                      }
                 }}
                 onStartQueue={() => { }}
