@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BatchJobRecord, BatchJobState, TaskStatus, ToastType } from '../types';
+import { BatchJobRecord, BatchJobItem, BatchJobState, TaskStatus, ToastType } from '../types';
 import { 
     createBatchImageJob, 
     getBatchJobStatus, 
@@ -8,7 +8,9 @@ import {
     listAllRemoteBatchJobs,
     BatchRequestItemInput
 } from '../services/geminiService';
+import { clearAllOpenAiBatches } from '../services/openaiService';
 import { generateThumbnail, cropImageTo169 } from '../utils/imageUtils';
+import { recordGenerationEvent } from '../utils/generationStats';
 
 const STORAGE_KEY_BATCH_JOBS = 'gemini_batch_jobs_v1';
 const STORAGE_KEY_BATCH_MODE = 'settings_isBatchMode';
@@ -53,12 +55,15 @@ export const useBatchManager = ({
         });
     }, []);
 
-    // 2. Persistent Batch Jobs State
+    // 2. Persistent Batch Jobs State with strict filtering to prevent corrupt objects
     const [batchJobs, setBatchJobs] = useState<BatchJobRecord[]>(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY_BATCH_JOBS);
             if (saved) {
-                return JSON.parse(saved);
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    return parsed.filter(j => j && typeof j === 'object' && (j.id || j.name) && Array.isArray(j.items));
+                }
             }
         } catch (e) {
             console.error("Failed to load batch jobs from storage", e);
@@ -70,6 +75,7 @@ export const useBatchManager = ({
     batchJobsRef.current = batchJobs;
 
     const [isPolling, setIsPolling] = useState<boolean>(false);
+    const [fetchingJobIds, setFetchingJobIds] = useState<{ [jobId: string]: boolean }>({});
 
     // Save batch jobs to localStorage whenever changed
     const persistBatchJobs = useCallback((updater: (prev: BatchJobRecord[]) => BatchJobRecord[]) => {
@@ -96,27 +102,47 @@ export const useBatchManager = ({
         return 'PENDING';
     };
 
-    // 3. Process Completed Batch Job Results
-    const handleJobCompleted = useCallback(async (job: BatchJobRecord, sdkJob: any) => {
+    // 3. Explicit on-demand Download of Completed Batch Job Results from Server
+    const fetchBatchJobResults = useCallback(async (jobIdOrName: string) => {
+        const job = batchJobsRef.current.find(j => j.id === jobIdOrName || j.name === jobIdOrName);
+        if (!job) {
+            console.warn(`Job not found for results fetch: ${jobIdOrName}`);
+            return;
+        }
+
+        const targetJobId = job.id;
+        setFetchingJobIds(prev => ({ ...prev, [targetJobId]: true }));
+
         try {
-            const itemsMeta = job.items.map(item => ({
-                id: item.id,
-                prompt: item.prompt
+            const sdkJob = await getBatchJobStatus(job.name || job.id);
+            if (!sdkJob) {
+                throw new Error("Could not retrieve batch status from server");
+            }
+
+            // Extract items metadata
+            const itemsMeta = (job.items || []).map((item, idx) => ({
+                id: item.id || `item-${idx}`,
+                prompt: item.prompt || `Batch Item #${idx + 1}`
             }));
 
             const extracted = await extractImagesFromBatchJob(sdkJob, itemsMeta);
+            if (!extracted || extracted.length === 0) {
+                throw new Error(sdkJob.error?.message || "No image results returned from batch API");
+            }
 
             let successCount = 0;
-            const updatedItems = [...job.items];
+            const updatedItems: BatchJobItem[] = [];
 
-            for (let i = 0; i < job.items.length; i++) {
-                const item = job.items[i];
-                const res = extracted.find(r => r.id === item.id) || extracted[i];
+            for (let i = 0; i < extracted.length; i++) {
+                const ext = extracted[i];
+                const prevItem = job.items.find(it => it.id === ext.id) || job.items[i];
+                const frameNum = prevItem?.frameIndex !== undefined ? prevItem.frameIndex : i;
+                const prompt = ext.prompt || prevItem?.prompt || `Batch Item #${i + 1}`;
 
-                if (res?.imageUrl) {
+                if (ext.imageUrl) {
                     successCount++;
-                    let finalUrl = res.imageUrl;
-                    if (item.autoCrop169) {
+                    let finalUrl = ext.imageUrl;
+                    if (prevItem?.autoCrop169) {
                         try {
                             finalUrl = await cropImageTo169(finalUrl);
                         } catch (e) {
@@ -125,7 +151,6 @@ export const useBatchManager = ({
                     }
 
                     const thumb = await generateThumbnail(finalUrl, 256, 256);
-                    const frameNum = item.frameIndex !== undefined ? item.frameIndex : 0;
 
                     // Cache full size image
                     if (setFullSizeImage && job.nodeId) {
@@ -148,30 +173,39 @@ export const useBatchManager = ({
                         }
                     }
 
-                    // Add to generation history
+                    // Add to generation history (skipStats: true so downloads do not re-increment stats)
                     if (addToHistory) {
-                        addToHistory(finalUrl, item.prompt, job.model || 'gemini-3-pro-image-preview', {
-                            aspectRatio: item.aspectRatio,
-                            resolution: item.resolution,
+                        addToHistory(finalUrl, prompt, job.model || 'gemini-3-pro-image-preview', {
+                            aspectRatio: prevItem?.aspectRatio,
+                            resolution: prevItem?.resolution,
                             isBatch: true,
+                            skipStats: true,
+                            generationMode: 'batch',
                             batchJobName: job.name
                         });
                     }
 
-                    updatedItems[i] = {
-                        ...item,
+                    updatedItems.push({
+                        id: ext.id || prevItem?.id || `item-${i}`,
+                        frameIndex: frameNum,
+                        prompt,
+                        aspectRatio: prevItem?.aspectRatio,
+                        resolution: prevItem?.resolution,
                         status: 'completed',
                         resultUrl: finalUrl
-                    };
+                    });
                 } else {
-                    const err = res?.error || 'Generation failed in batch response';
-                    updatedItems[i] = {
-                        ...item,
+                    const err = ext.error || 'Generation failed in batch response';
+                    updatedItems.push({
+                        id: ext.id || prevItem?.id || `item-${i}`,
+                        frameIndex: frameNum,
+                        prompt,
+                        aspectRatio: prevItem?.aspectRatio,
+                        resolution: prevItem?.resolution,
                         status: 'failed',
                         error: err
-                    };
+                    });
 
-                    const frameNum = item.frameIndex !== undefined ? item.frameIndex : 0;
                     if (updateNodeInStorage && job.tabId && job.nodeId) {
                         if (job.isSequence) {
                             updateNodeInStorage(job.tabId, job.nodeId, (prevNode: any) => {
@@ -184,40 +218,9 @@ export const useBatchManager = ({
                 }
             }
 
-            // If extracted has more items than job.items (e.g. recovered job with placeholder item)
-            if (extracted.length > updatedItems.length) {
-                for (let k = updatedItems.length; k < extracted.length; k++) {
-                    const ext = extracted[k];
-                    if (ext.imageUrl) {
-                        successCount++;
-                        updatedItems.push({
-                            id: ext.id || `item-${k}`,
-                            frameIndex: k,
-                            prompt: `Batch Item #${k + 1}`,
-                            status: 'completed',
-                            resultUrl: ext.imageUrl
-                        });
-                        if (addToHistory) {
-                            addToHistory(ext.imageUrl, `Batch Item #${k + 1}`, job.model || 'gemini-3-pro-image-preview', {
-                                isBatch: true,
-                                batchJobName: job.name
-                            });
-                        }
-                    } else {
-                        updatedItems.push({
-                            id: ext.id || `item-${k}`,
-                            frameIndex: k,
-                            prompt: `Batch Item #${k + 1}`,
-                            status: 'failed',
-                            error: ext.error || 'Failed'
-                        });
-                    }
-                }
-            }
-
             // Update job record
             persistBatchJobs(prev => prev.map(j => {
-                if (j.id === job.id) {
+                if (j.id === targetJobId) {
                     return {
                         ...j,
                         state: 'SUCCEEDED',
@@ -239,61 +242,22 @@ export const useBatchManager = ({
                 try {
                     await triggerAutoSave();
                 } catch (saveErr) {
-                    console.error("Auto-save on batch complete failed:", saveErr);
+                    console.error("Auto-save on batch fetch failed:", saveErr);
                 }
             }
         } catch (e: any) {
-            console.error("Error processing completed batch job:", e);
-            persistBatchJobs(prev => prev.map(j => {
-                if (j.id === job.id) {
-                    return {
-                        ...j,
-                        state: 'FAILED',
-                        error: e?.message || 'Failed to extract batch results',
-                        updatedAt: Date.now()
-                    };
-                }
-                return j;
-            }));
+            console.error("Error downloading batch job results:", e);
+            if (addToast) {
+                addToast(`Failed to download batch results: ${e?.message || e}`, 'error');
+            }
+        } finally {
+            setFetchingJobIds(prev => ({ ...prev, [targetJobId]: false }));
         }
     }, [updateNodeInStorage, setFullSizeImage, addToHistory, addToast, persistBatchJobs, triggerAutoSave, t]);
 
-    // 4. Poll specific Batch Job (with remote recovery fallback if not found locally)
+    // 4. Poll specific Batch Job status (Update status without auto-downloading large assets)
     const checkBatchJob = useCallback(async (jobIdOrName: string) => {
-        let job = batchJobsRef.current.find(j => j.id === jobIdOrName || j.name === jobIdOrName);
-
-        // If not found locally in state, try querying remote API directly to recover it
-        if (!job) {
-            try {
-                const rawRemoteJob = await getBatchJobStatus(jobIdOrName);
-                if (rawRemoteJob) {
-                    const rName = rawRemoteJob.name || rawRemoteJob.id || jobIdOrName;
-                    const mappedState = mapSdkState(rawRemoteJob.state || rawRemoteJob.status);
-                    const recoveredJob: BatchJobRecord = {
-                        id: `batch-rec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-                        name: rName,
-                        displayName: rawRemoteJob.displayName || `Recovered Batch (${rName.split('/').pop()})`,
-                        model: rawRemoteJob.model || 'gemini-3-pro-image-preview',
-                        createdAt: rawRemoteJob.createTime ? new Date(rawRemoteJob.createTime).getTime() : Date.now(),
-                        updatedAt: Date.now(),
-                        state: mappedState,
-                        nodeId: '',
-                        nodeTitle: rawRemoteJob.displayName || 'Batch Job',
-                        isSequence: false,
-                        items: [{
-                            id: 'item-0',
-                            prompt: rawRemoteJob.displayName || 'Batch Task',
-                            status: (mappedState === 'SUCCEEDED' ? 'completed' : (mappedState === 'FAILED' ? 'failed' : 'queued')) as TaskStatus
-                        }]
-                    };
-                    persistBatchJobs(prev => [recoveredJob, ...prev]);
-                    job = recoveredJob;
-                }
-            } catch (fetchErr) {
-                console.warn(`Could not recover remote job ${jobIdOrName}:`, fetchErr);
-            }
-        }
-
+        const job = batchJobsRef.current.find(j => j.id === jobIdOrName || j.name === jobIdOrName);
         if (!job) return;
 
         try {
@@ -302,7 +266,31 @@ export const useBatchManager = ({
             const mappedState = mapSdkState(rawState);
 
             if (mappedState === 'SUCCEEDED') {
-                await handleJobCompleted(job, sdkJob);
+                persistBatchJobs(prev => prev.map(j => {
+                    if (j.id === job!.id) {
+                        let updatedItems = [...j.items];
+                        // If remote metadata lists inlinedRequests, populate accurate count/prompts
+                        if (sdkJob.src?.inlinedRequests && Array.isArray(sdkJob.src.inlinedRequests) && sdkJob.src.inlinedRequests.length > updatedItems.length) {
+                            updatedItems = sdkJob.src.inlinedRequests.map((req: any, idx: number) => {
+                                const promptText = req.contents?.[0]?.parts?.find((p: any) => p.text)?.text || `Batch Item #${idx + 1}`;
+                                const existing = j.items[idx];
+                                return existing || {
+                                    id: `item-${idx}`,
+                                    frameIndex: idx,
+                                    prompt: promptText,
+                                    status: 'completed' as TaskStatus
+                                };
+                            });
+                        }
+                        return {
+                            ...j,
+                            state: 'SUCCEEDED',
+                            updatedAt: Date.now(),
+                            items: updatedItems
+                        };
+                    }
+                    return j;
+                }));
             } else if (mappedState === 'FAILED') {
                 const errMsg = sdkJob.error?.message || 'Batch job failed on server';
                 persistBatchJobs(prev => prev.map(j => {
@@ -331,10 +319,6 @@ export const useBatchManager = ({
                             });
                         }
                     });
-                }
-
-                if (addToast) {
-                    addToast(`Batch job failed: ${errMsg}`, 'error');
                 }
             } else if (mappedState === 'CANCELLED') {
                 persistBatchJobs(prev => prev.map(j => {
@@ -365,9 +349,9 @@ export const useBatchManager = ({
         } catch (err: any) {
             console.warn(`Failed to poll batch job ${job.name}:`, err);
         }
-    }, [handleJobCompleted, persistBatchJobs, updateNodeInStorage, addToast]);
+    }, [persistBatchJobs, updateNodeInStorage]);
 
-    // 5. Poll all active batch jobs AND discover remote batch jobs (Server-sync & recovery)
+    // 5. Poll all active batch jobs AND discover remote batch jobs (Server-sync & recovery without auto-downloading images)
     const pollActiveBatchJobs = useCallback(async () => {
         setIsPolling(true);
         try {
@@ -400,6 +384,15 @@ export const useBatchManager = ({
                                     prompt: promptText,
                                     aspectRatio: req.config?.imageConfig?.aspectRatio || '1:1',
                                     resolution: req.config?.imageConfig?.imageSize || '1K',
+                                    status: (mappedState === 'SUCCEEDED' ? 'completed' : (mappedState === 'FAILED' ? 'failed' : 'queued')) as TaskStatus
+                                });
+                            });
+                        } else if (rJob.dest?.inlinedResponses && Array.isArray(rJob.dest.inlinedResponses)) {
+                            rJob.dest.inlinedResponses.forEach((_: any, idx: number) => {
+                                items.push({
+                                    id: `item-${idx}`,
+                                    frameIndex: idx,
+                                    prompt: `Batch Item #${idx + 1}`,
                                     status: (mappedState === 'SUCCEEDED' ? 'completed' : (mappedState === 'FAILED' ? 'failed' : 'queued')) as TaskStatus
                                 });
                             });
@@ -450,17 +443,10 @@ export const useBatchManager = ({
                 }
             }
 
-            // Step 2: Poll all active or newly recovered jobs
+            // Step 2: Poll active jobs (RUNNING or PENDING) to update status
             const allActiveJobs = batchJobsRef.current.filter(j => j.state === 'PENDING' || j.state === 'RUNNING');
             for (const job of allActiveJobs) {
                 await checkBatchJob(job.id);
-            }
-
-            // Also check newly added recovered jobs that might already be SUCCEEDED but need image extraction
-            for (const recJob of newRecoveredRecords) {
-                if (recJob.state === 'SUCCEEDED' && recJob.items.some(it => !it.resultUrl)) {
-                    await checkBatchJob(recJob.id);
-                }
             }
         } catch (err) {
             console.warn("Failed during remote batch synchronization:", err);
@@ -541,6 +527,24 @@ export const useBatchManager = ({
 
         // 3. Persist record
         persistBatchJobs(prev => [batchRecord, ...prev]);
+
+        // Record batch items in generation statistics at request creation time with batch API mode tag
+        try {
+            items.forEach((item, idx) => {
+                recordGenerationEvent({
+                    id: `batch-${createdSdkJob.name}-${item.id || (item.frameIndex !== undefined ? `frame-${item.frameIndex}` : `item-${idx}`)}`,
+                    timestamp: Date.now(),
+                    model,
+                    aspectRatio: item.aspectRatio || '1:1',
+                    resolution: item.resolution,
+                    prompt: item.prompt || '',
+                    generationMode: 'batch',
+                    source: 'batch_api',
+                });
+            });
+        } catch (statsErr) {
+            console.warn("Failed to record batch generation stats event:", statsErr);
+        }
 
         // 4. Update node output status to batch queued
         if (updateNodeInStorage && tabId) {
@@ -643,6 +647,22 @@ export const useBatchManager = ({
         persistBatchJobs(prev => prev.filter(j => j.state === 'PENDING' || j.state === 'RUNNING'));
     }, [persistBatchJobs]);
 
+    // 9b. Clear ALL batch jobs (Both Gemini batch jobs and OpenAI batch storage)
+    const clearAllBatchJobs = useCallback(() => {
+        try {
+            localStorage.removeItem(STORAGE_KEY_BATCH_JOBS);
+            localStorage.removeItem('openai_batch_store_v1');
+            clearAllOpenAiBatches();
+        } catch (e) {
+            console.error("Failed to remove batch storage keys:", e);
+        }
+        setBatchJobs([]);
+        batchJobsRef.current = [];
+        if (addToast) {
+            addToast(t?.('batch.allJobsCleared') || 'Все Batch задачи успешно удалены', 'success');
+        }
+    }, [addToast, t]);
+
     // 10. Auto polling on mount and every 30s for active jobs
     useEffect(() => {
         // Initial poll on startup
@@ -664,11 +684,14 @@ export const useBatchManager = ({
         batchJobs,
         isPolling,
         isBatchPolling: isPolling,
+        fetchingJobIds,
+        fetchBatchJobResults,
         createBatchGeneration,
         checkBatchJob,
         pollActiveBatchJobs,
         cancelBatchJob,
         deleteBatchJob,
-        clearFinishedBatchJobs
+        clearFinishedBatchJobs,
+        clearAllBatchJobs
     };
 };

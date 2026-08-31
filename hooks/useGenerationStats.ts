@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   GenerationRecord,
+  GenerationMode,
   StatsFilter,
   StatsSummary,
   getGenerationRecords,
@@ -25,6 +26,7 @@ export const useGenerationStats = () => {
     aspectRatio: 'all',
     resolution: 'all',
     searchQuery: '',
+    generationMode: 'all',
   });
 
   const refreshStats = useCallback(() => {
@@ -60,6 +62,10 @@ export const useGenerationStats = () => {
     setFilter(prev => ({ ...prev, period }));
   }, []);
 
+  const updateGenerationMode = useCallback((generationMode: 'all' | GenerationMode) => {
+    setFilter(prev => ({ ...prev, generationMode }));
+  }, []);
+
   const updateCategory = useCallback((category: 'all' | ModelCategory) => {
     setFilter(prev => ({ ...prev, category }));
   }, []);
@@ -92,6 +98,7 @@ export const useGenerationStats = () => {
       aspectRatio: 'all',
       resolution: 'all',
       searchQuery: '',
+      generationMode: 'all',
     });
   }, []);
 
@@ -114,6 +121,7 @@ export const useGenerationStats = () => {
     resolution?: string;
     prompt?: string;
     source?: string;
+    generationMode?: GenerationMode;
   }) => {
     const rec = recordGenerationEvent(event);
     setRecords(getGenerationRecords());
@@ -141,6 +149,7 @@ export const useGenerationStats = () => {
     openDetailedModal,
     closeDetailedModal,
     updatePeriod,
+    updateGenerationMode,
     updateCategory,
     updateModel,
     updateAspectRatio,
@@ -156,3 +165,4 @@ export const useGenerationStats = () => {
     refreshStats,
   };
 };
+

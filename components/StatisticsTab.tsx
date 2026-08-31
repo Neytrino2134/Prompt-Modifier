@@ -213,6 +213,45 @@ export const StatisticsTab: React.FC<StatisticsTabProps> = ({ onOpenDetailedModa
         </svg>
       </button>
 
+      {/* Generation Modes Card (Normal vs Batch API) */}
+      <div className="p-3.5 rounded-xl bg-gray-850 bg-gray-800/40 border border-gray-800 space-y-2.5">
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-semibold text-gray-200">
+            {t('stats.modesTitle') || 'Режимы генерации'}
+          </span>
+          <span className="text-[10px] text-gray-400 font-mono">
+            {totalLifetimeCount} {t('stats.imagesUnit') || 'всего'}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="p-2.5 rounded-lg bg-gray-900/70 border border-cyan-900/40 space-y-1">
+            <div className="flex items-center gap-1.5 text-cyan-300 text-xs font-medium">
+              <span>⚡</span>
+              <span>{t('stats.normalMode') || 'Обычный'}</span>
+            </div>
+            <div className="text-lg font-bold text-white font-mono">
+              {generalOverview.normalModeCount ?? 0}
+            </div>
+            <span className="text-[10px] text-gray-400">
+              {Math.round(((generalOverview.normalModeCount ?? 0) / Math.max(1, totalLifetimeCount)) * 100)}% {t('stats.ofTotal') || 'от общего'}
+            </span>
+          </div>
+
+          <div className="p-2.5 rounded-lg bg-gray-900/70 border border-amber-900/40 space-y-1">
+            <div className="flex items-center gap-1.5 text-amber-300 text-xs font-medium">
+              <span>📦</span>
+              <span>{t('stats.batchMode') || 'Batch API'}</span>
+            </div>
+            <div className="text-lg font-bold text-white font-mono">
+              {generalOverview.batchModeCount ?? 0}
+            </div>
+            <span className="text-[10px] text-gray-400">
+              {Math.round(((generalOverview.batchModeCount ?? 0) / Math.max(1, totalLifetimeCount)) * 100)}% {t('stats.ofTotal') || 'от общего'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Model Categories Breakdown */}
       <div className="p-3.5 rounded-xl bg-gray-850 bg-gray-800/40 border border-gray-800 space-y-3">
         <div className="flex justify-between items-center">

@@ -16,7 +16,7 @@ import { OutputPanel } from './image-editor/OutputPanel';
 import { DEFAULT_EDITOR_STATE, ImageEditorState, ImageSlot, MIN_LEFT_PANE_WIDTH, MIN_RIGHT_PANE_WIDTH, MIN_TOP_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT_WITH_PREVIEW } from './image-editor/types';
 import { ImageEditorLeftPane } from './image-editor/ImageEditorLeftPane';
 import { SequencedPromptListRef } from './image-editor/SequencedPromptList';
-import { useOpenAiEnabled, getImageModelOptions } from '../../services/modelConfig';
+import { useOpenAiEnabled, getImageEditorModelOptions } from '../../services/modelConfig';
 
 export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onEditImage, onStopEdit, isEditingImage, onPasteImage, onSetImageEditorOutputToInput, connectedImageSources, t, deselectAllNodes, connectedInputs, onCopyImageToClipboard, onDownloadImage, libraryItems, onDetachImageToNode, getUpstreamNodeValues, viewTransform, setImageViewer, getFullSizeImage, setFullSizeImage, onDownloadImageFromUrl, onRefreshUpstreamData, isStopping, onCutConnections, addToast, clearImagesForNodeFromCache }) => {
     const { setConnections, handleNavigateToNodeFrame, nodes: allNodes, connections } = useAppContext();
@@ -46,7 +46,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     const { inputImages, inputImagesB, prompt, outputImage, model, aspectRatio, enableAspectRatio, leftPaneWidth, topPaneHeight, resolution, isSequenceMode, isSequentialCombinationMode, isSequentialEditingWithPrompts, framePrompts, sequenceOutputs, checkedSequenceOutputIndices, checkedInputIndices, enableOutpainting, outpaintingPrompt, autoDownload, autoCrop169, isSequentialPromptMode, createZip, selectedSourceFrameIndex } = parsedValue;
 
     const isOpenAiActive = useOpenAiEnabled();
-    const modelOptions = useMemo(() => getImageModelOptions(), [isOpenAiActive]);
+    const modelOptions = useMemo(() => getImageEditorModelOptions(), [isOpenAiActive]);
     
     const isNanoBanana = model === 'gemini-3-pro-image-preview';
     const isTextConnected = connectedInputs?.has('text');
@@ -1025,6 +1025,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 getFullSizeImage={(idx) => getFullSizeImage(node.id, idx)}
                 t={t}
                 upstreamPrompt={upstreamPrompt}
+                upstreamPromptsCount={upstreamPromptsMap ? upstreamPromptsMap.size : 0}
                 isTextConnected={isTextConnected}
                 onEditPrompt={handleEditPrompt}
                 onEditInSource={handleEditInSource}

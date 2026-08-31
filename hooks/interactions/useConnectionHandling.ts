@@ -264,6 +264,11 @@ export const useConnectionHandling = ({
                              }
                         }
                         
+                    } else if (targetNode.type === NodeType.IMAGE_INPUT) {
+                        if (connectingInfo.fromType === 'image' || connectingInfo.fromType === null) {
+                            targetHandleId = 'image';
+                            isValid = true;
+                        }
                     } else if (targetNode.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {
                         // Geometric fallback for sequence generator is tricky because it has 2 specific inputs.
                         // If DOM hit failed, we try to guess based on height, similar to getConnectionPoints layout

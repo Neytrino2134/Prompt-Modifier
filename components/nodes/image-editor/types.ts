@@ -38,7 +38,7 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     enableOutpainting: false,
     outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.',
     model: 'gemini-3-pro-image-preview', 
-    aspectRatio: '16:9', // Default changed to 16:9
+    aspectRatio: '1:1', // Default 1:1
     enableAspectRatio: false,
     quality: 'high',
     outputFormat: 'png',

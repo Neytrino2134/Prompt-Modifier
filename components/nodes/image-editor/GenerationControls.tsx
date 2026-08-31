@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import CustomSelect from '../../CustomSelect';
 import { CustomCheckbox } from '../../CustomCheckbox';
-import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel } from '../../../services/modelConfig';
+import { useOpenAiEnabled, getImageEditorModelOptions, isGptImage2Model, isOpenAiImageModel } from '../../../services/modelConfig';
 
 interface GenerationControlsProps {
     model: string;
@@ -51,7 +51,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
 }) => {
     
     const isOpenAiActive = useOpenAiEnabled();
-    const modelOptions = useMemo(() => getImageModelOptions(), [isOpenAiActive]);
+    const modelOptions = useMemo(() => getImageEditorModelOptions(), [isOpenAiActive]);
 
     const isGpt2 = isGptImage2Model(model);
     const isDalle3 = model === 'dall-e-3';

@@ -50,6 +50,16 @@ export const OPENAI_IMAGE_MODELS: ImageModelOption[] = [
     { value: 'dall-e-2', label: 'DALL·E 2 (OpenAI - Fast)', provider: 'openai', description: 'Fast standard model' }
 ];
 
+export const IMAGE_EDITOR_GOOGLE_MODELS: ImageModelOption[] = [
+    { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro', provider: 'google' },
+    { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash', provider: 'google' },
+    { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Lite', provider: 'google' }
+];
+
+export const IMAGE_EDITOR_OPENAI_MODELS: ImageModelOption[] = [
+    { value: 'gpt-image-2', label: 'GPT-Image-2 (OpenAI)', provider: 'openai', description: 'Next-generation OpenAI image model with custom resolution & quality' }
+];
+
 export const isOpenAiImageModel = (model?: string): boolean => {
     if (!model) return false;
     return model.startsWith('gpt-image') || model.startsWith('dall-e') || model.startsWith('openai') || model.includes('gpt-image');
@@ -65,6 +75,13 @@ export const getImageModelOptions = (includeOpenAi: boolean = isOpenAiEnabled())
         return [...GOOGLE_IMAGE_MODELS, ...OPENAI_IMAGE_MODELS];
     }
     return GOOGLE_IMAGE_MODELS;
+};
+
+export const getImageEditorModelOptions = (includeOpenAi: boolean = isOpenAiEnabled()): ImageModelOption[] => {
+    if (includeOpenAi) {
+        return [...IMAGE_EDITOR_GOOGLE_MODELS, ...IMAGE_EDITOR_OPENAI_MODELS];
+    }
+    return IMAGE_EDITOR_GOOGLE_MODELS;
 };
 
 /**

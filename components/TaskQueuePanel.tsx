@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import JSZip from 'jszip';
 import { useAppContext } from '../contexts/AppContext';
 import { TaskStatus, BatchJobRecord, BatchJobState, NodeType } from '../types';
@@ -27,9 +27,12 @@ export const TaskQueuePanel: React.FC = () => {
         setIsBatchMode,
         batchJobs,
         checkBatchJob,
+        fetchBatchJobResults,
+        fetchingJobIds,
         cancelBatchJob,
         deleteBatchJob,
         clearFinishedBatchJobs,
+        clearAllBatchJobs,
         pollActiveBatchJobs,
         isBatchPolling,
         onAddNode,
@@ -40,9 +43,36 @@ export const TaskQueuePanel: React.FC = () => {
 
     const [activeTab, setActiveTab] = useState<'queue' | 'batch'>('queue');
     const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'failed'>('all');
+    const [batchSortOrder, setBatchSortOrder] = useState<'desc' | 'asc'>('desc');
     const [checkingJobId, setCheckingJobId] = useState<string | null>(null);
     const [expandedBatchJobIds, setExpandedBatchJobIds] = useState<Record<string, boolean>>({});
     const [downloadingZipJobId, setDownloadingZipJobId] = useState<string | null>(null);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    // Sort batch jobs: In-progress (RUNNING or PENDING) are strictly PINNED on top.
+    // Within groups, sorted by createdAt / updatedAt according to batchSortOrder ('desc' = newest first).
+    const sortedBatchJobs = useMemo(() => {
+        if (!Array.isArray(batchJobs)) return [];
+        const safeJobs = batchJobs.filter(j => j && typeof j === 'object');
+        return safeJobs.sort((a, b) => {
+            const aInProgress = a.state === 'RUNNING' || a.state === 'PENDING';
+            const bInProgress = b.state === 'RUNNING' || b.state === 'PENDING';
+
+            // 1. Pinned on top: In-progress tasks ALWAYS come first
+            if (aInProgress && !bInProgress) return -1;
+            if (!aInProgress && bInProgress) return 1;
+
+            // 2. Sort by date (newest first for 'desc')
+            const aTime = a.createdAt || a.updatedAt || 0;
+            const bTime = b.createdAt || b.updatedAt || 0;
+
+            if (batchSortOrder === 'desc') {
+                return bTime - aTime;
+            } else {
+                return aTime - bTime;
+            }
+        });
+    }, [batchJobs, batchSortOrder]);
 
     const toggleExpandBatchJob = (jobId: string) => {
         setExpandedBatchJobIds(prev => ({ ...prev, [jobId]: !prev[jobId] }));
@@ -157,7 +187,13 @@ export const TaskQueuePanel: React.FC = () => {
             mode: 'batch',
             batchFiles: batchFiles,
             batchConfig: {
-                subMode: 'crop'
+                subMode: 'grid',
+                includeOriginal: false
+            },
+            grid: {
+                cols: 2,
+                rows: 2,
+                bounds: { x: 0, y: 0, width: 1, height: 1 }
             }
         });
 
@@ -310,9 +346,23 @@ export const TaskQueuePanel: React.FC = () => {
             <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur-sm z-10 sticky top-0 select-none">
                 <div className="flex items-center gap-2 select-none">
                     <div className={`w-2.5 h-2.5 rounded-full ${isBatchMode ? 'bg-amber-400 animate-pulse' : 'bg-cyan-400 animate-pulse'}`}></div>
-                    <h2 className="text-gray-100 font-semibold text-base">
-                        {t('queue.title') || 'Task Queue & Batch'}
+                    <h2 className="text-gray-100 font-semibold text-base flex items-center gap-1.5">
+                        <span>{t('queue.title') || 'Task Queue & Batch'}</span>
                     </h2>
+                    <button
+                        onClick={() => setIsSettingsOpen(prev => !prev)}
+                        className={`p-1 rounded-md transition-colors ${
+                            isSettingsOpen 
+                                ? 'text-amber-300 bg-gray-800 ring-1 ring-amber-500/50' 
+                                : 'text-gray-400 hover:text-white hover:bg-gray-800/80'
+                        }`}
+                        title={t('queue.settings') || 'Settings'}
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"></path>
+                        </svg>
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-1.5 select-none">
@@ -334,12 +384,65 @@ export const TaskQueuePanel: React.FC = () => {
                         onClick={() => setIsTaskQueuePanelOpen(false)}
                         className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-800 transition-colors"
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
             </div>
+
+            {/* Settings Dropdown Panel */}
+            {isSettingsOpen && (
+                <div className="p-3.5 border-b border-gray-800 bg-gray-900 shadow-inner flex flex-col gap-2.5 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-200 flex items-center gap-1.5">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"></path>
+                            </svg>
+                            <span>{t('queue.settings') || 'Настройки очереди и пакетов'}</span>
+                        </span>
+                        <button
+                            onClick={() => setIsSettingsOpen(false)}
+                            className="text-gray-400 hover:text-white text-xs px-1 rounded hover:bg-gray-800"
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        {/* Clear all Batch jobs button */}
+                        <button
+                            onClick={() => {
+                                const confirmMsg = t('batch.confirmClearAll') || 'Вы уверены, что хотите удалить ВСЕ Batch задачи? Это действие необратимо.';
+                                if (window.confirm(confirmMsg)) {
+                                    clearAllBatchJobs?.();
+                                    setIsSettingsOpen(false);
+                                }
+                            }}
+                            className="w-full py-2 px-3 bg-red-950/60 hover:bg-red-900/80 border border-red-800/70 text-red-200 hover:text-white rounded-md text-xs font-medium transition-all flex items-center justify-center gap-2 shadow-sm"
+                            title={t('batch.clearAllBatchJobsDesc') || 'Удаляет все пакетные задачи из памяти и локального хранилища'}
+                        >
+                            <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>{t('batch.clearAllBatchJobs') || 'Очистить все Batch jobs'}</span>
+                        </button>
+
+                        {tasks.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    clearCompletedTasks?.();
+                                    setIsSettingsOpen(false);
+                                }}
+                                className="w-full py-1.5 px-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-md text-xs font-medium transition-colors flex items-center justify-center gap-2"
+                            >
+                                <span>{t('queue.clearCompleted') || 'Очистить завершенные задачи'}</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Centralized Mode Switcher Banner */}
             <div className="p-3 bg-gray-950 border-b border-gray-800 select-none">
@@ -602,18 +705,34 @@ export const TaskQueuePanel: React.FC = () => {
                         </p>
                     </div>
 
-                    {batchJobs.some(j => j.state === 'SUCCEEDED' || j.state === 'FAILED' || j.state === 'CANCELLED') && (
-                        <div className="flex justify-end">
+                    {batchJobs.length > 0 && (
+                        <div className="flex items-center justify-between gap-2 px-1 text-xs">
                             <button
-                                onClick={clearFinishedBatchJobs}
-                                className="text-[11px] text-gray-400 hover:text-gray-200 hover:underline transition-colors"
+                                onClick={() => setBatchSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 hover:text-white text-[11px] transition-colors"
+                                title={batchSortOrder === 'desc' ? (t('batch.sortNewestDesc') || 'Сортировка: Самые новые вверху (В процессе закреплены)') : (t('batch.sortOldestDesc') || 'Сортировка: Сначала старые (В процессе закреплены)')}
                             >
-                                {t('batch.clearFinished') || 'Clear Finished Jobs'}
+                                <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                                </svg>
+                                <span>{t('batch.sortByDate') || 'Сортировка по дате'}:</span>
+                                <span className="font-semibold text-amber-300">
+                                    {batchSortOrder === 'desc' ? (t('batch.sortNewest') || 'Новые вверху') : (t('batch.sortOldest') || 'Старые вверху')}
+                                </span>
                             </button>
+
+                            {batchJobs.some(j => j.state === 'SUCCEEDED' || j.state === 'FAILED' || j.state === 'CANCELLED') && (
+                                <button
+                                    onClick={clearFinishedBatchJobs}
+                                    className="text-[11px] text-gray-400 hover:text-gray-200 hover:underline transition-colors"
+                                >
+                                    {t('batch.clearFinished') || 'Очистить завершенные'}
+                                </button>
+                            )}
                         </div>
                     )}
 
-                    {batchJobs.length === 0 ? (
+                    {sortedBatchJobs.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-48 text-gray-500 text-center px-4">
                             <svg className="w-10 h-10 mb-2 opacity-30 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -622,13 +741,14 @@ export const TaskQueuePanel: React.FC = () => {
                             <p className="text-xs text-gray-600 mt-1">{t('batch.modeDesc') || 'Enable Batch API mode and generate images in AI Image Editor'}</p>
                         </div>
                     ) : (
-                        batchJobs.map(job => {
+                        sortedBatchJobs.map(job => {
                             const totalCount = job.items?.length || 0;
                             const completedItems = (job.items || []).filter(it => !!it.resultUrl);
-                            const completedCount = completedItems.length || (job.items?.filter(it => it.status === 'completed')?.length || (job.state === 'SUCCEEDED' ? totalCount : 0));
+                            const hasImages = completedItems.length > 0;
+                            const isFetchingThisJob = !!fetchingJobIds?.[job.id];
+                            const completedCount = completedItems.length || (job.state === 'SUCCEEDED' ? totalCount : job.items?.filter(it => it.status === 'completed')?.length || 0);
                             const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : (job.state === 'SUCCEEDED' ? 100 : 20);
                             const isExpanded = !!expandedBatchJobIds[job.id];
-                            const hasImages = completedItems.length > 0;
                             const isDownloadingThisZip = downloadingZipJobId === job.id;
 
                             return (
@@ -636,9 +756,9 @@ export const TaskQueuePanel: React.FC = () => {
                                     key={job.id}
                                     className={`p-3 rounded-lg bg-gray-900 border transition-all ${
                                         job.state === 'RUNNING'
-                                            ? 'border-amber-600/60 shadow-lg shadow-amber-950/20'
+                                            ? 'border-amber-600/60 shadow-lg shadow-amber-950/20 ring-1 ring-amber-500/30'
                                             : job.state === 'PENDING'
-                                            ? 'border-yellow-700/40'
+                                            ? 'border-yellow-700/50 shadow-md shadow-yellow-950/20'
                                             : job.state === 'SUCCEEDED'
                                             ? 'border-emerald-800/40'
                                             : 'border-gray-800 opacity-80'
@@ -647,13 +767,21 @@ export const TaskQueuePanel: React.FC = () => {
                                     {/* Job Header Row */}
                                     <div className="flex items-center justify-between mb-2 gap-2">
                                         <div className="flex flex-col truncate">
-                                            <button
-                                                onClick={() => handleNodeClick(job.nodeId)}
-                                                className="text-xs font-semibold text-amber-300 hover:text-amber-200 hover:underline truncate text-left flex items-center gap-1.5"
-                                                title={t('queue.click_to_go') || 'Click to jump to node'}
-                                            >
-                                                <span className="truncate">{job.displayName || job.nodeTitle || 'Batch Job'}</span>
-                                            </button>
+                                            <div className="flex items-center gap-1.5 truncate">
+                                                {(job.state === 'RUNNING' || job.state === 'PENDING') && (
+                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-950/80 border border-amber-800/80 text-amber-300 flex-shrink-0" title={t('batch.pinnedInProgress') || 'Закреплено: задача в процессе'}>
+                                                        <span>📌</span>
+                                                        <span>{t('batch.inProgress') || 'В процессе'}</span>
+                                                    </span>
+                                                )}
+                                                <button
+                                                    onClick={() => handleNodeClick(job.nodeId)}
+                                                    className="text-xs font-semibold text-amber-300 hover:text-amber-200 hover:underline truncate text-left"
+                                                    title={t('queue.click_to_go') || 'Click to jump to node'}
+                                                >
+                                                    <span className="truncate">{job.displayName || job.nodeTitle || 'Batch Job'}</span>
+                                                </button>
+                                            </div>
                                             <span className="text-[10px] text-gray-500 font-mono truncate">
                                                 ID: {job.name || job.id.slice(0, 16)}
                                             </span>
@@ -664,7 +792,12 @@ export const TaskQueuePanel: React.FC = () => {
                                     {/* Progress Info */}
                                     <div className="space-y-1 my-2">
                                         <div className="flex justify-between text-[11px] text-gray-400">
-                                            <span>{t('batch.jobs') || 'Items'}: <span className="text-gray-200 font-mono">{completedCount}/{totalCount}</span></span>
+                                            <span>
+                                                {t('batch.jobs') || 'Items'}:{' '}
+                                                <span className="text-gray-200 font-mono">
+                                                    {hasImages ? `${completedItems.length}/${totalCount}` : (job.state === 'SUCCEEDED' ? `${totalCount} ${t('batch.readyOnServer') || '(готов на сервере)'}` : `${completedCount}/${totalCount}`)}
+                                                </span>
+                                            </span>
                                             <span className="truncate max-w-[140px] text-right font-mono text-[10px] text-gray-400">{job.model}</span>
                                         </div>
                                         <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -682,6 +815,34 @@ export const TaskQueuePanel: React.FC = () => {
                                     {job.error && (
                                         <div className="mt-2 p-1.5 rounded bg-red-950/50 border border-red-900/50 text-[11px] text-red-300 font-mono">
                                             {job.error}
+                                        </div>
+                                    )}
+
+                                    {/* On-Demand "Download from Server" Button if SUCCEEDED but images not yet fetched */}
+                                    {job.state === 'SUCCEEDED' && !hasImages && (
+                                        <div className="mt-2.5 pt-2 border-t border-gray-800/60">
+                                            <button
+                                                onClick={() => fetchBatchJobResults(job.id)}
+                                                disabled={isFetchingThisJob}
+                                                className="w-full py-1.5 px-3 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                                            >
+                                                {isFetchingThisJob ? (
+                                                    <>
+                                                        <svg className="animate-spin h-3.5 w-3.5 text-emerald-300" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                        </svg>
+                                                        <span>{t('batch.fetchingResults') || 'Загрузка результатов...'}</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                        </svg>
+                                                        <span>{t('batch.downloadFromServer') || 'Загрузить с сервера'}</span>
+                                                    </>
+                                                )}
+                                            </button>
                                         </div>
                                     )}
 

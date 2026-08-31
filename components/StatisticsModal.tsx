@@ -24,6 +24,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
     filter,
     summary,
     updatePeriod,
+    updateGenerationMode,
     updateCategory,
     updateModel,
     updateAspectRatio,
@@ -295,8 +296,47 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
             </div>
           )}
 
-          {/* Row 2: Category Filter Pills + Specific Model & Ratio Selectors + Search */}
+          {/* Row 2: Mode Filter (All / Normal / Batch API) + Category Filter Pills + Specific Model & Ratio Selectors + Search */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
+            {/* Mode filter pills */}
+            <div className="flex items-center gap-1 bg-gray-900/90 p-0.5 rounded-lg border border-gray-800">
+              <button
+                onClick={() => updateGenerationMode('all')}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                  !filter.generationMode || filter.generationMode === 'all'
+                    ? 'bg-gray-700 text-white font-semibold'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+                title={t('stats.allModes') || 'Все режимы генераций'}
+              >
+                {t('stats.allModes') || 'Все режимы'}
+              </button>
+              <button
+                onClick={() => updateGenerationMode('normal')}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                  filter.generationMode === 'normal'
+                    ? 'bg-cyan-900/80 border border-cyan-700/60 text-cyan-200 font-semibold'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+                title={t('stats.normalGenerationsOnly') || 'Обычные генерации (Normal)'}
+              >
+                <span>⚡</span>
+                <span>{t('stats.normalMode') || 'Обычные'}</span>
+              </button>
+              <button
+                onClick={() => updateGenerationMode('batch')}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                  filter.generationMode === 'batch'
+                    ? 'bg-amber-900/80 border border-amber-700/60 text-amber-200 font-semibold'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+                title={t('stats.batchGenerationsOnly') || 'Пакетные генерации (Batch API)'}
+              >
+                <span>📦</span>
+                <span>{t('stats.batchMode') || 'Batch API'}</span>
+              </button>
+            </div>
+
             {/* Category pills */}
             <div className="flex flex-wrap items-center gap-1">
               {categoryOptions.map(c => (
@@ -922,6 +962,15 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                             <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase ${meta.badgeClass}`}>
                               {rec.category}
                             </span>
+                            {rec.generationMode === 'batch' ? (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-800/80 text-amber-300 font-bold uppercase">
+                                📦 Batch
+                              </span>
+                            ) : (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-800/80 text-cyan-300 font-bold uppercase">
+                                ⚡ Normal
+                              </span>
+                            )}
                             <span className="font-semibold text-gray-200">{rec.modelDisplayName}</span>
                             <span className="text-gray-500 text-[10px]">
                               {d.toLocaleDateString()} {d.toLocaleTimeString()}

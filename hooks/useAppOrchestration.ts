@@ -379,6 +379,7 @@ export const useAppOrchestration = (
         let targetHandleId: string | undefined = undefined;
         // Logic similar to useConnectionHandling but streamlined for creation
         if (connectingInfo.fromType === 'image') {
+            if (nodeType === NodeType.IMAGE_INPUT) targetHandleId = 'image';
             if (nodeType === NodeType.IMAGE_EDITOR) targetHandleId = 'image';
             if (nodeType === NodeType.IMAGE_ANALYZER) targetHandleId = 'image';
             if (nodeType === NodeType.VIDEO_EDITOR) targetHandleId = 'image';

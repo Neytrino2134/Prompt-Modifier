@@ -50,6 +50,11 @@ const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 // Main Editor Component - Orchestrates Layout
 const Editor: React.FC = () => {
   const context = useAppContext();
+  const contextRef = useRef(context);
+  useEffect(() => {
+      contextRef.current = context;
+  }, [context]);
+
   const [isCanvasReady, setIsCanvasReady] = useState(false);
   const [isAppLoaded, setIsAppLoaded] = useState(false);
   const hasContentRef = useRef(false);
@@ -74,6 +79,11 @@ const Editor: React.FC = () => {
 
       // 1. Browser Native Handler (beforeunload)
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+          // Trigger immediate session save on browser unload
+          if (contextRef.current?.forceSaveSession) {
+              contextRef.current.forceSaveSession();
+          }
+
           // If in Electron, we rely on the IPC message 'app:close-request' instead of this native event
           // to show our custom UI.
           if (isElectron) return;
@@ -100,15 +110,15 @@ const Editor: React.FC = () => {
                       confirmVariant: 'accent',
                       onConfirm: async () => {
                           try {
-                              if (context?.forceSaveSession) {
-                                  await context.forceSaveSession();
+                              if (contextRef.current?.forceSaveSession) {
+                                  await contextRef.current.forceSaveSession();
                               }
                           } catch (err) {
                               console.error("Failed to save session before exit:", err);
                           } finally {
                               setTimeout(() => {
                                   (window as any).electronAPI.forceClose();
-                              }, 100);
+                              }, 150);
                           }
                       },
                       secondaryAction: {
@@ -131,7 +141,7 @@ const Editor: React.FC = () => {
           window.removeEventListener('beforeunload', handleBeforeUnload);
           if (removeElectronListener) removeElectronListener();
       };
-  }, [context]);
+  }, [setConfirmInfo, t]);
 
   // Handle external file load (e.g. from Nativefier double-click)
   useEffect(() => {

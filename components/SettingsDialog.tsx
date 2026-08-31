@@ -138,7 +138,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       isConnectionAnimationEnabled,
       setIsConnectionAnimationEnabled,
       connectionOpacity,
-      setConnectionOpacity
+      setConnectionOpacity,
+      autoSaveInterval,
+      setAutoSaveInterval
   } = context;
 
   const [apiKey, setApiKey] = useState('');
@@ -752,6 +754,23 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                                 label: th.label,
                                 icon: <div className="w-3 h-3 rounded-full border border-gray-500" style={{ backgroundColor: th.color }} />
                             }))}
+                         />
+                     </div>
+
+                     {/* Auto-Save Interval Selector */}
+                     <div className="space-y-1.5">
+                         <label className="block text-xs font-medium text-gray-400">{t('settings.autoSaveLabel')}</label>
+                         <CustomSelect
+                            value={autoSaveInterval.toString()}
+                            onChange={(val) => setAutoSaveInterval(parseInt(val, 10))}
+                            options={[
+                                { value: '30', label: t('settings.autoSave.30s') },
+                                { value: '60', label: t('settings.autoSave.1m') },
+                                { value: '120', label: t('settings.autoSave.2m') },
+                                { value: '300', label: t('settings.autoSave.5m') },
+                                { value: '600', label: t('settings.autoSave.10m') },
+                                { value: '0', label: t('settings.autoSave.off') }
+                            ]}
                          />
                      </div>
 

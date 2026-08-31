@@ -181,6 +181,15 @@ export const useGlobalState = (currentNodes: Node[]) => {
         const stored = localStorage.getItem('settings_connectionOpacity');
         return stored === null ? 0.4 : parseFloat(stored) || 0.4;
     });
+    const [autoSaveInterval, setAutoSaveIntervalState] = useState<number>(() => {
+        const stored = localStorage.getItem('settings_autoSaveInterval');
+        return stored === null ? 60 : parseInt(stored, 10);
+    });
+
+    const setAutoSaveInterval = useCallback((val: number) => {
+        setAutoSaveIntervalState(val);
+        localStorage.setItem('settings_autoSaveInterval', val.toString());
+    }, []);
 
     // Theme Settings
     const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
@@ -290,6 +299,7 @@ export const useGlobalState = (currentNodes: Node[]) => {
         nodeAnimationMode, setNodeAnimationMode,
         isConnectionAnimationEnabled, setIsConnectionAnimationEnabled,
         connectionOpacity, setConnectionOpacity,
+        autoSaveInterval, setAutoSaveInterval,
         currentTheme, setTheme,
         clearSelectionsSignal,
         globalImageEditor,

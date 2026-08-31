@@ -40,6 +40,9 @@ import { useBatchManager } from '../hooks/useBatchManager';
 import { addMetadataToPNG } from '../utils/pngMetadata';
 import { getConnectionPoints, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
 import { generateThumbnail } from '../utils/imageUtils';
+import { createNewTab } from '../hooks/useTabs';
+import { clearImagesForTabFromCache } from '../utils/imageMemoryCache';
+import type { Tab, CanvasState } from '../types';
 
 const AppContext = createContext<AppContextType | null>(null);
 
@@ -50,7 +53,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Core Hooks
     const tabsHook = useTabs();
     const generationHistoryHook = useGenerationHistory();
-    const { tabs, setTabs, activeTabId, setActiveTabId, handleAddTab, handleSwitchTab, handleRenameTab, handleCloseTab, resetTabs, resetCurrentTab, getLocalizedCanvasState } = tabsHook;
+    const {
+        tabs,
+        setTabs,
+        activeTabId,
+        setActiveTabId,
+        getLocalizedCanvasState,
+        nextAutoSaveTime,
+        setNextAutoSaveTime,
+        isAutoSaving,
+        setIsAutoSaving
+    } = tabsHook;
 
     const activeTab = useMemo(() => {
         const found = tabs.find(t => t.id === activeTabId);
@@ -90,7 +103,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const { getUpstreamNodeValues } = derivedMemoHook;
 
     // Helper for Canvas IO / export
-    const getCurrentCanvasState = useCallback(() => ({
+    const getCurrentCanvasState = useCallback((): CanvasState => ({
         nodes: nodesHook.nodes,
         connections: connectionsHook.connections,
         groups: groupsHook.groups,
@@ -103,6 +116,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const isLoadingStateRef = useRef(false);
     const lastLoadedTabIdRef = useRef<string | null>(null);
     const isTabLoadedFromDBRef = useRef(false);
+    const saveTimeoutRef = useRef<any>(null);
 
     const loadCanvasState = useCallback((state: any) => {
         if (!state) return;
@@ -116,7 +130,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         setTimeout(() => {
             isLoadingStateRef.current = false;
-        }, 0);
+        }, 50);
     }, [
         nodesHook.setNodes,
         connectionsHook.setConnections,
@@ -125,27 +139,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setFullSizeImageCache
     ]);
 
-    // Load active tab state into canvas hooks when activeTabId changes or when initial DB session completes loading
+    // Initial DB session load into canvas hooks
     useEffect(() => {
         if (!tabsHook.isLoaded) return;
-
-        const currentActiveTab = tabs.find(t => t.id === activeTabId) || tabs[0];
-        if (!currentActiveTab) return;
-
-        const tabChanged = lastLoadedTabIdRef.current !== activeTabId;
-        const initialDBLoaded = !isTabLoadedFromDBRef.current;
-
-        if (tabChanged || initialDBLoaded) {
-            lastLoadedTabIdRef.current = activeTabId;
+        if (!isTabLoadedFromDBRef.current) {
             isTabLoadedFromDBRef.current = true;
-            loadCanvasState(currentActiveTab.state);
+            lastLoadedTabIdRef.current = activeTabId;
+            const currentActiveTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+            if (currentActiveTab) {
+                loadCanvasState(currentActiveTab.state);
+            }
         }
-    }, [activeTabId, tabsHook.isLoaded, tabs, loadCanvasState]);
+    }, [tabsHook.isLoaded, tabs, activeTabId, loadCanvasState]);
 
     // Sync live canvas state back to active tab in tabs array when user modifies canvas
     useEffect(() => {
         if (isLoadingStateRef.current) return;
         if (!tabsHook.isLoaded) return;
+        if (lastLoadedTabIdRef.current !== activeTabId) return;
 
         const currentTab = tabs.find(t => t.id === activeTabId);
         if (!currentTab) return;
@@ -169,7 +180,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (isIdentical) return;
 
-        const stateToSave = {
+        const stateToSave: CanvasState = {
             nodes: liveNodes,
             connections: liveConnections,
             groups: liveGroups,
@@ -192,6 +203,263 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         tabsHook.isLoaded,
         setTabs
     ]);
+
+    // Produces the 100% accurate, complete snapshot of all tabs by merging live active canvas
+    const getCompleteProjectState = useCallback((): { tabs: Tab[], activeTabId: string } => {
+        const liveState: CanvasState = {
+            nodes: nodesHook.nodes,
+            connections: connectionsHook.connections,
+            groups: groupsHook.groups,
+            viewTransform: canvasHook.viewTransform,
+            nodeIdCounter: nodesHook.nodeIdCounter.current,
+            fullSizeImageCache: fullSizeImageCache,
+        };
+
+        const latestTabs = tabs.map(tab => 
+            tab.id === activeTabId ? { ...tab, state: liveState } : tab
+        );
+
+        return { tabs: latestTabs, activeTabId };
+    }, [nodesHook.nodes, connectionsHook.connections, groupsHook.groups, canvasHook.viewTransform, nodesHook.nodeIdCounter, fullSizeImageCache, tabs, activeTabId]);
+
+    // Force save session to IndexedDB immediately (e.g. before exit, manual save, or batch finish)
+    const forceSaveSession = useCallback(async (overrideTabs?: Tab[], overrideActiveTabId?: string): Promise<void> => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+        }
+
+        setIsAutoSaving(true);
+        try {
+            let tabsToSave: Tab[];
+            let activeTabIdToSave: string;
+
+            if (overrideTabs && overrideActiveTabId) {
+                tabsToSave = overrideTabs;
+                activeTabIdToSave = overrideActiveTabId;
+            } else {
+                const snapshot = getCompleteProjectState();
+                tabsToSave = snapshot.tabs;
+                activeTabIdToSave = snapshot.activeTabId;
+                setTabs(tabsToSave);
+            }
+
+            await saveSessionToDB(tabsToSave, activeTabIdToSave);
+        } catch (e) {
+            console.error("Failed to save session to IndexedDB:", e);
+        } finally {
+            setIsAutoSaving(false);
+            setNextAutoSaveTime(null);
+        }
+    }, [getCompleteProjectState, setTabs, setIsAutoSaving, setNextAutoSaveTime]);
+
+    // Central Auto-Save Timer
+    useEffect(() => {
+        if (!tabsHook.isLoaded || isLoadingStateRef.current) return;
+
+        const intervalSeconds = globalState.autoSaveInterval;
+        if (intervalSeconds <= 0) {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+            }
+            setNextAutoSaveTime(null);
+            return;
+        }
+
+        const now = Date.now();
+        const fullDelayMs = intervalSeconds * 1000;
+        const COUNTDOWN_RESET_MS = 10000; // 10 seconds
+
+        // If we are already in countdown (last 10 seconds), only reset countdown by 10s
+        let delayToUse = fullDelayMs;
+        if (saveTimeoutRef.current && nextAutoSaveTime && nextAutoSaveTime > now) {
+            const remaining = nextAutoSaveTime - now;
+            if (remaining <= 10000) {
+                delayToUse = COUNTDOWN_RESET_MS;
+            }
+        }
+
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+
+        const newTargetTime = now + delayToUse;
+        setNextAutoSaveTime(newTargetTime);
+
+        saveTimeoutRef.current = setTimeout(async () => {
+            setIsAutoSaving(true);
+            try {
+                const snapshot = getCompleteProjectState();
+                setTabs(snapshot.tabs);
+                await saveSessionToDB(snapshot.tabs, snapshot.activeTabId);
+                addToast(t('toast.autoSaved'), 'success');
+            } catch (e) {
+                console.error("Failed to auto-save session:", e);
+            } finally {
+                setIsAutoSaving(false);
+                setNextAutoSaveTime(null);
+            }
+        }, delayToUse);
+
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, [
+        nodesHook.nodes,
+        connectionsHook.connections,
+        groupsHook.groups,
+        canvasHook.viewTransform,
+        fullSizeImageCache,
+        tabs,
+        activeTabId,
+        tabsHook.isLoaded,
+        globalState.autoSaveInterval,
+        getCompleteProjectState,
+        setTabs,
+        setIsAutoSaving,
+        setNextAutoSaveTime,
+        addToast,
+        t
+    ]);
+
+    // Robust Tab Handlers that coordinate live canvas hooks with tabs array
+    const handleSwitchTab = useCallback((targetTabId: string) => {
+        if (targetTabId === activeTabId) return;
+
+        const targetTab = tabs.find(t => t.id === targetTabId);
+        if (!targetTab) return;
+
+        // 1. Snapshot current active tab
+        const currentLiveState: CanvasState = {
+            nodes: nodesHook.nodes,
+            connections: connectionsHook.connections,
+            groups: groupsHook.groups,
+            viewTransform: canvasHook.viewTransform,
+            nodeIdCounter: nodesHook.nodeIdCounter.current,
+            fullSizeImageCache: fullSizeImageCache,
+        };
+
+        // 2. Prevent race conditions
+        isLoadingStateRef.current = true;
+        lastLoadedTabIdRef.current = targetTabId;
+
+        // 3. Update tabs array
+        const updatedTabs = tabs.map(tab => 
+            tab.id === activeTabId ? { ...tab, state: currentLiveState } : tab
+        );
+        setTabs(updatedTabs);
+
+        // 4. Load target tab's canvas state
+        loadCanvasState(targetTab.state);
+
+        // 5. Update activeTabId
+        setActiveTabId(targetTabId);
+    }, [
+        activeTabId,
+        tabs,
+        setTabs,
+        setActiveTabId,
+        nodesHook.nodes,
+        connectionsHook.connections,
+        groupsHook.groups,
+        canvasHook.viewTransform,
+        nodesHook.nodeIdCounter,
+        fullSizeImageCache,
+        loadCanvasState
+    ]);
+
+    const handleAddTab = useCallback((customName?: string) => {
+        const currentLiveState: CanvasState = {
+            nodes: nodesHook.nodes,
+            connections: connectionsHook.connections,
+            groups: groupsHook.groups,
+            viewTransform: canvasHook.viewTransform,
+            nodeIdCounter: nodesHook.nodeIdCounter.current,
+            fullSizeImageCache: fullSizeImageCache,
+        };
+
+        const defaultState = getLocalizedCanvasState(language as LanguageCode);
+        const newTab = createNewTab(customName || `Canvas ${tabs.length + 1}`, defaultState);
+
+        isLoadingStateRef.current = true;
+        lastLoadedTabIdRef.current = newTab.id;
+
+        const updatedTabs = tabs.map(tab => 
+            tab.id === activeTabId ? { ...tab, state: currentLiveState } : tab
+        ).concat(newTab);
+
+        setTabs(updatedTabs);
+        loadCanvasState(newTab.state);
+        setActiveTabId(newTab.id);
+    }, [
+        activeTabId,
+        tabs,
+        setTabs,
+        setActiveTabId,
+        nodesHook.nodes,
+        connectionsHook.connections,
+        groupsHook.groups,
+        canvasHook.viewTransform,
+        nodesHook.nodeIdCounter,
+        fullSizeImageCache,
+        getLocalizedCanvasState,
+        language,
+        loadCanvasState
+    ]);
+
+    const handleCloseTab = useCallback((tabIdToClose: string) => {
+        clearImagesForTabFromCache(tabIdToClose);
+        if (tabs.length <= 1) return; // Keep at least one tab
+
+        const closingIndex = tabs.findIndex(t => t.id === tabIdToClose);
+        const newTabs = tabs.filter(t => t.id !== tabIdToClose);
+
+        if (activeTabId === tabIdToClose) {
+            const nextActiveIndex = Math.max(0, closingIndex - 1);
+            const nextActiveTab = newTabs[nextActiveIndex];
+
+            isLoadingStateRef.current = true;
+            lastLoadedTabIdRef.current = nextActiveTab.id;
+
+            loadCanvasState(nextActiveTab.state);
+            setActiveTabId(nextActiveTab.id);
+        }
+
+        setTabs(newTabs);
+    }, [tabs, activeTabId, setTabs, setActiveTabId, loadCanvasState]);
+
+    const handleRenameTab = useCallback((tabId: string, newName: string) => {
+        setTabs(prevTabs =>
+            prevTabs.map(tab => (tab.id === tabId ? { ...tab, name: newName } : tab))
+        );
+    }, [setTabs]);
+
+    const resetTabs = useCallback(async (lang: LanguageCode) => {
+        const defaultState = getLocalizedCanvasState(lang);
+        const newTab = createNewTab('Canvas 1', defaultState);
+
+        isLoadingStateRef.current = true;
+        lastLoadedTabIdRef.current = newTab.id;
+
+        loadCanvasState(newTab.state);
+        setTabs([newTab]);
+        setActiveTabId(newTab.id);
+
+        await saveSessionToDB([newTab], newTab.id);
+    }, [getLocalizedCanvasState, loadCanvasState, setTabs, setActiveTabId]);
+
+    const resetCurrentTab = useCallback((lang: LanguageCode) => {
+        const defaultState = getLocalizedCanvasState(lang);
+        isLoadingStateRef.current = true;
+        loadCanvasState(defaultState);
+
+        setTabs(prev => prev.map(tab => 
+            tab.id === activeTabId ? { ...tab, state: defaultState } : tab
+        ));
+    }, [activeTabId, getLocalizedCanvasState, loadCanvasState, setTabs]);
 
     const resetCanvasToDefault = useCallback((lang: LanguageCode) => {
         resetTabs(lang);
@@ -322,39 +590,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }));
         }
     }, [nodesHook.setNodes, tabsHook.setTabs, setFullSizeImage]);
-
-    const forceSaveSession = useCallback(async () => {
-        const liveNodes = nodesHook.nodes;
-        const liveConnections = connectionsHook.connections;
-        const liveGroups = groupsHook.groups;
-        const liveViewTransform = canvasHook.viewTransform;
-        const liveNodeIdCounter = nodesHook.nodeIdCounter.current;
-
-        const stateToSave = {
-            nodes: liveNodes,
-            connections: liveConnections,
-            groups: liveGroups,
-            viewTransform: liveViewTransform,
-            nodeIdCounter: liveNodeIdCounter,
-            fullSizeImageCache: fullSizeImageCache,
-        };
-
-        const latestTabs = tabs.map(tab => 
-            tab.id === activeTabId ? { ...tab, state: stateToSave } : tab
-        );
-
-        setTabs(latestTabs);
-        await saveSessionToDB(latestTabs, activeTabId);
-    }, [
-        nodesHook.nodes,
-        connectionsHook.connections,
-        groupsHook.groups,
-        canvasHook.viewTransform,
-        fullSizeImageCache,
-        activeTabId,
-        tabs,
-        setTabs
-    ]);
 
     const batchManagerHook = useBatchManager({
         updateNodeInStorage,
@@ -1068,6 +1303,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ...geminiAnalysisHook, ...geminiConversationHook, ...geminiChainExecutionHook, ...geminiGenerationHook, ...geminiModificationHook,
             ...positionHistoryHook, ...globalState, ...orchestrationHook, ...googleDriveHook, ...generationHistoryHook,
 
+            // Explicitly export live-synchronized tab management methods
+            tabs,
+            setTabs,
+            activeTabId,
+            setActiveTabId,
+            handleSwitchTab,
+            handleAddTab,
+            handleCloseTab,
+            handleRenameTab,
+            resetTabs,
+            resetCurrentTab,
+            getCurrentCanvasState,
+
             tutorialStep: tutorialHook.tutorialStep,
             advanceTutorial: tutorialHook.advanceTutorial,
             setTutorialStep: tutorialHook.setTutorialStep,
@@ -1144,6 +1392,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             nextAutoSaveTime: tabsHook.nextAutoSaveTime,
             isAutoSaving: tabsHook.isAutoSaving,
+            autoSaveInterval: globalState.autoSaveInterval,
+            setAutoSaveInterval: globalState.setAutoSaveInterval,
 
             onUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
             handleUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
@@ -1199,6 +1449,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiAnalysisHook, geminiConversationHook, geminiChainExecutionHook, geminiGenerationHook, geminiModificationHook,
         positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook, generationHistoryHook, taskQueueHook, batchManagerHook,
         updateNodeInStorage, forceSaveSession,
+        tabs, activeTabId, handleSwitchTab, handleAddTab, handleCloseTab, handleRenameTab, resetTabs, resetCurrentTab, getCurrentCanvasState,
         handleToggleNodeCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,

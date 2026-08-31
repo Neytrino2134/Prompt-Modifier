@@ -1055,21 +1055,27 @@ export const cancelBatchJobService = async (jobName: string): Promise<void> => {
 export const extractImagesFromBatchJob = async (
     batchJob: any,
     itemsMeta: { id: string; prompt: string }[]
-): Promise<Array<{ id: string; imageUrl?: string; error?: string }>> => {
+): Promise<Array<{ id: string; imageUrl?: string; error?: string; prompt?: string }>> => {
     if (batchJob?.batch || batchJob?.name?.startsWith('openai_') || batchJob?.name?.startsWith('batch_')) {
         return await extractImagesFromOpenAiBatchJob(batchJob, itemsMeta);
     }
 
-    const results: Array<{ id: string; imageUrl?: string; error?: string }> = [];
+    const results: Array<{ id: string; imageUrl?: string; error?: string; prompt?: string }> = [];
 
     if (batchJob.dest?.inlinedResponses && Array.isArray(batchJob.dest.inlinedResponses)) {
         for (let i = 0; i < batchJob.dest.inlinedResponses.length; i++) {
             const respItem = batchJob.dest.inlinedResponses[i];
-            const meta = itemsMeta[i] || { id: String(i), prompt: '' };
+            const reqItem = batchJob.src?.inlinedRequests?.[i];
+            const promptFromReq = reqItem?.contents?.[0]?.parts?.find((p: any) => p.text)?.text;
+            const promptText = (itemsMeta[i] && itemsMeta[i].prompt && !itemsMeta[i].prompt.startsWith('Recovered Batch'))
+                ? itemsMeta[i].prompt
+                : (promptFromReq || `Batch Item #${i + 1}`);
+            const metaId = itemsMeta[i]?.id || `item-${i}`;
 
             if (respItem.error) {
                 results.push({
-                    id: meta.id,
+                    id: metaId,
+                    prompt: promptText,
                     error: respItem.error.message || `Error code: ${respItem.error.code || 'UNKNOWN'}`
                 });
                 continue;
@@ -1085,15 +1091,16 @@ export const extractImagesFromBatchJob = async (
                     const data = part.inlineData.data || '';
                     const dataUrl = `data:${mime};base64,${data}`;
                     const pngDataUrl = await convertToPNG(dataUrl);
-                    const finalWithMeta = addMetadataToPNG(pngDataUrl, 'prompt', meta.prompt);
-                    results.push({ id: meta.id, imageUrl: finalWithMeta });
+                    const finalWithMeta = addMetadataToPNG(pngDataUrl, 'prompt', promptText);
+                    results.push({ id: metaId, imageUrl: finalWithMeta, prompt: promptText });
                 } catch (e: any) {
                     console.error("Failed to process batch item image:", e);
-                    results.push({ id: meta.id, error: e?.message || 'Image conversion error' });
+                    results.push({ id: metaId, prompt: promptText, error: e?.message || 'Image conversion error' });
                 }
             } else {
                 results.push({
-                    id: meta.id,
+                    id: metaId,
+                    prompt: promptText,
                     error: 'No image data in batch response candidate.'
                 });
             }

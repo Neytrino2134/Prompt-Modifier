@@ -112,6 +112,7 @@ interface OutputPanelProps {
     getFullSizeImage: (frameIndex: number) => string | undefined;
     t: (key: string) => string;
     upstreamPrompt?: string;
+    upstreamPromptsCount?: number;
     isTextConnected?: boolean;
     // New Props for Editing
     onEditPrompt: (index: number) => void;
@@ -131,7 +132,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     onUpdateState, onRunSelected, onDownloadSelected, onDownloadSelectedZip, onStartQueue, onStop, onEdit, onOpenEditor, onSetOutputToInput,
     onDownload, onCopy, onSelectAll, onSelectNone, onInvertSelection, onManualRefresh,
     onOutputClick, onSequenceOutputClick, onCheckOutput, onCopyFrame, onDownloadFrame, onRegenerateFrame, onStopFrame,
-    getFullSizeImage, t, upstreamPrompt, isTextConnected,
+    getFullSizeImage, t, upstreamPrompt, upstreamPromptsCount, isTextConnected,
     onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs
 }) => {
     const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
@@ -224,6 +225,54 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     const activeSelectedCount = useMemo(() => {
         return checkedSequenceOutputIndices.filter(i => activeFrameIndices.includes(i)).length;
     }, [checkedSequenceOutputIndices, activeFrameIndices]);
+
+    // Validation: prompt presence and input selection
+    const hasValidPrompt = useMemo(() => {
+        if (isSequentialEditingWithPrompts) {
+            const hasAnyFramePrompt = Object.values(state.framePrompts || {}).some(p => typeof p === 'string' && !!p.trim());
+            const hasUpstreamMapPrompts = (upstreamPromptsCount || 0) > 0;
+            const hasGlobalPrompt = isTextConnected ? (!!upstreamPrompt?.trim() || hasUpstreamMapPrompts) : !!prompt?.trim();
+            return hasAnyFramePrompt || hasGlobalPrompt;
+        }
+        if (isTextConnected) {
+            return !!upstreamPrompt?.trim() || (upstreamPromptsCount || 0) > 0;
+        }
+        return !!prompt?.trim();
+    }, [isSequentialEditingWithPrompts, state.framePrompts, upstreamPromptsCount, isTextConnected, upstreamPrompt, prompt]);
+
+    const hasCheckedInputImages = useMemo(() => {
+        return !!(checkedInputIndices && checkedInputIndices.length > 0);
+    }, [checkedInputIndices]);
+
+    const isMainActionDisabled = useMemo(() => {
+        if (isEditing) return true;
+
+        if (isSequenceMode) {
+            // Sequence Mode ('Run selected'):
+            // 1. Must have valid prompt (field prompt or connected upstream prompt)
+            if (!hasValidPrompt) return true;
+            // 2. Must have at least one output image selected
+            if (activeSelectedCount === 0) return true;
+            // 3. If sequence mode has input images, must have at least one input image selected
+            if (!isSequentialEditingWithPrompts && hasInputImages && !hasCheckedInputImages) return true;
+            return false;
+        } else {
+            // Single Mode:
+            if (hasInputImages) {
+                // 'Apply Edit':
+                // 1. Must have at least one input image selected
+                if (!hasCheckedInputImages) return true;
+                // 2. Must have valid prompt
+                if (!hasValidPrompt) return true;
+                return false;
+            } else {
+                // 'Generate Image' (Text-to-image without input image):
+                // 1. Must have valid prompt
+                if (!hasValidPrompt) return true;
+                return false;
+            }
+        }
+    }, [isEditing, isSequenceMode, hasValidPrompt, activeSelectedCount, isSequentialEditingWithPrompts, hasInputImages, hasCheckedInputImages]);
 
     // Layout Calculations
     const layout = useMemo(() => {
@@ -442,8 +491,12 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
 
-                            <ActionButton title={t('image_sequence.run_selected')} onClick={onRunSelected} disabled={isEditing || activeSelectedCount === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(isEditing || activeSelectedCount === 0) ? 'text-gray-600' : 'text-emerald-400'}`} viewBox="0 0 20 20" fill="currentColor">
+                            <ActionButton 
+                                title={t('image_sequence.run_selected')} 
+                                onClick={onRunSelected} 
+                                disabled={isEditing || activeSelectedCount === 0 || !hasValidPrompt || (!isSequentialEditingWithPrompts && hasInputImages && !hasCheckedInputImages)}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(isEditing || activeSelectedCount === 0 || !hasValidPrompt || (!isSequentialEditingWithPrompts && hasInputImages && !hasCheckedInputImages)) ? 'text-gray-600' : 'text-emerald-400'}`} viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                                 </svg>
                             </ActionButton>
@@ -737,7 +790,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     ) : (
                         <button 
                             onClick={isSequenceMode ? onRunSelected : onEdit}
-                            disabled={isEditing || (!hasInputImages && !isSequentialEditingWithPrompts && !(isTextConnected ? upstreamPrompt : prompt))} 
+                            disabled={isMainActionDisabled} 
                             className="flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
                         >
                             {isEditing ? (hasInputImages ? t('node.content.editing') : t('node.content.generating')) : (isSequenceMode ? t('image_sequence.run_selected') : (!hasInputImages ? t('node.content.generateImage') : t('node.content.applyEdit')))}

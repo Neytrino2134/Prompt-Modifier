@@ -81,17 +81,30 @@ export const useGenerationHistory = () => {
     url: string, 
     prompt: string, 
     model?: string, 
-    metadataOrRatio?: { aspectRatio?: string; resolution?: string } | string, 
+    metadataOrRatio?: { 
+      aspectRatio?: string; 
+      resolution?: string; 
+      isBatch?: boolean; 
+      skipStats?: boolean;
+      generationMode?: 'normal' | 'batch';
+      batchJobName?: string;
+    } | string, 
     resolutionArg?: string
   ) => {
     if (!url || !url.startsWith('data:image')) return; // Store only base64 data URLs
 
     let aspectRatio: string | undefined;
     let resolution: string | undefined;
+    let isBatch = false;
+    let skipStats = false;
+    let generationMode: 'normal' | 'batch' = 'normal';
 
     if (typeof metadataOrRatio === 'object' && metadataOrRatio !== null) {
       aspectRatio = metadataOrRatio.aspectRatio;
       resolution = metadataOrRatio.resolution;
+      isBatch = !!metadataOrRatio.isBatch;
+      skipStats = !!metadataOrRatio.skipStats || isBatch;
+      generationMode = metadataOrRatio.generationMode || (isBatch ? 'batch' : 'normal');
     } else if (typeof metadataOrRatio === 'string') {
       aspectRatio = metadataOrRatio;
       resolution = resolutionArg;
@@ -107,15 +120,18 @@ export const useGenerationHistory = () => {
       resolution: resolution || undefined,
     };
 
-    // Record into persistent stats log
-    recordGenerationEvent({
-      id: newItem.id,
-      timestamp: newItem.timestamp,
-      model: newItem.model,
-      aspectRatio: newItem.aspectRatio,
-      resolution: newItem.resolution,
-      prompt: newItem.prompt,
-    });
+    // Record into persistent stats log ONLY if not skipped (Batch downloads are skipped since batch items are recorded on request submission)
+    if (!skipStats) {
+      recordGenerationEvent({
+        id: newItem.id,
+        timestamp: newItem.timestamp,
+        model: newItem.model,
+        aspectRatio: newItem.aspectRatio,
+        resolution: newItem.resolution,
+        prompt: newItem.prompt,
+        generationMode,
+      });
+    }
 
     try {
       const db = await getDB();

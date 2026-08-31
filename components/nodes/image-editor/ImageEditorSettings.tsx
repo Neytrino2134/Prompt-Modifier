@@ -139,7 +139,7 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
                     id={`aspect-ratio-toggle-${nodeId}`}
                     checked={enableAspectRatio}
                     onChange={(checked) => { 
-                        onUpdateState({ enableAspectRatio: checked, aspectRatio: 'Auto', enableOutpainting: checked ? enableOutpainting : false }); 
+                        onUpdateState({ enableAspectRatio: checked, aspectRatio: aspectRatio || '1:1', enableOutpainting: checked ? enableOutpainting : false }); 
                     }}
                     label={t('node.content.enableAspectRatioFormatting')}
                 />

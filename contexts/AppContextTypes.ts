@@ -261,6 +261,8 @@ export type AppContextType =
   setIsConnectionAnimationEnabled: (enabled: boolean) => void;
   connectionOpacity: number;
   setConnectionOpacity: (opacity: number) => void;
+  autoSaveInterval: number;
+  setAutoSaveInterval: (interval: number) => void;
 
   // Sync Logic
   handleSyncCatalogs: () => void;
@@ -273,12 +275,15 @@ export type AppContextType =
   setIsBatchMode: (val: boolean | ((prev: boolean) => boolean)) => void;
   batchJobs: BatchJobRecord[];
   isBatchPolling: boolean;
+  fetchingJobIds: { [jobId: string]: boolean };
+  fetchBatchJobResults: (jobId: string) => Promise<any>;
   createBatchGeneration: (params: any) => Promise<any>;
   checkBatchJob: (jobId: string) => Promise<any>;
   pollActiveBatchJobs: () => Promise<void>;
   cancelBatchJob: (jobId: string) => Promise<void>;
   deleteBatchJob: (jobId: string) => void;
   clearFinishedBatchJobs: () => void;
+  clearAllBatchJobs: () => void;
   updateNodeInStorage: (tabId: string, nodeId: string, updater: (nodeVal: any) => any, cacheData?: { frame: number; url: string }) => void;
 
   // Session Persistence

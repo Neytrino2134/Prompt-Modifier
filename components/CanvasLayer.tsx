@@ -505,7 +505,34 @@ const CanvasLayer: React.FC = () => {
                                 />
                             );
                         })}
-                        {connectingInfo && <path d={`M ${connectingInfo.fromPoint.x} ${connectingInfo.fromPoint.y} C ${connectingInfo.fromPoint.x + 80} ${connectingInfo.fromPoint.y}, ${context.pointerPosition.x - 80} ${context.pointerPosition.y}, ${context.pointerPosition.x} ${context.pointerPosition.y}`} stroke={getDragLineColor(connectingInfo.fromType)} strokeWidth="3" fill="none" style={{ strokeDasharray: '8 4', pointerEvents: 'none' }} />}
+                        {connectingInfo && (() => {
+                            let targetX = context.pointerPosition.x;
+                            let targetY = context.pointerPosition.y;
+                            if (connectionTarget) {
+                                const targetNode = nodes.find((n: any) => n.id === connectionTarget.nodeId);
+                                const sourceNode = nodes.find((n: any) => n.id === connectingInfo.fromNodeId);
+                                if (targetNode && sourceNode) {
+                                    const { end } = getConnectionPoints(sourceNode, targetNode, {
+                                        id: '',
+                                        fromNodeId: connectingInfo.fromNodeId,
+                                        fromHandleId: connectingInfo.fromHandleId,
+                                        toNodeId: connectionTarget.nodeId,
+                                        toHandleId: connectionTarget.handleId
+                                    });
+                                    targetX = end.x;
+                                    targetY = end.y;
+                                }
+                            }
+                            return (
+                                <path 
+                                    d={`M ${connectingInfo.fromPoint.x} ${connectingInfo.fromPoint.y} C ${connectingInfo.fromPoint.x + 80} ${connectingInfo.fromPoint.y}, ${targetX - 80} ${targetY}, ${targetX} ${targetY}`} 
+                                    stroke={getDragLineColor(connectingInfo.fromType)} 
+                                    strokeWidth="3" 
+                                    fill="none" 
+                                    style={{ strokeDasharray: '8 4', pointerEvents: 'none' }} 
+                                />
+                            );
+                        })()}
                         
                         {smartGuides.map((guide, index) => {
                             const isVertical = guide.type === 'vertical';

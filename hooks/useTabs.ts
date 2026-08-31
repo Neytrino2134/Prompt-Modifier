@@ -23,19 +23,20 @@ const getSessionDB = (): Promise<IDBDatabase> => {
     });
 };
 
-export const saveSessionToDB = async (tabs: Tab[], activeTabId: string) => {
+export const saveSessionToDB = async (tabs: Tab[], activeTabId: string): Promise<void> => {
     const db = await getSessionDB();
     return new Promise<void>((resolve, reject) => {
         const transaction = db.transaction(SESSION_STORE, 'readwrite');
         const store = transaction.objectStore(SESSION_STORE);
         // Save everything as one object, passing the key explicitly as the store uses out-of-line keys.
-        const request = store.put({ id: SESSION_KEY, tabs, activeTabId }, SESSION_KEY);
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve();
+        store.put({ id: SESSION_KEY, tabs, activeTabId, savedAt: Date.now() }, SESSION_KEY);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error || new Error("Failed to save session to DB"));
+        transaction.onabort = () => reject(transaction.error || new Error("Transaction aborted"));
     });
 };
 
-const loadSessionFromDB = async (): Promise<{ tabs: Tab[], activeTabId: string } | undefined> => {
+export const loadSessionFromDB = async (): Promise<{ tabs: Tab[], activeTabId: string } | undefined> => {
     const db = await getSessionDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(SESSION_STORE, 'readonly');
@@ -44,7 +45,7 @@ const loadSessionFromDB = async (): Promise<{ tabs: Tab[], activeTabId: string }
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
             const result = request.result;
-            if (result && Array.isArray(result.tabs) && result.activeTabId) {
+            if (result && Array.isArray(result.tabs) && result.tabs.length > 0 && result.activeTabId) {
                 resolve({ tabs: result.tabs, activeTabId: result.activeTabId });
             } else {
                 resolve(undefined);
@@ -205,9 +206,8 @@ export const useTabs = () => {
     ]);
     const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
     const [isLoaded, setIsLoaded] = useState(false);
-    const saveTimeoutRef = useRef<any>(null);
     
-    // Auto-save status state
+    // Auto-save status state (managed centrally in AppContext)
     const [nextAutoSaveTime, setNextAutoSaveTime] = useState<number | null>(null);
     const [isAutoSaving, setIsAutoSaving] = useState(false);
 
@@ -216,9 +216,12 @@ export const useTabs = () => {
         const load = async () => {
             try {
                 const session = await loadSessionFromDB();
-                if (session) {
+                if (session && Array.isArray(session.tabs) && session.tabs.length > 0) {
                     setTabs(session.tabs);
-                    setActiveTabId(session.activeTabId);
+                    const validActiveId = session.tabs.some(t => t.id === session.activeTabId)
+                        ? session.activeTabId
+                        : session.tabs[0].id;
+                    setActiveTabId(validActiveId);
                 }
             } catch (e) {
                 console.error("Failed to load session from IndexedDB:", e);
@@ -228,53 +231,6 @@ export const useTabs = () => {
         };
         load();
     }, []);
-
-    // Save to DB on change using requestIdleCallback for better performance with large state
-    useEffect(() => {
-        if (!isLoaded) return;
-
-        // Debounce the save
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-
-        const SAVE_DELAY = 60000; // 60 seconds
-        
-        // Update the expected save time so UI can show countdown without causing re-render loops
-        const newTargetTime = Date.now() + SAVE_DELAY;
-        setNextAutoSaveTime(prev => (prev === null || Math.abs(prev - newTargetTime) > 1000) ? newTargetTime : prev);
-
-        saveTimeoutRef.current = setTimeout(() => {
-            setIsAutoSaving(true);
-            
-            const performSave = async () => {
-                try {
-                    await saveSessionToDB(tabs, activeTabId);
-                } catch (e) {
-                    console.error("Failed to auto-save session:", e);
-                } finally {
-                    setIsAutoSaving(false);
-                    // Reset next save time until next change
-                    setNextAutoSaveTime(null);
-                }
-            };
-
-            // Use requestIdleCallback if available to avoid blocking main thread on large saves
-            if ('requestIdleCallback' in window) {
-                (window as any).requestIdleCallback(performSave, { timeout: 5000 });
-            } else {
-                // Fallback for browsers without requestIdleCallback
-                performSave();
-            }
-        }, SAVE_DELAY);
-
-        return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-            }
-        };
-    }, [tabs, activeTabId, isLoaded]);
-
 
     const handleSwitchTab = useCallback((newTabId: string) => {
         if (newTabId !== activeTabId) {
@@ -321,7 +277,7 @@ export const useTabs = () => {
         saveSessionToDB([newTab], newTab.id);
     }, []);
 
-    // NEW: Function to reset ONLY the current tab to defaults, keeping others intact
+    // Function to reset ONLY the current tab to defaults, keeping others intact
     const resetCurrentTab = useCallback((lang: LanguageCode) => {
         const defaultState = getLocalizedCanvasState(lang);
         setTabs(prevTabs => prevTabs.map(tab => {
@@ -346,9 +302,6 @@ export const useTabs = () => {
     }, [tabs, activeTabId]);
 
     const forceSaveSession = useCallback(async (overrideTabs?: Tab[], overrideActiveTabId?: string) => {
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
         setIsAutoSaving(true);
         try {
             const tabsToSave = overrideTabs || tabs;
@@ -374,10 +327,12 @@ export const useTabs = () => {
         loadCanvasState,
         getCurrentCanvasState,
         resetTabs, 
-        resetCurrentTab, // Export new function
+        resetCurrentTab,
         getLocalizedCanvasState, 
         nextAutoSaveTime, 
+        setNextAutoSaveTime,
         isAutoSaving,
+        setIsAutoSaving,
         isLoaded,
         forceSaveSession
     };

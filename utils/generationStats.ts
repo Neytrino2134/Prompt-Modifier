@@ -1,6 +1,7 @@
 // Generation Statistics Service and Analytics Engine
 
 export type ModelCategory = 'gpt_image_2' | 'pro_3_0' | 'flash_3_1' | 'lite_3_1' | 'other';
+export type GenerationMode = 'normal' | 'batch';
 
 export interface GenerationRecord {
   id: string;
@@ -13,6 +14,7 @@ export interface GenerationRecord {
   prompt?: string;
   promptLength?: number;
   source?: string;
+  generationMode?: GenerationMode;
 }
 
 export type StatsPeriod = '1d' | '7d' | '28d' | '90d' | 'all' | 'custom';
@@ -26,6 +28,7 @@ export interface StatsFilter {
   aspectRatio?: string;
   resolution?: string;
   searchQuery?: string;
+  generationMode?: 'all' | GenerationMode;
 }
 
 export interface CategoryMeta {
@@ -40,6 +43,8 @@ export interface CategoryMeta {
 export interface StatsSummary {
   totalLifetimeCount: number;
   filteredCount: number;
+  normalModeCount: number;
+  batchModeCount: number;
   todayCount: number;
   sevenDaysCount: number;
   twentyEightDaysCount: number;
@@ -311,6 +316,7 @@ export const recordGenerationEvent = (event: {
   resolution?: string;
   prompt?: string;
   source?: string;
+  generationMode?: GenerationMode;
 }): GenerationRecord => {
   const records = getGenerationRecords();
   const model = event.model || 'imagen-4.0-generate-001';
@@ -318,6 +324,7 @@ export const recordGenerationEvent = (event: {
   const modelDisplayName = getStandardModelName(model);
   const aspectRatio = event.aspectRatio || '1:1';
   const prompt = event.prompt || '';
+  const generationMode: GenerationMode = event.generationMode || (event.source === 'batch_api' ? 'batch' : 'normal');
 
   const newRecord: GenerationRecord = {
     id: event.id || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -329,7 +336,8 @@ export const recordGenerationEvent = (event: {
     resolution: event.resolution,
     prompt: prompt.slice(0, 500), // snippet for search & preview
     promptLength: prompt.length,
-    source: event.source || 'image_generation',
+    source: event.source || (generationMode === 'batch' ? 'batch_api' : 'image_generation'),
+    generationMode,
   };
 
   // Avoid exact duplicates if called repeatedly with same ID
@@ -355,6 +363,8 @@ export const syncWithHistoryItems = (items: Array<{
   aspectRatio?: string;
   resolution?: string;
   prompt?: string;
+  generationMode?: GenerationMode;
+  isBatch?: boolean;
 }>) => {
   if (!items || items.length === 0) return;
   const records = getGenerationRecords();
@@ -367,6 +377,7 @@ export const syncWithHistoryItems = (items: Array<{
   items.forEach(item => {
     if (!existingMap.has(item.id)) {
       const model = item.model || 'imagen-4.0-generate-001';
+      const genMode: GenerationMode = item.generationMode || (item.isBatch ? 'batch' : 'normal');
       toAdd.push({
         id: item.id,
         timestamp: item.timestamp || Date.now(),
@@ -377,6 +388,8 @@ export const syncWithHistoryItems = (items: Array<{
         resolution: item.resolution,
         prompt: (item.prompt || '').slice(0, 500),
         promptLength: (item.prompt || '').length,
+        source: genMode === 'batch' ? 'batch_api' : 'image_generation',
+        generationMode: genMode,
       });
       existingMap.set(item.id, true);
       addedCount++;
@@ -430,18 +443,20 @@ export const exportStatsAsJSON = () => {
  */
 export const exportStatsAsCSV = () => {
   const records = getGenerationRecords();
-  const headers = ['ID', 'Date', 'Time', 'Timestamp', 'Model_ID', 'Model_Name', 'Category', 'Aspect_Ratio', 'Resolution', 'Prompt_Length', 'Prompt'];
+  const headers = ['ID', 'Date', 'Time', 'Timestamp', 'Mode', 'Model_ID', 'Model_Name', 'Category', 'Aspect_Ratio', 'Resolution', 'Prompt_Length', 'Prompt'];
   
   const rows = records.map(r => {
     const d = new Date(r.timestamp);
     const dateStr = d.toLocaleDateString();
     const timeStr = d.toLocaleTimeString();
     const cleanPrompt = (r.prompt || '').replace(/"/g, '""');
+    const mode = (r.generationMode || (r.source === 'batch_api' ? 'batch' : 'normal')) === 'batch' ? 'Batch API' : 'Normal';
     return [
       r.id,
       `"${dateStr}"`,
       `"${timeStr}"`,
       r.timestamp,
+      `"${mode}"`,
       `"${r.model}"`,
       `"${r.modelDisplayName}"`,
       `"${r.category}"`,
@@ -488,11 +503,20 @@ export const computeStatsSummary = (
   let todayCount = 0;
   let sevenDaysCount = 0;
   let twentyEightDaysCount = 0;
+  let totalNormalCount = 0;
+  let totalBatchCount = 0;
 
   records.forEach(r => {
     if (r.timestamp >= todayStartMs) todayCount++;
     if (r.timestamp >= sevenDaysAgoMs) sevenDaysCount++;
     if (r.timestamp >= twentyEightDaysAgoMs) twentyEightDaysCount++;
+    
+    const rMode = r.generationMode || (r.source === 'batch_api' ? 'batch' : 'normal');
+    if (rMode === 'batch') {
+      totalBatchCount++;
+    } else {
+      totalNormalCount++;
+    }
   });
 
   // Determine active time range based on filter.period
@@ -516,6 +540,11 @@ export const computeStatsSummary = (
   const queryLower = filter.searchQuery ? filter.searchQuery.toLowerCase().trim() : '';
 
   const filtered = records.filter(r => {
+    // Mode filter
+    if (filter.generationMode && filter.generationMode !== 'all') {
+      const rMode = r.generationMode || (r.source === 'batch_api' ? 'batch' : 'normal');
+      if (rMode !== filter.generationMode) return false;
+    }
     // Time filter
     if (filter.period !== 'all') {
       if (r.timestamp < rangeStartMs || r.timestamp > rangeEndMs) return false;
@@ -768,6 +797,8 @@ export const computeStatsSummary = (
   return {
     totalLifetimeCount: lifetimeTotal,
     filteredCount,
+    normalModeCount: totalNormalCount,
+    batchModeCount: totalBatchCount,
     todayCount,
     sevenDaysCount,
     twentyEightDaysCount,

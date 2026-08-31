@@ -154,9 +154,7 @@ export const generateOpenAiImage = async (
         }
     }
 
-    const size = mapAspectRatioToOpenAiSize(options.aspectRatio, targetModel, options.size);
-
-    // If input images are provided for image editing / variations:
+    // 1. If input images are provided for image editing / variations:
     if (options.images && options.images.length > 0) {
         try {
             const firstImg = options.images[0];
@@ -171,14 +169,9 @@ export const generateOpenAiImage = async (
             const formData = new FormData();
             formData.append('image', blob, 'input.png');
             formData.append('prompt', prompt.trim());
-            formData.append('model', isGptImage2 ? 'gpt-image-2' : 'dall-e-2');
-            formData.append('size', isGptImage2 ? size : '1024x1024');
-            if (isGptImage2) {
-                formData.append('quality', quality);
-                if (outputFormat) formData.append('output_format', outputFormat);
-            } else {
-                formData.append('response_format', 'b64_json');
-            }
+            formData.append('model', 'dall-e-2');
+            formData.append('size', '1024x1024');
+            formData.append('response_format', 'b64_json');
             formData.append('n', '1');
 
             const response = await fetch('https://api.openai.com/v1/images/edits', {
@@ -199,44 +192,58 @@ export const generateOpenAiImage = async (
                 }
             }
         } catch (editError: any) {
-            console.warn("OpenAI image edit failed, attempting standard generation with image description context:", editError?.message);
+            console.warn("OpenAI image edit fallback to generations endpoint:", editError?.message);
         }
     }
 
-    // Standard GPT-Image-2 / DALL-E 3 / DALL-E 2 generation
-    const requestBody: Record<string, any> = {
-        model: targetModel,
-        prompt: prompt.trim(),
-        n: 1,
-        size: size,
+    // 2. Standard Generation with Automatic Fallback for model availability (gpt-image-2 -> dall-e-3)
+    const callOpenAiGen = async (modelToUse: string, isGptImg2: boolean) => {
+        const genSize = mapAspectRatioToOpenAiSize(options.aspectRatio, modelToUse, options.size);
+        const requestBody: Record<string, any> = {
+            model: modelToUse,
+            prompt: prompt.trim(),
+            n: 1,
+            size: genSize,
+        };
+
+        if (isGptImg2 && modelToUse === 'gpt-image-2') {
+            requestBody.quality = quality;
+            if (outputFormat) {
+                requestBody.output_format = outputFormat;
+            }
+        } else {
+            requestBody.response_format = 'b64_json';
+            if (modelToUse === 'dall-e-3') {
+                requestBody.quality = (quality === 'auto' || quality === 'high') ? 'hd' : (quality || 'hd');
+                if (style) requestBody.style = style;
+            }
+        }
+
+        const response = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        const data = await response.json();
+        return { response, data };
     };
 
-    if (isGptImage2) {
-        requestBody.quality = quality;
-        if (outputFormat) {
-            requestBody.output_format = outputFormat;
-        }
-    } else {
-        requestBody.response_format = 'b64_json';
-        if (targetModel === 'dall-e-3') {
-            requestBody.quality = quality === 'auto' || quality === 'high' ? 'hd' : quality;
-            if (style) requestBody.style = style;
-        }
+    let { response, data } = await callOpenAiGen(targetModel, isGptImage2);
+
+    // If model 'gpt-image-2' returned model_not_found, 400 or 404, retry seamlessly with 'dall-e-3'
+    if (!response.ok && isGptImage2 && (data.error?.code === 'model_not_found' || data.error?.message?.includes('model') || response.status === 400 || response.status === 404)) {
+        console.warn(`OpenAI model '${targetModel}' not available, retrying seamlessly with dall-e-3...`);
+        const retryResult = await callOpenAiGen('dall-e-3', false);
+        response = retryResult.response;
+        data = retryResult.data;
     }
 
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(requestBody)
-    });
-
-    const data = await response.json();
-
     if (!response.ok || data.error) {
-        const errorMsg = data.error?.message || `OpenAI API returned status ${response.status}`;
+        const errorMsg = data.error?.message || (typeof data.error === 'string' ? data.error : `OpenAI API returned status ${response.status}`);
         throw new Error(errorMsg);
     }
 
@@ -262,7 +269,7 @@ export const generateOpenAiImage = async (
                 reader.readAsDataURL(imgBlob);
             });
         }
-        throw new Error("No image payload received from OpenAI.");
+        throw new Error("No image data returned from OpenAI API.");
     }
 
     const dataUrl = `data:image/png;base64,${b64}`;
@@ -306,7 +313,10 @@ interface StoredOpenAiBatch {
 const getStoredOpenAiBatches = (): StoredOpenAiBatch[] => {
     try {
         const s = localStorage.getItem(STORAGE_KEY_OPENAI_BATCH_JOBS);
-        return s ? JSON.parse(s) : [];
+        if (!s) return [];
+        const parsed = JSON.parse(s);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter(b => b && typeof b === 'object' && b.id && Array.isArray(b.items));
     } catch {
         return [];
     }
@@ -317,6 +327,17 @@ const saveStoredOpenAiBatches = (batches: StoredOpenAiBatch[]): void => {
         localStorage.setItem(STORAGE_KEY_OPENAI_BATCH_JOBS, JSON.stringify(batches));
     } catch (e) {
         console.error("Failed to save OpenAI batches to storage", e);
+    }
+};
+
+/**
+ * Clear all OpenAI batch jobs from localStorage
+ */
+export const clearAllOpenAiBatches = (): void => {
+    try {
+        localStorage.removeItem(STORAGE_KEY_OPENAI_BATCH_JOBS);
+    } catch (e) {
+        console.error("Failed to clear OpenAI batches storage:", e);
     }
 };
 
@@ -550,7 +571,16 @@ const triggerNextOpenAiBatchItem = async (batchId: string): Promise<void> => {
     if (!batch || batch.state !== 'RUNNING') return;
 
     const nextItem = batch.items.find(it => it.status === 'queued');
-    if (!nextItem) return;
+    if (!nextItem) {
+        const allDone = batch.items.every(it => it.status === 'completed' || it.status === 'failed' || it.status === 'cancelled');
+        if (allDone) {
+            const anySuccess = batch.items.some(it => it.status === 'completed');
+            batch.state = anySuccess ? 'SUCCEEDED' : 'FAILED';
+            batch.updatedAt = Date.now();
+            saveStoredOpenAiBatches(batches);
+        }
+        return;
+    }
 
     nextItem.status = 'running';
     saveStoredOpenAiBatches(batches);
@@ -567,12 +597,25 @@ const triggerNextOpenAiBatchItem = async (batchId: string): Promise<void> => {
         nextItem.resultUrl = resultUrl;
         nextItem.status = 'completed';
     } catch (e: any) {
-        nextItem.error = e.message || 'Generation failed';
+        nextItem.error = typeof e?.message === 'string' ? e.message : (typeof e === 'string' ? e : 'Generation failed');
         nextItem.status = 'failed';
     }
 
     batch.updatedAt = Date.now();
     saveStoredOpenAiBatches(batches);
+
+    // Continue to next queued item if batch is still active
+    const remainingQueued = batch.items.some(it => it.status === 'queued');
+    if (remainingQueued) {
+        setTimeout(() => {
+            triggerNextOpenAiBatchItem(batchId).catch(console.error);
+        }, 500);
+    } else {
+        const anySuccess = batch.items.some(it => it.status === 'completed');
+        batch.state = anySuccess ? 'SUCCEEDED' : 'FAILED';
+        batch.updatedAt = Date.now();
+        saveStoredOpenAiBatches(batches);
+    }
 };
 
 /**
@@ -581,16 +624,26 @@ const triggerNextOpenAiBatchItem = async (batchId: string): Promise<void> => {
 export const extractImagesFromOpenAiBatchJob = async (
     sdkJob: any,
     itemsMeta: Array<{ id: string; prompt: string }>
-): Promise<Array<{ id: string; imageUrl?: string; error?: string }>> => {
+): Promise<Array<{ id: string; imageUrl?: string; error?: string; prompt?: string }>> => {
     const batch: StoredOpenAiBatch | undefined = sdkJob?.batch || getStoredOpenAiBatches().find(b => b.id === sdkJob?.name);
     if (!batch) return [];
 
-    return itemsMeta.map(meta => {
-        const item = batch.items.find(it => it.id === meta.id);
+    if (!itemsMeta || itemsMeta.length === 0) {
+        return batch.items.map(it => ({
+            id: it.id,
+            imageUrl: it.resultUrl,
+            error: it.error,
+            prompt: it.prompt
+        }));
+    }
+
+    return itemsMeta.map((meta, idx) => {
+        const item = batch.items.find(it => it.id === meta.id) || batch.items[idx];
         return {
-            id: meta.id,
+            id: meta.id || item?.id || `item-${idx}`,
             imageUrl: item?.resultUrl,
-            error: item?.error
+            error: item?.error,
+            prompt: item?.prompt || meta.prompt
         };
     });
 };

@@ -260,9 +260,12 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             if (mode === 'single') {
                 const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
                 updateSingleCropSlice(activeCrop, undefined, masterSrc);
-            } else if (mode === 'grid') {
+            } else if (mode === 'grid' || (mode === 'batch' && batchSubMode === 'grid')) {
                 const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, undefined, masterSrc);
+            } else if (mode === 'batch' && batchSubMode === 'crop') {
+                const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
+                updateSingleCropSlice(activeCrop, undefined, masterSrc);
             }
         } else if (isFirstLoad) {
             if (mode === 'single' && !croppedImage) {
@@ -271,9 +274,12 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             } else if (mode === 'grid' && (!extractedImages || extractedImages.length === 0)) {
                 const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, undefined, masterSrc);
+            } else if (mode === 'batch' && batchSubMode === 'grid' && (!extractedImages || extractedImages.length === 0)) {
+                const activeGrid = grid || { cols: 2, rows: 2, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+                updateGridSlices(activeGrid, undefined, masterSrc);
             }
         }
-    }, [fullResImage, image, mode, updateSingleCropSlice, updateGridSlices, cropRect, grid, croppedImage, extractedImages]);
+    }, [fullResImage, image, mode, batchSubMode, updateSingleCropSlice, updateGridSlices, cropRect, grid, croppedImage, extractedImages]);
 
     const handleImageChange = async (dataUrl: string) => {
         const promptFromMeta = await readPromptFromPNG(dataUrl);
@@ -1175,11 +1181,31 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
                         {/* Quick Presets */}
                         <div className="flex items-center gap-1 text-[11px] flex-wrap">
-                            <button onClick={() => updateGridDims(4, 5)} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-700 font-mono rounded font-bold">4×5</button>
-                            <button onClick={() => updateGridDims(3, 3)} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-700 font-mono rounded">3×3</button>
-                            <button onClick={() => updateGridDims(2, 2)} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-700 font-mono rounded">2×2</button>
-                            <button onClick={() => updateGridDims(5, 4)} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-700 font-mono rounded">5×4</button>
-                            <button onClick={() => updateGridDims(4, 4)} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-700 font-mono rounded">4×4</button>
+                            {[
+                                { cols: 4, rows: 5, label: '4×5' },
+                                { cols: 5, rows: 4, label: '5×4' },
+                                { cols: 1, rows: 2, label: '1×2' },
+                                { cols: 2, rows: 1, label: '2×1' },
+                                { cols: 2, rows: 2, label: '2×2' },
+                                { cols: 3, rows: 3, label: '3×3' },
+                                { cols: 4, rows: 4, label: '4×4' },
+                            ].map((preset) => {
+                                const isActive = (grid?.cols || 4) === preset.cols && (grid?.rows || 5) === preset.rows;
+                                return (
+                                    <button
+                                        key={preset.label}
+                                        type="button"
+                                        onClick={() => updateGridDims(preset.cols, preset.rows)}
+                                        className={`px-1.5 py-0.5 font-mono rounded transition-colors ${
+                                            isActive
+                                                ? 'bg-cyan-600 text-white font-bold shadow-sm ring-1 ring-cyan-400'
+                                                : 'bg-cyan-900/60 hover:bg-cyan-700 text-cyan-200'
+                                        }`}
+                                    >
+                                        {preset.label}
+                                    </button>
+                                );
+                            })}
                             <button 
                                 onClick={() => updateGridSlices({ ...(grid || { cols: 4, rows: 5 }), bounds: { x: 0, y: 0, width: 1, height: 1 } })} 
                                 className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]"
