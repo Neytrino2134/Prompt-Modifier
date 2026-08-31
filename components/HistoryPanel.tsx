@@ -9,7 +9,7 @@ export const HistoryPanel: React.FC = () => {
   const context = useAppContext();
   if (!context) return null;
 
-  const { historyItems, isHistoryPanelOpen, setIsHistoryPanelOpen, removeHistoryItems, clearHistory, historyLimit, setHistoryLimit, setImageViewer, t } = context;
+  const { historyItems, isHistoryPanelOpen, setIsHistoryPanelOpen, setIsTaskQueuePanelOpen, removeHistoryItems, clearHistory, historyLimit, setHistoryLimit, setImageViewer, t } = context;
   const [activeTab, setActiveTab] = useState<'images' | 'stats'>('images');
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -99,14 +99,14 @@ export const HistoryPanel: React.FC = () => {
 
   return (
     <>
-      <div className={`fixed top-0 right-0 bottom-0 w-80 bg-gray-900 border-l border-gray-700 shadow-2xl z-[200] flex flex-col transition-transform duration-300 ease-in-out ${isHistoryPanelOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
+      <div className={`fixed top-0 right-0 bottom-0 w-80 sm:w-96 bg-gray-900 border-l border-gray-700 shadow-2xl z-[200] flex flex-col transition-transform duration-300 ease-in-out ${isHistoryPanelOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur-sm z-10 sticky top-0">
-          <h2 className="text-gray-100 font-semibold flex items-center gap-2 text-sm">
+        <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur-sm z-10 sticky top-0 select-none">
+          <h2 className="text-gray-100 font-semibold flex items-center gap-2 text-sm select-none">
             <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            {t('ui.generation_history') || 'Generation History'}
+            <span>{t('ui.generation_history') || 'Generation History'}</span>
             {activeTab === 'images' && (
               <button 
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -120,15 +120,35 @@ export const HistoryPanel: React.FC = () => {
               </button>
             )}
           </h2>
-          <button onClick={() => setIsHistoryPanelOpen(false)} className="text-gray-400 hover:text-white transition-colors">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+
+          <div className="flex items-center gap-1.5 select-none">
+            <button
+              onClick={() => {
+                setIsHistoryPanelOpen(false);
+                setIsTaskQueuePanelOpen(true);
+              }}
+              className="px-2.5 py-1 text-xs font-medium text-cyan-400 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-800/60 rounded-md transition-colors flex items-center gap-1.5"
+              title={t('ui.to_tasks') || 'To Tasks'}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <span>{t('ui.to_tasks') || 'To Tasks'}</span>
+            </button>
+
+            <button
+              onClick={() => setIsHistoryPanelOpen(false)}
+              className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-800 transition-colors"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Navigation Tabs Header */}
-        <div className="flex border-b border-gray-800 bg-gray-950/80 px-2 pt-1 gap-1">
+        <div className="flex border-b border-gray-800 bg-gray-950/80 px-2 pt-1 gap-1 select-none">
           <button
             onClick={() => setActiveTab('images')}
             className={`flex-1 py-2 px-3 text-xs font-semibold rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 ${

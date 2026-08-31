@@ -1,5 +1,9 @@
 
 export const common = {
+    'common.close': 'Fermer',
+    'common.apply': 'Appliquer',
+    'common.cancel': 'Annuler',
+    'common.refresh': 'Actualiser',
     'app.title': 'Modificateur de Prompt',
     'app.subtitle': 'Connectez des idées pour créer un chef-d\'œuvre',
     'app.error.title': 'Notification',

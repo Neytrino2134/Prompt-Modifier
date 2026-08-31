@@ -73,39 +73,15 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                 onChange={handleFileInputChange}
             />
 
-            {/* Top Toolbar in Batch Mode: Sub-Mode Selector, Include Original & File Management */}
+            {/* Top Toolbar in Batch Mode: Include Original & File Management */}
             <div className="flex items-center justify-between px-1 text-xs gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-gray-400 font-medium text-[11px] mr-1">Режим обработки:</span>
-                    <button
-                        type="button"
-                        onClick={() => onChangeSubMode('crop')}
-                        className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all flex items-center gap-1 ${
-                            subMode === 'crop'
-                                ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
-                                : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
-                        }`}
-                    >
-                        <span>✂ Кадрирование (Crop)</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onChangeSubMode('grid')}
-                        className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all flex items-center gap-1 ${
-                            subMode === 'grid'
-                                ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
-                                : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
-                        }`}
-                    >
-                        <span>▦ Сетка ({gridConfig.cols || 4}×{gridConfig.rows || 5})</span>
-                    </button>
-
                     {/* Option: Include Original / Uncropped Image in ZIP */}
                     <button
                         type="button"
                         onClick={() => onChangeIncludeOriginal && onChangeIncludeOriginal(!includeOriginal)}
                         disabled={isProcessing}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1.5 border ml-1 ${
+                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1.5 border ${
                             includeOriginal
                                 ? 'bg-cyan-950/80 border-cyan-500 text-cyan-200 shadow-sm'
                                 : 'bg-gray-900/80 border-gray-700/80 text-gray-400 hover:text-gray-200 hover:border-gray-600'

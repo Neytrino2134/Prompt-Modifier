@@ -55,5 +55,5 @@ export const dialogs = {
     'dialog.exitApp.title': 'Fermer le projet ?',
     'dialog.exitApp.message': 'Voulez-vous vraiment fermer le projet ? Souhaitez-vous enregistrer vos modifications avant de quitter ?',
     'dialog.exitApp.saveAndClose': 'Enregistrer et fermer',
-    'dialog.exitApp.dontSave': 'Fermer sans enregistrer',
+    'dialog.exitApp.dontSave': 'Fermer (garder la dernière sauvegarde auto)',
 };

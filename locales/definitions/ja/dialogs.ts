@@ -55,5 +55,5 @@ export const dialogs = {
     'dialog.exitApp.title': 'プロジェクトを閉じますか？',
     'dialog.exitApp.message': 'プロジェクトを閉じてもよろしいですか？終了する前に変更を保存しますか？',
     'dialog.exitApp.saveAndClose': '保存して閉じる',
-    'dialog.exitApp.dontSave': '保存せずに閉じる',
+    'dialog.exitApp.dontSave': '閉じる（前回の自動保存を保持）',
 };

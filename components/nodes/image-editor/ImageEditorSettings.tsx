@@ -40,31 +40,27 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
     return (
         <div className="flex-shrink-0 space-y-2.5">
             {/* Batch API Synchronized Mode Toggle & Status Indicator */}
-            <div className={`p-2 rounded-md border transition-all ${
-                isBatchMode 
-                    ? 'bg-amber-950/40 border-amber-500/50 text-amber-200' 
-                    : 'bg-gray-800/40 border-gray-700/50 text-gray-300'
-            }`}>
+            <div 
+                onClick={() => {
+                    if (!isEditing) setIsBatchMode(!isBatchMode);
+                }}
+                className={`p-2 rounded-md border cursor-pointer select-none transition-all ${
+                    isBatchMode 
+                        ? 'bg-amber-950/40 border-amber-500/50 text-amber-200' 
+                        : 'bg-gray-800/40 border-gray-700/50 hover:border-gray-600 text-gray-300'
+                } ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
                 <div className="flex items-center justify-between">
-                    <label 
-                        htmlFor={`batch-mode-toggle-${nodeId}`}
-                        className="flex items-center gap-2 text-xs font-medium cursor-pointer select-none"
-                    >
+                    <div className="flex items-center gap-2 text-xs font-medium">
                         <span className={`w-2 h-2 rounded-full ${isBatchMode ? 'bg-amber-400 animate-pulse' : 'bg-gray-500'}`}></span>
                         <span>{t('batch.mode') || 'Batch API Mode'}</span>
                         <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-900/60 text-amber-300 border border-amber-700/60 font-mono">
                             -50% Cost
                         </span>
-                    </label>
-                    <input
-                        id={`batch-mode-toggle-${nodeId}`}
-                        type="checkbox"
-                        checked={!!isBatchMode}
-                        onChange={(e) => setIsBatchMode(e.target.checked)}
-                        disabled={isEditing}
-                        className="h-4 w-4 rounded border-gray-600 text-amber-500 focus:ring-amber-400 bg-gray-700 cursor-pointer"
-                        onMouseDown={(e) => e.stopPropagation()}
-                    />
+                    </div>
+                    <div className={`w-8 h-4 rounded-full relative transition-colors flex-shrink-0 ${isBatchMode ? 'bg-amber-500' : 'bg-gray-600'}`}>
+                        <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${isBatchMode ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
+                    </div>
                 </div>
                 {isBatchMode && (
                     <div className="mt-1.5 text-[11px] text-amber-300/90 leading-tight flex items-start gap-1">

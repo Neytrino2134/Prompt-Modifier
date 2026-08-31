@@ -50,9 +50,10 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
     const { node, activeTool, onOutputHandleMouseDown, onOutputHandleTouchStart, onInputHandleMouseDown, onInputHandleTouchStart, isHovered, isSelected, onNodeMouseEnter, onNodeMouseLeave, onDeleteNode, connectingInfo, connectionTarget, onDetachNodeFromGroup, isGlobalProcessing, isProxy, isFocused, isGrouped, isGroupDragging } = props;
 
     const context = useAppContext();
-    // Default isHoverHighlightEnabled to true if context is not yet available, but prefer context value
-    const { handleOpenNodeContextMenu, requestDeleteNodes, handleUndockNode, selectNode, nodeAnimationMode, connectedInputTypes, handleClearNodeNewFlag, isHoverHighlightEnabled: contextHoverHighlightEnabled } = context || {};
+    // Default isHoverHighlightEnabled and isBringToFrontOnHoverEnabled to true if context is not yet available, but prefer context value
+    const { handleOpenNodeContextMenu, requestDeleteNodes, handleUndockNode, selectNode, nodeAnimationMode, connectedInputTypes, handleClearNodeNewFlag, isHoverHighlightEnabled: contextHoverHighlightEnabled, isBringToFrontOnHoverEnabled: contextBringToFrontOnHoverEnabled } = context || {};
     const isHoverHighlightEnabled = contextHoverHighlightEnabled === undefined ? true : contextHoverHighlightEnabled;
+    const isBringToFrontOnHoverEnabled = contextBringToFrontOnHoverEnabled === undefined ? true : contextBringToFrontOnHoverEnabled;
     const { t } = useLanguage();
 
     const isRerouteDot = node.type === NodeType.REROUTE_DOT;
@@ -94,7 +95,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
 
     // --- Styles & Classes ---
     // Pass group context to style generator
-    const styles = getNodeStyles(node, isDockedWindow, isProxyMode, isRerouteDot, isSelected, isHovered, minSize, !!isFocused, isGrouped, isGroupDragging);
+    const styles = getNodeStyles(node, isDockedWindow, isProxyMode, isRerouteDot, isSelected, isHovered, minSize, !!isFocused, isGrouped, isGroupDragging, isBringToFrontOnHoverEnabled);
     const classes = getNodeClasses(
         node,
         isDockedWindow,

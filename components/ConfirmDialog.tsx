@@ -104,7 +104,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             {secondaryAction && (
               <button
                 onClick={handleSecondaryAction}
-                className={secondaryAction.className || "whitespace-nowrap px-4 py-2 text-sm font-semibold text-rose-300 bg-rose-950/50 hover:bg-rose-900/70 hover:text-rose-100 rounded-lg transition-colors border border-rose-800/60"}
+                className={secondaryAction.className || "whitespace-nowrap px-4 py-2 text-sm font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 hover:text-white rounded-lg transition-colors border border-gray-600"}
               >
                 {secondaryAction.label}
               </button>

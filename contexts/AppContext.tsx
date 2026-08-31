@@ -200,8 +200,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const activeTabIdRef = useRef(activeTabId);
     useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
 
+    const batchJobsRef = useRef<any[]>([]);
+
     const entityActionsHook = useEntityActions({
-        nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, connections: connectionsHook.connections, setConnections: connectionsHook.setConnections, nodeIdCounter: nodesHook.nodeIdCounter, groups: groupsHook.groups, setGroups: groupsHook.setGroups, t, clearImagesForNodeFromCache, tabId: activeTabId, addToast, getFullSizeImage, setFullSizeImage, takeSnapshot: positionHistoryHook.takeSnapshot
+        nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, connections: connectionsHook.connections, setConnections: connectionsHook.setConnections, nodeIdCounter: nodesHook.nodeIdCounter, groups: groupsHook.groups, setGroups: groupsHook.setGroups, t, clearImagesForNodeFromCache, tabId: activeTabId, addToast, getFullSizeImage, setFullSizeImage, takeSnapshot: positionHistoryHook.takeSnapshot,
+        getBatchJobs: () => batchJobsRef.current
     });
 
     // Catalogs & Library
@@ -327,6 +330,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         enqueueTask: taskQueueHook.enqueueTask,
         t
     });
+    batchJobsRef.current = batchManagerHook.batchJobs;
 
     const geminiConversationHook = useGeminiConversation({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, setError: globalState.setError, t, getUpstreamNodeValues, activeTabId, setTabs

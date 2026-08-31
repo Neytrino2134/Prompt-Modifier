@@ -8,29 +8,9 @@ import {
     BatchRequestItemInput
 } from '../services/geminiService';
 import { generateThumbnail, cropImageTo169 } from '../utils/imageUtils';
-import { addMetadataToPNG } from '../utils/pngMetadata';
 
 const STORAGE_KEY_BATCH_JOBS = 'gemini_batch_jobs_v1';
 const STORAGE_KEY_BATCH_MODE = 'settings_isBatchMode';
-
-// Local download trigger
-const triggerDownload = (url: string, prompt: string, frameNumber: number = 0) => {
-    let assetUrl = url;
-    if (url.startsWith('data:image/png')) {
-        assetUrl = addMetadataToPNG(url, 'prompt', prompt);
-    }
-    const link = document.createElement('a');
-    link.href = assetUrl;
-    const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-    const paddedFrame = String(frameNumber).padStart(3, '0');
-    const filename = `Batch_Image_${paddedFrame}_${date}_${time}.png`;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
 
 export interface UseBatchManagerProps {
     updateNodeInStorage?: (tabId: string, nodeId: string, updater: (nodeVal: any) => any, cacheData?: { frame: number; url: string }) => void;
@@ -173,11 +153,6 @@ export const useBatchManager = ({
                             isBatch: true,
                             batchJobName: job.name
                         });
-                    }
-
-                    // Trigger auto download if enabled
-                    if (item.autoDownload) {
-                        triggerDownload(finalUrl, item.prompt, frameNum + 1);
                     }
 
                     updatedItems[i] = {

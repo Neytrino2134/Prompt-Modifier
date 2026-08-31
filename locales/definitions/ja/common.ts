@@ -1,6 +1,10 @@
 
 
 export const common = {
+    'common.close': '閉じる',
+    'common.apply': '適用',
+    'common.cancel': 'キャンセル',
+    'common.refresh': '更新',
     'app.title': 'プロンプトモディファイア',
     'app.subtitle': 'アイデアをつなぎ、傑作を生み出す',
     'app.error.title': '通知',

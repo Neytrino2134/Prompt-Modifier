@@ -299,9 +299,7 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
          return renderHandle({ type: 'text', handleId: 'prompts_sequence', title: 'Prompts Sequence Input' }, '50%', 'prompts_sequence');
     }
     if (node.type === NodeType.IMAGE_INPUT) {
-        const contentHeight = node.height - HEADER_HEIGHT - 2 * CONTENT_PADDING;
-        const availableContentHeight = Math.max(0, contentHeight);
-        const y = HEADER_HEIGHT + CONTENT_PADDING + (availableContentHeight / 4);
+        const y = HEADER_HEIGHT + 410;
         return renderHandle({ type: 'image', handleId: 'image', title: 'Image / Batch Input' }, `${y}px`, 'image');
     }
 
@@ -564,9 +562,7 @@ export const OutputHandles: React.FC<HandleProps> = ({ node, getHandleColor, han
         })} </>);
     }
     if (node.type === NodeType.IMAGE_INPUT) {
-        const contentHeight = node.height - HEADER_HEIGHT - 2 * CONTENT_PADDING;
-        const availableContentHeight = Math.max(0, contentHeight);
-        const imageHandleY = HEADER_HEIGHT + CONTENT_PADDING + (availableContentHeight / 4);
+        const imageHandleY = HEADER_HEIGHT + 410;
         const textHandleY = node.height - 80;
         
         return (

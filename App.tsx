@@ -111,7 +111,7 @@ const Editor: React.FC = () => {
                           onAction: () => {
                               (window as any).electronAPI.forceClose();
                           },
-                          className: 'px-4 py-2 font-semibold text-rose-400 bg-rose-950/40 hover:bg-rose-900/60 hover:text-rose-200 rounded-lg transition-colors border border-rose-800/60'
+                          className: 'whitespace-nowrap px-4 py-2 text-sm font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 hover:text-white rounded-lg transition-colors border border-gray-600'
                       },
                       cancelLabel: t('dialog.confirmDelete.cancel')
                   });

@@ -52,14 +52,6 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     const [transformingRatio, setTransformingRatio] = useState<string | null>(null);
     const [isSlicing, setIsSlicing] = useState(false);
 
-    // State for batch processing mode
-    const [batchFiles, setBatchFiles] = useState<ImageBatchItem[]>([]);
-    const [selectedRefIndex, setSelectedRefIndex] = useState<number>(0);
-    const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
-    const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; currentName: string; percent: number } | null>(null);
-    const [batchResult, setBatchResult] = useState<{ zipBlob: Blob; totalImages: number; totalSlices: number; timestamp: string; filename: string } | null>(null);
-    const abortBatchRef = useRef<boolean>(false);
-
     // State for original image dimensions
     const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);
 
@@ -98,10 +90,31 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         croppedImage = null, 
         grid = { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } }, 
         batchConfig,
+        batchFiles: initialBatchFiles = [],
         extractedImages = [],
         showSlicesDrawer = true,
-        showControls = true
+        showControls = false
     } = parsedValue;
+
+    // State for batch processing mode
+    const [batchFiles, setBatchFiles] = useState<ImageBatchItem[]>(() => initialBatchFiles);
+    const [selectedRefIndex, setSelectedRefIndex] = useState<number>(0);
+    const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
+    const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; currentName: string; percent: number } | null>(null);
+    const [batchResult, setBatchResult] = useState<{ zipBlob: Blob; totalImages: number; totalSlices: number; timestamp: string; filename: string } | null>(null);
+    const abortBatchRef = useRef<boolean>(false);
+
+    // Synchronize batchFiles from node value if changed externally (e.g. sent from TaskQueue Batch Job)
+    useEffect(() => {
+        if (parsedValue.batchFiles && Array.isArray(parsedValue.batchFiles) && parsedValue.batchFiles.length > 0) {
+            setBatchFiles(prev => {
+                if (prev.length === parsedValue.batchFiles!.length && prev[0]?.id === parsedValue.batchFiles![0]?.id) {
+                    return prev;
+                }
+                return parsedValue.batchFiles!;
+            });
+        }
+    }, [parsedValue.batchFiles]);
 
     // Direct React state for batchSubMode to guarantee instant responsiveness and zero race conditions
     const [batchSubMode, setBatchSubMode] = useState<ImageBatchSubMode>(() => {
@@ -349,7 +362,9 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, 'batch', firstItem.dataUrl);
             }
-            handleValueUpdate({ image: thumb, mode: 'batch' });
+            handleValueUpdate({ image: thumb, mode: 'batch', batchFiles: updatedFiles });
+        } else {
+            handleValueUpdate({ batchFiles: updatedFiles });
         }
 
         if (addToast) {
@@ -371,12 +386,13 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
             updateGridSlices(activeGrid, 'batch', item.dataUrl);
         }
-        handleValueUpdate({ image: thumb });
+        handleValueUpdate({ image: thumb, batchFiles });
     };
 
     const handleRemoveBatchFile = (index: number) => {
         const updated = batchFiles.filter((_, i) => i !== index);
         setBatchFiles(updated);
+        handleValueUpdate({ batchFiles: updated });
         if (updated.length === 0) {
             setSelectedRefIndex(0);
         } else if (selectedRefIndex >= updated.length) {
@@ -391,6 +407,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         setSelectedRefIndex(0);
         setBatchResult(null);
         setBatchProgress(null);
+        handleValueUpdate({ batchFiles: [] });
         if (addToast) addToast('Пакет изображений очищен', 'info');
     };
 
@@ -418,7 +435,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const activeGrid = parsedValueRef.current.grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
             updateGridSlices(activeGrid, 'batch', firstItem.dataUrl);
         }
-        handleValueUpdate({ image: thumb, mode: 'batch' });
+        handleValueUpdate({ image: thumb, mode: 'batch', batchFiles: newItems });
 
         if (addToast) {
             addToast(`Загружено ${newItems.length} кадров из цепи нод в пакетный режим`, 'success');
@@ -1043,6 +1060,47 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     {mode === 'batch' && (batchFiles.length > 0 ? `${batchFiles.length} files (${batchSubMode})` : 'Batch mode')}
                 </div>
             </div>
+
+            {/* Batch Sub-Mode Selector: Placed directly under Batch tab */}
+            {mode === 'batch' && (
+                <div className="flex items-center justify-between bg-cyan-950/60 border border-cyan-700/60 px-2 py-1.5 rounded-md text-xs animate-fadeIn">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-cyan-300 font-semibold text-[11px] mr-1">Режим обработки:</span>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleBatchSubModeChange('crop');
+                            }}
+                            className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all flex items-center gap-1 ${
+                                batchSubMode === 'crop'
+                                    ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
+                                    : 'bg-gray-800/90 text-gray-300 hover:bg-gray-700 hover:text-white'
+                            }`}
+                        >
+                            <span>✂ Кадрирование (Crop)</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleBatchSubModeChange('grid');
+                            }}
+                            className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all flex items-center gap-1 ${
+                                batchSubMode === 'grid'
+                                    ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
+                                    : 'bg-gray-800/90 text-gray-300 hover:bg-gray-700 hover:text-white'
+                            }`}
+                        >
+                            <span>▦ Сетка ({grid?.cols || 4}×{grid?.rows || 5})</span>
+                        </button>
+                    </div>
+
+                    <div className="text-[10px] text-cyan-400 font-mono hidden sm:inline">
+                        {batchFiles.length > 0 ? `Файлов: ${batchFiles.length}` : 'Пакетный режим'}
+                    </div>
+                </div>
+            )}
 
             {/* Mode-Specific Quick Sub-Toolbar: Crop Presets */}
             {image && (mode === 'single' || (mode === 'batch' && batchSubMode === 'crop')) && (

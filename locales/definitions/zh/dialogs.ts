@@ -55,5 +55,5 @@ export const dialogs = {
     'dialog.exitApp.title': '关闭项目？',
     'dialog.exitApp.message': '您确定要关闭项目吗？退出前是否保存更改？',
     'dialog.exitApp.saveAndClose': '保存并关闭',
-    'dialog.exitApp.dontSave': '不保存并关闭',
+    'dialog.exitApp.dontSave': '关闭（保留最后的自动保存）',
 };

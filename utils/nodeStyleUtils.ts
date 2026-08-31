@@ -13,7 +13,8 @@ export const getNodeStyles = (
     minSize: { minWidth: number, minHeight: number },
     isFocused?: boolean,
     isGrouped?: boolean,
-    isGroupDragging?: boolean
+    isGroupDragging?: boolean,
+    isBringToFrontOnHoverEnabled: boolean = true
 ): React.CSSProperties => {
     
     // Full Screen Focus Override
@@ -40,7 +41,7 @@ export const getNodeStyles = (
     // 500: Nodes inside a Group that is currently being Dragged (Active Group)
     // 100: Pinned Nodes (Always on Top in Canvas)
     // 90: Selected / Dragging Nodes (Individual)
-    // 80: Hovered Nodes
+    // 80: Hovered Nodes (if bring-to-front on hover is enabled)
     // 10: Loose Nodes (Resting)
     // 6: Nodes inside a Group (Resting)
     
@@ -52,7 +53,7 @@ export const getNodeStyles = (
         zIndex = 100;
     } else if (isSelected) {
         zIndex = 90;
-    } else if (isHovered) {
+    } else if (isHovered && isBringToFrontOnHoverEnabled) {
         zIndex = 80;
     } else if (isGrouped) {
         zIndex = 6; // Resting Group Layer (Below loose nodes)

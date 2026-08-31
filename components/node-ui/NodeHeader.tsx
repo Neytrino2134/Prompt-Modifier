@@ -86,10 +86,15 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
 }) => {
     const { t } = useLanguage();
     const context = useAppContext();
-    const { handleDockNode, toggleNodeFullScreen, focusedNodeId, handleToggleNodePin, handleToggleNodeHandles } = context || {};
+    const { handleDockNode, toggleNodeFullScreen, focusedNodeId, handleToggleNodePin, handleToggleNodeHandles, batchJobs } = context || {};
 
     const isFullScreen = focusedNodeId === node.id;
     const isRestricted = isRestrictedDockingNode(node.type);
+
+    const isWaitingBatch = React.useMemo(() => {
+        if (node.type !== NodeType.IMAGE_EDITOR) return false;
+        return (batchJobs || []).some(j => j.nodeId === node.id && (j.state === 'PENDING' || j.state === 'RUNNING'));
+    }, [node.type, node.id, batchJobs]);
 
     // Note Specific Logic
     const isNote = node.type === NodeType.NOTE;
@@ -340,6 +345,17 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                             </>
                         )}
 
+                        {/* Batch Waiting Status Badge */}
+                        {isWaitingBatch && (
+                            <div 
+                                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-300 text-[11px] font-medium animate-pulse select-none"
+                                title={t('batch.waitingServerTooltip') || 'Пакетная задача отправлена на сервер Gemini Batch API и обрабатывается. Нода защищена от закрытия.'}
+                            >
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                                <span className="truncate max-w-[170px] sm:max-w-none">{t('batch.waitingServerStatus') || 'Ожидание ответа от сервера'}</span>
+                            </div>
+                        )}
+
                         {/* Help Tooltip */}
                         {!isNoteMinimal && (
                             <div className="relative flex items-center group/help-tooltip">
@@ -482,7 +498,24 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                         )}
 
                         {/* Close button - Only if NOT minimal note. If minimal note, we need a way to close? Users can expand to close. Or add close here. */}
-                        {!isDockedWindow && !isNoteMinimal && <ActionButton title={isInstantCloseEnabled ? t('node.action.closeNodeSimple') : t('node.action.closeNode')} onClick={handleRequestDelete}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></ActionButton>}
+                        {!isDockedWindow && !isNoteMinimal && (
+                            <ActionButton 
+                                title={
+                                    isWaitingBatch 
+                                        ? (t('batch.nodeCloseBlocked') || 'Нельзя закрыть: выполняется пакетная задача Batch API')
+                                        : (isInstantCloseEnabled ? t('node.action.closeNodeSimple') : t('node.action.closeNode'))
+                                } 
+                                onClick={isWaitingBatch ? (e) => {
+                                    e.stopPropagation();
+                                    addToast(t('batch.nodeCloseBlockedToast') || 'Нода не может быть закрыта, пока выполняется пакетная задача в Batch API!', 'info');
+                                } : handleRequestDelete}
+                                className={isWaitingBatch ? 'opacity-30 cursor-not-allowed text-gray-500 hover:text-gray-500 hover:bg-transparent' : undefined}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </ActionButton>
+                        )}
 
                         {/* Positioning Controls (Moved to End) */}
                         {!isNoteMinimal && (isDockedWindow || isFullScreen) && handleUndockNode && (

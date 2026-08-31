@@ -176,8 +176,9 @@ export const generateOpenAiImage = async (
             if (isGptImage2) {
                 formData.append('quality', quality);
                 if (outputFormat) formData.append('output_format', outputFormat);
+            } else {
+                formData.append('response_format', 'b64_json');
             }
-            formData.append('response_format', 'b64_json');
             formData.append('n', '1');
 
             const response = await fetch('https://api.openai.com/v1/images/edits', {
@@ -208,7 +209,6 @@ export const generateOpenAiImage = async (
         prompt: prompt.trim(),
         n: 1,
         size: size,
-        response_format: 'b64_json'
     };
 
     if (isGptImage2) {
@@ -216,9 +216,12 @@ export const generateOpenAiImage = async (
         if (outputFormat) {
             requestBody.output_format = outputFormat;
         }
-    } else if (targetModel === 'dall-e-3') {
-        requestBody.quality = quality === 'auto' || quality === 'high' ? 'hd' : quality;
-        if (style) requestBody.style = style;
+    } else {
+        requestBody.response_format = 'b64_json';
+        if (targetModel === 'dall-e-3') {
+            requestBody.quality = quality === 'auto' || quality === 'high' ? 'hd' : quality;
+            if (style) requestBody.style = style;
+        }
     }
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -356,13 +359,15 @@ export const createOpenAiBatchImageJob = async (
                 prompt: item.prompt,
                 n: 1,
                 size,
-                response_format: 'b64_json'
             };
             if (isGptImage2) {
                 body.quality = quality;
                 if (item.outputFormat) body.output_format = item.outputFormat;
-            } else if (targetModel === 'dall-e-3') {
-                body.quality = quality === 'auto' ? 'hd' : quality;
+            } else {
+                body.response_format = 'b64_json';
+                if (targetModel === 'dall-e-3') {
+                    body.quality = quality === 'auto' ? 'hd' : quality;
+                }
             }
 
             return JSON.stringify({

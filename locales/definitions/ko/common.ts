@@ -1,6 +1,10 @@
 
 
 export const common = {
+    'common.close': '닫기',
+    'common.apply': '적용',
+    'common.cancel': '취소',
+    'common.refresh': '새로고침',
     'app.title': '프롬프트 수정기',
     'app.subtitle': '아이디어를 연결하여 걸작을 만드세요',
     'app.error.title': '알림',

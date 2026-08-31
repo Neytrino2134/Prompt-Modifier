@@ -1,5 +1,9 @@
 
 export const common = {
+    'common.close': '关闭',
+    'common.apply': '应用',
+    'common.cancel': '取消',
+    'common.refresh': '刷新',
     'app.title': '提示词修改器',
     'app.subtitle': '连接创意，打造杰作',
     'app.error.title': '通知',

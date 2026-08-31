@@ -137,21 +137,22 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
 
   const categoryOptions: Array<{ id: 'all' | ModelCategory; label: string; badge?: string }> = [
     { id: 'all', label: t('stats.categoryAll') || 'Все категории' },
+    { id: 'gpt_image_2', label: 'GPT-Image-2', badge: 'text-teal-400' },
     { id: 'pro_3_0', label: '3.0 Pro', badge: 'text-purple-400' },
     { id: 'flash_3_1', label: '3.1 Flash', badge: 'text-amber-400' },
     { id: 'lite_3_1', label: '3.1 Lite', badge: 'text-emerald-400' },
-    { id: 'other', label: 'Другие', badge: 'text-blue-400' },
+    { id: 'other', label: 'Другие (DALL-E / Imagen)', badge: 'text-blue-400' },
   ];
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
       <div
-        className="bg-gray-900 border border-gray-700/80 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-gray-100"
+        className="bg-gray-900 border border-gray-700/80 rounded-2xl w-full max-w-5xl h-[88vh] max-h-[88vh] flex flex-col shadow-2xl overflow-hidden text-gray-100"
         onClick={e => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur sticky top-0 z-20">
-          <div className="flex items-center gap-3">
+        <div className="p-4 sm:p-5 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur sticky top-0 z-20 select-none">
+          <div className="flex items-center gap-3 select-none">
             <div className="p-2.5 rounded-xl bg-accent/20 border border-accent/40 text-accent">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -172,7 +173,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 select-none">
             <button
               onClick={exportCSV}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs font-medium text-gray-300 hover:text-white border border-gray-700 transition-colors"
@@ -209,7 +210,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
 
         {/* Action Feedback Banner */}
         {actionFeedback && (
-          <div className="bg-accent/20 border-b border-accent/40 text-accent px-4 py-2 text-xs font-medium text-center flex items-center justify-center gap-2 animate-fade-in">
+          <div className="bg-accent/20 border-b border-accent/40 text-accent px-4 py-2 text-xs font-medium text-center flex items-center justify-center gap-2 animate-fade-in select-none">
             <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
@@ -218,7 +219,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
         )}
 
         {/* Filters Bar */}
-        <div className="p-3.5 sm:p-4 bg-gray-950/60 border-b border-gray-800 space-y-3">
+        <div className="p-3.5 sm:p-4 bg-gray-950/60 border-b border-gray-800 space-y-3 select-none">
           {/* Row 1: Period Tabs + Reset */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
@@ -384,7 +385,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Modal Navigation Tabs */}
-        <div className="flex border-b border-gray-800 bg-gray-900/50 px-4">
+        <div className="flex border-b border-gray-800 bg-gray-900/50 px-4 select-none">
           <button
             onClick={() => setActiveTab('overview')}
             className={`py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
@@ -501,17 +502,20 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Daily Timeline Chart */}
-              <div className="p-5 rounded-2xl bg-gray-850 bg-gray-800/40 border border-gray-800 space-y-4">
-                <div className="flex flex-wrap justify-between items-center gap-2">
+              <div className="p-5 rounded-2xl bg-gray-850 bg-gray-800/40 border border-gray-800 space-y-4 select-none">
+                <div className="flex flex-wrap justify-between items-center gap-2 select-none">
                   <div>
-                    <h3 className="text-sm font-bold text-white">
+                    <h3 className="text-sm font-bold text-white select-none">
                       {t('stats.generationTimeline') || 'Динамика генераций по дням'}
                     </h3>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 select-none">
                       {t('stats.timelineDesc') || 'Количество созданных картинок с разделением по группам моделей'}
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-3 text-xs select-none">
+                    <span className="flex items-center gap-1.5 text-teal-400">
+                      <span className="w-2 h-2 rounded-full bg-teal-500" /> GPT-Image-2
+                    </span>
                     <span className="flex items-center gap-1.5 text-purple-400">
                       <span className="w-2 h-2 rounded-full bg-purple-500" /> 3.0 Pro
                     </span>
@@ -533,22 +537,34 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                     {t('stats.noDataForPeriod') || 'Нет данных за выбранный период'}
                   </div>
                 ) : (
-                  <div className="h-48 flex items-end gap-1.5 sm:gap-2 pt-4 px-2 overflow-x-auto">
+                  <div className="min-h-[220px] pt-24 pb-2 px-2 flex items-end gap-1.5 sm:gap-2 overflow-x-auto relative">
                     {dailyTimeline.map((item, idx) => {
                       const heightPercent = maxTimelineCount > 0 ? (item.count / maxTimelineCount) * 100 : 0;
+                      const tooltipAlignClass =
+                        idx < 2
+                          ? 'left-0 items-start'
+                          : idx >= dailyTimeline.length - 2
+                          ? 'right-0 items-end'
+                          : 'left-1/2 -translate-x-1/2 items-center';
+
                       return (
                         <div
                           key={idx}
-                          className="flex-1 min-w-[20px] max-w-[40px] flex flex-col items-center gap-1.5 group relative h-full justify-end"
+                          className="flex-1 min-w-[22px] max-w-[42px] flex flex-col items-center gap-1.5 group relative h-28 justify-end"
                         >
-                          {/* Tooltip */}
-                          <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center pointer-events-none z-30 min-w-[140px]">
-                            <div className="bg-gray-950 text-white text-[11px] p-2 rounded-lg border border-gray-700 shadow-xl space-y-1 w-full">
-                              <div className="font-bold border-b border-gray-800 pb-1">{item.fullDate}</div>
+                          {/* Tooltip with non-clipped layout and smart positioning */}
+                          <div className={`absolute bottom-full mb-2 hidden group-hover:flex flex-col pointer-events-none z-50 min-w-[155px] ${tooltipAlignClass}`}>
+                            <div className="bg-gray-950/95 backdrop-blur-md text-white text-[11px] p-2.5 rounded-xl border border-gray-700 shadow-2xl space-y-1 w-full select-none">
+                              <div className="font-bold border-b border-gray-800 pb-1 text-gray-200">{item.fullDate}</div>
                               <div className="text-accent font-semibold flex justify-between">
                                 <span>Всего:</span>
                                 <span>{item.count}</span>
                               </div>
+                              {item.byCategory.gpt_image_2 > 0 && (
+                                <div className="text-teal-400 flex justify-between text-[10px]">
+                                  <span>GPT-Image-2:</span> <span>{item.byCategory.gpt_image_2}</span>
+                                </div>
+                              )}
                               {item.byCategory.pro_3_0 > 0 && (
                                 <div className="text-purple-400 flex justify-between text-[10px]">
                                   <span>3.0 Pro:</span> <span>{item.byCategory.pro_3_0}</span>
@@ -581,6 +597,12 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                               <div className="w-full h-full bg-gray-800/40 rounded-t" />
                             ) : (
                               <>
+                                {item.byCategory.gpt_image_2 > 0 && (
+                                  <div
+                                    style={{ height: `${(item.byCategory.gpt_image_2 / item.count) * 100}%` }}
+                                    className="bg-teal-500 hover:bg-teal-400 transition-colors"
+                                  />
+                                )}
                                 {item.byCategory.pro_3_0 > 0 && (
                                   <div
                                     style={{ height: `${(item.byCategory.pro_3_0 / item.count) * 100}%` }}
@@ -610,7 +632,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                           </div>
 
                           {/* Date Label */}
-                          <span className="text-[9px] text-gray-400 font-mono scale-90 truncate max-w-full">
+                          <span className="text-[9px] text-gray-400 font-mono scale-90 truncate max-w-full select-none">
                             {item.date}
                           </span>
                         </div>
@@ -773,27 +795,34 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
           {activeTab === 'time' && (
             <div className="space-y-6">
               {/* Hourly Chart */}
-              <div className="p-5 rounded-2xl bg-gray-800/40 border border-gray-800 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-bold text-white">
+              <div className="p-5 rounded-2xl bg-gray-800/40 border border-gray-800 space-y-4 select-none">
+                <div className="flex justify-between items-center select-none">
+                  <h3 className="text-sm font-bold text-white select-none">
                     {t('stats.hourlyDistributionTitle') || 'Активность по часам суток (0:00 - 23:00)'}
                   </h3>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-400 select-none">
                     {t('stats.peakHour') || 'Пик'}: {peakHour ? `${peakHour.label} (${peakHour.count})` : '—'}
                   </span>
                 </div>
 
-                <div className="h-40 flex items-end gap-1 pt-2">
+                <div className="h-44 flex items-end gap-1 pt-10 px-1 relative">
                   {hourlyDistribution.map(h => {
                     const heightPercent = maxHourlyCount > 0 ? (h.count / maxHourlyCount) * 100 : 0;
+                    const tooltipAlignClass =
+                      h.hour < 3
+                        ? 'left-0 items-start'
+                        : h.hour > 20
+                        ? 'right-0 items-end'
+                        : 'left-1/2 -translate-x-1/2 items-center';
+
                     return (
                       <div
                         key={h.hour}
                         className="flex-1 flex flex-col items-center gap-1 group relative h-full justify-end"
                       >
                         {/* Tooltip */}
-                        <div className="absolute bottom-full mb-1 hidden group-hover:flex flex-col items-center pointer-events-none z-30">
-                          <div className="bg-gray-950 text-white text-[10px] py-1 px-2 rounded border border-gray-700 whitespace-nowrap shadow-lg">
+                        <div className={`absolute bottom-full mb-1 hidden group-hover:flex flex-col pointer-events-none z-40 ${tooltipAlignClass}`}>
+                          <div className="bg-gray-950/95 backdrop-blur-md text-white text-[10px] py-1 px-2 rounded border border-gray-700 whitespace-nowrap shadow-xl">
                             <span className="font-bold">{h.label}</span>: {h.count} ({h.percentage}%)
                           </div>
                         </div>
@@ -805,7 +834,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                           style={{ height: `${Math.max(4, heightPercent)}%` }}
                         />
                         {/* Label */}
-                        <span className="text-[8px] text-gray-500 font-mono scale-90">
+                        <span className="text-[8px] text-gray-500 font-mono scale-90 select-none">
                           {h.hour % 3 === 0 ? h.hour : ''}
                         </span>
                       </div>
@@ -815,27 +844,34 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
               </div>
 
               {/* Weekday Distribution Chart */}
-              <div className="p-5 rounded-2xl bg-gray-800/40 border border-gray-800 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-bold text-white">
+              <div className="p-5 rounded-2xl bg-gray-800/40 border border-gray-800 space-y-4 select-none">
+                <div className="flex justify-between items-center select-none">
+                  <h3 className="text-sm font-bold text-white select-none">
                     {t('stats.weekdayDistributionTitle') || 'Активность по дням недели'}
                   </h3>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-400 select-none">
                     {t('stats.peakDay') || 'Пиковый день'}: {peakDay ? `${peakDay.dayName} (${peakDay.count})` : '—'}
                   </span>
                 </div>
 
-                <div className="h-36 flex items-end gap-3 pt-2 px-4">
-                  {weekdayDistribution.map(w => {
+                <div className="h-40 flex items-end gap-3 pt-10 px-4 relative">
+                  {weekdayDistribution.map((w, wIdx) => {
                     const heightPercent = maxWeekdayCount > 0 ? (w.count / maxWeekdayCount) * 100 : 0;
+                    const tooltipAlignClass =
+                      wIdx === 0
+                        ? 'left-0 items-start'
+                        : wIdx === weekdayDistribution.length - 1
+                        ? 'right-0 items-end'
+                        : 'left-1/2 -translate-x-1/2 items-center';
+
                     return (
                       <div
                         key={w.dayIndex}
                         className="flex-1 flex flex-col items-center gap-2 group relative h-full justify-end"
                       >
                         {/* Tooltip */}
-                        <div className="absolute bottom-full mb-1 hidden group-hover:flex flex-col items-center pointer-events-none z-30">
-                          <div className="bg-gray-950 text-white text-[10px] py-1 px-2 rounded border border-gray-700 whitespace-nowrap shadow-lg">
+                        <div className={`absolute bottom-full mb-1 hidden group-hover:flex flex-col pointer-events-none z-40 ${tooltipAlignClass}`}>
+                          <div className="bg-gray-950/95 backdrop-blur-md text-white text-[10px] py-1 px-2 rounded border border-gray-700 whitespace-nowrap shadow-xl">
                             <span className="font-bold">{w.dayName}</span>: {w.count} ({w.percentage}%)
                           </div>
                         </div>
@@ -847,7 +883,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                           style={{ height: `${Math.max(4, heightPercent)}%` }}
                         />
                         {/* Label */}
-                        <span className="text-xs font-semibold text-gray-300">
+                        <span className="text-xs font-semibold text-gray-300 select-none">
                           {w.shortName}
                         </span>
                       </div>

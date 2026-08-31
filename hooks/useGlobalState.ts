@@ -168,9 +168,19 @@ export const useGlobalState = (currentNodes: Node[]) => {
         const stored = localStorage.getItem('settings_hoverHighlight');
         return stored === null ? true : stored === 'true';
     });
+    const [isBringToFrontOnHoverEnabled, setIsBringToFrontOnHoverEnabled] = useState(() => {
+        const stored = localStorage.getItem('settings_bringToFrontOnHover');
+        return stored === null ? true : stored === 'true';
+    });
     const [nodeAnimationMode, setNodeAnimationMode] = useState(() => localStorage.getItem('settings_nodeAnimationMode') || 'pulse');
-    const [isConnectionAnimationEnabled, setIsConnectionAnimationEnabled] = useState(true);
-    const [connectionOpacity, setConnectionOpacity] = useState(0.4);
+    const [isConnectionAnimationEnabled, setIsConnectionAnimationEnabled] = useState(() => {
+        const stored = localStorage.getItem('settings_connectionAnimation');
+        return stored === null ? true : stored === 'true';
+    });
+    const [connectionOpacity, setConnectionOpacity] = useState(() => {
+        const stored = localStorage.getItem('settings_connectionOpacity');
+        return stored === null ? 0.4 : parseFloat(stored) || 0.4;
+    });
 
     // Theme Settings
     const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
@@ -276,6 +286,7 @@ export const useGlobalState = (currentNodes: Node[]) => {
         focusedNodeId, toggleNodeFullScreen,
         isInstantCloseEnabled, setIsInstantCloseEnabled,
         isHoverHighlightEnabled, setIsHoverHighlightEnabled,
+        isBringToFrontOnHoverEnabled, setIsBringToFrontOnHoverEnabled,
         nodeAnimationMode, setNodeAnimationMode,
         isConnectionAnimationEnabled, setIsConnectionAnimationEnabled,
         connectionOpacity, setConnectionOpacity,

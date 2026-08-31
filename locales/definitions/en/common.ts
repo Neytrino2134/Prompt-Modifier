@@ -1,6 +1,10 @@
 
 
 export const common = {
+    'common.close': 'Close',
+    'common.apply': 'Apply',
+    'common.cancel': 'Cancel',
+    'common.refresh': 'Refresh',
     'app.title': 'Prompt Modifier',
     'app.subtitle': 'Connect ideas to create a masterpiece',
     'app.error.title': 'Notification',

@@ -1,6 +1,6 @@
 
 import React, { useCallback } from 'react';
-import type { Node, Connection, Point, Group, ToastType, Alignment, DockMode } from '../types';
+import type { Node, Connection, Point, Group, ToastType, Alignment, DockMode, BatchJobRecord } from '../types';
 import { NodeType } from '../types';
 import { getEmptyValueForNodeType, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
 import { generateThumbnail } from '../utils/imageUtils';
@@ -24,10 +24,11 @@ interface UseEntityActionsProps {
     getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
     setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void;
     takeSnapshot?: (nodes: Node[]) => void;
+    getBatchJobs?: () => BatchJobRecord[];
 }
 
 export const useEntityActions = (props: UseEntityActionsProps) => {
-    const { nodes, setNodes, connections, setConnections, nodeIdCounter, t, groups, setGroups, clearImagesForNodeFromCache, tabId, addToast, getFullSizeImage, setFullSizeImage, takeSnapshot } = props;
+    const { nodes, setNodes, connections, setConnections, nodeIdCounter, t, groups, setGroups, clearImagesForNodeFromCache, tabId, addToast, getFullSizeImage, setFullSizeImage, takeSnapshot, getBatchJobs } = props;
 
     const onAddNode = useCallback((type: NodeType, position: Point, title?: string, options: { centerNode?: boolean; alignToInput?: boolean; initialValue?: string } = { centerNode: true }): string => {
         nodeIdCounter.current++;
@@ -63,7 +64,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         switch (type) {
             case NodeType.IMAGE_EDITOR: newNode.width = 1200; newNode.height = 920; break;
             case NodeType.PROMPT_ANALYZER: newNode.width = 460; newNode.height = 1000; break;
-            case NodeType.IMAGE_INPUT: newNode.width = 520; newNode.height = 700; break;
+            case NodeType.IMAGE_INPUT: newNode.width = 520; newNode.height = 920; break;
             case NodeType.IMAGE_ANALYZER: case NodeType.VIDEO_OUTPUT: newNode.width = 460; newNode.height = 680; break;
             case NodeType.PROMPT_PROCESSOR: newNode.width = 460; newNode.height = 410; break;
             case NodeType.VIDEO_PROMPT_PROCESSOR: newNode.width = 460; newNode.height = 410; break;
@@ -111,6 +112,15 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
     }, [nodeIdCounter, setNodes, t]);
 
     const deleteNodeAndConnections = useCallback((nodeId: string) => {
+        if (getBatchJobs) {
+            const activeJobs = getBatchJobs() || [];
+            const hasActiveBatch = activeJobs.some(j => j.nodeId === nodeId && (j.state === 'PENDING' || j.state === 'RUNNING'));
+            if (hasActiveBatch) {
+                addToast(t('batch.nodeCloseBlockedToast') || 'Нода не может быть закрыта, пока выполняется пакетная задача в Batch API!', 'info');
+                return;
+            }
+        }
+
         const nodeToDelete = nodes.find(n => n.id === nodeId);
         if (nodeToDelete && nodeToDelete.type === NodeType.REROUTE_DOT) {
             const incomingConn = connections.find(c => c.toNodeId === nodeId);
@@ -128,7 +138,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                 .filter(g => g.nodeIds.length > 0);
         });
         clearImagesForNodeFromCache(nodeId);
-    }, [nodes, connections, setNodes, setConnections, setGroups, clearImagesForNodeFromCache, tabId]);
+    }, [nodes, connections, setNodes, setConnections, setGroups, clearImagesForNodeFromCache, tabId, getBatchJobs, addToast, t]);
 
     const handleDockNode = useCallback((nodeId: string, mode: DockMode, capturePosition?: Point) => {
         setNodes(currentNodes => currentNodes.map(node => {

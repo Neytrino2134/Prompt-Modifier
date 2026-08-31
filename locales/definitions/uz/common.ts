@@ -2,6 +2,10 @@
 
 
 export const common = {
+    'common.close': 'Yopish',
+    'common.apply': 'Qo\'llash',
+    'common.cancel': 'Bekor qilish',
+    'common.refresh': 'Yangilash',
     'app.title': 'Prompt Modifikatori',
     'app.subtitle': 'G\'oyalarni bog\'lab, shoh asar yarating',
     'app.error.title': 'Bildirishnoma',

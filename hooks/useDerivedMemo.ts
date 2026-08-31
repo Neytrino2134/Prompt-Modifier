@@ -486,6 +486,30 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                                 values.push({ base64ImageData: parts[1], mimeType: mime });
                                 continue;
                             }
+                        } else if (mode === 'batch' && Array.isArray(parsed.batchFiles) && parsed.batchFiles.length > 0) {
+                            let pushedAny = false;
+                            parsed.batchFiles.forEach((file: any, fileIdx: number) => {
+                                const fullUrl = getFullSizeImage(fromNode.id, fileIdx);
+                                const url = (optimizedForUI ? file.dataUrl : (fullUrl || file.dataUrl));
+                                if (url && url.startsWith('data:')) {
+                                    const parts = url.split(',');
+                                    const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                    values.push({ base64ImageData: parts[1], mimeType: mime });
+                                    pushedAny = true;
+                                }
+                            });
+                            if (pushedAny) continue;
+                        } else {
+                            // Normal / Full Mode or fallback
+                            const fullUrl = getFullSizeImage(fromNode.id, 0);
+                            const thumbUrl = parsed.image;
+                            const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
+                            if (url && url.startsWith('data:')) {
+                                const parts = url.split(',');
+                                const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                values.push({ base64ImageData: parts[1], mimeType: mime });
+                                continue;
+                            }
                         }
                     } catch {}
                 } else if (fromNode.type === NodeType.IMAGE_EDITOR) {

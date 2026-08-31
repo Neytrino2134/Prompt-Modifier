@@ -55,5 +55,5 @@ export const dialogs = {
     'dialog.exitApp.title': 'Loyihani yopish?',
     'dialog.exitApp.message': 'Haqiqatan ham loyihani yopmoqchimisiz? Chiqishdan oldin o\'zgarishlarni saqlashni xohlaysizmi?',
     'dialog.exitApp.saveAndClose': 'Saqlash va yopish',
-    'dialog.exitApp.dontSave': 'Saqlamasdan yopish',
+    'dialog.exitApp.dontSave': 'Yopish (oxirgi avtosaqlashni saqlab qolish)',
 };

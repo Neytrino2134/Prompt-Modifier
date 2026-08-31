@@ -1,6 +1,6 @@
 // Generation Statistics Service and Analytics Engine
 
-export type ModelCategory = 'pro_3_0' | 'flash_3_1' | 'lite_3_1' | 'other';
+export type ModelCategory = 'gpt_image_2' | 'pro_3_0' | 'flash_3_1' | 'lite_3_1' | 'other';
 
 export interface GenerationRecord {
   id: string;
@@ -108,8 +108,16 @@ const STORAGE_KEY_LOG = 'gemini_generation_stats_log_v2';
 const STORAGE_KEY_TOTAL = 'gemini_generation_stats_lifetime_total';
 export const STATS_UPDATED_EVENT = 'generation-stats-updated';
 
-// Category metadata definitions: 3.0 Pro, 3.1 Flash, 3.1 Lite, and Other (2.5 flash, Imagen, etc.)
+// Category metadata definitions: GPT-Image-2, 3.0 Pro, 3.1 Flash, 3.1 Lite, and Other (DALL-E, 2.5 flash, Imagen, etc.)
 export const CATEGORY_METAS: Record<ModelCategory, CategoryMeta> = {
+  gpt_image_2: {
+    category: 'gpt_image_2',
+    label: 'GPT-Image-2',
+    badgeClass: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
+    color: 'rgb(20, 184, 166)',
+    barColor: '#14b8a6',
+    textColor: 'text-teal-400',
+  },
   pro_3_0: {
     category: 'pro_3_0',
     label: '3.0 Pro',
@@ -146,16 +154,27 @@ export const CATEGORY_METAS: Record<ModelCategory, CategoryMeta> = {
 
 /**
  * Maps model ID to high-level model category:
+ * - 'gpt_image_2': GPT-Image-2 (gpt-image-2, GPT Image 2)
  * - 'pro_3_0': 3.0 pro (Gemini 3.0 Pro Image / Nano Banana Pro / gemini-3-pro-image-preview)
  * - 'flash_3_1': 3.1 Flash (Gemini 3.1 Flash Image / Nano Banana 2 / gemini-3.1-flash-image)
  * - 'lite_3_1': 3.1 Lite (Gemini 3.1 Flash Image Preview / Nana Banana 2 Lite / gemini-3.1-flash-image-preview)
- * - 'other': 2.5 flash, Imagen 4.0, Imagen 3.0, and any other models
+ * - 'other': DALL-E 3, DALL-E 2, 2.5 flash, Imagen 4.0, Imagen 3.0, and other models
  */
 export const getModelCategory = (modelRaw?: string): ModelCategory => {
   if (!modelRaw) return 'other';
   const model = modelRaw.toLowerCase().trim();
 
-  // 1. 3.1 Lite check (Preview / Lite variant of 3.1)
+  // 1. GPT-Image-2 check (Main list model)
+  if (
+    model === 'gpt-image-2' ||
+    model.includes('gpt-image-2') ||
+    model.includes('gpt image 2') ||
+    model === 'gpt-image-preview'
+  ) {
+    return 'gpt_image_2';
+  }
+
+  // 2. 3.1 Lite check (Preview / Lite variant of 3.1)
   if (
     model === 'gemini-3.1-flash-image-preview' ||
     (model.includes('3.1') && (model.includes('lite') || model.includes('preview'))) ||
@@ -165,7 +184,7 @@ export const getModelCategory = (modelRaw?: string): ModelCategory => {
     return 'lite_3_1';
   }
 
-  // 2. 3.1 Flash check (Standard 3.1 Flash / Nano Banana 2)
+  // 3. 3.1 Flash check (Standard 3.1 Flash / Nano Banana 2)
   if (
     model === 'gemini-3.1-flash-image' ||
     (model.includes('3.1') && model.includes('flash')) ||
@@ -175,7 +194,7 @@ export const getModelCategory = (modelRaw?: string): ModelCategory => {
     return 'flash_3_1';
   }
 
-  // 3. 3.0 Pro check (Gemini 3.0 Pro / Nano Banana Pro)
+  // 4. 3.0 Pro check (Gemini 3.0 Pro / Nano Banana Pro)
   if (
     model === 'gemini-3-pro-image-preview' ||
     model.includes('3-pro') ||
@@ -187,7 +206,7 @@ export const getModelCategory = (modelRaw?: string): ModelCategory => {
     return 'pro_3_0';
   }
 
-  // 4. All other models (2.5 flash, Imagen 4.0, Imagen 3.0, etc.) go to "other"
+  // 5. All other models (dall-e-3, dall-e-2, 2.5 flash, Imagen 4.0, Imagen 3.0, etc.) go to "other"
   return 'other';
 };
 
@@ -199,6 +218,9 @@ export const getStandardModelName = (modelRaw?: string): string => {
   const model = modelRaw.trim();
 
   const nameMap: Record<string, string> = {
+    'gpt-image-2': 'GPT-Image-2',
+    'dall-e-3': 'DALL-E 3',
+    'dall-e-2': 'DALL-E 2',
     'gemini-3-pro-image-preview': 'Gemini 3.0 Pro Image (Nano Banana Pro)',
     'gemini-3.1-flash-image': 'Gemini 3.1 Flash Image (Nano Banana 2)',
     'gemini-3.1-flash-image-preview': 'Gemini 3.1 Flash Image Preview (Nana Banana 2 Lite)',
@@ -530,6 +552,7 @@ export const computeStatsSummary = (
   // Compute breakdown maps
   const modelCounts = new Map<string, { count: number; displayName: string; category: ModelCategory }>();
   const categoryCounts: Record<ModelCategory, number> = {
+    gpt_image_2: 0,
     pro_3_0: 0,
     flash_3_1: 0,
     lite_3_1: 0,
@@ -590,7 +613,7 @@ export const computeStatsSummary = (
         fullDate,
         timestamp: new Date(dateKey).getTime(),
         count: 0,
-        byCategory: { pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, other: 0 },
+        byCategory: { gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, other: 0 },
         byModel: {},
       };
       dailyMap.set(dateKey, dayEntry);
@@ -630,7 +653,7 @@ export const computeStatsSummary = (
           fullDate,
           timestamp: targetDate.getTime(),
           count: 0,
-          byCategory: { pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, other: 0 },
+          byCategory: { gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, other: 0 },
           byModel: {},
         });
       }

@@ -55,5 +55,5 @@ export const dialogs = {
     'dialog.exitApp.title': '프로젝트를 닫으시겠습니까?',
     'dialog.exitApp.message': '프로젝트를 닫으시겠습니까? 종료하기 전에 변경사항을 저장하시겠습니까?',
     'dialog.exitApp.saveAndClose': '저장 후 닫기',
-    'dialog.exitApp.dontSave': '저장하지 않고 닫기',
+    'dialog.exitApp.dontSave': '닫기 (마지막 자동 저장 유지)',
 };

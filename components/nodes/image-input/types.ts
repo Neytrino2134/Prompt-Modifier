@@ -42,6 +42,7 @@ export interface ImageInputValue {
     croppedImage?: string | null; // Thumbnail of cropped region for fast UI
     grid?: ImageInputGridConfig;
     batchConfig?: ImageInputBatchConfig;
+    batchFiles?: ImageBatchItem[];
     extractedImages?: string[]; // Thumbnails of grid cells
     showSlicesDrawer?: boolean;
     showControls?: boolean;

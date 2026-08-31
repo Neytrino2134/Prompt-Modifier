@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import JSZip from 'jszip';
 import { useAppContext } from '../contexts/AppContext';
-import { TaskStatus, BatchJobRecord, BatchJobState } from '../types';
+import { TaskStatus, BatchJobRecord, BatchJobState, NodeType } from '../types';
+import { ImageBatchItem } from './nodes/image-input/types';
+import { generateThumbnail } from '../utils/imageUtils';
 
 export const TaskQueuePanel: React.FC = () => {
     const context = useAppContext();
@@ -10,6 +13,7 @@ export const TaskQueuePanel: React.FC = () => {
         tasks,
         isTaskQueuePanelOpen,
         setIsTaskQueuePanelOpen,
+        setIsHistoryPanelOpen,
         cancelTask,
         retryTask,
         clearCompletedTasks,
@@ -17,6 +21,8 @@ export const TaskQueuePanel: React.FC = () => {
         selectNode,
         handleNavigateToNodeFrame,
         setImageViewer,
+        setFullSizeImage,
+        handleValueChange,
         isBatchMode,
         setIsBatchMode,
         batchJobs,
@@ -26,12 +32,170 @@ export const TaskQueuePanel: React.FC = () => {
         clearFinishedBatchJobs,
         pollActiveBatchJobs,
         isBatchPolling,
+        onAddNode,
+        viewTransform,
+        addToast,
         t
     } = context;
 
     const [activeTab, setActiveTab] = useState<'queue' | 'batch'>('queue');
     const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'failed'>('all');
     const [checkingJobId, setCheckingJobId] = useState<string | null>(null);
+    const [expandedBatchJobIds, setExpandedBatchJobIds] = useState<Record<string, boolean>>({});
+    const [downloadingZipJobId, setDownloadingZipJobId] = useState<string | null>(null);
+
+    const toggleExpandBatchJob = (jobId: string) => {
+        setExpandedBatchJobIds(prev => ({ ...prev, [jobId]: !prev[jobId] }));
+    };
+
+    const handleDownloadSingleImage = (url: string, index: number, jobId: string) => {
+        let ext = 'png';
+        if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/jpg')) ext = 'jpg';
+        else if (url.startsWith('data:image/webp')) ext = 'webp';
+
+        const filename = `Batch_${jobId.slice(-6)}_frame_${String(index + 1).padStart(3, '0')}.${ext}`;
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadBatchZip = async (job: BatchJobRecord) => {
+        const itemsWithImages = (job.items || []).filter(it => !!it.resultUrl);
+        if (itemsWithImages.length === 0) {
+            addToast?.(t('batch.noImages') || 'Нет сгенерированных изображений для скачивания', 'info');
+            return;
+        }
+
+        setDownloadingZipJobId(job.id);
+        try {
+            const JSZipConstructor = (JSZip as any).default || JSZip;
+            const zip = new JSZipConstructor();
+            let addedCount = 0;
+
+            for (let i = 0; i < itemsWithImages.length; i++) {
+                const item = itemsWithImages[i];
+                const src = item.resultUrl!;
+                const frameNum = item.frameIndex !== undefined ? item.frameIndex + 1 : i + 1;
+                const paddedFrame = String(frameNum).padStart(3, '0');
+                
+                let ext = 'png';
+                if (src.startsWith('data:image/jpeg') || src.startsWith('data:image/jpg')) ext = 'jpg';
+                else if (src.startsWith('data:image/webp')) ext = 'webp';
+
+                const filename = `Batch_${(job.displayName || job.id).replace(/[^a-zA-Z0-9_-]/g, '_')}_frame_${paddedFrame}.${ext}`;
+
+                try {
+                    if (src.startsWith('data:')) {
+                        const base64Data = src.split(',')[1];
+                        zip.file(filename, base64Data, { base64: true });
+                        addedCount++;
+                    } else {
+                        const res = await fetch(src);
+                        const blob = await res.blob();
+                        zip.file(filename, blob);
+                        addedCount++;
+                    }
+                } catch (err) {
+                    console.error(`Failed to pack image ${filename}:`, err);
+                }
+            }
+
+            if (addedCount === 0) {
+                addToast?.('Не удалось добавить изображения в архив', 'error');
+                return;
+            }
+
+            const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+            const dateStr = new Date().toISOString().split('T')[0];
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(zipBlob);
+            link.download = `Batch_${(job.displayName || job.id).replace(/[^a-zA-Z0-9_-]/g, '_')}_${dateStr}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+
+            addToast?.(t('toast.downloadSuccess') || 'Архив ZIP успешно скачан!', 'success');
+        } catch (e: any) {
+            console.error('Error generating Batch ZIP:', e);
+            addToast?.(`Ошибка скачивания архива: ${e?.message || e}`, 'error');
+        } finally {
+            setDownloadingZipJobId(null);
+        }
+    };
+
+    const handleSendToBatchInput = async (job: BatchJobRecord) => {
+        const itemsWithImages = (job.items || []).filter(it => !!it.resultUrl);
+        if (itemsWithImages.length === 0) {
+            addToast?.(t('batch.noImages') || 'Нет сгенерированных изображений для отправки', 'info');
+            return;
+        }
+
+        const batchFiles: ImageBatchItem[] = itemsWithImages.map((it, idx) => {
+            const frameNum = it.frameIndex !== undefined ? it.frameIndex + 1 : idx + 1;
+            const paddedFrame = String(frameNum).padStart(3, '0');
+            return {
+                id: `batch-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+                name: `Batch_Frame_${paddedFrame}.png`,
+                dataUrl: it.resultUrl!
+            };
+        });
+
+        const firstImage = batchFiles[0]?.dataUrl || null;
+        let thumb = firstImage;
+        if (firstImage) {
+            try {
+                thumb = await generateThumbnail(firstImage, 256, 256);
+            } catch { }
+        }
+
+        const initialValue = JSON.stringify({
+            image: thumb,
+            mode: 'batch',
+            batchFiles: batchFiles,
+            batchConfig: {
+                subMode: 'crop'
+            }
+        });
+
+        // Calculate canvas center point
+        const scale = viewTransform?.scale || 1;
+        const centerPos = {
+            x: (- (viewTransform?.translate?.x || 0) + window.innerWidth / 2) / scale,
+            y: (- (viewTransform?.translate?.y || 0) + window.innerHeight / 2) / scale
+        };
+
+        if (onAddNode) {
+            const newNodeId = onAddNode(
+                NodeType.IMAGE_INPUT,
+                centerPos,
+                `${job.displayName || 'Batch'} - Input`,
+                { centerNode: true, initialValue }
+            );
+
+            if (handleValueChange && newNodeId) {
+                handleValueChange(newNodeId, initialValue);
+            }
+
+            if (setFullSizeImage && newNodeId) {
+                batchFiles.forEach((file, idx) => {
+                    setFullSizeImage(newNodeId, idx, file.dataUrl);
+                });
+            }
+
+            if (newNodeId) {
+                if (selectNode) selectNode(newNodeId);
+                if (handleNavigateToNodeFrame) handleNavigateToNodeFrame(newNodeId, 0);
+            }
+
+            const msg = (t('batch.sendToImageInputToast') || 'Создан узел Image Input с {count} изображениями из пакета')
+                .replace('{count}', String(batchFiles.length));
+            addToast?.(msg, 'success');
+        }
+    };
 
     const filteredTasks = tasks.filter(task => {
         if (filter === 'active') return task.status === 'running' || task.status === 'queued';
@@ -143,25 +307,42 @@ export const TaskQueuePanel: React.FC = () => {
     return (
         <div className={`fixed top-0 right-0 bottom-0 w-80 sm:w-96 bg-gray-900 border-l border-gray-800 shadow-2xl z-[200] flex flex-col font-sans transition-transform duration-300 ease-in-out ${isTaskQueuePanelOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
             {/* Header */}
-            <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur-sm z-10 sticky top-0">
-                <div className="flex items-center gap-2">
+            <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur-sm z-10 sticky top-0 select-none">
+                <div className="flex items-center gap-2 select-none">
                     <div className={`w-2.5 h-2.5 rounded-full ${isBatchMode ? 'bg-amber-400 animate-pulse' : 'bg-cyan-400 animate-pulse'}`}></div>
                     <h2 className="text-gray-100 font-semibold text-base">
                         {t('queue.title') || 'Task Queue & Batch'}
                     </h2>
                 </div>
-                <button
-                    onClick={() => setIsTaskQueuePanelOpen(false)}
-                    className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-800 transition-colors"
-                >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+
+                <div className="flex items-center gap-1.5 select-none">
+                    <button
+                        onClick={() => {
+                            setIsTaskQueuePanelOpen(false);
+                            setIsHistoryPanelOpen?.(true);
+                        }}
+                        className="px-2.5 py-1 text-xs font-medium text-accent bg-accent/20 hover:bg-accent/30 border border-accent/40 rounded-md transition-colors flex items-center gap-1.5"
+                        title={t('ui.to_history') || 'To History'}
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{t('ui.to_history') || 'To History'}</span>
+                    </button>
+
+                    <button
+                        onClick={() => setIsTaskQueuePanelOpen(false)}
+                        className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-800 transition-colors"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             {/* Centralized Mode Switcher Banner */}
-            <div className="p-3 bg-gray-950 border-b border-gray-800">
+            <div className="p-3 bg-gray-950 border-b border-gray-800 select-none">
                 <div className="flex items-center justify-between p-2 rounded-lg bg-gray-900 border border-gray-800">
                     <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
@@ -443,8 +624,12 @@ export const TaskQueuePanel: React.FC = () => {
                     ) : (
                         batchJobs.map(job => {
                             const totalCount = job.items?.length || 0;
-                            const completedCount = job.items?.filter(it => it.status === 'completed')?.length || (job.state === 'SUCCEEDED' ? totalCount : 0);
+                            const completedItems = (job.items || []).filter(it => !!it.resultUrl);
+                            const completedCount = completedItems.length || (job.items?.filter(it => it.status === 'completed')?.length || (job.state === 'SUCCEEDED' ? totalCount : 0));
                             const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : (job.state === 'SUCCEEDED' ? 100 : 20);
+                            const isExpanded = !!expandedBatchJobIds[job.id];
+                            const hasImages = completedItems.length > 0;
+                            const isDownloadingThisZip = downloadingZipJobId === job.id;
 
                             return (
                                 <div
@@ -497,6 +682,111 @@ export const TaskQueuePanel: React.FC = () => {
                                     {job.error && (
                                         <div className="mt-2 p-1.5 rounded bg-red-950/50 border border-red-900/50 text-[11px] text-red-300 font-mono">
                                             {job.error}
+                                        </div>
+                                    )}
+
+                                    {/* Batch Action Buttons (ZIP Download, Send to Image Input, Expand Gallery) */}
+                                    {hasImages && (
+                                        <div className="mt-2.5 pt-2 border-t border-gray-800/60 flex flex-wrap items-center gap-1.5">
+                                            <button
+                                                onClick={() => handleDownloadBatchZip(job)}
+                                                disabled={isDownloadingThisZip}
+                                                className="px-2 py-1 rounded bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[11px] font-medium flex items-center gap-1 transition-colors disabled:opacity-50"
+                                                title={t('batch.downloadAllZip') || 'Скачать все изображения в ZIP'}
+                                            >
+                                                {isDownloadingThisZip ? (
+                                                    <svg className="animate-spin h-3 w-3 text-amber-300" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                    </svg>
+                                                )}
+                                                <span>{isDownloadingThisZip ? (t('batch.preparingZip') || 'ZIP...') : (t('batch.downloadAllZip') || 'Скачать ZIP')}</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleSendToBatchInput(job)}
+                                                className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[11px] font-medium flex items-center gap-1 transition-colors"
+                                                title={t('batch.sendToImageInput') || 'Отправить в узел Image Input (Batch mode)'}
+                                            >
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                                <span>{t('batch.sendToImageInput') || 'В Image Input'}</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => toggleExpandBatchJob(job.id)}
+                                                className="ml-auto px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[11px] font-medium flex items-center gap-1 transition-colors"
+                                            >
+                                                <svg className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                                <span>
+                                                    {isExpanded
+                                                        ? (t('node.action.hideImages') || 'Скрыть')
+                                                        : (t('batch.viewGeneratedImages') || 'Изображения ({count})').replace('{count}', String(completedItems.length))}
+                                                </span>
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Expandable Image Gallery */}
+                                    {isExpanded && hasImages && (
+                                        <div className="mt-2 p-2 bg-gray-950/80 rounded-md border border-gray-800/80 max-h-56 overflow-y-auto space-y-1.5">
+                                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
+                                                {completedItems.map((item, idx) => {
+                                                    const frameNum = item.frameIndex !== undefined ? item.frameIndex + 1 : idx + 1;
+                                                    return (
+                                                        <div
+                                                            key={item.id || `item-${idx}`}
+                                                            className="group relative aspect-square rounded bg-gray-900 border border-gray-700/60 overflow-hidden cursor-pointer hover:border-amber-500/80 transition-all shadow-sm"
+                                                            onClick={() => setImageViewer?.({
+                                                                sources: completedItems.map((it, i) => ({
+                                                                    src: it.resultUrl!,
+                                                                    frameNumber: it.frameIndex !== undefined ? it.frameIndex + 1 : i + 1,
+                                                                    prompt: it.prompt,
+                                                                    model: job.model
+                                                                })),
+                                                                initialIndex: idx
+                                                            })}
+                                                            title={item.prompt || `Кадр #${frameNum}`}
+                                                        >
+                                                            <img
+                                                                src={item.resultUrl!}
+                                                                alt={`Batch Frame ${frameNum}`}
+                                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                                                loading="lazy"
+                                                                referrerPolicy="no-referrer"
+                                                            />
+                                                            
+                                                            {/* Frame Badge */}
+                                                            <div className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-black/70 text-[9px] font-mono text-gray-200 backdrop-blur-xs">
+                                                                #{frameNum}
+                                                            </div>
+
+                                                            {/* Quick Single Download Overlay */}
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDownloadSingleImage(item.resultUrl!, idx, job.id);
+                                                                    }}
+                                                                    className="p-1 rounded-full bg-gray-900/90 text-gray-200 hover:text-white hover:bg-amber-600 transition-colors shadow"
+                                                                    title={t('node.action.download') || 'Скачать'}
+                                                                >
+                                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     )}
 

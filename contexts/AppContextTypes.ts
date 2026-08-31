@@ -67,7 +67,7 @@ export type AppContextType =
   setLineStyle: React.Dispatch<React.SetStateAction<LineStyle>>;
   spawnLine: { start: Point; end: Point; fading: boolean; } | null;
   setSpawnLine: React.Dispatch<React.SetStateAction<{ start: Point; end: Point; fading: boolean; } | null>>;
-  onAddNode: (type: NodeType, position: Point, title?: string, options?: { centerNode?: boolean; alignToInput?: boolean }) => string;
+  onAddNode: (type: NodeType, position: Point, title?: string, options?: { centerNode?: boolean; alignToInput?: boolean; initialValue?: string }) => string;
   pasteImageToNode: (nodeId: string, imageFile?: File | null) => Promise<void>;
   pasteNodeValue: (nodeId: string) => Promise<void>;
   copyNodeValue: (nodeId: string) => Promise<void>;
@@ -211,6 +211,8 @@ export type AppContextType =
   setIsInstantCloseEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   isHoverHighlightEnabled: boolean;
   setIsHoverHighlightEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  isBringToFrontOnHoverEnabled: boolean;
+  setIsBringToFrontOnHoverEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   nodeAnimationMode: string;
   setNodeAnimationMode: React.Dispatch<React.SetStateAction<string>>;
   dockHoverMode: DockMode | null;

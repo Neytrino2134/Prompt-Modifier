@@ -133,6 +133,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       resetTabs,
       setIsHoverHighlightEnabled, 
       isHoverHighlightEnabled,
+      setIsBringToFrontOnHoverEnabled,
+      isBringToFrontOnHoverEnabled,
       isConnectionAnimationEnabled,
       setIsConnectionAnimationEnabled,
       connectionOpacity,
@@ -146,6 +148,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   const [googleDriveClientId, setGoogleDriveClientId] = useState('');
   const [instantNodeClose, setInstantNodeClose] = useState(false);
   const [hoverHighlight, setHoverHighlight] = useState(true);
+  const [bringToFrontOnHover, setBringToFrontOnHover] = useState(true);
   const [animMode, setAnimMode] = useState<string>('pulse');
   const [downloadPath, setDownloadPath] = useState('');
 
@@ -166,6 +169,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       const storedInstantClose = localStorage.getItem('settings_instantNodeClose');
       const storedAnimMode = localStorage.getItem('settings_nodeAnimationMode');
       const storedHoverHighlight = localStorage.getItem('settings_hoverHighlight'); 
+      const storedBringToFront = localStorage.getItem('settings_bringToFrontOnHover');
       const storedDownloadPath = localStorage.getItem('settings_downloadPath') || '';
       
       const legacyAnim = localStorage.getItem('settings_nodeAnimation');
@@ -176,6 +180,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       setGoogleDriveClientId(googleClientId || '');
       setInstantNodeClose(storedInstantClose === 'true');
       setHoverHighlight(storedHoverHighlight === null ? true : storedHoverHighlight === 'true'); 
+      setBringToFrontOnHover(storedBringToFront === null ? true : storedBringToFront === 'true');
       setDownloadPath(storedDownloadPath);
       
       setFlashModel(getConfiguredFlashModel());
@@ -220,9 +225,70 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       addToast(`Added model ${trimmed} to pool`, 'success');
   };
 
-  // Handler for API Key Input changes
+  // Handler for Gemini API Key Input changes (instant save)
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setApiKey(e.target.value);
+      const val = e.target.value;
+      setApiKey(val);
+      localStorage.setItem('settings_userApiKey', val.trim());
+  };
+
+  // Handler for OpenAI Toggle (instant save)
+  const handleOpenAiToggle = (checked: boolean) => {
+      setOpenAiEnabledState(checked);
+      setOpenAiEnabled(checked);
+  };
+
+  // Handler for OpenAI API Key (instant save)
+  const handleOpenAiApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setOpenAiApiKeyState(val);
+      setOpenAiApiKey(val.trim());
+  };
+
+  // Handler for Animation Mode (instant save)
+  const handleAnimModeChange = (mode: string) => {
+      setAnimMode(mode);
+      localStorage.setItem('settings_nodeAnimationMode', mode);
+      if (setNodeAnimationMode) {
+          setNodeAnimationMode(mode);
+      }
+  };
+
+  // Handler for Instant Node Close (instant save)
+  const handleInstantNodeCloseChange = (checked: boolean) => {
+      setInstantNodeClose(checked);
+      localStorage.setItem('settings_instantNodeClose', String(checked));
+      setIsInstantCloseEnabled(checked);
+  };
+
+  // Handler for Hover Highlight (instant save)
+  const handleHoverHighlightChange = (checked: boolean) => {
+      setHoverHighlight(checked);
+      localStorage.setItem('settings_hoverHighlight', String(checked));
+      if (setIsHoverHighlightEnabled) {
+          setIsHoverHighlightEnabled(checked);
+      }
+  };
+
+  // Handler for Bring to Front on Hover (instant save)
+  const handleBringToFrontOnHoverChange = (checked: boolean) => {
+      setBringToFrontOnHover(checked);
+      localStorage.setItem('settings_bringToFrontOnHover', String(checked));
+      if (setIsBringToFrontOnHoverEnabled) {
+          setIsBringToFrontOnHoverEnabled(checked);
+      }
+  };
+
+  // Handler for Connection Animation (instant save)
+  const handleConnectionAnimationChange = (checked: boolean) => {
+      setIsConnectionAnimationEnabled(checked);
+      localStorage.setItem('settings_connectionAnimation', String(checked));
+  };
+
+  // Handler for Connection Opacity (instant save)
+  const handleConnectionOpacityChange = (val: number) => {
+      setConnectionOpacity(val);
+      localStorage.setItem('settings_connectionOpacity', String(val));
   };
   
   const handleSelectDownloadFolder = async () => {
@@ -230,43 +296,27 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
           const path = await (window as any).electronAPI.selectFolder();
           if (path) {
               setDownloadPath(path);
+              localStorage.setItem('settings_downloadPath', path);
+              (window as any).electronAPI.setDownloadPath(path);
           }
       }
   };
   
   const handleResetDownloadFolder = () => {
       setDownloadPath('');
+      localStorage.setItem('settings_downloadPath', '');
+      if ((window as any).electronAPI) {
+          (window as any).electronAPI.setDownloadPath('');
+      }
   };
 
-  const handleSave = () => {
-    localStorage.setItem('settings_userApiKey', apiKey.trim());
-    setOpenAiEnabled(openAiEnabled);
-    setOpenAiApiKey(openAiApiKey.trim());
-    localStorage.setItem('settings_instantNodeClose', String(instantNodeClose));
-    localStorage.setItem('settings_nodeAnimationMode', animMode);
-    localStorage.setItem('settings_hoverHighlight', String(hoverHighlight)); 
-    localStorage.setItem('settings_downloadPath', downloadPath);
-    
-    // Notify Electron about the new path
-    if ((window as any).electronAPI) {
-        (window as any).electronAPI.setDownloadPath(downloadPath);
-    }
-    
-    // Also save Google Client ID if it changed but user didn't click "Update" button
-    if (setGoogleClientId && googleDriveClientId !== googleClientId) {
-        setGoogleClientId(googleDriveClientId.trim());
-    }
-    
-    setIsInstantCloseEnabled(instantNodeClose);
-    if (setNodeAnimationMode) {
-        setNodeAnimationMode(animMode);
-    }
-    if (setIsHoverHighlightEnabled) { 
-        setIsHoverHighlightEnabled(hoverHighlight);
-    }
-
-    addToast(t('toast.apiKeySaved'), 'success');
-    onClose();
+  // Handler for Google Drive Client ID
+  const handleGoogleDriveClientIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setGoogleDriveClientId(val);
+      if (setGoogleClientId) {
+          setGoogleClientId(val.trim());
+      }
   };
 
   const handleReloadApp = () => {
@@ -473,7 +523,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                                      <CustomCheckbox
                                          id="openai-enabled-toggle"
                                          checked={openAiEnabled}
-                                         onChange={(checked) => setOpenAiEnabledState(checked)}
+                                         onChange={handleOpenAiToggle}
                                          label={t('settings.openaiEnabled')}
                                          className="font-semibold text-xs text-gray-200"
                                      />
@@ -511,7 +561,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                                            type={showOpenAiApiKey ? "text" : "password"}
                                            id="openAiApiKey"
                                            value={openAiApiKey}
-                                           onChange={(e) => setOpenAiApiKeyState(e.target.value)}
+                                           onChange={handleOpenAiApiKeyChange}
                                            placeholder="sk-proj-..."
                                            className="w-full p-2.5 pr-9 bg-gray-900 border border-gray-600 rounded-md text-white text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none placeholder-gray-500 transition-colors"
                                          />
@@ -715,7 +765,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                                   <button
                                       key={mode}
                                       type="button"
-                                      onClick={() => setAnimMode(mode)}
+                                      onClick={() => handleAnimModeChange(mode)}
                                       className={`flex-1 py-1 text-xs font-medium rounded transition-colors ${animMode === mode ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
                                   >
                                       {t(`dialog.settings.anim.${animModeKeyMap[mode] || mode}` as any)}
@@ -728,15 +778,22 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                         <CustomCheckbox
                             id="instantNodeClose"
                             checked={instantNodeClose}
-                            onChange={(checked) => setInstantNodeClose(checked)}
+                            onChange={handleInstantNodeCloseChange}
                             label={t('dialog.settings.instantNodeCloseLabel')}
                             className="text-sm text-gray-400"
                         />
                          <CustomCheckbox
                             id="hoverHighlight"
                             checked={hoverHighlight}
-                            onChange={(checked) => setHoverHighlight(checked)}
+                            onChange={handleHoverHighlightChange}
                             label={t('dialog.settings.hoverHighlightLabel')}
+                            className="text-sm text-gray-400"
+                        />
+                         <CustomCheckbox
+                            id="bringToFrontOnHover"
+                            checked={bringToFrontOnHover}
+                            onChange={handleBringToFrontOnHoverChange}
+                            label={t('dialog.settings.bringToFrontOnHoverLabel')}
                             className="text-sm text-gray-400"
                         />
                       </div>
@@ -750,7 +807,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                              <CustomCheckbox
                                 id="connectionAnimation"
                                 checked={isConnectionAnimationEnabled}
-                                onChange={(checked) => setIsConnectionAnimationEnabled(checked)}
+                                onChange={handleConnectionAnimationChange}
                                 label={t('dialog.settings.connectionAnimationLabel')}
                                 className="text-sm text-gray-300"
                             />
@@ -765,7 +822,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                                     max="1" 
                                     step="0.1" 
                                     value={connectionOpacity} 
-                                    onChange={(e) => setConnectionOpacity(parseFloat(e.target.value))}
+                                    onChange={(e) => handleConnectionOpacityChange(parseFloat(e.target.value))}
                                     className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-accent"
                                  />
                              </div>
@@ -865,7 +922,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                           type="text"
                           id="googleClientId"
                           value={googleDriveClientId}
-                          onChange={(e) => setGoogleDriveClientId(e.target.value)}
+                          onChange={handleGoogleDriveClientIdChange}
                           placeholder="Google Cloud Client ID"
                           className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-md text-white text-sm focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none placeholder-gray-600"
                         />
@@ -966,10 +1023,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
           
           <button
             type="button"
-            onClick={handleSave}
+            onClick={onClose}
             className="px-5 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-accent/40 transform hover:-translate-y-0.5 active:translate-y-0"
           >
-            {t('dialog.settings.save')}
+            {t('common.close')}
           </button>
         </div>
       </div>

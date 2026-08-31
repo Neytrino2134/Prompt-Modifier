@@ -246,8 +246,20 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
             newThumbnails.push(thumb);
         }
         const finalList = [...currentList, ...newThumbnails];
-        if (isB) handleValueUpdate({ inputImagesB: finalList });
-        else handleValueUpdate({ inputImages: finalList });
+        const updates: Partial<ImageEditorState> = {};
+        if (isB) {
+            updates.inputImagesB = finalList;
+        } else {
+            updates.inputImages = finalList;
+            const currentChecked = parsedValueRef.current.checkedInputIndices;
+            if (currentChecked && currentChecked.length > 0) {
+                const addedIndices = Array.from({ length: newThumbnails.length }, (_, i) => currentList.length + i);
+                updates.checkedInputIndices = [...currentChecked, ...addedIndices];
+            } else {
+                updates.checkedInputIndices = Array.from({ length: finalList.length }, (_, i) => i);
+            }
+        }
+        handleValueUpdate(updates);
     };
 
     const removeImage = useCallback((index: number, isB: boolean) => {
@@ -366,7 +378,11 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
 
     const imageSlots = useMemo(() => buildSlots(inputImages, upstreamImagesRaw, false), [inputImages, upstreamImagesRaw]);
     const imageSlotsB = useMemo(() => buildSlots(inputImagesB, upstreamImagesRawB, true), [inputImagesB, upstreamImagesRawB]);
-    const isInputConnected = connectedInputs?.has('image') || (parsedValue.isSequentialEditingWithPrompts && connectedInputs?.has('image_b'));
+    const isInputConnected = 
+        connectedInputs?.has('image') || 
+        connectedInputs?.has(undefined) || 
+        (upstreamImagesRaw && upstreamImagesRaw.length > 0) || 
+        (parsedValue.isSequentialEditingWithPrompts && (connectedInputs?.has('image_b') || (upstreamImagesRawB && upstreamImagesRawB.length > 0)));
 
     const seqTotalFrames = useMemo(() => {
         if (isSequentialEditingWithPrompts) {
@@ -577,7 +593,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         if (sources.length > 0) setImageViewer({ sources, initialIndex: clickedIndex });
     };
 
-    const handleDetachAndPasteInput = useCallback(() => {
+    const handleDetachAndPasteInput = useCallback(async () => {
         let handleIdToDetach = 'image';
         let isB = false;
         
@@ -590,17 +606,18 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         const sources: string[] = [];
         
         rawImages.forEach(img => {
-            if (typeof img === 'string') sources.push(img);
-            else if (img && typeof img === 'object') sources.push(`data:${img.mimeType};base64,${img.base64ImageData}`);
+            if (typeof img === 'string') {
+                sources.push(img);
+            } else if (img && typeof img === 'object' && img.base64ImageData) {
+                sources.push(`data:${img.mimeType || 'image/png'};base64,${img.base64ImageData}`);
+            }
         });
 
         if (sources.length > 0) {
-            handleAddImagesToInput(sources, isB);
-            if (onCutConnections) {
-                setConnections(prev => prev.filter(c => !(c.toNodeId === node.id && (c.toHandleId === handleIdToDetach || (handleIdToDetach === 'image' && c.toHandleId === undefined)))));
-            }
+            await handleAddImagesToInput(sources, isB);
+            setConnections(prev => prev.filter(c => !(c.toNodeId === node.id && (c.toHandleId === handleIdToDetach || (!c.toHandleId && handleIdToDetach === 'image')))));
         }
-    }, [getUpstreamNodeValues, handleAddImagesToInput, onCutConnections, node.id, setConnections]);
+    }, [getUpstreamNodeValues, handleAddImagesToInput, node.id, setConnections]);
 
     const handleApplyEditor = (imageDataUrl: string) => {
         setFullSizeImage(node.id, 0, imageDataUrl);

@@ -1,6 +1,10 @@
 
 
 export const common = {
+    'common.close': 'Закрыть',
+    'common.apply': 'Применить',
+    'common.cancel': 'Отмена',
+    'common.refresh': 'Обновить',
     'app.title': 'Модификатор промптов',
     'app.subtitle': 'Соединяйте идеи для создания шедевров',
     'app.error.title': 'Уведомление',
