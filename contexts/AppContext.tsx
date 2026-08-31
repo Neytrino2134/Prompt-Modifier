@@ -27,6 +27,7 @@ import {
     useContentCatalog,
     useGenerationHistory,
     calculateGroupBounds,
+    saveSessionToDB,
     CatalogItemType,
     ContentCatalogItemType,
 } from '../hooks';
@@ -322,12 +323,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [nodesHook.setNodes, tabsHook.setTabs, setFullSizeImage]);
 
+    const forceSaveSession = useCallback(async () => {
+        const liveNodes = nodesHook.nodes;
+        const liveConnections = connectionsHook.connections;
+        const liveGroups = groupsHook.groups;
+        const liveViewTransform = canvasHook.viewTransform;
+        const liveNodeIdCounter = nodesHook.nodeIdCounter.current;
+
+        const stateToSave = {
+            nodes: liveNodes,
+            connections: liveConnections,
+            groups: liveGroups,
+            viewTransform: liveViewTransform,
+            nodeIdCounter: liveNodeIdCounter,
+            fullSizeImageCache: fullSizeImageCache,
+        };
+
+        const latestTabs = tabs.map(tab => 
+            tab.id === activeTabId ? { ...tab, state: stateToSave } : tab
+        );
+
+        setTabs(latestTabs);
+        await saveSessionToDB(latestTabs, activeTabId);
+    }, [
+        nodesHook.nodes,
+        connectionsHook.connections,
+        groupsHook.groups,
+        canvasHook.viewTransform,
+        fullSizeImageCache,
+        activeTabId,
+        tabs,
+        setTabs
+    ]);
+
     const batchManagerHook = useBatchManager({
         updateNodeInStorage,
         setFullSizeImage,
         addToHistory: generationHistoryHook.addToHistory,
         addToast,
         enqueueTask: taskQueueHook.enqueueTask,
+        triggerAutoSave: forceSaveSession,
         t
     });
     batchJobsRef.current = batchManagerHook.batchJobs;
@@ -1153,6 +1188,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ...taskQueueHook,
             ...batchManagerHook,
             updateNodeInStorage,
+            forceSaveSession,
             setIsHistoryPanelOpen,
             setIsTaskQueuePanelOpen
         };
@@ -1162,7 +1198,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         entityActionsHook, interactionHook, derivedMemoHook, canvasEventsHook,
         geminiAnalysisHook, geminiConversationHook, geminiChainExecutionHook, geminiGenerationHook, geminiModificationHook,
         positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook, generationHistoryHook, taskQueueHook, batchManagerHook,
-        updateNodeInStorage,
+        updateNodeInStorage, forceSaveSession,
         handleToggleNodeCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,

@@ -23,7 +23,7 @@ const getSessionDB = (): Promise<IDBDatabase> => {
     });
 };
 
-const saveSessionToDB = async (tabs: Tab[], activeTabId: string) => {
+export const saveSessionToDB = async (tabs: Tab[], activeTabId: string) => {
     const db = await getSessionDB();
     return new Promise<void>((resolve, reject) => {
         const transaction = db.transaction(SESSION_STORE, 'readwrite');
@@ -345,6 +345,23 @@ export const useTabs = () => {
         return tabs.find(tab => tab.id === activeTabId)?.state || createNewTab('').state;
     }, [tabs, activeTabId]);
 
+    const forceSaveSession = useCallback(async (overrideTabs?: Tab[], overrideActiveTabId?: string) => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+        setIsAutoSaving(true);
+        try {
+            const tabsToSave = overrideTabs || tabs;
+            const tabIdToSave = overrideActiveTabId || activeTabId;
+            await saveSessionToDB(tabsToSave, tabIdToSave);
+        } catch (e) {
+            console.error("Failed to force save session:", e);
+        } finally {
+            setIsAutoSaving(false);
+            setNextAutoSaveTime(null);
+        }
+    }, [tabs, activeTabId]);
+
     return {
         tabs,
         setTabs,
@@ -361,6 +378,7 @@ export const useTabs = () => {
         getLocalizedCanvasState, 
         nextAutoSaveTime, 
         isAutoSaving,
-        isLoaded
+        isLoaded,
+        forceSaveSession
     };
 };

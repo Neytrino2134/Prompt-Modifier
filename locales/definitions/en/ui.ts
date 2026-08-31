@@ -272,5 +272,6 @@ export const ui = {
     'ui.to_history': 'To History',
     'batch.preparingZip': 'Preparing archive...',
     'batch.noImages': 'No generated images',
+    'batch.restoredToast': 'Restored {count} batch job(s) from server',
 };
 

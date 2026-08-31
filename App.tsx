@@ -98,13 +98,18 @@ const Editor: React.FC = () => {
                       message: t('dialog.exitApp.message'),
                       confirmLabel: t('dialog.exitApp.saveAndClose'),
                       confirmVariant: 'accent',
-                      onConfirm: () => {
-                          if (context?.handleSaveProject) {
-                              context.handleSaveProject();
+                      onConfirm: async () => {
+                          try {
+                              if (context?.forceSaveSession) {
+                                  await context.forceSaveSession();
+                              }
+                          } catch (err) {
+                              console.error("Failed to save session before exit:", err);
+                          } finally {
+                              setTimeout(() => {
+                                  (window as any).electronAPI.forceClose();
+                              }, 100);
                           }
-                          setTimeout(() => {
-                              (window as any).electronAPI.forceClose();
-                          }, 600);
                       },
                       secondaryAction: {
                           label: t('dialog.exitApp.dontSave'),

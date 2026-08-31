@@ -621,3 +621,51 @@ export const cancelOpenAiBatchJob = async (jobName: string): Promise<void> => {
         }
     }
 };
+
+/**
+ * List OpenAI Batch jobs (combines locally stored batches and remote native batches)
+ */
+export const listOpenAiBatchJobs = async (): Promise<StoredOpenAiBatch[]> => {
+    const localBatches = getStoredOpenAiBatches();
+    const apiKey = getOpenAiApiKey();
+    if (!apiKey) return localBatches;
+
+    try {
+        const res = await fetch('https://api.openai.com/v1/batches?limit=50', {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            const remoteBatches = data.data || [];
+            let changed = false;
+            for (const rb of remoteBatches) {
+                const existing = localBatches.find(b => b.nativeBatchId === rb.id || b.id === rb.id);
+                if (!existing) {
+                    const mappedStatus = rb.status === 'completed' ? 'SUCCEEDED' : (rb.status === 'failed' || rb.status === 'expired' ? 'FAILED' : (rb.status === 'cancelled' ? 'CANCELLED' : 'RUNNING'));
+                    localBatches.push({
+                        id: `openai_batch_${rb.id}`,
+                        model: 'gpt-image-2',
+                        displayName: `OpenAI Batch (${rb.id})`,
+                        state: mappedStatus,
+                        createdAt: rb.created_at ? rb.created_at * 1000 : Date.now(),
+                        updatedAt: Date.now(),
+                        nativeBatchId: rb.id,
+                        items: [{
+                            id: '0',
+                            prompt: 'Batch Item',
+                            status: rb.status === 'completed' ? 'completed' : 'queued'
+                        }]
+                    });
+                    changed = true;
+                }
+            }
+            if (changed) {
+                saveStoredOpenAiBatches(localBatches);
+            }
+        }
+    } catch (e) {
+        console.warn("Failed to fetch OpenAI remote batches:", e);
+    }
+    return localBatches;
+};
+

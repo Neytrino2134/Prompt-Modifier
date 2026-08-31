@@ -8,7 +8,8 @@ import {
     createOpenAiBatchImageJob, 
     getOpenAiBatchJobStatus, 
     extractImagesFromOpenAiBatchJob, 
-    cancelOpenAiBatchJob 
+    cancelOpenAiBatchJob,
+    listOpenAiBatchJobs
 } from './openaiService';
 
 export const getApiKey = () => {
@@ -1101,4 +1102,68 @@ export const extractImagesFromBatchJob = async (
 
     return results;
 };
+
+/**
+ * Lists remote Batch API jobs from Gemini.
+ */
+export const listBatchJobsService = async (): Promise<any[]> => {
+    try {
+        const apiKey = getApiKey();
+        if (!apiKey) return [];
+        return await callWithRetry(async () => {
+            const ai = createAIClient();
+            const response = await ai.batches.list({ config: { pageSize: 50 } });
+            const jobs: any[] = [];
+            if (Array.isArray(response)) {
+                jobs.push(...response);
+            } else if (response && Array.isArray((response as any).batchJobs)) {
+                jobs.push(...(response as any).batchJobs);
+            } else if (response && typeof (response as any)[Symbol.asyncIterator] === 'function') {
+                for await (const job of (response as any)) {
+                    jobs.push(job);
+                }
+            }
+            return jobs;
+        });
+    } catch (err) {
+        console.warn("Could not list remote Gemini batch jobs:", err);
+        return [];
+    }
+};
+
+/**
+ * Lists all remote batch jobs across active providers (Gemini & OpenAI).
+ */
+export const listAllRemoteBatchJobs = async (): Promise<any[]> => {
+    const results: any[] = [];
+    try {
+        const geminiJobs = await listBatchJobsService();
+        if (Array.isArray(geminiJobs)) {
+            results.push(...geminiJobs);
+        }
+    } catch (e) {
+        console.warn("Failed to list Gemini batch jobs:", e);
+    }
+
+    try {
+        const openAiBatches = await listOpenAiBatchJobs();
+        if (Array.isArray(openAiBatches)) {
+            openAiBatches.forEach(b => {
+                results.push({
+                    name: b.id,
+                    displayName: b.displayName,
+                    model: b.model,
+                    state: b.state === 'SUCCEEDED' ? 'JOB_STATE_SUCCEEDED' : (b.state === 'FAILED' ? 'JOB_STATE_FAILED' : (b.state === 'CANCELLED' ? 'JOB_STATE_CANCELLED' : 'JOB_STATE_RUNNING')),
+                    createTime: new Date(b.createdAt).toISOString(),
+                    batch: b
+                });
+            });
+        }
+    } catch (e) {
+        console.warn("Failed to list OpenAI batch jobs:", e);
+    }
+
+    return results;
+};
+
 

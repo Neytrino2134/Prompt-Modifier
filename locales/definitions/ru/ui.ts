@@ -272,4 +272,5 @@ export const ui = {
     'ui.to_history': 'К истории',
     'batch.preparingZip': 'Формирование архива...',
     'batch.noImages': 'Нет сгенерированных изображений',
+    'batch.restoredToast': 'Восстановлено пакетных задач с сервера: {count}',
 };

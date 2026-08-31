@@ -280,4 +280,7 @@ export type AppContextType =
   deleteBatchJob: (jobId: string) => void;
   clearFinishedBatchJobs: () => void;
   updateNodeInStorage: (tabId: string, nodeId: string, updater: (nodeVal: any) => any, cacheData?: { frame: number; url: string }) => void;
+
+  // Session Persistence
+  forceSaveSession: () => Promise<void>;
 };
