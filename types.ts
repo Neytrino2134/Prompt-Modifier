@@ -233,6 +233,39 @@ export interface Toast {
 // Global Task Queue System
 export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 
+export type BatchJobState = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'EXPIRED' | 'UNSPECIFIED';
+
+export interface BatchJobItem {
+    id: string; // internal frame id or identifier
+    frameIndex?: number;
+    prompt: string;
+    aspectRatio?: string;
+    resolution?: string;
+    autoCrop169?: boolean;
+    autoDownload?: boolean;
+    status: TaskStatus;
+    resultUrl?: string;
+    error?: string;
+}
+
+export interface BatchJobRecord {
+    id: string; // client uuid e.g. "batch-174..."
+    name: string; // Gemini resource name, e.g. "batches/..."
+    displayName?: string;
+    model: string;
+    createdAt: number;
+    updatedAt?: number;
+    completedAt?: number;
+    state: BatchJobState;
+    nodeId: string;
+    nodeTitle?: string;
+    tabId?: string;
+    tabName?: string;
+    isSequence: boolean;
+    items: BatchJobItem[];
+    error?: string;
+}
+
 export interface GenerationTask {
     id: string;
     nodeId: string;
@@ -253,6 +286,9 @@ export interface GenerationTask {
     execute?: (signal: AbortSignal) => Promise<string>;
     onSuccess?: (resultUrl: string) => void | Promise<void>;
     onError?: (error: any) => void;
+    isBatch?: boolean;
+    batchJobName?: string;
+    batchJobId?: string;
 }
 
 // Global Operation Tracking

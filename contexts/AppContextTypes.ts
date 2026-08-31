@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, LogEntry, LogLevel } from '../types';
+import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, LogEntry, LogLevel, BatchJobRecord } from '../types';
 import { NodeType } from '../types';
 import { LanguageCode, TranslationKey } from '../localization';
 import {
@@ -52,6 +52,7 @@ export type AppContextType =
   ReturnType<typeof useGoogleDrive> & 
   ReturnType<typeof import('../hooks/useGenerationHistory').useGenerationHistory> &
   ReturnType<typeof import('../hooks/useTaskQueue').useTaskQueue> &
+  ReturnType<typeof import('../hooks/useBatchManager').useBatchManager> &
    {
   replaceAllItems: (newItems: LibraryItem[]) => void;
   importItemsData: (data: any) => Promise<void>;
@@ -264,4 +265,17 @@ export type AppContextType =
   handleDeleteFromDrive: (item: any, context: string) => void;
   handleClearCloudFolder: (context: string) => void; // Added
   handleCleanupDuplicates: () => void;
+
+  // Batch Manager
+  isBatchMode: boolean;
+  setIsBatchMode: (val: boolean | ((prev: boolean) => boolean)) => void;
+  batchJobs: BatchJobRecord[];
+  isBatchPolling: boolean;
+  createBatchGeneration: (params: any) => Promise<any>;
+  checkBatchJob: (jobId: string) => Promise<any>;
+  pollActiveBatchJobs: () => Promise<void>;
+  cancelBatchJob: (jobId: string) => Promise<void>;
+  deleteBatchJob: (jobId: string) => void;
+  clearFinishedBatchJobs: () => void;
+  updateNodeInStorage: (tabId: string, nodeId: string, updater: (nodeVal: any) => any, cacheData?: { frame: number; url: string }) => void;
 };

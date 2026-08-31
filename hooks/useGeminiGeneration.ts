@@ -27,6 +27,7 @@ interface UseGeminiGenerationProps {
     addToast: (message: string, type?: ToastType) => void;
     addToHistory: (url: string, prompt: string, model?: string, metadataOrRatio?: { aspectRatio?: string; resolution?: string } | string, resolution?: string) => void;
     taskQueue?: ReturnType<typeof import('./useTaskQueue').useTaskQueue>;
+    batchManager?: ReturnType<typeof import('./useBatchManager').useBatchManager>;
 }
 
 export const useGeminiGeneration = ({ 
@@ -48,8 +49,10 @@ export const useGeminiGeneration = ({
     isGlobalProcessing,
     addToast,
     addToHistory,
-    taskQueue
+    taskQueue,
+    batchManager
 }: UseGeminiGenerationProps) => {
+
     
     const activeTabIdRef = useRef(activeTabId);
     useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
@@ -123,7 +126,8 @@ export const useGeminiGeneration = ({
         activeTabIdRef,
         addToast,
         addToHistory,
-        taskQueue
+        taskQueue,
+        batchManager
     };
 
     const imageNode = useImageNode(commonProps);

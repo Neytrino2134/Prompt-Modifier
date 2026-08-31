@@ -61,7 +61,8 @@ export const useEditorNode = ({
     activeTabName,
     activeTabIdRef,
     addToHistory,
-    taskQueue
+    taskQueue,
+    batchManager
 }: GeminiGenerationCommonProps) => {
     const [isEditingImageLocal, setIsEditingImageLocal] = useState<boolean>(false);
     const [isStoppingEdit, setIsStoppingEdit] = useState(false);
@@ -158,6 +159,159 @@ export const useEditorNode = ({
 
         setError(null);
         setIsStoppingEdit(false);
+
+        // --- BATCH API MODE INTERCEPTION ---
+        if (batchManager?.isBatchMode) {
+            if (isSequenceMode) {
+                const targetIndices = indicesToProcess || (
+                    parsed.isSequentialEditingWithPrompts 
+                       ? (parsed.checkedSequenceOutputIndices || allInputImagesB.map((_: any, i: number) => i))
+                       : (parsed.checkedInputIndices ?? allInputImages.map((_: any, i: number) => i))
+                );
+
+                const sequenceOutputs = parsed.sequenceOutputs || [];
+                const newOutputs = [...sequenceOutputs];
+                targetIndices.forEach((i: number) => {
+                    newOutputs[i] = { status: 'generating', thumbnail: null };
+                });
+                updateNodeInStorage(currentTabId, nodeId, (prev) => ({ ...prev, sequenceOutputs: newOutputs }));
+
+                const batchItems: Array<{
+                    id: string;
+                    prompt: string;
+                    aspectRatio?: string;
+                    images?: Array<{ base64ImageData: string; mimeType: string }>;
+                    resolution?: '1K' | '2K' | '4K';
+                    autoCrop169?: boolean;
+                    autoDownload?: boolean;
+                    frameIndex: number;
+                }> = [];
+
+                for (const i of targetIndices) {
+                    let imagesForFrame: { base64ImageData: string, mimeType: string }[] = [];
+
+                    if (parsed.isSequentialEditingWithPrompts) {
+                        imagesForFrame = allInputImagesB;
+                    } else {
+                        const imgA = allInputImages[i];
+                        if (!imgA && parsed.model !== 'gemini-3-pro-image-preview') continue;
+                        if (imgA) imagesForFrame = [imgA];
+                        
+                        if (parsed.isSequentialCombinationMode) {
+                            if (allInputImagesB.length > 0) {
+                                imagesForFrame.push(...allInputImagesB);
+                            }
+                        }
+                    }
+
+                    // PROMPT LOGIC
+                    let basePrompt = parsed.prompt;
+                    if (parsed.isSequentialPromptMode || parsed.isSequentialEditingWithPrompts) {
+                        if (upstreamPromptMap.has(i)) {
+                            basePrompt = upstreamPromptMap.get(i);
+                        } else if (parsed.framePrompts && parsed.framePrompts[i]) {
+                            basePrompt = parsed.framePrompts[i];
+                        }
+                    }
+
+                    const genericTexts = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
+                    let promptToUse = [basePrompt, ...genericTexts].filter(Boolean).join(', ');
+                    if (!promptToUse.trim()) promptToUse = "High quality image";
+
+                    const imagesToUse = await Promise.all(imagesForFrame.map(async (image) => {
+                        const imageDataUrl = `data:${image.mimeType};base64,${image.base64ImageData}`;
+                        if (parsed.enableAspectRatio && parsed.aspectRatio && parsed.aspectRatio !== 'Auto') {
+                            const { formattedImage } = await formatImageForAspectRatio(imageDataUrl, parsed.aspectRatio);
+                            return {
+                                base64ImageData: formattedImage.split(',')[1],
+                                mimeType: formattedImage.match(/:(.*?);/)?.[1] || 'image/png'
+                            };
+                        }
+                        return image;
+                    }));
+
+                    let promptWithOutpaint = promptToUse;
+                    if (parsed.enableOutpainting) {
+                        const outpaintingTemplate = parsed.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.';
+                        promptWithOutpaint = outpaintingTemplate.replace('{main_prompt}', promptToUse);
+                    }
+
+                    batchItems.push({
+                        id: `frame-${i}`,
+                        prompt: promptWithOutpaint,
+                        aspectRatio: parsed.aspectRatio,
+                        images: imagesToUse,
+                        resolution: parsed.resolution,
+                        autoCrop169: parsed.autoCrop169,
+                        autoDownload: parsed.autoDownload,
+                        frameIndex: i
+                    });
+                }
+
+                if (batchItems.length > 0) {
+                    await batchManager.createBatchGeneration({
+                        nodeId,
+                        nodeTitle: node.title || 'Image Editor',
+                        tabId: currentTabId,
+                        model: parsed.model || 'gemini-3-pro-image-preview',
+                        isSequence: true,
+                        items: batchItems
+                    });
+                }
+                return;
+            } else {
+                // Single Mode in Batch API
+                let imagesToUseInputs: { base64ImageData: string; mimeType: string; }[] = [];
+                const checkedInputIndices = parsed.checkedInputIndices;
+                
+                if (checkedInputIndices && Array.isArray(checkedInputIndices)) {
+                    imagesToUseInputs = allInputImages.filter((_, i) => checkedInputIndices.includes(i));
+                } else {
+                    imagesToUseInputs = allInputImages;
+                }
+
+                const genericTexts = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
+                let promptToUse = [parsed.prompt, ...genericTexts].filter(Boolean).join(', ');
+                if (!promptToUse.trim()) promptToUse = "High quality image";
+
+                const processedImages = await Promise.all(imagesToUseInputs.map(async (image) => {
+                    const imageDataUrl = `data:${image.mimeType};base64,${image.base64ImageData}`;
+                    if (parsed.enableAspectRatio && parsed.aspectRatio && parsed.aspectRatio !== 'Auto') {
+                        const { formattedImage } = await formatImageForAspectRatio(imageDataUrl, parsed.aspectRatio);
+                        return {
+                            base64ImageData: formattedImage.split(',')[1],
+                            mimeType: formattedImage.match(/:(.*?);/)?.[1] || 'image/png'
+                        };
+                    }
+                    return image;
+                }));
+
+                let promptWithOutpaint = promptToUse;
+                if (parsed.enableOutpainting) {
+                    const outpaintingTemplate = parsed.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.';
+                    promptWithOutpaint = outpaintingTemplate.replace('{main_prompt}', promptToUse);
+                }
+
+                await batchManager.createBatchGeneration({
+                    nodeId,
+                    nodeTitle: node.title || 'Image Editor',
+                    tabId: currentTabId,
+                    model: parsed.model || 'gemini-3-pro-image-preview',
+                    isSequence: false,
+                    items: [{
+                        id: 'single-0',
+                        prompt: promptWithOutpaint,
+                        aspectRatio: parsed.aspectRatio,
+                        images: processedImages,
+                        resolution: parsed.resolution,
+                        autoCrop169: parsed.autoCrop169,
+                        autoDownload: parsed.autoDownload,
+                        frameIndex: 0
+                    }]
+                });
+                return;
+            }
+        }
 
         if (isSequenceMode) {
              const targetIndices = indicesToProcess || (

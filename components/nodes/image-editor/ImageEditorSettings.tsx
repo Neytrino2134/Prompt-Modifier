@@ -4,6 +4,7 @@ import CustomSelect from '../../CustomSelect';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { ImageEditorState } from './types';
 import { CustomCheckbox } from '../../CustomCheckbox';
+import { useAppContext } from '../../../contexts/AppContext';
 
 interface ImageEditorSettingsProps {
     state: ImageEditorState;
@@ -25,6 +26,7 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
     deselectAllNodes
 }) => {
     const { isSequenceMode, isSequentialCombinationMode, isSequentialPromptMode, isSequentialEditingWithPrompts, enableAspectRatio, aspectRatio, enableOutpainting } = state;
+    const { isBatchMode, setIsBatchMode } = useAppContext();
 
     const aspectRatioOptionsWithIcons = useMemo(() => [
         { value: 'Auto', label: 'Auto', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg> },
@@ -36,7 +38,42 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
     ], []);
 
     return (
-        <div className="flex-shrink-0 space-y-2">
+        <div className="flex-shrink-0 space-y-2.5">
+            {/* Batch API Synchronized Mode Toggle & Status Indicator */}
+            <div className={`p-2 rounded-md border transition-all ${
+                isBatchMode 
+                    ? 'bg-amber-950/40 border-amber-500/50 text-amber-200' 
+                    : 'bg-gray-800/40 border-gray-700/50 text-gray-300'
+            }`}>
+                <div className="flex items-center justify-between">
+                    <label 
+                        htmlFor={`batch-mode-toggle-${nodeId}`}
+                        className="flex items-center gap-2 text-xs font-medium cursor-pointer select-none"
+                    >
+                        <span className={`w-2 h-2 rounded-full ${isBatchMode ? 'bg-amber-400 animate-pulse' : 'bg-gray-500'}`}></span>
+                        <span>{t('batch.mode') || 'Batch API Mode'}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-900/60 text-amber-300 border border-amber-700/60 font-mono">
+                            -50% Cost
+                        </span>
+                    </label>
+                    <input
+                        id={`batch-mode-toggle-${nodeId}`}
+                        type="checkbox"
+                        checked={!!isBatchMode}
+                        onChange={(e) => setIsBatchMode(e.target.checked)}
+                        disabled={isEditing}
+                        className="h-4 w-4 rounded border-gray-600 text-amber-500 focus:ring-amber-400 bg-gray-700 cursor-pointer"
+                        onMouseDown={(e) => e.stopPropagation()}
+                    />
+                </div>
+                {isBatchMode && (
+                    <div className="mt-1.5 text-[11px] text-amber-300/90 leading-tight flex items-start gap-1">
+                        <span>⏳</span>
+                        <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
+                    </div>
+                )}
+            </div>
+
             <div className="flex flex-col space-y-2">
                 <CustomCheckbox
                     id={`sequence-mode-toggle-${nodeId}`}
@@ -88,7 +125,7 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
                                         isSequentialEditingWithPrompts: true, 
                                         isSequentialCombinationMode: false,
                                         isSequentialPromptMode: true // Implicitly true as it's the core of this mode
-                                    });
+                                    }); 
                                 } else {
                                     onUpdateState({ isSequentialEditingWithPrompts: false });
                                 }
@@ -123,3 +160,4 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
         </div>
     );
 };
+

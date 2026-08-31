@@ -31,3 +31,4 @@ export * from './interactions/useNodeDrag';
 export * from './interactions/useConnectionHandling';
 export * from './interactions/useHotkeys';
 export * from './useGenerationHistory';
+export * from './useBatchManager';

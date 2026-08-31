@@ -35,6 +35,7 @@ import { useGlobalState } from '../hooks/useGlobalState';
 import { useAppOrchestration } from '../hooks/useAppOrchestration';
 import { useTaskQueue } from '../hooks/useTaskQueue';
 import { useTutorial } from '../hooks/useTutorial';
+import { useBatchManager } from '../hooks/useBatchManager';
 import { addMetadataToPNG } from '../utils/pngMetadata';
 import { getConnectionPoints, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
 import { generateThumbnail } from '../utils/imageUtils';
@@ -266,12 +267,73 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const taskQueueHook = useTaskQueue();
 
+    const updateNodeInStorage = useCallback((targetTabId: string, nodeId: string, valueUpdater: (prevVal: any) => any, imageCacheUpdate?: { frame: number, url: string }) => {
+        const safeParse = (val: string) => {
+            try { 
+                const parsed = JSON.parse(val || '{}');
+                return parsed;
+            } catch { 
+                return val; 
+            } 
+        };
+
+        if (activeTabIdRef.current === targetTabId) {
+            if (imageCacheUpdate) setFullSizeImage(nodeId, imageCacheUpdate.frame, imageCacheUpdate.url);
+            nodesHook.setNodes(nds => nds.map(n => {
+                if (n.id === nodeId) {
+                    const currentVal = safeParse(n.value);
+                    const newVal = valueUpdater(currentVal);
+                    const finalValue = typeof newVal === 'string' ? newVal : JSON.stringify(newVal);
+                    return { ...n, value: finalValue };
+                }
+                return n;
+            }));
+        } else {
+            tabsHook.setTabs(prevTabs => prevTabs.map(tab => {
+                if (tab.id === targetTabId) {
+                    const newNodes = tab.state.nodes.map(n => {
+                        if (n.id === nodeId) {
+                            const currentVal = safeParse(n.value);
+                            const newVal = valueUpdater(currentVal);
+                            const finalValue = typeof newVal === 'string' ? newVal : JSON.stringify(newVal);
+                            return { ...n, value: finalValue };
+                        }
+                        return n;
+                    });
+                    
+                    let newCache = tab.state.fullSizeImageCache || {};
+                    if (imageCacheUpdate) {
+                        newCache = {
+                            ...newCache,
+                            [nodeId]: {
+                                ...(newCache[nodeId] || {}),
+                                [imageCacheUpdate.frame]: imageCacheUpdate.url
+                            }
+                        };
+                    }
+
+                    return { ...tab, state: { ...tab.state, nodes: newNodes, fullSizeImageCache: newCache }};
+                }
+                return tab;
+            }));
+        }
+    }, [nodesHook.setNodes, tabsHook.setTabs, setFullSizeImage]);
+
+    const batchManagerHook = useBatchManager({
+        updateNodeInStorage,
+        setFullSizeImage,
+        addToHistory: generationHistoryHook.addToHistory,
+        addToast,
+        enqueueTask: taskQueueHook.enqueueTask,
+        t
+    });
+
     const geminiConversationHook = useGeminiConversation({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, setError: globalState.setError, t, getUpstreamNodeValues, activeTabId, setTabs
     });
 
     const geminiGenerationHook = useGeminiGeneration({
-        nodes: nodesHook.nodes, connections: connectionsHook.connections, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, showApiKeyDialog: (cb) => dialogsHook.showApiKeyDialog(cb), t, setFullSizeImage, getFullSizeImage, connectedCharacterData: derivedMemoHook.connectedCharacterData, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, isGlobalProcessing: activeOperations.size > 0, addToast, addToHistory: generationHistoryHook.addToHistory, taskQueue: taskQueueHook
+        nodes: nodesHook.nodes, connections: connectionsHook.connections, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, showApiKeyDialog: (cb) => dialogsHook.showApiKeyDialog(cb), t, setFullSizeImage, getFullSizeImage, connectedCharacterData: derivedMemoHook.connectedCharacterData, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, isGlobalProcessing: activeOperations.size > 0, addToast, addToHistory: generationHistoryHook.addToHistory, taskQueue: taskQueueHook, batchManager: batchManagerHook
     });
 
     const geminiChainExecutionHook = useGeminiChainExecution({
@@ -1085,6 +1147,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleClearCloudFolder: googleDriveHook.handleClearCloudFolder, // Exposed NEW Function
             handleCleanupDuplicates: googleDriveHook.handleCleanupDuplicates, // Exposed
             ...taskQueueHook,
+            ...batchManagerHook,
+            updateNodeInStorage,
             setIsHistoryPanelOpen,
             setIsTaskQueuePanelOpen
         };
@@ -1093,7 +1157,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dialogsHook, catalogHook, libraryHook, permissionsHook, canvasIOHook,
         entityActionsHook, interactionHook, derivedMemoHook, canvasEventsHook,
         geminiAnalysisHook, geminiConversationHook, geminiChainExecutionHook, geminiGenerationHook, geminiModificationHook,
-        positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook, generationHistoryHook, taskQueueHook,
+        positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook, generationHistoryHook, taskQueueHook, batchManagerHook,
+        updateNodeInStorage,
         handleToggleNodeCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,

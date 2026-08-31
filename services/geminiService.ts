@@ -893,3 +893,172 @@ export const modifyPromptSequence = async (
     }
   });
 };
+
+// ==========================================
+// BATCH API (Delayed Async Processing)
+// ==========================================
+
+export interface BatchRequestItemInput {
+    id: string;
+    prompt: string;
+    aspectRatio?: string;
+    resolution?: string;
+    images?: { base64ImageData: string; mimeType: string }[];
+}
+
+/**
+ * Creates a Batch API job for asynchronous processing up to 24h with 50% discount.
+ */
+export const createBatchImageJob = async (
+    items: BatchRequestItemInput[],
+    model: string = 'gemini-3-pro-image-preview',
+    displayName?: string
+): Promise<{ name: string; state: string }> => {
+    return callWithRetry(async () => {
+        const ai = createAIClient();
+        
+        // Build inlined requests
+        const inlinedRequests = items.map(item => {
+            const isNanoBananaProOrFlash = model === 'gemini-3-pro-image-preview' || 
+                                           model === 'gemini-3.1-flash-image-preview' || 
+                                           model === 'gemini-3.1-flash-image';
+            
+            if (isNanoBananaProOrFlash) {
+                const parts: any[] = [];
+                if (item.images && item.images.length > 0) {
+                    item.images.forEach(img => {
+                        parts.push({
+                            inlineData: {
+                                data: img.base64ImageData,
+                                mimeType: img.mimeType || 'image/png'
+                            }
+                        });
+                    });
+                }
+                if (item.prompt && item.prompt.trim() !== '') {
+                    parts.push({ text: item.prompt });
+                } else {
+                    parts.push({ text: "High quality image" });
+                }
+
+                return {
+                    contents: [{ parts }],
+                    config: {
+                        imageConfig: {
+                            aspectRatio: item.aspectRatio || '1:1',
+                            imageSize: item.resolution || '1K'
+                        }
+                    }
+                };
+            } else {
+                // Fallback for gemini-2.5-flash-image or others
+                const parts: any[] = [];
+                if (item.images && item.images.length > 0) {
+                    item.images.forEach(img => {
+                        parts.push({
+                            inlineData: {
+                                data: img.base64ImageData,
+                                mimeType: img.mimeType || 'image/png'
+                            }
+                        });
+                    });
+                }
+                parts.push({ text: item.prompt || " " });
+
+                const config: any = { responseModalities: [Modality.IMAGE] };
+                if (item.aspectRatio && item.aspectRatio !== '1:1') {
+                    config.imageConfig = { aspectRatio: item.aspectRatio };
+                }
+
+                return {
+                    contents: [{ parts }],
+                    config
+                };
+            }
+        });
+
+        const targetModel = getModelForMode(model);
+        const batchJob = await ai.batches.create({
+            model: targetModel,
+            src: inlinedRequests,
+            config: displayName ? { displayName } : undefined
+        });
+
+        return {
+            name: batchJob.name || '',
+            state: (batchJob.state as string) || 'JOB_STATE_PENDING'
+        };
+    });
+};
+
+/**
+ * Fetches the current status and metadata of a Batch API job.
+ */
+export const getBatchJobStatus = async (jobName: string): Promise<any> => {
+    return callWithRetry(async () => {
+        const ai = createAIClient();
+        const batchJob = await ai.batches.get({ name: jobName });
+        return batchJob;
+    });
+};
+
+/**
+ * Cancels an active Batch API job.
+ */
+export const cancelBatchJobService = async (jobName: string): Promise<void> => {
+    return callWithRetry(async () => {
+        const ai = createAIClient();
+        await ai.batches.cancel({ name: jobName });
+    });
+};
+
+/**
+ * Extracts and formats generated images from a completed BatchJob response.
+ */
+export const extractImagesFromBatchJob = async (
+    batchJob: any,
+    itemsMeta: { id: string; prompt: string }[]
+): Promise<Array<{ id: string; imageUrl?: string; error?: string }>> => {
+    const results: Array<{ id: string; imageUrl?: string; error?: string }> = [];
+
+    if (batchJob.dest?.inlinedResponses && Array.isArray(batchJob.dest.inlinedResponses)) {
+        for (let i = 0; i < batchJob.dest.inlinedResponses.length; i++) {
+            const respItem = batchJob.dest.inlinedResponses[i];
+            const meta = itemsMeta[i] || { id: String(i), prompt: '' };
+
+            if (respItem.error) {
+                results.push({
+                    id: meta.id,
+                    error: respItem.error.message || `Error code: ${respItem.error.code || 'UNKNOWN'}`
+                });
+                continue;
+            }
+
+            const response = respItem.response;
+            const candidate = response?.candidates?.[0];
+            const part = candidate?.content?.parts?.find((p: any) => p.inlineData);
+
+            if (part?.inlineData) {
+                try {
+                    const mime = part.inlineData.mimeType || 'image/png';
+                    const data = part.inlineData.data || '';
+                    const dataUrl = `data:${mime};base64,${data}`;
+                    const pngDataUrl = await convertToPNG(dataUrl);
+                    const finalWithMeta = addMetadataToPNG(pngDataUrl, 'prompt', meta.prompt);
+                    results.push({ id: meta.id, imageUrl: finalWithMeta });
+                } catch (e: any) {
+                    console.error("Failed to process batch item image:", e);
+                    results.push({ id: meta.id, error: e?.message || 'Image conversion error' });
+                }
+            } else {
+                results.push({
+                    id: meta.id,
+                    error: 'No image data in batch response candidate.'
+                });
+            }
+        }
+    }
+
+    return results;
+};
+

@@ -5,14 +5,15 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, (process as any).cwd(), '');
   return {
-    base: './', // Changed from '/Prompt-Modifier/' to './' for universal compatibility
+    base: mode === 'production' ? './' : '/',
     plugins: [react()],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY),
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
     },
     server: {
       host: '0.0.0.0',
       port: 3000,
+      strictPort: true,
     },
     build: {
       outDir: 'dist',

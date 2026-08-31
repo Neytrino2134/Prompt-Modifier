@@ -7,6 +7,7 @@ import {
   StatsPeriod,
   getStandardModelName,
 } from '../utils/generationStats';
+import { useAppContext } from '../contexts/AppContext';
 
 interface StatisticsModalProps {
   isOpen: boolean;
@@ -15,6 +16,9 @@ interface StatisticsModalProps {
 
 export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClose }) => {
   const { t } = useLanguage();
+  const context = useAppContext();
+  const historyItems = context?.historyItems || [];
+
   const {
     records,
     filter,
@@ -28,6 +32,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
     setCustomDateRange,
     resetFilters,
     clearStats,
+    syncWithHistory,
     exportJSON,
     exportCSV,
   } = useGenerationStats();
@@ -36,6 +41,25 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+
+  const showFeedback = (msg: string) => {
+    setActionFeedback(msg);
+    setTimeout(() => setActionFeedback(null), 3000);
+  };
+
+  const handleConfirmClear = () => {
+    clearStats();
+    setShowClearConfirm(false);
+    showFeedback(t('stats.statsCleared') || 'Статистика очищена');
+  };
+
+  const handleSyncWithHistory = () => {
+    if (historyItems.length > 0) {
+      syncWithHistory(historyItems);
+      showFeedback(t('stats.syncSuccess') || 'Статистика синхронизирована');
+    }
+  };
 
   // Available unique models in the dataset for dropdown
   const uniqueModels = useMemo(() => {
@@ -183,6 +207,16 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
           </div>
         </div>
 
+        {/* Action Feedback Banner */}
+        {actionFeedback && (
+          <div className="bg-accent/20 border-b border-accent/40 text-accent px-4 py-2 text-xs font-medium text-center flex items-center justify-center gap-2 animate-fade-in">
+            <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>{actionFeedback}</span>
+          </div>
+        )}
+
         {/* Filters Bar */}
         <div className="p-3.5 sm:p-4 bg-gray-950/60 border-b border-gray-800 space-y-3">
           {/* Row 1: Period Tabs + Reset */}
@@ -203,16 +237,35 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
               ))}
             </div>
 
-            {/* Reset Filters */}
-            <button
-              onClick={resetFilters}
-              className="px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors flex items-center gap-1"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span>{t('stats.resetFilters') || 'Сбросить фильтры'}</span>
-            </button>
+            {/* Quick Actions in Filter Bar: Reset Filters & Sync */}
+            <div className="flex items-center gap-2">
+              {historyItems.length > 0 && (
+                <button
+                  onClick={handleSyncWithHistory}
+                  className="px-2.5 py-1 text-xs text-gray-400 hover:text-accent hover:bg-gray-800 rounded-lg transition-colors flex items-center gap-1 border border-gray-800 hover:border-gray-700"
+                  title={t('stats.syncWithHistory') || 'Синхронизировать с историей'}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>{t('stats.syncWithHistory') || 'Синхронизировать'}</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  resetFilters();
+                  showFeedback(t('stats.resetFilters') || 'Фильтры сброшены');
+                }}
+                className="px-2.5 py-1 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors flex items-center gap-1 border border-gray-800 hover:border-gray-700"
+                title={t('stats.resetFilters') || 'Сбросить фильтры'}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>{t('stats.resetFilters') || 'Сбросить фильтры'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Custom Date Range Picker (if period === 'custom') */}
@@ -249,70 +302,76 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                 <button
                   key={c.id}
                   onClick={() => updateCategory(c.id)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
-                    (filter.category || 'all') === c.id
-                      ? 'bg-gray-800 text-white border-gray-600 shadow-sm'
-                      : 'bg-gray-900/50 text-gray-400 border-gray-800 hover:border-gray-700 hover:text-gray-200'
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    filter.category === c.id
+                      ? 'bg-gray-700 text-white font-semibold shadow'
+                      : 'bg-gray-900/60 text-gray-400 hover:text-gray-200 hover:bg-gray-800/80'
                   }`}
                 >
-                  <span className={c.badge}>{c.label}</span>
+                  {c.label}
                 </button>
               ))}
             </div>
 
-            {/* Model Dropdown */}
-            <select
-              value={filter.model || 'all'}
-              onChange={e => updateModel(e.target.value)}
-              className="bg-gray-900 border border-gray-700/80 rounded-lg px-2.5 py-1 text-xs text-gray-300 focus:outline-none focus:border-accent max-w-[200px]"
-            >
-              <option value="all">{t('stats.allModels') || 'Все модели'}</option>
-              {uniqueModels.map(m => (
-                <option key={m} value={m}>
-                  {getStandardModelName(m)}
-                </option>
-              ))}
-            </select>
+            {/* Model Select */}
+            {uniqueModels.length > 0 && (
+              <select
+                value={filter.model}
+                onChange={e => updateModel(e.target.value)}
+                className="bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1 text-xs text-gray-300 focus:outline-none focus:border-accent"
+              >
+                <option value="all">{t('stats.allModels') || 'Все модели'}</option>
+                {uniqueModels.map(m => (
+                  <option key={m} value={m}>
+                    {getStandardModelName(m)}
+                  </option>
+                ))}
+              </select>
+            )}
 
-            {/* Aspect Ratio Dropdown */}
-            <select
-              value={filter.aspectRatio || 'all'}
-              onChange={e => updateAspectRatio(e.target.value)}
-              className="bg-gray-900 border border-gray-700/80 rounded-lg px-2.5 py-1 text-xs text-gray-300 focus:outline-none focus:border-accent"
-            >
-              <option value="all">{t('stats.allRatios') || 'Все соотношения'}</option>
-              {uniqueRatios.map(r => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+            {/* Aspect Ratio Select */}
+            {uniqueRatios.length > 0 && (
+              <select
+                value={filter.aspectRatio}
+                onChange={e => updateAspectRatio(e.target.value)}
+                className="bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1 text-xs text-cyan-300 font-mono focus:outline-none focus:border-accent"
+              >
+                <option value="all">{t('stats.allRatios') || 'Все соотношения'}</option>
+                {uniqueRatios.map(r => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            )}
 
-            {/* Resolution Dropdown */}
-            <select
-              value={filter.resolution || 'all'}
-              onChange={e => updateResolution(e.target.value)}
-              className="bg-gray-900 border border-gray-700/80 rounded-lg px-2.5 py-1 text-xs text-gray-300 focus:outline-none focus:border-accent"
-            >
-              <option value="all">{t('stats.allResolutions') || 'Все разрешения'}</option>
-              {uniqueResolutions.map(res => (
-                <option key={res} value={res}>
-                  {res}
-                </option>
-              ))}
-            </select>
+            {/* Resolution Select */}
+            {uniqueResolutions.length > 0 && (
+              <select
+                value={filter.resolution}
+                onChange={e => updateResolution(e.target.value)}
+                className="bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1 text-xs text-indigo-300 focus:outline-none focus:border-accent"
+              >
+                <option value="all">{t('stats.allResolutions') || 'Все разрешения'}</option>
+                {uniqueResolutions.map(res => (
+                  <option key={res} value={res}>
+                    {res}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* Search Input */}
-            <div className="relative flex-1 min-w-[160px]">
+            <div className="flex-1 min-w-[200px] relative">
               <input
                 type="text"
                 placeholder={t('stats.searchPromptOrModel') || 'Поиск по промпту или модели...'}
-                value={filter.searchQuery || ''}
+                value={filter.searchQuery}
                 onChange={e => updateSearchQuery(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700/80 rounded-lg pl-8 pr-3 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-accent"
+                className="w-full bg-gray-900 border border-gray-800 rounded-lg pl-8 pr-3 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-accent"
               />
               <svg
-                className="w-3.5 h-3.5 absolute left-2.5 top-2 text-gray-500"
+                className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 -translate-y-1/2"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -324,13 +383,13 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
           </div>
         </div>
 
-        {/* Navigation Section Tabs */}
-        <div className="px-4 border-b border-gray-800 flex gap-4 text-xs font-medium bg-gray-900/50">
+        {/* Modal Navigation Tabs */}
+        <div className="flex border-b border-gray-800 bg-gray-900/50 px-4">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`py-3 border-b-2 transition-all ${
+            className={`py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === 'overview'
-                ? 'border-accent text-white font-semibold'
+                ? 'border-accent text-accent'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
           >
@@ -338,19 +397,19 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
           </button>
           <button
             onClick={() => setActiveTab('models')}
-            className={`py-3 border-b-2 transition-all ${
+            className={`py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === 'models'
-                ? 'border-accent text-white font-semibold'
+                ? 'border-accent text-accent'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
           >
-            {t('stats.tabModels') || 'Модели и Категории'} ({modelBreakdown.length})
+            {t('stats.tabModels') || 'Модели и Группы'}
           </button>
           <button
             onClick={() => setActiveTab('time')}
-            className={`py-3 border-b-2 transition-all ${
+            className={`py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === 'time'
-                ? 'border-accent text-white font-semibold'
+                ? 'border-accent text-accent'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
           >
@@ -358,13 +417,13 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
           </button>
           <button
             onClick={() => setActiveTab('logs')}
-            className={`py-3 border-b-2 transition-all ${
+            className={`py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === 'logs'
-                ? 'border-accent text-white font-semibold'
+                ? 'border-accent text-accent'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
           >
-            {t('stats.tabLogs') || 'Журнал генераций'} ({filteredCount})
+            {t('stats.tabLogs') || 'Журнал генераций'} ({filteredRecords.length})
           </button>
         </div>
 
@@ -864,27 +923,27 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
             {!showClearConfirm ? (
               <button
                 onClick={() => setShowClearConfirm(true)}
-                className="text-xs text-red-400/80 hover:text-red-300 hover:underline transition-colors"
+                className="text-xs text-red-400/80 hover:text-red-300 hover:underline transition-colors flex items-center gap-1.5"
               >
-                {t('stats.clearAllStats') || 'Очистить историю статистики...'}
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>{t('stats.clearAllStats') || 'Очистить историю статистики...'}</span>
               </button>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-red-950/80 border border-red-800/80 px-3 py-1.5 rounded-xl">
                 <span className="text-xs text-red-300 font-medium">
                   {t('stats.confirmClearPrompt') || 'Удалить всю статистику?'}
                 </span>
                 <button
-                  onClick={() => {
-                    clearStats();
-                    setShowClearConfirm(false);
-                  }}
-                  className="px-2.5 py-1 bg-red-900/80 hover:bg-red-800 text-red-200 rounded text-xs font-semibold"
+                  onClick={handleConfirmClear}
+                  className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-semibold shadow transition-colors"
                 >
                   {t('common.yesDelete') || 'Да, удалить'}
                 </button>
                 <button
                   onClick={() => setShowClearConfirm(false)}
-                  className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-xs"
+                  className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-xs transition-colors"
                 >
                   {t('common.cancel') || 'Отмена'}
                 </button>

@@ -11,6 +11,7 @@ import { CustomCheckbox } from '../../CustomCheckbox';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { setupImageDragData } from '../../../utils/imageUtils';
 import ConfirmDialog from '../../ConfirmDialog';
+import { useAppContext } from '../../../contexts/AppContext';
 
 // Helper component for input with stylish spinners
 const InputWithSpinners: React.FC<{
@@ -133,6 +134,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs
 }) => {
     const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
+    const { isBatchMode } = useAppContext();
     
     // Range State
     const [rangeStart, setRangeStart] = useState('');
@@ -293,8 +295,14 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
              
              {/* Header Row: Title, Stats and Reset/Clear Button */}
              <div className="flex justify-between items-center bg-gray-900/50 p-1 rounded-md border border-gray-700">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                      <label className="text-xs font-medium text-gray-400 pl-1">{isSequenceMode ? t('image_sequence.output_images_title') : t('node.content.outputImage')}</label>
+                     {isBatchMode && (
+                         <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-950/80 text-amber-300 border border-amber-600/60 flex items-center gap-1" title={t('batch.modeDesc') || 'Batch API Mode (-50% cost)'}>
+                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                             {t('batch.badgeDelayed') || 'Batch'}
+                         </span>
+                     )}
                      {isSequenceMode && (
                          <div className="text-[10px] text-gray-500 flex space-x-2 border-l border-gray-600 pl-3">
                              <span>Total: <span className="text-gray-300">{activeFrameIndices.length}</span></span>

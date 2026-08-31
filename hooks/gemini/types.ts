@@ -21,4 +21,5 @@ export interface GeminiGenerationCommonProps {
     addToast: (message: string, type?: ToastType) => void;
     addToHistory?: (url: string, prompt: string, model?: string, metadataOrRatio?: { aspectRatio?: string; resolution?: string } | string, resolution?: string) => void;
     taskQueue?: ReturnType<typeof import('../useTaskQueue').useTaskQueue>;
+    batchManager?: ReturnType<typeof import('../useBatchManager').useBatchManager>;
 }
