@@ -4,6 +4,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { TaskStatus, BatchJobRecord, BatchJobState, NodeType } from '../types';
 import { ImageBatchItem } from './nodes/image-input/types';
 import { generateThumbnail } from '../utils/imageUtils';
+import { CustomCheckbox } from './CustomCheckbox';
 
 export const TaskQueuePanel: React.FC = () => {
     const context = useAppContext();
@@ -25,6 +26,10 @@ export const TaskQueuePanel: React.FC = () => {
         handleValueChange,
         isBatchMode,
         setIsBatchMode,
+        restoreFinishedCards,
+        setRestoreFinishedCards,
+        restoreFailedCards,
+        setRestoreFailedCards,
         batchJobs,
         checkBatchJob,
         fetchBatchJobResults,
@@ -393,7 +398,7 @@ export const TaskQueuePanel: React.FC = () => {
 
             {/* Settings Dropdown Panel */}
             {isSettingsOpen && (
-                <div className="p-3.5 border-b border-gray-800 bg-gray-900 shadow-inner flex flex-col gap-2.5 animate-fadeIn">
+                <div className="p-3.5 border-b border-gray-800 bg-gray-900 shadow-inner flex flex-col gap-3 animate-fadeIn">
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-gray-200 flex items-center gap-1.5">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400">
@@ -408,6 +413,41 @@ export const TaskQueuePanel: React.FC = () => {
                         >
                             ✕
                         </button>
+                    </div>
+
+                    {/* Restore Cards Options */}
+                    <div className="flex flex-col gap-2 p-2.5 rounded-lg bg-gray-950/70 border border-gray-800/80">
+                        <label className="flex items-start gap-2.5 cursor-pointer select-none group">
+                            <CustomCheckbox
+                                checked={restoreFinishedCards ?? true}
+                                onChange={(val) => setRestoreFinishedCards?.(val)}
+                            />
+                            <div className="flex flex-col">
+                                <span className="text-xs font-medium text-gray-200 group-hover:text-white transition-colors">
+                                    {t('queue.restoreFinishedCards') || 'Restore finished cards'}
+                                </span>
+                                <span className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                                    {t('queue.restoreFinishedCardsDesc') || 'При проверке статуса переносит готовые изображения в карточки на холсте'}
+                                </span>
+                            </div>
+                        </label>
+
+                        <div className="border-t border-gray-800/60 my-0.5"></div>
+
+                        <label className="flex items-start gap-2.5 cursor-pointer select-none group">
+                            <CustomCheckbox
+                                checked={restoreFailedCards ?? true}
+                                onChange={(val) => setRestoreFailedCards?.(val)}
+                            />
+                            <div className="flex flex-col">
+                                <span className="text-xs font-medium text-gray-200 group-hover:text-white transition-colors">
+                                    {t('queue.restoreFailedCards') || 'Restore failed cards'}
+                                </span>
+                                <span className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                                    {t('queue.restoreFailedCardsDesc') || 'При ошибке генерации переводит карточки на холсте в состояние ошибки'}
+                                </span>
+                            </div>
+                        </label>
                     </div>
 
                     <div className="flex flex-col gap-2">

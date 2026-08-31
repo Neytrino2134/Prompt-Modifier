@@ -14,6 +14,8 @@ import { recordGenerationEvent } from '../utils/generationStats';
 
 const STORAGE_KEY_BATCH_JOBS = 'gemini_batch_jobs_v1';
 const STORAGE_KEY_BATCH_MODE = 'settings_isBatchMode';
+const STORAGE_KEY_RESTORE_FINISHED_CARDS = 'task_queue_restore_finished_cards';
+const STORAGE_KEY_RESTORE_FAILED_CARDS = 'task_queue_restore_failed_cards';
 
 export interface UseBatchManagerProps {
     updateNodeInStorage?: (tabId: string, nodeId: string, updater: (nodeVal: any) => any, cacheData?: { frame: number; url: string }) => void;
@@ -50,6 +52,53 @@ export const useBatchManager = ({
                 localStorage.setItem(STORAGE_KEY_BATCH_MODE, String(next));
             } catch (e) {
                 console.error("Failed to save batch mode state", e);
+            }
+            return next;
+        });
+    }, []);
+
+    // 1b. Restore finished/failed cards settings (synced with localStorage)
+    const [restoreFinishedCards, setRestoreFinishedCardsState] = useState<boolean>(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY_RESTORE_FINISHED_CARDS);
+            return saved !== 'false'; // Default to true
+        } catch {
+            return true;
+        }
+    });
+    const restoreFinishedCardsRef = useRef(restoreFinishedCards);
+    restoreFinishedCardsRef.current = restoreFinishedCards;
+
+    const setRestoreFinishedCards = useCallback((val: boolean | ((prev: boolean) => boolean)) => {
+        setRestoreFinishedCardsState(prev => {
+            const next = typeof val === 'function' ? val(prev) : val;
+            try {
+                localStorage.setItem(STORAGE_KEY_RESTORE_FINISHED_CARDS, String(next));
+            } catch (e) {
+                console.error("Failed to save restoreFinishedCards setting", e);
+            }
+            return next;
+        });
+    }, []);
+
+    const [restoreFailedCards, setRestoreFailedCardsState] = useState<boolean>(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY_RESTORE_FAILED_CARDS);
+            return saved !== 'false'; // Default to true
+        } catch {
+            return true;
+        }
+    });
+    const restoreFailedCardsRef = useRef(restoreFailedCards);
+    restoreFailedCardsRef.current = restoreFailedCards;
+
+    const setRestoreFailedCards = useCallback((val: boolean | ((prev: boolean) => boolean)) => {
+        setRestoreFailedCardsState(prev => {
+            const next = typeof val === 'function' ? val(prev) : val;
+            try {
+                localStorage.setItem(STORAGE_KEY_RESTORE_FAILED_CARDS, String(next));
+            } catch (e) {
+                console.error("Failed to save restoreFailedCards setting", e);
             }
             return next;
         });
@@ -103,7 +152,7 @@ export const useBatchManager = ({
     };
 
     // 3. Explicit on-demand Download of Completed Batch Job Results from Server
-    const fetchBatchJobResults = useCallback(async (jobIdOrName: string) => {
+    const fetchBatchJobResults = useCallback(async (jobIdOrName: string, options?: { forceRestore?: boolean }) => {
         const job = batchJobsRef.current.find(j => j.id === jobIdOrName || j.name === jobIdOrName);
         if (!job) {
             console.warn(`Job not found for results fetch: ${jobIdOrName}`);
@@ -113,7 +162,53 @@ export const useBatchManager = ({
         const targetJobId = job.id;
         setFetchingJobIds(prev => ({ ...prev, [targetJobId]: true }));
 
+        const shouldRestore = options?.forceRestore !== undefined
+            ? options.forceRestore
+            : (restoreFinishedCardsRef.current || true);
+
         try {
+            // Check if job items already have resultUrl populated
+            const existingUrlsCount = (job.items || []).filter(it => !!it.resultUrl).length;
+            if (existingUrlsCount > 0 && existingUrlsCount === (job.items || []).length) {
+                let successCount = 0;
+                for (let i = 0; i < job.items.length; i++) {
+                    const item = job.items[i];
+                    if (item.resultUrl) {
+                        successCount++;
+                        const frameNum = item.frameIndex !== undefined ? item.frameIndex : i;
+                        const thumb = await generateThumbnail(item.resultUrl, 256, 256);
+
+                        if (shouldRestore) {
+                            if (setFullSizeImage && job.nodeId) {
+                                setFullSizeImage(job.nodeId, job.isSequence ? 1000 + frameNum : frameNum, item.resultUrl);
+                            }
+
+                            if (updateNodeInStorage && job.tabId && job.nodeId) {
+                                if (job.isSequence) {
+                                    updateNodeInStorage(job.tabId, job.nodeId, (prevNode: any) => {
+                                        const seqOutputs = [...(prevNode.sequenceOutputs || [])];
+                                        seqOutputs[frameNum] = { status: 'done', thumbnail: thumb };
+                                        return { ...prevNode, sequenceOutputs: seqOutputs };
+                                    }, { frame: 1000 + frameNum, url: item.resultUrl });
+                                } else {
+                                    updateNodeInStorage(job.tabId, job.nodeId, (prevNode: any) => ({
+                                        ...prevNode,
+                                        outputImage: thumb
+                                    }), { frame: 0, url: item.resultUrl });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (addToast) {
+                    const toastMsg = (t?.('batch.completedToast') || 'Batch job completed: {count} images generated!')
+                        .replace('{count}', String(successCount));
+                    addToast(toastMsg, 'success');
+                }
+                return;
+            }
+
             const sdkJob = await getBatchJobStatus(job.name || job.id);
             if (!sdkJob) {
                 throw new Error("Could not retrieve batch status from server");
@@ -152,24 +247,26 @@ export const useBatchManager = ({
 
                     const thumb = await generateThumbnail(finalUrl, 256, 256);
 
-                    // Cache full size image
-                    if (setFullSizeImage && job.nodeId) {
-                        setFullSizeImage(job.nodeId, job.isSequence ? 1000 + frameNum : frameNum, finalUrl);
-                    }
+                    // Cache full size image and update canvas node if shouldRestore is true
+                    if (shouldRestore) {
+                        if (setFullSizeImage && job.nodeId) {
+                            setFullSizeImage(job.nodeId, job.isSequence ? 1000 + frameNum : frameNum, finalUrl);
+                        }
 
-                    // Update canvas node storage
-                    if (updateNodeInStorage && job.tabId && job.nodeId) {
-                        if (job.isSequence) {
-                            updateNodeInStorage(job.tabId, job.nodeId, (prevNode: any) => {
-                                const seqOutputs = [...(prevNode.sequenceOutputs || [])];
-                                seqOutputs[frameNum] = { status: 'done', thumbnail: thumb };
-                                return { ...prevNode, sequenceOutputs: seqOutputs };
-                            }, { frame: 1000 + frameNum, url: finalUrl });
-                        } else {
-                            updateNodeInStorage(job.tabId, job.nodeId, (prevNode: any) => ({
-                                ...prevNode,
-                                outputImage: thumb
-                            }), { frame: 0, url: finalUrl });
+                        // Update canvas node storage
+                        if (updateNodeInStorage && job.tabId && job.nodeId) {
+                            if (job.isSequence) {
+                                updateNodeInStorage(job.tabId, job.nodeId, (prevNode: any) => {
+                                    const seqOutputs = [...(prevNode.sequenceOutputs || [])];
+                                    seqOutputs[frameNum] = { status: 'done', thumbnail: thumb };
+                                    return { ...prevNode, sequenceOutputs: seqOutputs };
+                                }, { frame: 1000 + frameNum, url: finalUrl });
+                            } else {
+                                updateNodeInStorage(job.tabId, job.nodeId, (prevNode: any) => ({
+                                    ...prevNode,
+                                    outputImage: thumb
+                                }), { frame: 0, url: finalUrl });
+                            }
                         }
                     }
 
@@ -206,7 +303,8 @@ export const useBatchManager = ({
                         error: err
                     });
 
-                    if (updateNodeInStorage && job.tabId && job.nodeId) {
+                    // Update canvas node storage only if restoreFailedCards is enabled
+                    if (restoreFailedCardsRef.current && updateNodeInStorage && job.tabId && job.nodeId) {
                         if (job.isSequence) {
                             updateNodeInStorage(job.tabId, job.nodeId, (prevNode: any) => {
                                 const seqOutputs = [...(prevNode.sequenceOutputs || [])];
@@ -307,8 +405,8 @@ export const useBatchManager = ({
                     return j;
                 }));
 
-                // Update node state to error
-                if (updateNodeInStorage && job.tabId && job.nodeId) {
+                // Update node state to error only if restoreFailedCards is enabled
+                if (restoreFailedCardsRef.current && updateNodeInStorage && job.tabId && job.nodeId) {
                     job.items.forEach(it => {
                         const frameNum = it.frameIndex !== undefined ? it.frameIndex : 0;
                         if (job!.isSequence) {
@@ -373,6 +471,15 @@ export const useBatchManager = ({
 
                     if (!exists) {
                         const mappedState = mapSdkState(rJob.state || rJob.status);
+
+                        // Respect restore settings during remote batch recovery
+                        if (mappedState === 'SUCCEEDED' && !restoreFinishedCardsRef.current) {
+                            continue;
+                        }
+                        if (mappedState === 'FAILED' && !restoreFailedCardsRef.current) {
+                            continue;
+                        }
+
                         const items: any[] = [];
 
                         if (rJob.src?.inlinedRequests && Array.isArray(rJob.src.inlinedRequests)) {
@@ -681,6 +788,10 @@ export const useBatchManager = ({
     return {
         isBatchMode,
         setIsBatchMode,
+        restoreFinishedCards,
+        setRestoreFinishedCards,
+        restoreFailedCards,
+        setRestoreFailedCards,
         batchJobs,
         isPolling,
         isBatchPolling: isPolling,

@@ -273,10 +273,14 @@ export type AppContextType =
   // Batch Manager
   isBatchMode: boolean;
   setIsBatchMode: (val: boolean | ((prev: boolean) => boolean)) => void;
+  restoreFinishedCards: boolean;
+  setRestoreFinishedCards: (val: boolean | ((prev: boolean) => boolean)) => void;
+  restoreFailedCards: boolean;
+  setRestoreFailedCards: (val: boolean | ((prev: boolean) => boolean)) => void;
   batchJobs: BatchJobRecord[];
   isBatchPolling: boolean;
   fetchingJobIds: { [jobId: string]: boolean };
-  fetchBatchJobResults: (jobId: string) => Promise<any>;
+  fetchBatchJobResults: (jobId: string, options?: { forceRestore?: boolean }) => Promise<any>;
   createBatchGeneration: (params: any) => Promise<any>;
   checkBatchJob: (jobId: string) => Promise<any>;
   pollActiveBatchJobs: () => Promise<void>;

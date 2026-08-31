@@ -86,15 +86,37 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
 }) => {
     const { t } = useLanguage();
     const context = useAppContext();
-    const { handleDockNode, toggleNodeFullScreen, focusedNodeId, handleToggleNodePin, handleToggleNodeHandles, batchJobs } = context || {};
+    const { 
+        handleDockNode, 
+        toggleNodeFullScreen, 
+        focusedNodeId, 
+        handleToggleNodePin, 
+        handleToggleNodeHandles, 
+        batchJobs,
+        fetchingJobIds,
+        fetchBatchJobResults
+    } = context || {};
 
     const isFullScreen = focusedNodeId === node.id;
     const isRestricted = isRestrictedDockingNode(node.type);
 
-    const isWaitingBatch = React.useMemo(() => {
-        if (node.type !== NodeType.IMAGE_EDITOR) return false;
-        return (batchJobs || []).some(j => j.nodeId === node.id && (j.state === 'PENDING' || j.state === 'RUNNING'));
+    const nodeBatchJobs = React.useMemo(() => {
+        if (node.type !== NodeType.IMAGE_EDITOR) return [];
+        return (batchJobs || []).filter(j => j && j.nodeId === node.id);
     }, [node.type, node.id, batchJobs]);
+
+    const isWaitingBatch = React.useMemo(() => {
+        return nodeBatchJobs.some(j => j.state === 'PENDING' || j.state === 'RUNNING');
+    }, [nodeBatchJobs]);
+
+    const completedBatchJob = React.useMemo(() => {
+        if (isWaitingBatch) return null;
+        const completed = nodeBatchJobs.filter(j => j.state === 'SUCCEEDED');
+        if (completed.length === 0) return null;
+        return [...completed].sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))[0];
+    }, [nodeBatchJobs, isWaitingBatch]);
+
+    const isDownloadingBatch = completedBatchJob ? !!fetchingJobIds?.[completedBatchJob.id] : false;
 
     // Note Specific Logic
     const isNote = node.type === NodeType.NOTE;
@@ -349,10 +371,58 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                         {isWaitingBatch && (
                             <div 
                                 className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-300 text-[11px] font-medium animate-pulse select-none"
-                                title={t('batch.waitingServerTooltip') || 'Пакетная задача отправлена на сервер Gemini Batch API и обрабатывается. Нода защищена от закрытия.'}
+                                title={t('batch.waitingServerTooltip') || 'Задача отправлена в Batch API и обрабатывается на сервере (до 24ч). Нода защищена от случайного закрытия.'}
                             >
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
-                                <span className="truncate max-w-[170px] sm:max-w-none">{t('batch.waitingServerStatus') || 'Ожидание ответа от сервера'}</span>
+                                <span className="truncate max-w-[170px] sm:max-w-none">{t('batch.waitingServerStatus') || 'Waiting...'}</span>
+                            </div>
+                        )}
+
+                        {/* Batch Job Done Status & Download Button */}
+                        {!isWaitingBatch && completedBatchJob && (
+                            <div className="flex items-center gap-1.5">
+                                <div 
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-[11px] font-medium select-none shadow-sm"
+                                    title={t('batch.jobDoneTooltip') || 'Задача успешно завершена на сервере.'}
+                                >
+                                    <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span className="truncate max-w-[120px] sm:max-w-none font-semibold">{t('batch.jobDone') || 'Job done'}</span>
+                                </div>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (completedBatchJob && fetchBatchJobResults && !isDownloadingBatch) {
+                                            fetchBatchJobResults(completedBatchJob.id, { forceRestore: true });
+                                        }
+                                    }}
+                                    disabled={isDownloadingBatch}
+                                    className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold shadow-sm transition-all select-none ${
+                                        isDownloadingBatch 
+                                            ? 'bg-cyan-900/70 text-cyan-300 border border-cyan-700/50 cursor-wait'
+                                            : 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white border border-emerald-400/40 hover:shadow-emerald-900/40 active:scale-95'
+                                    }`}
+                                    title={t('batch.downloadResultsTooltip') || 'Скачать сгенерированные изображения с сервера и поместить в эту ноду'}
+                                >
+                                    {isDownloadingBatch ? (
+                                        <>
+                                            <svg className="w-3 h-3 animate-spin text-cyan-300 shrink-0" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                            </svg>
+                                            <span>{t('batch.downloading') || 'Downloading...'}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                            </svg>
+                                            <span>{t('batch.download') || 'Download'}</span>
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         )}
 
