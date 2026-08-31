@@ -181,7 +181,10 @@ export const useEditorNode = ({
                     prompt: string;
                     aspectRatio?: string;
                     images?: Array<{ base64ImageData: string; mimeType: string }>;
-                    resolution?: '1K' | '2K' | '4K';
+                    resolution?: '1K' | '2K' | '4K' | string;
+                    quality?: string;
+                    outputFormat?: string;
+                    size?: string;
                     autoCrop169?: boolean;
                     autoDownload?: boolean;
                     frameIndex: number;
@@ -242,6 +245,9 @@ export const useEditorNode = ({
                         aspectRatio: parsed.aspectRatio,
                         images: imagesToUse,
                         resolution: parsed.resolution,
+                        quality: parsed.quality,
+                        outputFormat: parsed.outputFormat,
+                        size: parsed.size,
                         autoCrop169: parsed.autoCrop169,
                         autoDownload: parsed.autoDownload,
                         frameIndex: i
@@ -304,6 +310,9 @@ export const useEditorNode = ({
                         aspectRatio: parsed.aspectRatio,
                         images: processedImages,
                         resolution: parsed.resolution,
+                        quality: parsed.quality,
+                        outputFormat: parsed.outputFormat,
+                        size: parsed.size,
                         autoCrop169: parsed.autoCrop169,
                         autoDownload: parsed.autoDownload,
                         frameIndex: 0
@@ -384,7 +393,11 @@ export const useEditorNode = ({
                     }
 
                     return await raceWithAbort(
-                        generateImage(promptWithOutpaint, parsed.aspectRatio, imagesToUse, parsed.model, parsed.resolution),
+                        generateImage(promptWithOutpaint, parsed.aspectRatio, imagesToUse, parsed.model, parsed.resolution, {
+                            quality: parsed.quality,
+                            outputFormat: parsed.outputFormat,
+                            size: parsed.size
+                        }),
                         signal
                     );
                 };
@@ -480,7 +493,11 @@ export const useEditorNode = ({
                 }
 
                 return await raceWithAbort(
-                     generateImage(promptWithOutpaint, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution),
+                     generateImage(promptWithOutpaint, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution, {
+                         quality: parsed.quality,
+                         outputFormat: parsed.outputFormat,
+                         size: parsed.size
+                     }),
                      signal
                 );
             };

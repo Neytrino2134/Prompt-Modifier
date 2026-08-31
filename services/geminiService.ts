@@ -3,6 +3,13 @@ import { GoogleGenAI, GenerateContentResponse, Modality, Type } from "@google/ge
 import { convertToPNG } from '../utils/imageUtils';
 import { addMetadataToPNG } from '../utils/pngMetadata';
 import { getModelForMode } from './modelConfig';
+import { 
+    generateOpenAiImage, 
+    createOpenAiBatchImageJob, 
+    getOpenAiBatchJobStatus, 
+    extractImagesFromOpenAiBatchJob, 
+    cancelOpenAiBatchJob 
+} from './openaiService';
 
 export const getApiKey = () => {
   const userKey = localStorage.getItem('settings_userApiKey');
@@ -438,7 +445,8 @@ export const generateImage = async (
     aspectRatio: string = '1:1',
     images: { base64ImageData: string, mimeType: string }[] | undefined,
     model: string = 'gemini-2.5-flash-image', // Default to nano banana for image gen
-    resolution: string = '1K'
+    resolution: string = '1K',
+    options?: { quality?: string; outputFormat?: string; size?: string }
 ): Promise<string> => {
   // Wrapping generateImage with retry as well, although usually less prone to 503s on Imagen
   return callWithRetry(async () => {
@@ -457,6 +465,18 @@ export const generateImage = async (
     };
     
     try {
+      if (model.startsWith('dall-e') || model.startsWith('openai') || model.startsWith('gpt-image') || model.includes('gpt-image')) {
+          return await generateOpenAiImage(prompt, {
+              model,
+              aspectRatio,
+              resolution,
+              quality: options?.quality,
+              outputFormat: options?.outputFormat,
+              size: options?.size,
+              images
+          });
+      }
+
       if (model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image-preview' || model === 'gemini-3.1-flash-image') {
            const imageParts = (images || []).map(image => ({
                inlineData: { data: image.base64ImageData, mimeType: image.mimeType },
@@ -903,6 +923,9 @@ export interface BatchRequestItemInput {
     prompt: string;
     aspectRatio?: string;
     resolution?: string;
+    size?: string;
+    quality?: string;
+    outputFormat?: string;
     images?: { base64ImageData: string; mimeType: string }[];
 }
 
@@ -914,6 +937,11 @@ export const createBatchImageJob = async (
     model: string = 'gemini-3-pro-image-preview',
     displayName?: string
 ): Promise<{ name: string; state: string }> => {
+    const isOpenAi = model.startsWith('dall-e') || model.startsWith('openai') || model.startsWith('gpt-image') || model.includes('gpt-image');
+    if (isOpenAi) {
+        return await createOpenAiBatchImageJob(items, model, displayName);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         
@@ -995,6 +1023,10 @@ export const createBatchImageJob = async (
  * Fetches the current status and metadata of a Batch API job.
  */
 export const getBatchJobStatus = async (jobName: string): Promise<any> => {
+    if (jobName.startsWith('openai_') || jobName.startsWith('batch_')) {
+        return await getOpenAiBatchJobStatus(jobName);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const batchJob = await ai.batches.get({ name: jobName });
@@ -1006,6 +1038,10 @@ export const getBatchJobStatus = async (jobName: string): Promise<any> => {
  * Cancels an active Batch API job.
  */
 export const cancelBatchJobService = async (jobName: string): Promise<void> => {
+    if (jobName.startsWith('openai_') || jobName.startsWith('batch_')) {
+        return await cancelOpenAiBatchJob(jobName);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         await ai.batches.cancel({ name: jobName });
@@ -1019,6 +1055,10 @@ export const extractImagesFromBatchJob = async (
     batchJob: any,
     itemsMeta: { id: string; prompt: string }[]
 ): Promise<Array<{ id: string; imageUrl?: string; error?: string }>> => {
+    if (batchJob?.batch || batchJob?.name?.startsWith('openai_') || batchJob?.name?.startsWith('batch_')) {
+        return await extractImagesFromOpenAiBatchJob(batchJob, itemsMeta);
+    }
+
     const results: Array<{ id: string; imageUrl?: string; error?: string }> = [];
 
     if (batchJob.dest?.inlinedResponses && Array.isArray(batchJob.dest.inlinedResponses)) {

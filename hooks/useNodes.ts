@@ -532,6 +532,18 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, model } : n));
     };
 
+    const handleQualityChange = (nodeId: string, quality: string) => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, quality } : n));
+    };
+
+    const handleOutputFormatChange = (nodeId: string, outputFormat: string) => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, outputFormat } : n));
+    };
+
+    const handleSizeChange = (nodeId: string, size: string) => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, size } : n));
+    };
+
     const handleCustomPromptChange = (nodeId: string, customPrompt: string) => {
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, customPrompt } : n));
     };
@@ -601,6 +613,9 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         handleAspectRatioChange,
         handleResolutionChange,
         handleModelChange,
+        handleQualityChange,
+        handleOutputFormatChange,
+        handleSizeChange,
         handleCustomPromptChange,
         handleAutoDownloadChange,
         handleSetImageEditorOutputToInput,

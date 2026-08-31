@@ -1,6 +1,6 @@
 {
   "name": "Remix Prompt Modifier 0.1.15",
-  "description": "A node-based application to visually construct, refine, and generate images from complex prompts using the Gemini API. Users connect text nodes to build a prompt, which is then enhanced by AI and used to generate an image.",
+  "description": "A node-based visual application to construct, refine, and generate images from complex prompts using Gemini and OpenAI (DALL-E) APIs. Connect nodes to enhance prompts and generate high quality visuals.",
   "requestFramePermissions": [
     "clipboard-read"
   ],

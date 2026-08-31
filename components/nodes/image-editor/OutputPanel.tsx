@@ -12,6 +12,7 @@ import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { setupImageDragData } from '../../../utils/imageUtils';
 import ConfirmDialog from '../../ConfirmDialog';
 import { useAppContext } from '../../../contexts/AppContext';
+import { isGptImage2Model, isOpenAiImageModel } from '../../../services/modelConfig';
 
 // Helper component for input with stylish spinners
 const InputWithSpinners: React.FC<{
@@ -133,7 +134,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     getFullSizeImage, t, upstreamPrompt, isTextConnected,
     onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs
 }) => {
-    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
+    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
     const { isBatchMode } = useAppContext();
     
     // Range State
@@ -159,8 +160,44 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
     const isFlashImage = model === 'gemini-2.5-flash-image' || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
     const isPro = model === 'gemini-3-pro-image-preview';
-    const showAspectRatio = isFlashImage || isPro;
+    const isGpt2 = isGptImage2Model(model);
+    const isDalle3 = model === 'dall-e-3';
+    const isDalle2 = model === 'dall-e-2';
+    const isOpenAi = isOpenAiImageModel(model);
+
+    const showAspectRatio = !isGpt2 && !isDalle2 && (isFlashImage || isPro || model?.startsWith('imagen') || isOpenAi);
     const showResolution = isPro || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
+    const showQuality = isGpt2 || isDalle3;
+    const showGptSize = isGpt2 || isDalle2;
+    const showOutputFormat = isGpt2;
+
+    const gpt2QualityOptions = [
+        { value: 'standard', label: 'Standard' },
+        { value: 'hd', label: 'HD' },
+        { value: 'high', label: 'High' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'low', label: 'Low' },
+    ];
+    const dalle3QualityOptions = [
+        { value: 'standard', label: 'Standard' },
+        { value: 'hd', label: 'HD' },
+    ];
+    const gpt2SizeOptions = [
+        { value: '1024x1024', label: '1024x1024' },
+        { value: '1536x1024', label: '1536x1024' },
+        { value: '1024x1536', label: '1024x1536' },
+        { value: 'auto', label: 'Auto' },
+    ];
+    const dalle2SizeOptions = [
+        { value: '1024x1024', label: '1024x1024' },
+        { value: '512x512', label: '512x512' },
+        { value: '256x256', label: '256x256' },
+    ];
+    const gpt2FormatOptions = [
+        { value: 'png', label: 'PNG' },
+        { value: 'jpeg', label: 'JPEG' },
+        { value: 'webp', label: 'WebP' },
+    ];
 
     useEffect(() => {
         if (!isSequenceMode || !containerRef.current) return;
@@ -587,9 +624,9 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             )}
 
             {/* Bottom Controls Area: Integrated Model Switcher & Single Mode Buttons */}
-            <div className="flex-shrink-0 flex items-center gap-2 mt-2 pt-2 border-t border-gray-700/50">
+            <div className="flex-shrink-0 flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-700/50">
                 {/* Model Switch Dropdown */}
-                <div className="flex-1 min-w-[120px]">
+                <div className="flex-1 min-w-[130px]">
                      <CustomSelect
                          value={model}
                          onChange={(value) => onUpdateState({ model: value })}
@@ -598,6 +635,48 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                          id="model-selector"
                      />
                 </div>
+
+                {/* Quality Selector for GPT-Image-2 and DALL-E 3 */}
+                {showQuality && (
+                    <div className="flex-shrink-0 min-w-[80px]">
+                         <CustomSelect
+                            value={quality || (isGpt2 ? 'high' : 'standard')}
+                            onChange={(value) => onUpdateState({ quality: value })}
+                            disabled={isEditing}
+                            options={isGpt2 ? gpt2QualityOptions : dalle3QualityOptions}
+                            id="quality-selector"
+                            title="Quality"
+                        />
+                    </div>
+                )}
+
+                {/* Resolution / Size for GPT-Image-2 and DALL-E 2 */}
+                {showGptSize && (
+                    <div className="flex-shrink-0 min-w-[90px]">
+                         <CustomSelect
+                            value={size || '1024x1024'}
+                            onChange={(value) => onUpdateState({ size: value })}
+                            disabled={isEditing}
+                            options={isGpt2 ? gpt2SizeOptions : dalle2SizeOptions}
+                            id="gpt-size-selector"
+                            title="Resolution / Size"
+                        />
+                    </div>
+                )}
+
+                {/* Format for GPT-Image-2 */}
+                {showOutputFormat && (
+                    <div className="flex-shrink-0 w-20">
+                         <CustomSelect
+                            value={outputFormat || 'png'}
+                            onChange={(value) => onUpdateState({ outputFormat: value })}
+                            disabled={isEditing}
+                            options={gpt2FormatOptions}
+                            id="gpt-format-selector"
+                            title="Output Format"
+                        />
+                    </div>
+                )}
 
                 {/* Aspect Ratio Selector */}
                 {showAspectRatio && (
@@ -613,7 +692,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     </div>
                 )}
 
-                 {/* Resolution Selector (Only for Pro) */}
+                 {/* Resolution Selector (Only for Pro / Flash Preview) */}
                  {showResolution && (
                     <div className="flex-shrink-0 w-20">
                          <CustomSelect

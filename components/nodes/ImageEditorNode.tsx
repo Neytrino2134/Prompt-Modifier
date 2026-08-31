@@ -16,6 +16,7 @@ import { OutputPanel } from './image-editor/OutputPanel';
 import { DEFAULT_EDITOR_STATE, ImageEditorState, ImageSlot, MIN_LEFT_PANE_WIDTH, MIN_RIGHT_PANE_WIDTH, MIN_TOP_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT_WITH_PREVIEW } from './image-editor/types';
 import { ImageEditorLeftPane } from './image-editor/ImageEditorLeftPane';
 import { SequencedPromptListRef } from './image-editor/SequencedPromptList';
+import { useOpenAiEnabled, getImageModelOptions } from '../../services/modelConfig';
 
 export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onEditImage, onStopEdit, isEditingImage, onPasteImage, onSetImageEditorOutputToInput, connectedImageSources, t, deselectAllNodes, connectedInputs, onCopyImageToClipboard, onDownloadImage, libraryItems, onDetachImageToNode, getUpstreamNodeValues, viewTransform, setImageViewer, getFullSizeImage, setFullSizeImage, onDownloadImageFromUrl, onRefreshUpstreamData, isStopping, onCutConnections, addToast, clearImagesForNodeFromCache }) => {
     const { setConnections, handleNavigateToNodeFrame, nodes: allNodes, connections } = useAppContext();
@@ -43,6 +44,9 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     parsedValueRef.current = parsedValue;
 
     const { inputImages, inputImagesB, prompt, outputImage, model, aspectRatio, enableAspectRatio, leftPaneWidth, topPaneHeight, resolution, isSequenceMode, isSequentialCombinationMode, isSequentialEditingWithPrompts, framePrompts, sequenceOutputs, checkedSequenceOutputIndices, checkedInputIndices, enableOutpainting, outpaintingPrompt, autoDownload, autoCrop169, isSequentialPromptMode, createZip, selectedSourceFrameIndex } = parsedValue;
+
+    const isOpenAiActive = useOpenAiEnabled();
+    const modelOptions = useMemo(() => getImageModelOptions(), [isOpenAiActive]);
     
     const isNanoBanana = model === 'gemini-3-pro-image-preview';
     const isTextConnected = connectedInputs?.has('text');
@@ -823,13 +827,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 currentGeneratingDisplay={(sequenceOutputs.findIndex(o => o?.status === 'generating') + 1) || '-'}
                 fullSizeOutputForCopy={getFullSizeImage(node.id, 0) || outputImage}
                 imageForEditor={getFullSizeImage(node.id, 0) || outputImage}
-                modelOptions={[
-                    { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0' },
-                    { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)' },
-                    { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)' },
-                    { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nana Banana 2 Lite)' },
-                    { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)' }
-                ]}
+                modelOptions={modelOptions}
                 isNanoBanana={isNanoBanana}
                 onUpdateState={handleValueUpdate}
                 onRunSelected={handleStartEdit} 

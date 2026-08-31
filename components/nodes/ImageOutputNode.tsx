@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { NodeContentProps } from '../../types';
 import CustomSelect from '../CustomSelect';
 import { useAppContext } from '../../contexts/AppContext';
@@ -9,14 +9,63 @@ import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { expandImageAspectRatio } from '../../services/imageActions';
 import { generateThumbnail, setupImageDragData } from '../../utils/imageUtils';
+import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel } from '../../services/modelConfig';
 
-export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGeneratingImage, isExecutingChain, onModelChange, onAspectRatioChange, onResolutionChange, onAutoDownloadChange, onGenerateImage, onStopChainExecution, onExecuteChain, t, onDownloadImage, setImageViewer, getFullSizeImage, setFullSizeImage, onValueChange, getUpstreamNodeValues, isGlobalProcessing, onCopyImageToClipboard, addToast }) => {
+export const ImageOutputNode: React.FC<NodeContentProps> = ({ 
+    node, 
+    isGeneratingImage, 
+    isExecutingChain, 
+    onModelChange, 
+    onQualityChange,
+    onOutputFormatChange,
+    onSizeChange,
+    onAspectRatioChange, 
+    onResolutionChange, 
+    onAutoDownloadChange, 
+    onGenerateImage, 
+    onStopChainExecution, 
+    onExecuteChain, 
+    t, 
+    onDownloadImage, 
+    setImageViewer, 
+    getFullSizeImage, 
+    setFullSizeImage, 
+    onValueChange, 
+    getUpstreamNodeValues, 
+    isGlobalProcessing, 
+    onCopyImageToClipboard, 
+    addToast 
+}) => {
     const context = useAppContext();
     const { tutorialStep, tutorialTargetId, advanceTutorial, skipTutorial } = context || {};
     
     const [transformingRatio, setTransformingRatio] = useState<string | null>(null);
 
     const isTutorialActive = tutorialTargetId === node.id && tutorialStep === 'image_output_generate';
+
+    const handleQualitySelect = (val: string) => {
+        if (onQualityChange) {
+            onQualityChange(node.id, val);
+        } else if (context?.handleQualityChange) {
+            context.handleQualityChange(node.id, val);
+        }
+    };
+
+    const handleOutputFormatSelect = (val: string) => {
+        if (onOutputFormatChange) {
+            onOutputFormatChange(node.id, val);
+        } else if (context?.handleOutputFormatChange) {
+            context.handleOutputFormatChange(node.id, val);
+        }
+    };
+
+    const handleSizeSelect = (val: string) => {
+        if (onSizeChange) {
+            onSizeChange(node.id, val);
+        } else if (context?.handleSizeChange) {
+            context.handleSizeChange(node.id, val);
+        }
+    };
 
     // Calculate prompt for drag/drop context
     const texts = getUpstreamNodeValues(node.id).filter(v => typeof v === 'string') as string[];
@@ -74,21 +123,20 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
     };
 
     const aspectRatios = ["1:1", "16:9", "9:16", "4:3", "3:4"];
-    const modelOptions = [
-      { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0 (Quality)' },
-      { value: 'imagen-4.0-ultra-generate-preview-06-06', label: 'Imagen 4.0 Ultra (Preview)' },
-      { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro (Nano Banana Pro)' },
-      { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)' },
-      { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nano Banana 2 Lite)' },
-      { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)' }
-    ];
+    const isOpenAiActive = useOpenAiEnabled();
+    const modelOptions = useMemo(() => getImageModelOptions(), [isOpenAiActive]);
     
+    const isGpt2 = isGptImage2Model(node.model);
+    const isDalle3 = node.model === 'dall-e-3';
+    const isDalle2 = node.model === 'dall-e-2';
+    const isOpenAiModel = isOpenAiImageModel(node.model);
+
     const isNanoBananaPro = node.model === 'gemini-3-pro-image-preview';
     const isFlashImagePreview = node.model === 'gemini-3.1-flash-image-preview' || node.model === 'gemini-3.1-flash-image';
     const isFlashImage = node.model === 'gemini-2.5-flash-image';
     // An 'imagen' model is selected if the model string is not set (default) or starts with 'imagen-4.0'
     const isImagenModel = !node.model || node.model.startsWith('imagen-4.0');
-    const isAspectRatioEnabled = isImagenModel || isNanoBananaPro || isFlashImage || isFlashImagePreview;
+    const isAspectRatioEnabled = !isGpt2 && (isImagenModel || isNanoBananaPro || isFlashImage || isFlashImagePreview || isOpenAiModel);
 
     let availableResolutions = [
         { value: '1K', label: '1K' },
@@ -106,7 +154,43 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
     let availableAspectRatios = aspectRatios;
     if (isFlashImagePreview) {
         availableAspectRatios = [...aspectRatios, "1:4", "1:8", "4:1", "8:1"];
+    } else if (isDalle3) {
+        availableAspectRatios = ["1:1", "16:9", "9:16"];
+    } else if (isDalle2) {
+        availableAspectRatios = ["1:1"];
     }
+
+    const gpt2QualityOptions = [
+        { value: 'standard', label: 'Standard' },
+        { value: 'hd', label: 'HD' },
+        { value: 'high', label: 'High' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'low', label: 'Low' },
+    ];
+
+    const dalle3QualityOptions = [
+        { value: 'standard', label: 'Standard' },
+        { value: 'hd', label: 'HD (High Definition)' },
+    ];
+
+    const gpt2SizeOptions = [
+        { value: '1024x1024', label: '1024 × 1024 (1:1 Square)' },
+        { value: '1536x1024', label: '1536 × 1024 (3:2 Landscape)' },
+        { value: '1024x1536', label: '1024 × 1536 (2:3 Portrait)' },
+        { value: 'auto', label: 'Auto' },
+    ];
+
+    const gpt2FormatOptions = [
+        { value: 'png', label: 'PNG' },
+        { value: 'jpeg', label: 'JPEG' },
+        { value: 'webp', label: 'WebP' },
+    ];
+
+    const dalle2SizeOptions = [
+        { value: '1024x1024', label: '1024 × 1024' },
+        { value: '512x512', label: '512 × 512' },
+        { value: '256x256', label: '256 × 256' },
+    ];
 
     const handleClick = () => {
         if (!node.value) return;
@@ -257,6 +341,69 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                     options={modelOptions}
                 />
             </div>
+
+            {/* Quality selection for GPT-Image-2 and DALL-E 3 */}
+            {isGpt2 && (
+                <>
+                    <div className="mb-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Quality</label>
+                        <CustomSelect
+                            id={`quality-select-${node.id}`}
+                            value={node.quality || 'high'}
+                            onChange={handleQualitySelect}
+                            disabled={isGeneratingImage || isExecutingChain}
+                            options={gpt2QualityOptions}
+                        />
+                    </div>
+                    <div className="mb-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Resolution / Size</label>
+                        <CustomSelect
+                            id={`size-select-${node.id}`}
+                            value={node.size || '1024x1024'}
+                            onChange={handleSizeSelect}
+                            disabled={isGeneratingImage || isExecutingChain}
+                            options={gpt2SizeOptions}
+                        />
+                    </div>
+                    <div className="mb-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Output Format</label>
+                        <CustomSelect
+                            id={`format-select-${node.id}`}
+                            value={node.outputFormat || 'png'}
+                            onChange={handleOutputFormatSelect}
+                            disabled={isGeneratingImage || isExecutingChain}
+                            options={gpt2FormatOptions}
+                        />
+                    </div>
+                </>
+            )}
+
+            {isDalle3 && (
+                <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Quality</label>
+                    <CustomSelect
+                        id={`quality-select-${node.id}`}
+                        value={node.quality || 'standard'}
+                        onChange={handleQualitySelect}
+                        disabled={isGeneratingImage || isExecutingChain}
+                        options={dalle3QualityOptions}
+                    />
+                </div>
+            )}
+
+            {isDalle2 && (
+                <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Resolution / Size</label>
+                    <CustomSelect
+                        id={`size-select-${node.id}`}
+                        value={node.size || '1024x1024'}
+                        onChange={handleSizeSelect}
+                        disabled={isGeneratingImage || isExecutingChain}
+                        options={dalle2SizeOptions}
+                    />
+                </div>
+            )}
+
             {(isNanoBananaPro || isFlashImagePreview) && (
                 <div className="mb-2">
                     <label className="block text-xs font-medium text-gray-400 mb-1">Resolution</label>
@@ -268,19 +415,22 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({ node, isGenerating
                     />
                 </div>
             )}
-            <div className="mb-2">
-                <label htmlFor={`aspect-ratio-${node.id}`} className={`block text-xs font-medium mb-1 transition-colors ${!isAspectRatioEnabled ? 'text-gray-600' : 'text-gray-400'}`}>
-                    {t('node.content.aspectRatio')}
-                </label>
-                <CustomSelect
-                    id={`aspect-ratio-${node.id}`}
-                    value={node.aspectRatio || '1:1'}
-                    onChange={(value) => onAspectRatioChange(node.id, value)}
-                    disabled={isGeneratingImage || !isAspectRatioEnabled || isExecutingChain}
-                    title={!isAspectRatioEnabled ? t('node.content.aspectRatioNotSupportedFast') : t('node.content.aspectRatioHelp')}
-                    options={availableAspectRatios.map(ratio => ({ value: ratio, label: ratio }))}
-                />
-            </div>
+
+            {isAspectRatioEnabled && (
+                <div className="mb-2">
+                    <label htmlFor={`aspect-ratio-${node.id}`} className={`block text-xs font-medium mb-1 transition-colors ${!isAspectRatioEnabled ? 'text-gray-600' : 'text-gray-400'}`}>
+                        {t('node.content.aspectRatio')}
+                    </label>
+                    <CustomSelect
+                        id={`aspect-ratio-${node.id}`}
+                        value={node.aspectRatio || '1:1'}
+                        onChange={(value) => onAspectRatioChange(node.id, value)}
+                        disabled={isGeneratingImage || !isAspectRatioEnabled || isExecutingChain}
+                        title={!isAspectRatioEnabled ? t('node.content.aspectRatioNotSupportedFast') : t('node.content.aspectRatioHelp')}
+                        options={availableAspectRatios.map(ratio => ({ value: ratio, label: ratio }))}
+                    />
+                </div>
+            )}
             <div className="mb-2">
                 <CustomCheckbox
                     id={`auto-download-toggle-${node.id}`}

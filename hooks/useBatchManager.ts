@@ -346,6 +346,9 @@ export const useBatchManager = ({
             prompt: string;
             aspectRatio?: string;
             resolution?: string;
+            quality?: string;
+            outputFormat?: string;
+            size?: string;
             images?: { base64ImageData: string; mimeType: string }[];
             autoCrop169?: boolean;
             autoDownload?: boolean;
@@ -359,12 +362,15 @@ export const useBatchManager = ({
             prompt: item.prompt,
             aspectRatio: item.aspectRatio || '1:1',
             resolution: item.resolution || '1K',
+            quality: item.quality,
+            outputFormat: item.outputFormat,
+            size: item.size,
             images: item.images
         }));
 
         const displayName = `${nodeTitle || 'Image Editor'} Batch - ${new Date().toLocaleTimeString()}`;
 
-        // 2. Call Gemini Batch API
+        // 2. Call Batch API (Gemini or OpenAI based on model)
         const createdSdkJob = await createBatchImageJob(batchInputs, model, displayName);
 
         const clientId = `batch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -387,6 +393,9 @@ export const useBatchManager = ({
                 prompt: item.prompt,
                 aspectRatio: item.aspectRatio,
                 resolution: item.resolution,
+                quality: item.quality,
+                outputFormat: item.outputFormat,
+                size: item.size,
                 autoCrop169: item.autoCrop169,
                 autoDownload: item.autoDownload,
                 status: 'queued' as TaskStatus

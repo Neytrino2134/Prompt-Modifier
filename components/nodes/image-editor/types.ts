@@ -10,6 +10,9 @@ export interface ImageEditorState {
     model: string;
     aspectRatio: string;
     enableAspectRatio: boolean;
+    quality?: string;
+    outputFormat?: string;
+    size?: string;
     autoCrop169: boolean;
     leftPaneWidth: number;
     topPaneHeight: number;
@@ -37,6 +40,9 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     model: 'gemini-3-pro-image-preview', 
     aspectRatio: '16:9', // Default changed to 16:9
     enableAspectRatio: false,
+    quality: 'high',
+    outputFormat: 'png',
+    size: '1024x1024',
     autoCrop169: true, // Default enabled
     leftPaneWidth: 400,
     topPaneHeight: 330,

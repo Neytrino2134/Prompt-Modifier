@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage, getTranslation, LanguageCode, TranslationKey, languages } from '../localization';
 import { useAppContext } from '../contexts/AppContext';
 import { APP_VERSION } from '../version';
+import { CustomCheckbox } from './CustomCheckbox';
+import { isOpenAiEnabled, setOpenAiEnabled, getOpenAiApiKey, setOpenAiApiKey } from '../services/modelConfig';
 
 interface WelcomeScreenProps {
   onClose: () => void;
@@ -16,6 +18,10 @@ const WelcomeContent: React.FC<{
     globalLanguage: LanguageCode;
     apiKey: string;
     setApiKey: (val: string) => void;
+    openAiEnabled: boolean;
+    setOpenAiEnabledState: (val: boolean) => void;
+    openAiApiKey: string;
+    setOpenAiApiKeyState: (val: string) => void;
     onSelectLanguage: (code: LanguageCode) => void;
     onStart: () => void;
     onDeveloperStart: () => void;
@@ -26,7 +32,7 @@ const WelcomeContent: React.FC<{
     isResumable?: boolean;
     animationStage: number; // 0: Hidden, 1: Title Center, 2: Heartbeat, 3: Title Top, 4: Window In, 5: Extras
     triggerHeartbeat: boolean;
-}> = ({ language, globalLanguage, apiKey, setApiKey, onSelectLanguage, onStart, onDeveloperStart, onStartNew, measureRef, onCycleLanguage, exitPhase, isResumable, animationStage, triggerHeartbeat }) => {
+}> = ({ language, globalLanguage, apiKey, setApiKey, openAiEnabled, setOpenAiEnabledState, openAiApiKey, setOpenAiApiKeyState, onSelectLanguage, onStart, onDeveloperStart, onStartNew, measureRef, onCycleLanguage, exitPhase, isResumable, animationStage, triggerHeartbeat }) => {
     
     const t = useCallback((key: TranslationKey, options?: { [key: string]: string | number }) => {
         return getTranslation(language, key, options);
@@ -266,6 +272,54 @@ const WelcomeContent: React.FC<{
                                      </div>
                                 </div>
                             </div>
+
+                            {/* OpenAI API Configuration */}
+                            <div className="pt-2 border-t border-gray-700/40">
+                                <div className="p-3.5 bg-gray-900/40 rounded-xl border border-gray-700/60 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <CustomCheckbox
+                                            id="welcome-openai-enabled-toggle"
+                                            checked={openAiEnabled}
+                                            onChange={(checked) => setOpenAiEnabledState(checked)}
+                                            label={t('welcome.openaiToggleLabel' as any) || 'Enable OpenAI API (DALL·E 3 / DALL·E 2)'}
+                                            className="font-medium text-xs md:text-sm text-gray-200"
+                                        />
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                            openAiEnabled 
+                                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                                                : 'bg-gray-800 text-gray-400 border border-gray-700'
+                                        }`}>
+                                            {openAiEnabled ? (t('settings.openaiActive' as any) || 'Active') : (t('settings.openaiInactive' as any) || 'Disabled')}
+                                        </span>
+                                    </div>
+
+                                    {openAiEnabled && (
+                                        <div className="space-y-1.5 pt-1">
+                                            <div className="flex justify-between items-center px-1">
+                                                <label htmlFor="welcome-openai-api-key" className="block text-xs font-medium text-gray-300">
+                                                    {t('welcome.openaiApiKeyLabel' as any) || 'OpenAI API Key'}
+                                                </label>
+                                                <a 
+                                                    href="https://platform.openai.com/api-keys" 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-emerald-400 hover:text-emerald-300 underline"
+                                                >
+                                                    {t('welcome.openaiGetKeyLink' as any) || 'Get OpenAI Key'}
+                                                </a>
+                                            </div>
+                                            <input
+                                                type="password"
+                                                id="welcome-openai-api-key"
+                                                value={openAiApiKey}
+                                                onChange={(e) => setOpenAiApiKeyState(e.target.value)}
+                                                placeholder={t('welcome.openaiApiKeyPlaceholder' as any) || 'sk-proj-...'}
+                                                className="w-full p-3 bg-gray-900/80 border border-gray-600 rounded-lg text-white text-sm outline-none focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-inner select-text placeholder-gray-500"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         {/* Main Action Button with Animation */}
@@ -307,6 +361,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
   const { language: globalLanguage, setSecondaryLanguage, setLanguage, t } = useLanguage();
   
   const [apiKey, setApiKey] = useState('');
+  const [openAiEnabled, setOpenAiEnabledState] = useState<boolean>(() => isOpenAiEnabled());
+  const [openAiApiKey, setOpenAiApiKeyState] = useState<string>(() => getOpenAiApiKey());
+
   const [isVisible, setIsVisible] = useState(false);
   const [exitPhase, setExitPhase] = useState<'idle' | 'button-exit' | 'window-exit' | 'done'>('idle');
   const [animationStage, setAnimationStage] = useState(0); 
@@ -469,6 +526,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
     if (apiKey.trim()) {
       localStorage.setItem('settings_userApiKey', apiKey.trim());
     }
+    setOpenAiEnabled(openAiEnabled);
+    if (openAiApiKey.trim()) {
+      setOpenAiApiKey(openAiApiKey.trim());
+    }
     triggerExit(!isResumable, false);
   };
 
@@ -476,11 +537,19 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
     if (apiKey.trim()) {
       localStorage.setItem('settings_userApiKey', apiKey.trim());
     }
+    setOpenAiEnabled(openAiEnabled);
+    if (openAiApiKey.trim()) {
+      setOpenAiApiKey(openAiApiKey.trim());
+    }
     triggerExit(true, false); 
   };
 
   const handleDeveloperStart = () => {
     // Primarily, just start the app with tutorial suppressed
+    setOpenAiEnabled(openAiEnabled);
+    if (openAiApiKey.trim()) {
+      setOpenAiApiKey(openAiApiKey.trim());
+    }
     triggerExit(true, true);
   };
 
@@ -563,6 +632,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
                     globalLanguage={globalLanguage}
                     apiKey={apiKey}
                     setApiKey={setApiKey}
+                    openAiEnabled={openAiEnabled}
+                    setOpenAiEnabledState={setOpenAiEnabledState}
+                    openAiApiKey={openAiApiKey}
+                    setOpenAiApiKeyState={setOpenAiApiKeyState}
                     onSelectLanguage={handleSelectLanguage}
                     onStart={handleStandardStart}
                     onDeveloperStart={handleDeveloperStart}
@@ -587,6 +660,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
                         globalLanguage={globalLanguage}
                         apiKey={apiKey}
                         setApiKey={setApiKey}
+                        openAiEnabled={openAiEnabled}
+                        setOpenAiEnabledState={setOpenAiEnabledState}
+                        openAiApiKey={openAiApiKey}
+                        setOpenAiApiKeyState={setOpenAiApiKeyState}
                         onSelectLanguage={handleSelectLanguage}
                         onStart={handleStandardStart}
                         onDeveloperStart={handleDeveloperStart}

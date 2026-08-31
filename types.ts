@@ -136,6 +136,9 @@ export interface Node {
   resolution?: Resolution;
   dockState?: DockState;
   customPrompt?: string; // New property for custom prompts within nodes without inputs
+  quality?: string;
+  outputFormat?: string;
+  size?: string;
 }
 
 export interface Connection {
@@ -241,6 +244,9 @@ export interface BatchJobItem {
     prompt: string;
     aspectRatio?: string;
     resolution?: string;
+    quality?: string;
+    outputFormat?: string;
+    size?: string;
     autoCrop169?: boolean;
     autoDownload?: boolean;
     status: TaskStatus;
@@ -347,6 +353,9 @@ export interface NodeContentProps {
   onDownloadImage: (nodeId: string) => void;
   onAspectRatioChange: (nodeId: string, aspectRatio: string) => void;
   onModelChange: (nodeId: string, model: string) => void;
+  onQualityChange?: (nodeId: string, quality: string) => void;
+  onOutputFormatChange?: (nodeId: string, outputFormat: string) => void;
+  onSizeChange?: (nodeId: string, size: string) => void;
   onAutoDownloadChange: (nodeId: string, enabled: boolean) => void;
   onCustomPromptChange?: (nodeId: string, prompt: string) => void;
   onSendMessage: (nodeId: string) => void;

@@ -1,3 +1,22 @@
+import { useState, useEffect } from 'react';
+import { 
+    isOpenAiEnabled, 
+    setOpenAiEnabled, 
+    getOpenAiApiKey, 
+    setOpenAiApiKey, 
+    OPENAI_CONFIG_CHANGE_EVENT, 
+    notifyOpenAiConfigChanged 
+} from './openaiService';
+
+export { 
+    isOpenAiEnabled, 
+    setOpenAiEnabled, 
+    getOpenAiApiKey, 
+    setOpenAiApiKey, 
+    OPENAI_CONFIG_CHANGE_EVENT, 
+    notifyOpenAiConfigChanged 
+};
+
 export type LLMMode = 'flash' | 'pro';
 
 export interface ModelOption {
@@ -6,6 +25,71 @@ export interface ModelOption {
     description: string;
     tier: LLMMode;
 }
+
+export interface ImageModelOption {
+    value: string;
+    label: string;
+    provider: 'google' | 'openai';
+    description?: string;
+}
+
+export const GOOGLE_IMAGE_MODELS: ImageModelOption[] = [
+    { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0 (Quality)', provider: 'google' },
+    { value: 'imagen-4.0-ultra-generate-preview-06-06', label: 'Imagen 4.0 Ultra (Preview)', provider: 'google' },
+    { value: 'imagen-3.0-generate-002', label: 'Imagen 3.0', provider: 'google' },
+    { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)', provider: 'google' },
+    { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)', provider: 'google' },
+    { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nano Banana 2 Lite)', provider: 'google' },
+    { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)', provider: 'google' }
+];
+
+export const OPENAI_IMAGE_MODELS: ImageModelOption[] = [
+    { value: 'gpt-image-2', label: 'GPT-Image-2 (OpenAI)', provider: 'openai', description: 'Next-generation OpenAI image model with custom resolution & quality' },
+    { value: 'dall-e-3', label: 'DALL·E 3 (OpenAI - Natural/HD)', provider: 'openai', description: 'Latest OpenAI high quality image generation model' },
+    { value: 'dall-e-3-vivid', label: 'DALL·E 3 Vivid (OpenAI - Hyperrealistic)', provider: 'openai', description: 'Vivid, dramatic aesthetic' },
+    { value: 'dall-e-2', label: 'DALL·E 2 (OpenAI - Fast)', provider: 'openai', description: 'Fast standard model' }
+];
+
+export const isOpenAiImageModel = (model?: string): boolean => {
+    if (!model) return false;
+    return model.startsWith('gpt-image') || model.startsWith('dall-e') || model.startsWith('openai') || model.includes('gpt-image');
+};
+
+export const isGptImage2Model = (model?: string): boolean => {
+    if (!model) return false;
+    return model === 'gpt-image-2' || model.startsWith('gpt-image-2') || model.includes('gpt-image');
+};
+
+export const getImageModelOptions = (includeOpenAi: boolean = isOpenAiEnabled()): ImageModelOption[] => {
+    if (includeOpenAi) {
+        return [...GOOGLE_IMAGE_MODELS, ...OPENAI_IMAGE_MODELS];
+    }
+    return GOOGLE_IMAGE_MODELS;
+};
+
+/**
+ * React hook to subscribe to OpenAI toggle updates in real-time
+ */
+export const useOpenAiEnabled = (): boolean => {
+    const [enabled, setEnabled] = useState<boolean>(() => isOpenAiEnabled());
+
+    useEffect(() => {
+        const handleUpdate = () => {
+            setEnabled(isOpenAiEnabled());
+        };
+
+        window.addEventListener(OPENAI_CONFIG_CHANGE_EVENT, handleUpdate);
+        window.addEventListener('storage', handleUpdate);
+
+        return () => {
+            window.removeEventListener(OPENAI_CONFIG_CHANGE_EVENT, handleUpdate);
+            window.removeEventListener('storage', handleUpdate);
+        };
+    }, []);
+
+    return enabled;
+};
+
 
 // Built-in pool of Flash and Pro models that can easily be extended as Google releases new versions
 export const DEFAULT_FLASH_MODELS: ModelOption[] = [

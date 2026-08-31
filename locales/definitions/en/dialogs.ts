@@ -68,6 +68,13 @@ export const dialogs = {
     
     // New Keys
     'settings.group.api': 'API & Access',
+    'settings.openaiTitle': 'OpenAI Integration',
+    'settings.openaiEnabled': 'Enable OpenAI API',
+    'settings.openaiEnabledDesc': 'Enables DALL·E 3, DALL·E 2 and OpenAI models across canvas nodes',
+    'settings.openaiApiKeyLabel': 'OpenAI API Key',
+    'settings.openaiGetKeyLink': 'Get an OpenAI Key',
+    'settings.openaiActive': 'Active',
+    'settings.openaiInactive': 'Disabled',
     'settings.group.llm': 'LLM Models (Flash & Pro)',
     'settings.llmFlashModelLabel': 'Default Flash Model',
     'settings.llmFlashModelDesc': 'Used across all nodes set to "Flash" mode (prompt enhancements, translation, quick chat, sequence modifications).',

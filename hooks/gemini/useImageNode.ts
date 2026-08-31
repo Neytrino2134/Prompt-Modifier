@@ -116,7 +116,11 @@ export const useImageNode = ({
         const executeGen = async (signal: AbortSignal) => {
             registerOperation({ id: nodeId, type: 'generation', description: t('node.content.generating'), tabId: activeTabId, tabName: activeTabName });
             return await raceWithAbort(
-                generateImage(prompt, aspectRatio, undefined, node.model, node.resolution),
+                generateImage(prompt, aspectRatio, undefined, node.model, node.resolution, {
+                    quality: node.quality,
+                    outputFormat: node.outputFormat,
+                    size: node.size
+                }),
                 signal
             );
         };

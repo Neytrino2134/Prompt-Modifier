@@ -4,9 +4,15 @@
 import React, { useMemo } from 'react';
 import CustomSelect from '../../CustomSelect';
 import { CustomCheckbox } from '../../CustomCheckbox';
+import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel } from '../../../services/modelConfig';
 
 interface GenerationControlsProps {
     model: string;
+    quality?: string;
+    outputFormat?: string;
+    size?: string;
+    aspectRatio?: string;
+    resolution?: string;
     autoCrop169: boolean;
     autoDownload: boolean;
     createZip: boolean;
@@ -24,6 +30,11 @@ interface GenerationControlsProps {
 
 export const GenerationControls: React.FC<GenerationControlsProps> = ({
     model,
+    quality,
+    outputFormat,
+    size,
+    aspectRatio,
+    resolution,
     autoCrop169,
     autoDownload,
     createZip,
@@ -39,12 +50,39 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
     t
 }) => {
     
-    const modelOptions = [
-        { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0' },
-        { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)' },
-        { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)' },
-        { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nana Banana 2 Lite)' },
-        { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)' }
+    const isOpenAiActive = useOpenAiEnabled();
+    const modelOptions = useMemo(() => getImageModelOptions(), [isOpenAiActive]);
+
+    const isGpt2 = isGptImage2Model(model);
+    const isDalle3 = model === 'dall-e-3';
+    const isDalle2 = model === 'dall-e-2';
+
+    const gpt2QualityOptions = [
+        { value: 'standard', label: 'Standard' },
+        { value: 'hd', label: 'HD' },
+        { value: 'high', label: 'High' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'low', label: 'Low' },
+    ];
+    const dalle3QualityOptions = [
+        { value: 'standard', label: 'Standard' },
+        { value: 'hd', label: 'HD' },
+    ];
+    const gpt2SizeOptions = [
+        { value: '1024x1024', label: '1024 × 1024 (1:1)' },
+        { value: '1536x1024', label: '1536 × 1024 (3:2)' },
+        { value: '1024x1536', label: '1024 × 1536 (2:3)' },
+        { value: 'auto', label: 'Auto' },
+    ];
+    const dalle2SizeOptions = [
+        { value: '1024x1024', label: '1024 × 1024' },
+        { value: '512x512', label: '512 × 512' },
+        { value: '256x256', label: '256 × 256' },
+    ];
+    const gpt2FormatOptions = [
+        { value: 'png', label: 'PNG' },
+        { value: 'jpeg', label: 'JPEG' },
+        { value: 'webp', label: 'WebP' },
     ];
 
     return (
@@ -58,6 +96,64 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
                     options={modelOptions}
                 />
             </div>
+
+            {/* Quality selection for GPT-Image-2 and DALL-E 3 */}
+            {isGpt2 && (
+                <>
+                    <div className="mb-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Quality</label>
+                        <CustomSelect
+                            value={quality || 'high'}
+                            onChange={(value) => onUpdateState({ quality: value })}
+                            disabled={isGeneratingSequence}
+                            options={gpt2QualityOptions}
+                        />
+                    </div>
+                    <div className="mb-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Resolution / Size</label>
+                        <CustomSelect
+                            value={size || '1024x1024'}
+                            onChange={(value) => onUpdateState({ size: value })}
+                            disabled={isGeneratingSequence}
+                            options={gpt2SizeOptions}
+                        />
+                    </div>
+                    <div className="mb-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Output Format</label>
+                        <CustomSelect
+                            value={outputFormat || 'png'}
+                            onChange={(value) => onUpdateState({ outputFormat: value })}
+                            disabled={isGeneratingSequence}
+                            options={gpt2FormatOptions}
+                        />
+                    </div>
+                </>
+            )}
+
+            {isDalle3 && (
+                <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Quality</label>
+                    <CustomSelect
+                        value={quality || 'standard'}
+                        onChange={(value) => onUpdateState({ quality: value })}
+                        disabled={isGeneratingSequence}
+                        options={dalle3QualityOptions}
+                    />
+                </div>
+            )}
+
+            {isDalle2 && (
+                <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Resolution / Size</label>
+                    <CustomSelect
+                        value={size || '1024x1024'}
+                        onChange={(value) => onUpdateState({ size: value })}
+                        disabled={isGeneratingSequence}
+                        options={dalle2SizeOptions}
+                    />
+                </div>
+            )}
+
             <div className="flex flex-wrap gap-x-4 gap-y-2">
                 <div className="flex items-center space-x-2">
                     <CustomCheckbox
@@ -99,7 +195,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
                     {t('image_sequence.run_selected')} ({checkedCount})
                 </button>
                 
-                {/* NEW: Batch Expand Buttons */}
+                {/* Batch Expand Buttons */}
                 <button 
                     onClick={() => onExpandSelected('16:9')}
                     disabled={isGeneratingSequence || isAnyFrameGenerating || checkedCount === 0}

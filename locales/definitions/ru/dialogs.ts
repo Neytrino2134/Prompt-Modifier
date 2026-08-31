@@ -68,6 +68,13 @@ export const dialogs = {
 
     // New Keys
     'settings.group.api': 'API и Доступ',
+    'settings.openaiTitle': 'Интеграция OpenAI',
+    'settings.openaiEnabled': 'Включить OpenAI API',
+    'settings.openaiEnabledDesc': 'Активирует модели DALL·E 3, DALL·E 2 и GPT в нодах холста',
+    'settings.openaiApiKeyLabel': 'API ключ OpenAI',
+    'settings.openaiGetKeyLink': 'Получить ключ OpenAI',
+    'settings.openaiActive': 'Активно',
+    'settings.openaiInactive': 'Отключено',
     'settings.group.llm': 'Модели LLM (Flash и Pro)',
     'settings.llmFlashModelLabel': 'Модель для Flash',
     'settings.llmFlashModelDesc': 'Используется во всех нодах в режиме "Flash" (улучшение промптов, перевод, чат, модификация последовательностей).',
