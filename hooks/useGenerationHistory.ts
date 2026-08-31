@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { recordGenerationEvent, syncWithHistoryItems } from '../utils/generationStats';
 
 export interface HistoryItem {
   id: string;
@@ -63,6 +64,9 @@ export const useGenerationHistory = () => {
         items.sort((a, b) => b.timestamp - a.timestamp);
         const limitedItems = await enforceLimit(items, db, historyLimit);
         setHistoryItems(limitedItems);
+
+        // Sync existing history with persistent stats log
+        syncWithHistoryItems(limitedItems);
       };
     } catch (e) {
       console.error("Failed to load generation history", e);
@@ -102,6 +106,16 @@ export const useGenerationHistory = () => {
       aspectRatio: aspectRatio || undefined,
       resolution: resolution || undefined,
     };
+
+    // Record into persistent stats log
+    recordGenerationEvent({
+      id: newItem.id,
+      timestamp: newItem.timestamp,
+      model: newItem.model,
+      aspectRatio: newItem.aspectRatio,
+      resolution: newItem.resolution,
+      prompt: newItem.prompt,
+    });
 
     try {
       const db = await getDB();

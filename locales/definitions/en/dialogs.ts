@@ -86,4 +86,8 @@ export const dialogs = {
     'dialog.settings.downloadPathLabel': 'Download Path',
     'dialog.settings.selectFolder': 'Select Folder',
     'dialog.settings.resetPath': 'Reset to Default',
+    'dialog.confirmClearOutputs.title': 'Clear Generated Images',
+    'dialog.confirmClearOutputs.message': 'Are you sure you want to clear all generated images and reset the generation status? This action cannot be undone.',
+    'dialog.confirmClearOutputs.confirm': 'Clear',
+    'dialog.confirmClearOutputs.cancel': 'Cancel',
 };

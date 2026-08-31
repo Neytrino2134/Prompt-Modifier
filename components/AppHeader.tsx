@@ -229,6 +229,18 @@ const AppHeader: React.FC = () => {
                                     <SettingsIcon />
                                 </button>
                             </TooltipWrapper>
+
+                            <TooltipWrapper title={t('toolbar.historyStats') || 'История и Статистика генераций'}>
+                                <button
+                                    onClick={() => context.setIsHistoryPanelOpen?.(prev => !prev)}
+                                    className="p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-accent hover:text-white text-gray-300"
+                                    aria-label={t('toolbar.historyStats')}
+                                >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </button>
+                            </TooltipWrapper>
                             
                             <TooltipWrapper title={isFullscreen ? t('toolbar.exitFullScreen') : t('toolbar.enterFullScreen')}>
                                 <button

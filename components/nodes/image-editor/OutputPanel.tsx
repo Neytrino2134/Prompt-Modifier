@@ -10,6 +10,7 @@ import JSZip from 'jszip';
 import { CustomCheckbox } from '../../CustomCheckbox';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { setupImageDragData } from '../../../utils/imageUtils';
+import ConfirmDialog from '../../ConfirmDialog';
 
 // Helper component for input with stylish spinners
 const InputWithSpinners: React.FC<{
@@ -115,6 +116,7 @@ interface OutputPanelProps {
     onEditInSource: (index: number) => void;
     deselectAllNodes: () => void;
     nodeId: string;
+    onClearOutputs?: () => void;
 }
 
 const ITEM_SIZE = 160;
@@ -128,13 +130,25 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     onDownload, onCopy, onSelectAll, onSelectNone, onInvertSelection, onManualRefresh,
     onOutputClick, onSequenceOutputClick, onCheckOutput, onCopyFrame, onDownloadFrame, onRegenerateFrame, onStopFrame,
     getFullSizeImage, t, upstreamPrompt, isTextConnected,
-    onEditPrompt, onEditInSource, deselectAllNodes, nodeId
+    onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs
 }) => {
     const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
     
     // Range State
     const [rangeStart, setRangeStart] = useState('');
     const [rangeEnd, setRangeEnd] = useState('');
+
+    // Confirmation State for Clearing Outputs
+    const [showConfirmClear, setShowConfirmClear] = useState(false);
+
+    const handleConfirmClear = () => {
+        setShowConfirmClear(false);
+        if (onClearOutputs) {
+            onClearOutputs();
+        } else {
+            onUpdateState({ sequenceOutputs: [], checkedSequenceOutputIndices: [] });
+        }
+    };
 
     // Virtualization State
     const containerRef = useRef<HTMLDivElement>(null);
@@ -277,19 +291,40 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     return (
         <div className="h-full flex flex-col space-y-2 flex-grow min-w-0 pl-1">
              
-             {/* Header Row: Title and Stats */}
+             {/* Header Row: Title, Stats and Reset/Clear Button */}
              <div className="flex justify-between items-center bg-gray-900/50 p-1 rounded-md border border-gray-700">
                 <div className="flex items-center gap-3">
                      <label className="text-xs font-medium text-gray-400 pl-1">{isSequenceMode ? t('image_sequence.output_images_title') : t('node.content.outputImage')}</label>
                      {isSequenceMode && (
                          <div className="text-[10px] text-gray-500 flex space-x-2 border-l border-gray-600 pl-3">
                              <span>Total: <span className="text-gray-300">{activeFrameIndices.length}</span></span>
-                             <span className={doneCount > 0 ? "text-cyan-400" : ""}>Done: {doneCount}</span>
+                             <span className={doneCount > 0 ? "text-cyan-400 font-semibold" : ""}>Done: {doneCount}</span>
                              <span className="text-emerald-400">Selected: {activeSelectedCount}</span>
                              {isEditing && <span className="text-cyan-400 animate-pulse">Processing: {currentGeneratingDisplay} of {activeFrameIndices.length}</span>}
                          </div>
                      )}
                 </div>
+
+                {isSequenceMode && (
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => setShowConfirmClear(true)}
+                            disabled={isEditing || (sequenceOutputs.length === 0 && doneCount === 0)}
+                            title={t('image_sequence.clear_outputs_tooltip') || "Clear generated images and reset state"}
+                            className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors ${
+                                isEditing || (sequenceOutputs.length === 0 && doneCount === 0)
+                                    ? 'text-gray-600 bg-transparent cursor-not-allowed opacity-50'
+                                    : 'text-gray-300 hover:text-red-300 bg-gray-800 hover:bg-red-950/50 border border-gray-700 hover:border-red-700/60'
+                            }`}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>{t('image_sequence.clear_outputs') || "Clear State"}</span>
+                        </button>
+                    </div>
+                )}
              </div>
 
              {/* Second Row: Toolbar (Only visible in Sequence Mode) */}
@@ -384,8 +419,12 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
 
-                            <ActionButton title={t('node.action.clear')} onClick={() => onUpdateState({ sequenceOutputs: [] })} disabled={isEditing || sequenceOutputs.length === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isEditing || sequenceOutputs.length === 0 ? 'text-gray-600' : 'text-gray-300 hover:text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <ActionButton 
+                                title={t('image_sequence.clear_outputs_tooltip') || t('node.action.clear')} 
+                                onClick={() => setShowConfirmClear(true)} 
+                                disabled={isEditing || (sequenceOutputs.length === 0 && doneCount === 0)}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isEditing || (sequenceOutputs.length === 0 && doneCount === 0) ? 'text-gray-600' : 'text-gray-300 hover:text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </ActionButton>
                             
                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
@@ -647,7 +686,17 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                 {!isSequenceMode && outputImage && <ActionButton title={t('node.action.outputToInput')} onClick={onSetOutputToInput} className="flex-shrink-0 h-[36px]"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg></ActionButton>}
             </div>
             
-             {/* No Extra Controls Row - Removed Outpainting Checkboxes Here */}
+             {/* Confirmation Dialog for Clearing Generated Images and State */}
+             <ConfirmDialog
+                 isOpen={showConfirmClear}
+                 onClose={() => setShowConfirmClear(false)}
+                 onConfirm={handleConfirmClear}
+                 title={t('dialog.confirmClearOutputs.title') || "Clear Generated Images"}
+                 message={t('dialog.confirmClearOutputs.message') || "Are you sure you want to clear all generated images and reset the generation status? This action cannot be undone."}
+                 confirmLabel={t('dialog.deleteNode.confirm') || "Yes"}
+                 cancelLabel={t('dialog.deleteNode.cancel') || "No"}
+                 confirmVariant="danger"
+             />
         </div>
     );
 };

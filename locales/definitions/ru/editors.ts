@@ -120,5 +120,7 @@ export const editors = {
     'image_sequence.shot_type.LS': "Интегрируйте Сущность с дальним планом (LS) в сцену, чтобы показать масштаб.",
     'image_sequence.tooltip.autoCrop': 'Автоматически обрезает сгенерированные изображения до соотношения 16:9.',
     'image_sequence.tooltip.autoDownload': 'Автоматически сохраняет каждое изображение на устройство после генерации.',
-    'image_sequence.tooltip.createZip': 'Упаковывает все выбранные изображения в единый ZIP-архив при скачивании.'
+    'image_sequence.tooltip.createZip': 'Упаковывает все выбранные изображения в единый ZIP-архив при скачивании.',
+    'image_sequence.clear_outputs': 'Очистить состояние',
+    'image_sequence.clear_outputs_tooltip': 'Очистить сгенерированные изображения и сбросить состояние',
 };

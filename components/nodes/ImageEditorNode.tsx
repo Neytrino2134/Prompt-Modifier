@@ -17,7 +17,7 @@ import { DEFAULT_EDITOR_STATE, ImageEditorState, ImageSlot, MIN_LEFT_PANE_WIDTH,
 import { ImageEditorLeftPane } from './image-editor/ImageEditorLeftPane';
 import { SequencedPromptListRef } from './image-editor/SequencedPromptList';
 
-export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onEditImage, onStopEdit, isEditingImage, onPasteImage, onSetImageEditorOutputToInput, connectedImageSources, t, deselectAllNodes, connectedInputs, onCopyImageToClipboard, onDownloadImage, libraryItems, onDetachImageToNode, getUpstreamNodeValues, viewTransform, setImageViewer, getFullSizeImage, setFullSizeImage, onDownloadImageFromUrl, onRefreshUpstreamData, isStopping, onCutConnections, addToast }) => {
+export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onEditImage, onStopEdit, isEditingImage, onPasteImage, onSetImageEditorOutputToInput, connectedImageSources, t, deselectAllNodes, connectedInputs, onCopyImageToClipboard, onDownloadImage, libraryItems, onDetachImageToNode, getUpstreamNodeValues, viewTransform, setImageViewer, getFullSizeImage, setFullSizeImage, onDownloadImageFromUrl, onRefreshUpstreamData, isStopping, onCutConnections, addToast, clearImagesForNodeFromCache }) => {
     const { setConnections, handleNavigateToNodeFrame, nodes: allNodes, connections } = useAppContext();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fileInputBRef = useRef<HTMLInputElement>(null);
@@ -55,6 +55,20 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         parsedValueRef.current = newValue;
         onValueChange(node.id, JSON.stringify(newValue));
     }, [onValueChange, node.id]);
+
+    const handleClearOutputs = useCallback(() => {
+        if (clearImagesForNodeFromCache) {
+            clearImagesForNodeFromCache(node.id);
+        }
+        handleValueUpdate({ 
+            sequenceOutputs: [], 
+            checkedSequenceOutputIndices: [],
+            outputImage: null 
+        });
+        if (addToast) {
+            addToast(t('toast.contentCleared') || 'Cleared', 'info');
+        }
+    }, [clearImagesForNodeFromCache, node.id, handleValueUpdate, addToast, t]);
 
     // Resizing Constraint Logic
     useEffect(() => {
@@ -1001,6 +1015,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 onEditInSource={handleEditInSource}
                 deselectAllNodes={deselectAllNodes}
                 nodeId={node.id} // Added nodeId
+                onClearOutputs={handleClearOutputs}
             />
         </div>
     );

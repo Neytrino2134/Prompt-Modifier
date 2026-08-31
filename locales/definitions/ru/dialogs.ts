@@ -86,4 +86,8 @@ export const dialogs = {
     'dialog.settings.downloadPathLabel': 'Путь для скачивания',
     'dialog.settings.selectFolder': 'Выбрать папку',
     'dialog.settings.resetPath': 'По умолчанию',
+    'dialog.confirmClearOutputs.title': 'Очистить сгенерированные изображения',
+    'dialog.confirmClearOutputs.message': 'Вы уверены, что хотите очистить все сгенерированные изображения и сбросить статус генерации? Это действие нельзя отменить.',
+    'dialog.confirmClearOutputs.confirm': 'Очистить',
+    'dialog.confirmClearOutputs.cancel': 'Отмена',
 };
