@@ -58,7 +58,14 @@ export const TaskQueuePanel: React.FC = () => {
     // Within groups, sorted by createdAt / updatedAt according to batchSortOrder ('desc' = newest first).
     const sortedBatchJobs = useMemo(() => {
         if (!Array.isArray(batchJobs)) return [];
-        const safeJobs = batchJobs.filter(j => j && typeof j === 'object');
+        const safeJobs = batchJobs
+            .filter(j => j && typeof j === 'object' && (j.id || j.name))
+            .map(j => ({
+                ...j,
+                id: j.id || j.name,
+                items: Array.isArray(j.items) ? j.items.filter(Boolean) : [],
+                state: j.state || 'UNSPECIFIED'
+            } as BatchJobRecord));
         return safeJobs.sort((a, b) => {
             const aInProgress = a.state === 'RUNNING' || a.state === 'PENDING';
             const bInProgress = b.state === 'RUNNING' || b.state === 'PENDING';
@@ -250,7 +257,7 @@ export const TaskQueuePanel: React.FC = () => {
     const completedCount = tasks.filter(t => t.status === 'completed').length;
     const failedCount = tasks.filter(t => t.status === 'failed' || t.status === 'cancelled').length;
 
-    const activeBatchJobsCount = batchJobs.filter(j => j.state === 'RUNNING' || j.state === 'PENDING').length;
+    const activeBatchJobsCount = (batchJobs || []).filter(j => j && (j.state === 'RUNNING' || j.state === 'PENDING')).length;
 
     const handleCheckBatchStatus = async (jobId: string) => {
         setCheckingJobId(jobId);
@@ -790,18 +797,20 @@ export const TaskQueuePanel: React.FC = () => {
                         </div>
                     ) : (
                         sortedBatchJobs.map(job => {
-                            const totalCount = job.items?.length || 0;
-                            const completedItems = (job.items || []).filter(it => !!it.resultUrl);
+                            const jobId = job.id || job.name;
+                            const jobItems = Array.isArray(job.items) ? job.items : [];
+                            const totalCount = jobItems.length || 0;
+                            const completedItems = jobItems.filter(it => !!it?.resultUrl);
                             const hasImages = completedItems.length > 0;
-                            const isFetchingThisJob = !!fetchingJobIds?.[job.id];
-                            const completedCount = completedItems.length || (job.state === 'SUCCEEDED' ? totalCount : job.items?.filter(it => it.status === 'completed')?.length || 0);
+                            const isFetchingThisJob = !!fetchingJobIds?.[jobId];
+                            const completedCount = completedItems.length || (job.state === 'SUCCEEDED' ? totalCount : jobItems.filter(it => it?.status === 'completed')?.length || 0);
                             const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : (job.state === 'SUCCEEDED' ? 100 : 20);
-                            const isExpanded = !!expandedBatchJobIds[job.id];
-                            const isDownloadingThisZip = downloadingZipJobId === job.id;
+                            const isExpanded = !!expandedBatchJobIds[jobId];
+                            const isDownloadingThisZip = downloadingZipJobId === jobId;
 
                             return (
                                 <div
-                                    key={job.id}
+                                    key={jobId}
                                     className={`p-3 rounded-lg bg-gray-900 border transition-all ${
                                         job.state === 'RUNNING'
                                             ? 'border-amber-600/60 shadow-lg shadow-amber-950/20 ring-1 ring-amber-500/30'
@@ -831,7 +840,7 @@ export const TaskQueuePanel: React.FC = () => {
                                                 </button>
                                             </div>
                                             <span className="text-[10px] text-gray-500 font-mono truncate">
-                                                ID: {job.name || job.id.slice(0, 16)}
+                                                ID: {job.name || jobId.slice(0, 16)}
                                             </span>
                                         </div>
                                         <div>{getBatchStatusBadge(job.state)}</div>
@@ -870,7 +879,7 @@ export const TaskQueuePanel: React.FC = () => {
                                     {job.state === 'SUCCEEDED' && !hasImages && (
                                         <div className="mt-2.5 pt-2 border-t border-gray-800/60">
                                             <button
-                                                onClick={() => fetchBatchJobResults(job.id)}
+                                                onClick={() => fetchBatchJobResults(jobId)}
                                                 disabled={isFetchingThisJob}
                                                 className="w-full py-1.5 px-3 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
                                             >
@@ -898,7 +907,7 @@ export const TaskQueuePanel: React.FC = () => {
                                     {hasImages && (
                                         <div className="mt-2.5 pt-2 border-t border-gray-800/60 flex flex-wrap items-center gap-1.5">
                                             <button
-                                                onClick={() => handleDownloadBatchZip(job)}
+                                                onClick={() => handleDownloadBatchZip({ ...job, id: jobId, items: jobItems })}
                                                 disabled={isDownloadingThisZip}
                                                 className="px-2 py-1 rounded bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[11px] font-medium flex items-center gap-1 transition-colors disabled:opacity-50"
                                                 title={t('batch.downloadAllZip') || 'Скачать все изображения в ZIP'}
@@ -917,7 +926,7 @@ export const TaskQueuePanel: React.FC = () => {
                                             </button>
 
                                             <button
-                                                onClick={() => handleSendToBatchInput(job)}
+                                                onClick={() => handleSendToBatchInput({ ...job, id: jobId, items: jobItems })}
                                                 className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[11px] font-medium flex items-center gap-1 transition-colors"
                                                 title={t('batch.sendToImageInput') || 'Отправить в узел Image Input (Batch mode)'}
                                             >
@@ -928,7 +937,7 @@ export const TaskQueuePanel: React.FC = () => {
                                             </button>
 
                                             <button
-                                                onClick={() => toggleExpandBatchJob(job.id)}
+                                                onClick={() => toggleExpandBatchJob(jobId)}
                                                 className="ml-auto px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[11px] font-medium flex items-center gap-1 transition-colors"
                                             >
                                                 <svg className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -1008,11 +1017,11 @@ export const TaskQueuePanel: React.FC = () => {
                                             {(job.state === 'RUNNING' || job.state === 'PENDING') && (
                                                 <>
                                                     <button
-                                                        onClick={() => handleCheckBatchStatus(job.id)}
-                                                        disabled={checkingJobId === job.id}
+                                                        onClick={() => handleCheckBatchStatus(jobId)}
+                                                        disabled={checkingJobId === jobId}
                                                         className="px-2 py-0.5 rounded bg-amber-900/40 hover:bg-amber-800/60 text-amber-200 transition-colors flex items-center gap-1 text-[10px]"
                                                     >
-                                                        {checkingJobId === job.id && (
+                                                        {checkingJobId === jobId && (
                                                             <svg className="animate-spin h-2.5 w-2.5 text-amber-300" viewBox="0 0 24 24">
                                                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -1021,7 +1030,7 @@ export const TaskQueuePanel: React.FC = () => {
                                                         <span>{t('batch.pollNow') || 'Check'}</span>
                                                     </button>
                                                     <button
-                                                        onClick={() => cancelBatchJob(job.id)}
+                                                        onClick={() => cancelBatchJob(jobId)}
                                                         className="px-2 py-0.5 rounded bg-red-900/50 hover:bg-red-900 text-red-200 transition-colors text-[10px]"
                                                     >
                                                         {t('queue.cancel') || 'Cancel'}
@@ -1030,7 +1039,7 @@ export const TaskQueuePanel: React.FC = () => {
                                             )}
 
                                             <button
-                                                onClick={() => deleteBatchJob(job.id)}
+                                                onClick={() => deleteBatchJob(jobId)}
                                                 className="p-1 rounded text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
                                                 title={t('queue.remove') || 'Remove'}
                                             >

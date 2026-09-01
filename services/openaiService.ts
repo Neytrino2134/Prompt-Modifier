@@ -287,6 +287,8 @@ export const generateOpenAiImage = async (
 // ==========================================
 
 const STORAGE_KEY_OPENAI_BATCH_JOBS = 'openai_batch_store_v1';
+const OPENAI_BATCH_ENDPOINT = '/v1/responses';
+const OPENAI_RESPONSES_IMAGE_MODEL = 'gpt-5.6';
 
 interface StoredOpenAiBatch {
     id: string;
@@ -309,6 +311,87 @@ interface StoredOpenAiBatch {
         error?: string;
     }[];
 }
+
+const normalizeOpenAiBatchError = (value: any, fallback: string): string => {
+    if (!value) return fallback;
+    if (typeof value === 'string') return value;
+    if (value.message && typeof value.message === 'string') return value.message;
+    if (Array.isArray(value.data)) {
+        const messages = value.data
+            .map((err: any) => err?.message || err?.code)
+            .filter(Boolean);
+        if (messages.length > 0) return messages.join('; ');
+    }
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return fallback;
+    }
+};
+
+const buildDataUrlFromOpenAiBatchBody = (body: any): string | undefined => {
+    const legacyB64 = body?.data?.[0]?.b64_json;
+    if (legacyB64) return `data:image/png;base64,${legacyB64}`;
+
+    const legacyUrl = body?.data?.[0]?.url;
+    if (legacyUrl) return legacyUrl;
+
+    const output = Array.isArray(body?.output) ? body.output : [];
+    const imageCall = output.find((item: any) => item?.type === 'image_generation_call' && item?.result);
+    if (imageCall?.result) {
+        const format = body?.metadata?.output_format || 'png';
+        return `data:image/${format};base64,${imageCall.result}`;
+    }
+
+    return undefined;
+};
+
+const buildOpenAiBatchResponseBody = (
+    item: {
+        prompt: string;
+        aspectRatio?: string;
+        size?: string;
+        quality?: string;
+        outputFormat?: string;
+        images?: { base64ImageData: string; mimeType: string }[];
+    },
+    targetModel: string
+): Record<string, any> => {
+    const size = mapAspectRatioToOpenAiSize(item.aspectRatio, targetModel, item.size);
+    const quality = item.quality || 'auto';
+    const outputFormat = item.outputFormat || 'png';
+    const inputImages = item.images || [];
+    const content: any[] = [{ type: 'input_text', text: item.prompt || 'Generate a high quality image.' }];
+
+    inputImages.forEach(img => {
+        if (img?.base64ImageData) {
+            content.push({
+                type: 'input_image',
+                image_url: `data:${img.mimeType || 'image/png'};base64,${img.base64ImageData}`,
+                detail: 'auto'
+            });
+        }
+    });
+
+    return {
+        model: OPENAI_RESPONSES_IMAGE_MODEL,
+        input: inputImages.length > 0
+            ? [{ role: 'user', content }]
+            : (item.prompt || 'Generate a high quality image.'),
+        tools: [{
+            type: 'image_generation',
+            model: targetModel,
+            action: inputImages.length > 0 ? 'edit' : 'generate',
+            size,
+            quality,
+            output_format: outputFormat
+        }],
+        metadata: {
+            requested_image_model: targetModel,
+            output_format: outputFormat
+        }
+    };
+};
 
 const getStoredOpenAiBatches = (): StoredOpenAiBatch[] => {
     try {
@@ -369,32 +452,18 @@ export const createOpenAiBatchImageJob = async (
 
     // Attempt OpenAI native Batch API file upload & batch creation
     let nativeBatchId: string | undefined = undefined;
+    let nativeBatchCreationError: string | undefined = undefined;
 
-    try {
+    if (isGptImage2) {
+      try {
         // Construct jsonl lines for OpenAI Batch API
         const jsonlLines = items.map((item, idx) => {
-            const size = mapAspectRatioToOpenAiSize(item.aspectRatio, targetModel, item.size);
-            const quality = item.quality || (isGptImage2 ? 'auto' : 'hd');
-            const body: any = {
-                model: targetModel,
-                prompt: item.prompt,
-                n: 1,
-                size,
-            };
-            if (isGptImage2) {
-                body.quality = quality;
-                if (item.outputFormat) body.output_format = item.outputFormat;
-            } else {
-                body.response_format = 'b64_json';
-                if (targetModel === 'dall-e-3') {
-                    body.quality = quality === 'auto' ? 'hd' : quality;
-                }
-            }
+            const body = buildOpenAiBatchResponseBody(item, targetModel);
 
             return JSON.stringify({
                 custom_id: `${batchInternalId}__${item.id || idx}`,
                 method: "POST",
-                url: "/v1/images/generations",
+                url: OPENAI_BATCH_ENDPOINT,
                 body
             });
         });
@@ -421,7 +490,7 @@ export const createOpenAiBatchImageJob = async (
                     },
                     body: JSON.stringify({
                         input_file_id: fileData.id,
-                        endpoint: '/v1/images/generations',
+                        endpoint: OPENAI_BATCH_ENDPOINT,
                         completion_window: '24h'
                     })
                 });
@@ -431,18 +500,31 @@ export const createOpenAiBatchImageJob = async (
                     if (batchData?.id) {
                         nativeBatchId = batchData.id;
                     }
+                } else {
+                    const errorData = await batchRes.json().catch(() => null);
+                    nativeBatchCreationError = normalizeOpenAiBatchError(errorData?.error || errorData, `OpenAI Batch API returned status ${batchRes.status}`);
                 }
             }
+        } else {
+            const errorData = await fileRes.json().catch(() => null);
+            nativeBatchCreationError = normalizeOpenAiBatchError(errorData?.error || errorData, `OpenAI file upload returned status ${fileRes.status}`);
         }
-    } catch (e) {
-        console.warn("OpenAI native Batch API not available or file upload rejected, using asynchronous delayed batch processing:", e);
+      } catch (e: any) {
+        nativeBatchCreationError = e?.message || String(e);
+      }
+
+      if (!nativeBatchId) {
+        throw new Error(`OpenAI Batch API job was not created: ${nativeBatchCreationError || 'unknown error'}`);
+      }
+    } else {
+        console.warn("OpenAI native Batch API is only wired for GPT Image models. Falling back to local delayed queue for this legacy model.");
     }
 
     const newBatch: StoredOpenAiBatch = {
         id: batchInternalId,
         model,
         displayName: displayName || `OpenAI Batch (${model})`,
-        state: 'RUNNING',
+        state: nativeBatchId ? 'PENDING' : 'RUNNING',
         createdAt: Date.now(),
         updatedAt: Date.now(),
         nativeBatchId,
@@ -462,12 +544,15 @@ export const createOpenAiBatchImageJob = async (
     batches.push(newBatch);
     saveStoredOpenAiBatches(batches);
 
-    // If running in local background runner, kick off first processing step
-    triggerNextOpenAiBatchItem(batchInternalId).catch(console.error);
+    // Only the local fallback runner executes requests itself. Native OpenAI
+    // Batch jobs must wait for OpenAI's discounted asynchronous pipeline.
+    if (!nativeBatchId) {
+        triggerNextOpenAiBatchItem(batchInternalId).catch(console.error);
+    }
 
     return {
         name: batchInternalId,
-        state: 'JOB_STATE_RUNNING'
+        state: nativeBatchId ? 'JOB_STATE_PENDING' : 'JOB_STATE_RUNNING'
     };
 };
 
@@ -506,16 +591,15 @@ export const getOpenAiBatchJobStatus = async (jobName: string): Promise<any> => 
                                     const parsed = JSON.parse(line);
                                     const customId = parsed.custom_id || '';
                                     const itemId = customId.includes('__') ? customId.split('__')[1] : customId;
-                                    const b64 = parsed.response?.body?.data?.[0]?.b64_json;
-                                    const url = parsed.response?.body?.data?.[0]?.url;
                                     const item = batch.items.find(it => it.id === itemId);
                                     if (item) {
-                                        if (b64) {
-                                            item.resultUrl = `data:image/png;base64,${b64}`;
+                                        const resultUrl = buildDataUrlFromOpenAiBatchBody(parsed.response?.body);
+                                        if (resultUrl) {
+                                            item.resultUrl = resultUrl;
                                             item.status = 'completed';
-                                        } else if (url) {
-                                            item.resultUrl = url;
-                                            item.status = 'completed';
+                                        } else if (parsed.error || parsed.response?.body?.error) {
+                                            item.error = normalizeOpenAiBatchError(parsed.error || parsed.response?.body?.error, 'OpenAI batch item failed');
+                                            item.status = 'failed';
                                         }
                                     }
                                 } catch {}
@@ -530,11 +614,16 @@ export const getOpenAiBatchJobStatus = async (jobName: string): Promise<any> => 
                     batch.state = 'FAILED';
                     batch.updatedAt = Date.now();
                     saveStoredOpenAiBatches(batches);
-                    return { state: 'JOB_STATE_FAILED', error: { message: batchStatus.errors || 'Batch job failed' }, batch };
+                    return { state: 'JOB_STATE_FAILED', error: { message: normalizeOpenAiBatchError(batchStatus.errors, 'Batch job failed') }, batch };
                 } else if (status === 'cancelled') {
                     batch.state = 'CANCELLED';
                     saveStoredOpenAiBatches(batches);
                     return { state: 'JOB_STATE_CANCELLED', batch };
+                } else {
+                    batch.state = status === 'validating' ? 'PENDING' : 'RUNNING';
+                    batch.updatedAt = Date.now();
+                    saveStoredOpenAiBatches(batches);
+                    return { state: batch.state === 'PENDING' ? 'JOB_STATE_PENDING' : 'JOB_STATE_RUNNING', batch };
                 }
             }
         } catch (e) {

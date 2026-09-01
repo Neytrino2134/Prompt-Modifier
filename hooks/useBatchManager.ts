@@ -153,6 +153,31 @@ export const useBatchManager = ({
         return 'PENDING';
     };
 
+    const extractBatchPromptText = (req: any, idx: number): string => {
+        const geminiPrompt = req?.contents?.[0]?.parts?.find((p: any) => p?.text)?.text;
+        if (geminiPrompt) return geminiPrompt;
+
+        const responseInput = req?.body?.input ?? req?.input;
+        if (typeof responseInput === 'string' && responseInput.trim()) return responseInput;
+        if (Array.isArray(responseInput)) {
+            for (const inputItem of responseInput) {
+                const content = Array.isArray(inputItem?.content) ? inputItem.content : [];
+                const textPart = content.find((p: any) => p?.type === 'input_text' && p?.text);
+                if (textPart?.text) return textPart.text;
+            }
+        }
+
+        return `Batch Item #${idx + 1}`;
+    };
+
+    const extractBatchAspectRatio = (req: any): string | undefined => {
+        return req?.config?.imageConfig?.aspectRatio || req?.body?.metadata?.aspectRatio;
+    };
+
+    const extractBatchResolution = (req: any): string | undefined => {
+        return req?.config?.imageConfig?.imageSize || req?.body?.tools?.[0]?.size || req?.body?.metadata?.size;
+    };
+
     // 3. Explicit on-demand Download of Completed Batch Job Results from Server
     const fetchBatchJobResults = useCallback(async (jobIdOrName: string, options?: { forceRestore?: boolean }) => {
         const job = batchJobsRef.current.find(j => j.id === jobIdOrName || j.name === jobIdOrName);
@@ -383,7 +408,7 @@ export const useBatchManager = ({
                         // If remote metadata lists inlinedRequests, populate accurate count/prompts
                         if (sdkJob.src?.inlinedRequests && Array.isArray(sdkJob.src.inlinedRequests) && sdkJob.src.inlinedRequests.length > updatedItems.length) {
                             updatedItems = sdkJob.src.inlinedRequests.map((req: any, idx: number) => {
-                                const promptText = req.contents?.[0]?.parts?.find((p: any) => p.text)?.text || `Batch Item #${idx + 1}`;
+                                const promptText = extractBatchPromptText(req, idx);
                                 const existing = j.items[idx];
                                 return existing || {
                                     id: `item-${idx}`,
@@ -521,13 +546,13 @@ export const useBatchManager = ({
 
                         if (rJob.src?.inlinedRequests && Array.isArray(rJob.src.inlinedRequests)) {
                             rJob.src.inlinedRequests.forEach((req: any, idx: number) => {
-                                const promptText = req.contents?.[0]?.parts?.find((p: any) => p.text)?.text || `Batch Item #${idx + 1}`;
+                                const promptText = extractBatchPromptText(req, idx);
                                 items.push({
                                     id: `item-${idx}`,
                                     frameIndex: idx,
                                     prompt: promptText,
-                                    aspectRatio: req.config?.imageConfig?.aspectRatio || '1:1',
-                                    resolution: req.config?.imageConfig?.imageSize || '1K',
+                                    aspectRatio: extractBatchAspectRatio(req) || '1:1',
+                                    resolution: extractBatchResolution(req) || '1K',
                                     status: (mappedState === 'SUCCEEDED' ? 'completed' : (mappedState === 'FAILED' ? 'failed' : 'queued')) as TaskStatus
                                 });
                             });
