@@ -11,6 +11,7 @@ release/
 build/
 out/
 .cache/
+.vite/
 .parcel-cache/
 .eslintcache/
 
