@@ -133,7 +133,11 @@ export const processImageEditor = async (
         // WRAP GENERATION IN RACE WITH ABORT SIGNAL
         // Note: Chain execution passes an undefined signal usually, or we need to handle it.
         // For this refactor, we assume simple execution unless the hook provides a signal.
-        const imageUrl = await generateImage(promptToUse, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution);
+        const imageUrl = await generateImage(promptToUse, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution, {
+            quality: parsed.quality,
+            outputFormat: parsed.outputFormat,
+            size: parsed.size
+        });
         
         let finalImageUrl = imageUrl;
         if (parsed.autoCrop169) {
@@ -203,7 +207,11 @@ export const processImageEditor = async (
          promptToUse = outpaintingTemplate.replace('{main_prompt}', promptToUse);
     }
 
-    const imageUrl = await generateImage(promptToUse, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution);
+    const imageUrl = await generateImage(promptToUse, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution, {
+        quality: parsed.quality,
+        outputFormat: parsed.outputFormat,
+        size: parsed.size
+    });
     
     let finalImageUrl = imageUrl;
     if (parsed.autoCrop169) {

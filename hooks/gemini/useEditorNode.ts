@@ -128,21 +128,25 @@ export const useEditorNode = ({
         const localImages = (parsed.inputImages || []).map((thumbnailUrl: string, index: number) => {
              const fullRes = getFullSizeImage(node.id, index + 1);
              const imgDataUrl = fullRes || thumbnailUrl;
+             if (!imgDataUrl || typeof imgDataUrl !== 'string') return null;
+             const parts = imgDataUrl.includes(',') ? imgDataUrl.split(',') : ['', imgDataUrl];
              return {
-                 base64ImageData: imgDataUrl.split(',')[1],
+                 base64ImageData: parts[1] || parts[0],
                  mimeType: imgDataUrl.match(/:(.*?);/)?.[1] || 'image/png'
              };
-        });
+        }).filter(Boolean) as { base64ImageData: string; mimeType: string }[];
         
         // Prepare local inputs B
         const localImagesB = (parsed.inputImagesB || []).map((thumbnailUrl: string, index: number) => {
              const fullRes = getFullSizeImage(node.id, 2000 + index + 1); 
              const imgDataUrl = fullRes || thumbnailUrl;
+             if (!imgDataUrl || typeof imgDataUrl !== 'string') return null;
+             const parts = imgDataUrl.includes(',') ? imgDataUrl.split(',') : ['', imgDataUrl];
              return {
-                 base64ImageData: imgDataUrl.split(',')[1],
+                 base64ImageData: parts[1] || parts[0],
                  mimeType: imgDataUrl.match(/:(.*?);/)?.[1] || 'image/png'
              };
-        });
+        }).filter(Boolean) as { base64ImageData: string; mimeType: string }[];
 
         const allInputImages = [...imageInputs, ...localImages];
         const allInputImagesB = [...imageInputsB, ...localImagesB];
@@ -196,7 +200,12 @@ export const useEditorNode = ({
                     if (parsed.isSequentialEditingWithPrompts) {
                         imagesForFrame = allInputImagesB;
                     } else {
-                        const imgA = allInputImages[i];
+                        let imgA = allInputImages[i];
+                        if (!imgA && allInputImages.length === 1) {
+                            imgA = allInputImages[0];
+                        } else if (!imgA && parsed.checkedInputIndices && parsed.checkedInputIndices.length === 1) {
+                            imgA = allInputImages[parsed.checkedInputIndices[0]];
+                        }
                         if (!imgA && parsed.model !== 'gemini-3-pro-image-preview') continue;
                         if (imgA) imagesForFrame = [imgA];
                         
@@ -342,7 +351,12 @@ export const useEditorNode = ({
                 if (parsed.isSequentialEditingWithPrompts) {
                     imagesForFrame = allInputImagesB;
                 } else {
-                    const imgA = allInputImages[i];
+                    let imgA = allInputImages[i];
+                    if (!imgA && allInputImages.length === 1) {
+                        imgA = allInputImages[0];
+                    } else if (!imgA && parsed.checkedInputIndices && parsed.checkedInputIndices.length === 1) {
+                        imgA = allInputImages[parsed.checkedInputIndices[0]];
+                    }
                     if (!imgA && parsed.model !== 'gemini-3-pro-image-preview') continue;
                     if (imgA) imagesForFrame = [imgA];
                     
