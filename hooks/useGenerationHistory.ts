@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { recordGenerationEvent, syncWithHistoryItems } from '../utils/generationStats';
+import { generateThumbnail } from '../utils/imageUtils';
 
 export interface HistoryItem {
   id: string;
   url: string;
+  thumbnailUrl?: string;
   prompt: string;
   timestamp: number;
   model?: string;
@@ -67,6 +69,44 @@ export const useGenerationHistory = () => {
 
         // Sync existing history with persistent stats log
         syncWithHistoryItems(limitedItems);
+
+        // Asynchronously generate and backfill 128x128 thumbnails for older items missing them
+        const missingThumbs = limitedItems.filter(item => !item.thumbnailUrl && item.url);
+        if (missingThumbs.length > 0) {
+          Promise.all(
+            missingThumbs.map(async (item) => {
+              try {
+                const thumb = await generateThumbnail(item.url, 128, 128);
+                return { id: item.id, thumb };
+              } catch {
+                return null;
+              }
+            })
+          ).then(async (results) => {
+            const valid = results.filter((r): r is { id: string; thumb: string } => r !== null);
+            if (valid.length > 0) {
+              const thumbMap = new Map(valid.map(v => [v.id, v.thumb]));
+              setHistoryItems(prev => prev.map(item => thumbMap.has(item.id) ? { ...item, thumbnailUrl: thumbMap.get(item.id) } : item));
+              
+              try {
+                const db2 = await getDB();
+                const writeTx = db2.transaction([STORE_NAME], 'readwrite');
+                const writeStore = writeTx.objectStore(STORE_NAME);
+                for (const { id, thumb } of valid) {
+                  const getReq = writeStore.get(id);
+                  getReq.onsuccess = () => {
+                    if (getReq.result) {
+                      getReq.result.thumbnailUrl = thumb;
+                      writeStore.put(getReq.result);
+                    }
+                  };
+                }
+              } catch (err) {
+                console.warn("Could not backfill thumbnails in DB:", err);
+              }
+            }
+          });
+        }
       };
     } catch (e) {
       console.error("Failed to load generation history", e);
@@ -110,9 +150,19 @@ export const useGenerationHistory = () => {
       resolution = resolutionArg;
     }
 
+    // Generate 128x128 compressed thumbnail for fast virtualized list rendering
+    let thumbnailUrl: string | undefined;
+    try {
+      thumbnailUrl = await generateThumbnail(url, 128, 128);
+    } catch (e) {
+      console.warn("Failed to generate history thumbnail:", e);
+      thumbnailUrl = url;
+    }
+
     const newItem: HistoryItem = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       url,
+      thumbnailUrl: thumbnailUrl || url,
       prompt,
       timestamp: Date.now(),
       model: model || undefined,

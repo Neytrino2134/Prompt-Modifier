@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ImageBatchItem, ImageBatchSubMode, ImageInputCropRect, ImageInputGridConfig } from './types';
 import { ActionButton } from '../../ActionButton';
 
@@ -49,6 +49,61 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
     onSyncFromUpstream
 }) => {
     const multiFileInputRef = useRef<HTMLInputElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    
+    // Horizontal Virtualization State
+    const [scrollLeft, setScrollLeft] = useState(0);
+    const [containerWidth, setContainerWidth] = useState(400);
+
+    useEffect(() => {
+        if (!scrollContainerRef.current) return;
+        const observer = new ResizeObserver((entries) => {
+            if (entries[0]) {
+                setContainerWidth(entries[0].contentRect.width);
+            }
+        });
+        observer.observe(scrollContainerRef.current);
+        return () => observer.disconnect();
+    }, [batchFiles.length]);
+
+    const handleWheelScroll = (e: React.WheelEvent<HTMLDivElement>) => {
+        e.stopPropagation();
+        if (scrollContainerRef.current) {
+            // Translate vertical wheel scroll to horizontal scrolling
+            const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+            scrollContainerRef.current.scrollLeft += delta;
+        }
+    };
+
+    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        setScrollLeft(e.currentTarget.scrollLeft);
+    }, []);
+
+    // Item size calculations: 64px width + 6px gap = 70px per item slot
+    const ITEM_WIDTH = 64;
+    const ITEM_GAP = 6;
+    const SLOT_WIDTH = ITEM_WIDTH + ITEM_GAP;
+    const totalContentWidth = batchFiles.length > 0 ? (batchFiles.length * SLOT_WIDTH - ITEM_GAP) : 0;
+
+    const visibleItems = useMemo(() => {
+        if (batchFiles.length === 0) return [];
+        const buffer = 300; // Extra buffer in pixels for super smooth horizontal scroll
+        const visibleStart = Math.max(0, scrollLeft - buffer);
+        const visibleEnd = scrollLeft + containerWidth + buffer;
+
+        const startIndex = Math.max(0, Math.floor(visibleStart / SLOT_WIDTH));
+        const endIndex = Math.min(batchFiles.length - 1, Math.ceil(visibleEnd / SLOT_WIDTH));
+
+        const items = [];
+        for (let i = startIndex; i <= endIndex; i++) {
+            items.push({
+                file: batchFiles[i],
+                index: i,
+                left: i * SLOT_WIDTH
+            });
+        }
+        return items;
+    }, [batchFiles, scrollLeft, containerWidth, SLOT_WIDTH]);
 
     const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -239,65 +294,83 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                 )}
             </div>
 
-            {/* Reference Carousel / File Strip (Compact) */}
+            {/* Virtualized Reference Carousel / File Strip (Scrolls with mouse wheel) */}
             {batchFiles.length > 0 && (
                 <div className="w-full flex flex-col gap-1">
                     <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
                         <span>
                             Пример для настройки: <b className="text-cyan-300">#{selectedReferenceIndex + 1} ({batchFiles[selectedReferenceIndex]?.name})</b>
                         </span>
-                        <span className="text-[10px] text-gray-500">Кликните на изображение, чтобы выбрать его как пример</span>
+                        <span className="text-[10px] text-gray-500">Колесико мыши: прокрутка списка • Клик: выбор примера</span>
                     </div>
 
-                    <div className="w-full flex gap-1.5 overflow-x-auto p-1.5 bg-gray-950/70 border border-gray-800 rounded-md custom-scrollbar max-h-24">
-                        {batchFiles.map((file, idx) => {
-                            const isRef = idx === selectedReferenceIndex;
-                            return (
-                                <div
-                                    key={file.id || idx}
-                                    onClick={() => onSelectReferenceIndex(idx)}
-                                    className={`relative flex-shrink-0 w-16 h-16 rounded overflow-hidden cursor-pointer group transition-all ${
-                                        isRef
-                                            ? 'ring-2 ring-cyan-400 border-transparent shadow-md scale-105'
-                                            : 'border border-gray-700/80 hover:border-gray-500 opacity-70 hover:opacity-100'
-                                    }`}
-                                    title={`#${idx + 1}: ${file.name}`}
-                                >
-                                    <img
-                                        src={file.dataUrl}
-                                        alt={file.name}
-                                        className="w-full h-full object-cover pointer-events-none"
-                                    />
+                    <div 
+                        ref={scrollContainerRef}
+                        onWheel={handleWheelScroll}
+                        onScroll={handleScroll}
+                        className="w-full overflow-x-auto overflow-y-hidden p-1.5 bg-gray-950/70 border border-gray-800 rounded-md custom-scrollbar h-[76px] relative"
+                    >
+                        <div 
+                            style={{ width: `${totalContentWidth}px`, height: '64px', position: 'relative' }}
+                        >
+                            {visibleItems.map(({ file, index: idx, left }) => {
+                                const isRef = idx === selectedReferenceIndex;
+                                return (
+                                    <div
+                                        key={file.id || idx}
+                                        onClick={() => onSelectReferenceIndex(idx)}
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${left}px`,
+                                            top: 0,
+                                            width: `${ITEM_WIDTH}px`,
+                                            height: `${ITEM_WIDTH}px`,
+                                        }}
+                                        className={`rounded overflow-hidden cursor-pointer group transition-all ${
+                                            isRef
+                                                ? 'ring-2 ring-cyan-400 border-transparent shadow-md scale-105 z-10'
+                                                : 'border border-gray-700/80 hover:border-gray-500 opacity-70 hover:opacity-100'
+                                        }`}
+                                        title={`#${idx + 1}: ${file.name}`}
+                                    >
+                                        {/* Uses 128x128 compressed thumbnail for super fast rendering, original dataUrl is preserved for full resolution batch processing */}
+                                        <img
+                                            src={file.thumbnailUrl || file.dataUrl}
+                                            alt={file.name}
+                                            loading="lazy"
+                                            className="w-full h-full object-cover pointer-events-none select-none"
+                                        />
 
-                                    {/* Number & Ref Badge */}
-                                    <div className="absolute top-0.5 left-0.5 bg-black/80 text-cyan-300 text-[8px] font-mono px-1 rounded">
-                                        {isRef ? '★ Ref' : `#${idx + 1}`}
+                                        {/* Number & Ref Badge */}
+                                        <div className="absolute top-0.5 left-0.5 bg-black/80 text-cyan-300 text-[8px] font-mono px-1 rounded z-10">
+                                            {isRef ? '★ Ref' : `#${idx + 1}`}
+                                        </div>
+
+                                        {/* Delete Button on Hover */}
+                                        {!isProcessing && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onRemoveBatchFile(idx);
+                                                }}
+                                                className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-600/90 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow z-10"
+                                                title="Удалить из пакета"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        )}
+
+                                        {/* Filename bottom banner */}
+                                        <div className="absolute bottom-0 inset-x-0 bg-black/80 text-gray-300 text-[7px] truncate px-0.5 py-0.2 text-center font-mono">
+                                            {file.name}
+                                        </div>
                                     </div>
-
-                                    {/* Delete Button on Hover */}
-                                    {!isProcessing && (
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onRemoveBatchFile(idx);
-                                            }}
-                                            className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-600/90 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
-                                            title="Удалить из пакета"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    )}
-
-                                    {/* Filename bottom banner */}
-                                    <div className="absolute bottom-0 inset-x-0 bg-black/80 text-gray-300 text-[7px] truncate px-0.5 py-0.2 text-center font-mono">
-                                        {file.name}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}

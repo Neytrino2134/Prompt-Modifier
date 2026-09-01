@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import JSZip from 'jszip';
 import { setupImageDragData, getImageTimestampString } from '../../../utils/imageUtils';
 import { ActionButton } from '../../ActionButton';
@@ -25,6 +25,15 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
 }) => {
     const [isZipping, setIsZipping] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const handleWheelScroll = (e: React.WheelEvent<HTMLDivElement>) => {
+        e.stopPropagation();
+        if (scrollContainerRef.current) {
+            const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+            scrollContainerRef.current.scrollLeft += delta;
+        }
+    };
 
     const handleDownloadAllZip = async () => {
         if (!slices || slices.length === 0) return;
@@ -131,7 +140,11 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
             </div>
 
             {/* Slices Carousel / Grid */}
-            <div className="w-full flex gap-2 overflow-x-auto p-1 bg-gray-950/70 border border-gray-800 rounded-md custom-scrollbar max-h-32">
+            <div 
+                ref={scrollContainerRef}
+                onWheel={handleWheelScroll}
+                className="w-full flex gap-2 overflow-x-auto p-1 bg-gray-950/70 border border-gray-800 rounded-md custom-scrollbar max-h-32"
+            >
                 {slices.map((sliceUrl, idx) => {
                     const row = Math.floor(idx / cols) + 1;
                     const col = (idx % cols) + 1;

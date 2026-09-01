@@ -337,10 +337,17 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const file = fileArray[i];
             try {
                 const dataUrl = await readFileAsDataURL(file);
+                let thumbnailUrl: string | undefined;
+                try {
+                    thumbnailUrl = await generateThumbnail(dataUrl, 128, 128);
+                } catch {
+                    thumbnailUrl = dataUrl;
+                }
                 newItems.push({
                     id: `batch-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
                     name: file.name,
                     dataUrl,
+                    thumbnailUrl,
                     size: file.size
                 });
             } catch (e) {
@@ -421,11 +428,20 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         const imgs = forcedImages || upstreamImages;
         if (imgs.length === 0) return;
 
-        const newItems: ImageBatchItem[] = imgs.map((dataUrl, i) => ({
-            id: `upstream-batch-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 5)}`,
-            name: `Sequence_Frame_${String(i + 1).padStart(3, '0')}.png`,
-            dataUrl,
-            size: Math.round(dataUrl.length * 0.75)
+        const newItems: ImageBatchItem[] = await Promise.all(imgs.map(async (dataUrl, i) => {
+            let thumbnailUrl: string | undefined;
+            try {
+                thumbnailUrl = await generateThumbnail(dataUrl, 128, 128);
+            } catch {
+                thumbnailUrl = dataUrl;
+            }
+            return {
+                id: `upstream-batch-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 5)}`,
+                name: `Sequence_Frame_${String(i + 1).padStart(3, '0')}.png`,
+                dataUrl,
+                thumbnailUrl,
+                size: Math.round(dataUrl.length * 0.75)
+            };
         }));
 
         setBatchFiles(newItems);

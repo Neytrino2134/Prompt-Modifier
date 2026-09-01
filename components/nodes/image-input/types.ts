@@ -23,6 +23,7 @@ export interface ImageBatchItem {
     id: string;
     name: string;
     dataUrl: string;
+    thumbnailUrl?: string;
     width?: number;
     height?: number;
     size?: number;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { Tooltip } from './Tooltip';
 import { getModelDisplayName, setupImageDragData } from '../utils/imageUtils';
@@ -15,6 +15,55 @@ export const HistoryPanel: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Virtualization State
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(384);
+  const [containerHeight, setContainerHeight] = useState(600);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      if (entries[0]) {
+        setContainerWidth(entries[0].contentRect.width);
+        setContainerHeight(entries[0].contentRect.height);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [activeTab, isHistoryPanelOpen]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  }, []);
+
+  // Card & Virtual slot calculations
+  const GAP = 16;
+  const cardWidth = Math.max(180, containerWidth - 24); // container padding p-3 (12px * 2)
+  const cardHeight = cardWidth + 32 + 70; // Header 32px + Square Image + Prompt footer ~70px
+  const slotHeight = cardHeight + GAP;
+  const totalVirtualHeight = historyItems.length > 0 ? (historyItems.length * slotHeight - GAP) : 0;
+
+  const visibleItems = useMemo(() => {
+    if (historyItems.length === 0) return [];
+    const buffer = 600; // Extra buffer (px) for smooth scrolling
+    const visibleStart = Math.max(0, scrollTop - buffer);
+    const visibleEnd = scrollTop + containerHeight + buffer;
+
+    const startIndex = Math.max(0, Math.floor(visibleStart / slotHeight));
+    const endIndex = Math.min(historyItems.length - 1, Math.ceil(visibleEnd / slotHeight));
+
+    const items = [];
+    for (let i = startIndex; i <= endIndex; i++) {
+      items.push({
+        item: historyItems[i],
+        index: i,
+        top: i * slotHeight,
+      });
+    }
+    return items;
+  }, [historyItems, scrollTop, containerHeight, slotHeight]);
 
   useEffect(() => {
     const handleOpenStats = () => {
@@ -51,6 +100,7 @@ export const HistoryPanel: React.FC = () => {
   const handleDragStart = (e: React.DragEvent<HTMLImageElement>, url: string, prompt: string) => {
     const safeName = (prompt || 'image').slice(0, 40).replace(/[^a-z0-9]/gi, '_');
     const filename = `${safeName}.png`;
+    // Always use full-resolution original image for dragging to canvas or external apps
     setupImageDragData(e, url, filename, prompt);
   };
 
@@ -238,8 +288,12 @@ export const HistoryPanel: React.FC = () => {
               </button>
             </div>
 
-            {/* Grid */}
-            <div className="flex-1 overflow-y-auto p-3 bg-gray-950">
+            {/* Virtualized List Container */}
+            <div 
+              ref={containerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto p-3 bg-gray-950 relative"
+            >
               {historyItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-500">
                   <svg className="w-12 h-12 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1">
@@ -248,15 +302,25 @@ export const HistoryPanel: React.FC = () => {
                   <p className="text-sm">{t('ui.history_empty') || 'History is empty'}</p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-4">
-                  {historyItems.map((item) => (
+                <div 
+                  style={{ height: `${totalVirtualHeight}px`, position: 'relative', width: '100%' }}
+                >
+                  {visibleItems.map(({ item, top }) => (
                     <div
                       key={item.id}
-                      className={`relative bg-gray-800 rounded-lg overflow-hidden group transition-all flex flex-col ${
+                      style={{
+                        position: 'absolute',
+                        top: `${top}px`,
+                        left: 0,
+                        right: 0,
+                        height: `${cardHeight}px`,
+                      }}
+                      className={`bg-gray-800 rounded-lg overflow-hidden group transition-all flex flex-col ${
                         isSelectMode && selectedIds.has(item.id) ? 'ring-2 ring-accent' : 'hover:ring-2 hover:ring-gray-600'
                       }`}
                     >
-                      <div className="px-3 pt-2 pb-1 bg-gray-800 flex justify-between items-center text-xs text-gray-400 gap-1.5 min-w-0">
+                      {/* Card Header */}
+                      <div className="px-3 pt-2 pb-1 bg-gray-800 flex justify-between items-center text-xs text-gray-400 gap-1.5 min-w-0 shrink-0 h-8">
                          <span className="truncate text-gray-400 text-[11px] shrink min-w-0">{formatTimestamp(item.timestamp)}</span>
                          {item.model && (
                            <span 
@@ -267,12 +331,15 @@ export const HistoryPanel: React.FC = () => {
                            </span>
                          )}
                       </div>
+
+                      {/* Square Image Preview (Uses 128x128 compressed thumbnail for fast display, original for full view/drag/copy) */}
                       <div 
-                        className="relative w-full aspect-square bg-gray-900 cursor-pointer"
+                        className="relative w-full flex-1 bg-gray-900 cursor-pointer overflow-hidden flex items-center justify-center select-none"
                         onClick={() => {
                           if (isSelectMode) {
                             toggleSelection(item.id);
                           } else if (item.url && setImageViewer) {
+                            // Opens the full-resolution original image
                             setImageViewer({
                               sources: [{ 
                                 src: item.url, 
@@ -296,13 +363,14 @@ export const HistoryPanel: React.FC = () => {
                             ) : null
                           }
                           position="left"
-                          className="w-full h-full"
+                          className="w-full h-full flex items-center justify-center"
                           delay={150}
                         >
                           <img
-                            src={item.url}
+                            src={item.thumbnailUrl || item.url}
                             alt={item.prompt || 'Generated image'}
-                            className="w-full h-full object-contain"
+                            className="w-full h-full object-contain select-none"
+                            loading="lazy"
                             draggable={!isSelectMode}
                             onDragStart={(e) => !isSelectMode && handleDragStart(e, item.url, item.prompt)}
                           />
@@ -310,7 +378,7 @@ export const HistoryPanel: React.FC = () => {
                         
                         {/* Floating Actions on Image */}
                         {!isSelectMode && (
-                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 backdrop-blur-sm p-1 rounded-md">
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 backdrop-blur-sm p-1 rounded-md z-10">
                             <button 
                               onClick={(e) => { e.stopPropagation(); toggleSelection(item.id); setIsSelectMode(true); }}
                               className="text-gray-300 hover:text-white p-1 rounded hover:bg-white/20 transition-colors"
@@ -336,7 +404,7 @@ export const HistoryPanel: React.FC = () => {
                         )}
 
                         {isSelectMode && (
-                          <div className="absolute top-2 left-2">
+                          <div className="absolute top-2 left-2 z-10">
                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
                               selectedIds.has(item.id) ? 'bg-accent border-accent' : 'border-gray-400 bg-black/50'
                             }`}>
@@ -350,13 +418,15 @@ export const HistoryPanel: React.FC = () => {
                         )}
                       </div>
                       
-                      {/* Prompt frame below */}
-                      <div className="p-3 bg-gray-800/80 border-t border-gray-700 flex flex-col gap-2 relative">
-                        <p className="text-xs text-gray-300 line-clamp-3 select-text cursor-text pr-6" onMouseDown={(e) => e.stopPropagation()}>{item.prompt}</p>
+                      {/* Prompt Frame Below */}
+                      <div className="p-3 bg-gray-800/80 border-t border-gray-700 flex flex-col gap-1 relative shrink-0 min-h-[64px] max-h-[76px] justify-center">
+                        <p className="text-xs text-gray-300 line-clamp-2 select-text cursor-text pr-6 leading-relaxed" onMouseDown={(e) => e.stopPropagation()}>
+                          {item.prompt || '(no prompt)'}
+                        </p>
                         {!isSelectMode && item.prompt && (
                            <button 
                              onClick={(e) => { e.stopPropagation(); handleCopyText(item.prompt); }}
-                             className="absolute right-2 top-2 text-gray-500 hover:text-gray-300 transition-colors"
+                             className="absolute right-2.5 top-2.5 text-gray-500 hover:text-gray-300 transition-colors p-1"
                              title="Copy Text"
                            >
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -385,4 +455,5 @@ export const HistoryPanel: React.FC = () => {
     </>
   );
 };
+
 
