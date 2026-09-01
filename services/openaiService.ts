@@ -329,6 +329,31 @@ const normalizeOpenAiBatchError = (value: any, fallback: string): string => {
     }
 };
 
+const waitForOpenAiBatchFileReady = async (fileId: string, apiKey: string): Promise<void> => {
+    const maxAttempts = 8;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const res = await fetch(`https://api.openai.com/v1/files/${fileId}`, {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => null);
+            throw new Error(normalizeOpenAiBatchError(errorData?.error || errorData, `OpenAI could not retrieve uploaded batch file ${fileId}`));
+        }
+
+        const fileData = await res.json();
+        const status = String(fileData?.status || '').toLowerCase();
+        if (!status || status === 'processed' || status === 'uploaded') {
+            return;
+        }
+        if (status === 'error' || status === 'failed') {
+            throw new Error(normalizeOpenAiBatchError(fileData?.status_details || fileData?.error, `OpenAI failed to process batch file ${fileId}`));
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 500 + attempt * 250));
+    }
+};
+
 const buildDataUrlFromOpenAiBatchBody = (body: any): string | undefined => {
     const legacyB64 = body?.data?.[0]?.b64_json;
     if (legacyB64) return `data:image/png;base64,${legacyB64}`;
@@ -482,6 +507,7 @@ export const createOpenAiBatchImageJob = async (
         if (fileRes.ok) {
             const fileData = await fileRes.json();
             if (fileData?.id) {
+                await waitForOpenAiBatchFileReady(fileData.id, apiKey);
                 const batchRes = await fetch('https://api.openai.com/v1/batches', {
                     method: 'POST',
                     headers: {
