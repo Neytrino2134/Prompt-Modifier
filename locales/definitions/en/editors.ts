@@ -74,6 +74,7 @@ export const editors = {
     'image_sequence.select_none': 'Select None',
     'image_sequence.invert_selection': 'Invert Selection',
     'image_sequence.run_selected': 'Run Selected',
+    'image_sequence.run_selected_batch': 'Run Selected (Batch)',
     'image_sequence.start_queue': 'Start Queue',
     'image_sequence.character_prompt_combination': 'Character Prompt Combination',
     'image_sequence.combination_none': 'None',

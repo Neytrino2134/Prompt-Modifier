@@ -9,9 +9,14 @@ export interface EnqueueTaskOptions {
     type?: 'image_edit' | 'image_gen' | 'sequence_frame' | 'character_gen' | 'video_gen';
     tabId?: string;
     tabName?: string;
-    execute: (signal: AbortSignal) => Promise<string>;
+    execute?: (signal: AbortSignal) => Promise<string>;
     onSuccess?: (resultUrl: string) => void | Promise<void>;
     onError?: (error: any) => void;
+    isBatch?: boolean;
+    batchJobName?: string;
+    batchJobId?: string;
+    itemCount?: number;
+    initialStatus?: TaskStatus;
 }
 
 const MAX_CONCURRENT_TASKS = 6;
@@ -27,7 +32,12 @@ export const useTaskQueue = () => {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...patch } : t));
     }, []);
 
-    // Main Queue Processor
+    // Helper to update batch tasks by batchJobId or batchJobName
+    const updateTaskByBatchJob = useCallback((batchJobIdOrName: string, patch: Partial<GenerationTask>) => {
+        setTasks(prev => prev.map(t => (t.batchJobId === batchJobIdOrName || t.batchJobName === batchJobIdOrName) ? { ...t, ...patch } : t));
+    }, []);
+
+    // Main Queue Processor (Only processes non-batch local tasks with execute handler)
     const processQueue = useCallback(() => {
         const currentTasks = tasksRef.current;
         const runningTasks = currentTasks.filter(t => t.status === 'running');
@@ -37,7 +47,7 @@ export const useTaskQueue = () => {
         }
 
         const availableSlots = MAX_CONCURRENT_TASKS - runningTasks.length;
-        const queuedTasks = currentTasks.filter(t => t.status === 'queued').slice(0, availableSlots);
+        const queuedTasks = currentTasks.filter(t => t.status === 'queued' && !t.isBatch && !!t.execute).slice(0, availableSlots);
 
         queuedTasks.forEach(task => {
             if (!task.execute) return;
@@ -92,7 +102,7 @@ export const useTaskQueue = () => {
 
     // Automatically trigger queue whenever tasks state changes (specifically when new queued items arrive)
     useEffect(() => {
-        const hasQueued = tasks.some(t => t.status === 'queued');
+        const hasQueued = tasks.some(t => t.status === 'queued' && !t.isBatch && !!t.execute);
         const runningCount = tasks.filter(t => t.status === 'running').length;
         if (hasQueued && runningCount < MAX_CONCURRENT_TASKS) {
             processQueue();
@@ -108,13 +118,17 @@ export const useTaskQueue = () => {
             frameIndex: options.frameIndex,
             prompt: options.prompt,
             type: options.type || 'image_edit',
-            status: 'queued',
+            status: options.initialStatus || 'queued',
             createdAt: Date.now(),
             tabId: options.tabId,
             tabName: options.tabName,
             execute: options.execute,
             onSuccess: options.onSuccess,
             onError: options.onError,
+            isBatch: options.isBatch,
+            batchJobName: options.batchJobName,
+            batchJobId: options.batchJobId,
+            itemCount: options.itemCount,
         };
 
         setTasks(prev => [newTask, ...prev]);
@@ -199,6 +213,8 @@ export const useTaskQueue = () => {
         isTaskQueuePanelOpen,
         setIsTaskQueuePanelOpen,
         enqueueTask,
+        updateTask,
+        updateTaskByBatchJob,
         cancelTask,
         cancelAllNodeTasks,
         retryTask,

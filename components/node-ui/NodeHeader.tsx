@@ -374,7 +374,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                                 title={t('batch.waitingServerTooltip') || 'Задача отправлена в Batch API и обрабатывается на сервере (до 24ч). Нода защищена от случайного закрытия.'}
                             >
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
-                                <span className="truncate max-w-[170px] sm:max-w-none">{t('batch.waitingServerStatus') || 'Waiting...'}</span>
+                                <span className="truncate max-w-[170px] sm:max-w-none">{t('batch.waitingServerStatus') || 'Waiting for server response'}</span>
                             </div>
                         )}
 

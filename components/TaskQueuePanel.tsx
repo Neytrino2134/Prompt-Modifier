@@ -629,16 +629,24 @@ export const TaskQueuePanel: React.FC = () => {
                                     <div className="flex items-center justify-between mb-2 gap-2">
                                         <button
                                             onClick={() => handleNodeClick(task.nodeId, task.frameIndex)}
-                                            className="text-xs font-semibold text-cyan-300 hover:text-cyan-200 hover:underline truncate text-left flex items-center gap-1.5"
+                                            className="text-xs font-semibold text-cyan-300 hover:text-cyan-200 hover:underline truncate text-left flex items-center gap-1.5 flex-wrap"
                                             title={t('queue.click_to_go') || 'Click to jump to node'}
                                         >
                                             <svg className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
                                             </svg>
                                             <span className="truncate">{task.nodeTitle || 'Image Editor'}</span>
-                                            {task.frameIndex !== undefined && (
+                                            {task.frameIndex !== undefined && !task.isBatch && (
                                                 <span className="px-1.5 py-0.2 bg-gray-800 text-gray-300 rounded font-mono text-[10px]">
                                                     #{task.frameIndex + 1}
+                                                </span>
+                                            )}
+                                            {task.isBatch && (
+                                                <span className="px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-700/60 font-semibold text-[10px] uppercase flex items-center gap-1">
+                                                    <span>Batch API</span>
+                                                    {task.itemCount && task.itemCount > 1 && (
+                                                        <span className="opacity-90 font-normal">({task.itemCount})</span>
+                                                    )}
                                                 </span>
                                             )}
                                         </button>

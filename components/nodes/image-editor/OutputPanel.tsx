@@ -791,9 +791,22 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                         <button 
                             onClick={isSequenceMode ? onRunSelected : onEdit}
                             disabled={isMainActionDisabled} 
-                            className="flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-cyan-600 rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
+                            className={`flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-all ${
+                                isBatchMode 
+                                    ? 'bg-amber-600 hover:bg-amber-500 active:bg-amber-700 shadow-md shadow-amber-950/40' 
+                                    : 'bg-cyan-600 hover:bg-cyan-700'
+                            }`}
                         >
-                            {isEditing ? (hasInputImages ? t('node.content.editing') : t('node.content.generating')) : (isSequenceMode ? t('image_sequence.run_selected') : (!hasInputImages ? t('node.content.generateImage') : t('node.content.applyEdit')))}
+                            {isEditing 
+                                ? (hasInputImages ? t('node.content.editing') : t('node.content.generating')) 
+                                : (isSequenceMode 
+                                    ? (isBatchMode ? (t('image_sequence.run_selected_batch') || `${t('image_sequence.run_selected')} (Batch)`) : t('image_sequence.run_selected')) 
+                                    : (!hasInputImages 
+                                        ? (isBatchMode ? (t('node.content.generateImage_batch') || `${t('node.content.generateImage')} (Batch)`) : t('node.content.generateImage')) 
+                                        : (isBatchMode ? (t('node.content.applyEdit_batch') || `${t('node.content.applyEdit')} (Batch)`) : t('node.content.applyEdit'))
+                                      )
+                                  )
+                            }
                         </button>
                     )}
                     

@@ -597,6 +597,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addToHistory: generationHistoryHook.addToHistory,
         addToast,
         enqueueTask: taskQueueHook.enqueueTask,
+        updateTaskByBatchJob: taskQueueHook.updateTaskByBatchJob,
         triggerAutoSave: forceSaveSession,
         t
     });

@@ -293,9 +293,9 @@ export const ui = {
     'batch.allJobsCleared': 'Все Batch задачи успешно удалены',
     'queue.clearAllTasks': 'Очистить все задачи очереди',
     'queue.purgeStuck': 'Сбросить зависшие задачи',
-    'batch.jobDone': 'Job done',
+    'batch.jobDone': 'Задача выполнена',
     'batch.jobDoneTooltip': 'Пакетная задача успешно завершена на сервере. Нажмите кнопку «Скачать», чтобы поместить изображения в ноду.',
-    'batch.download': 'Download',
+    'batch.download': 'Скачать',
     'batch.downloadResultsTooltip': 'Скачать сгенерированные изображения с сервера и поместить в эту ноду',
     'batch.downloading': 'Загрузка...',
 };

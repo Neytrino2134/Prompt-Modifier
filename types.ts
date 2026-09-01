@@ -295,6 +295,7 @@ export interface GenerationTask {
     isBatch?: boolean;
     batchJobName?: string;
     batchJobId?: string;
+    itemCount?: number;
 }
 
 // Global Operation Tracking

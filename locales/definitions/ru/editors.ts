@@ -74,6 +74,7 @@ export const editors = {
     'image_sequence.select_none': 'Снять выделение',
     'image_sequence.invert_selection': 'Инвертировать',
     'image_sequence.run_selected': 'Запустить выбранные',
+    'image_sequence.run_selected_batch': 'Запустить выбранные (Batch)',
     'image_sequence.start_queue': 'Запустить очередь',
     'image_sequence.character_prompt_combination': 'Режим интеграции персонажа',
     'image_sequence.combination_none': 'Нет',

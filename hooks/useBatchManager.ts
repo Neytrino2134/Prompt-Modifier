@@ -23,6 +23,7 @@ export interface UseBatchManagerProps {
     addToHistory?: (imageUrl: string, prompt: string, model: string, meta?: any) => void;
     addToast?: (message: string, type?: ToastType, action?: { label: string; onClick: () => void }) => void;
     enqueueTask?: (options: any) => string;
+    updateTaskByBatchJob?: (batchJobIdOrName: string, patch: Partial<any>) => void;
     triggerAutoSave?: () => Promise<void> | void;
     t?: (key: string) => string;
 }
@@ -33,6 +34,7 @@ export const useBatchManager = ({
     addToHistory,
     addToast,
     enqueueTask,
+    updateTaskByBatchJob,
     triggerAutoSave,
     t
 }: UseBatchManagerProps = {}) => {
@@ -330,6 +332,17 @@ export const useBatchManager = ({
                 return j;
             }));
 
+            const firstCompleted = updatedItems.find(it => it.status === 'completed' && it.resultUrl);
+            if (updateTaskByBatchJob) {
+                const patch = {
+                    status: (successCount > 0 ? 'completed' : 'failed') as TaskStatus,
+                    resultUrl: firstCompleted?.resultUrl,
+                    completedAt: Date.now()
+                };
+                updateTaskByBatchJob(job.id, patch);
+                if (job.name) updateTaskByBatchJob(job.name, patch);
+            }
+
             if (addToast) {
                 const toastMsg = (t?.('batch.completedToast') || 'Batch job completed: {count} images generated!')
                     .replace('{count}', String(successCount));
@@ -389,6 +402,12 @@ export const useBatchManager = ({
                     }
                     return j;
                 }));
+
+                if (updateTaskByBatchJob) {
+                    const patch = { status: 'completed' as TaskStatus, completedAt: Date.now() };
+                    updateTaskByBatchJob(job.id, patch);
+                    if (job.name) updateTaskByBatchJob(job.name, patch);
+                }
             } else if (mappedState === 'FAILED') {
                 const errMsg = sdkJob.error?.message || 'Batch job failed on server';
                 persistBatchJobs(prev => prev.map(j => {
@@ -404,6 +423,12 @@ export const useBatchManager = ({
                     }
                     return j;
                 }));
+
+                if (updateTaskByBatchJob) {
+                    const patch = { status: 'failed' as TaskStatus, error: errMsg, completedAt: Date.now() };
+                    updateTaskByBatchJob(job.id, patch);
+                    if (job.name) updateTaskByBatchJob(job.name, patch);
+                }
 
                 // Update node state to error only if restoreFailedCards is enabled
                 if (restoreFailedCardsRef.current && updateNodeInStorage && job.tabId && job.nodeId) {
@@ -431,6 +456,12 @@ export const useBatchManager = ({
                     }
                     return j;
                 }));
+
+                if (updateTaskByBatchJob) {
+                    const patch = { status: 'cancelled' as TaskStatus, completedAt: Date.now() };
+                    updateTaskByBatchJob(job.id, patch);
+                    if (job.name) updateTaskByBatchJob(job.name, patch);
+                }
             } else {
                 // RUNNING or PENDING
                 persistBatchJobs(prev => prev.map(j => {
@@ -443,6 +474,12 @@ export const useBatchManager = ({
                     }
                     return j;
                 }));
+
+                if (updateTaskByBatchJob) {
+                    const patch = { status: (mappedState === 'RUNNING' ? 'running' : 'queued') as TaskStatus };
+                    updateTaskByBatchJob(job.id, patch);
+                    if (job.name) updateTaskByBatchJob(job.name, patch);
+                }
             }
         } catch (err: any) {
             console.warn(`Failed to poll batch job ${job.name}:`, err);
@@ -673,25 +710,26 @@ export const useBatchManager = ({
             }
         }
 
-        // 5. Enqueue tasks in TaskQueue for tracking
+        // 5. Enqueue ONE consolidated task in TaskQueue for all items in batch mode
         if (enqueueTask) {
-            items.forEach(it => {
-                enqueueTask({
-                    nodeId,
-                    nodeTitle: nodeTitle || 'Image Editor',
-                    frameIndex: it.frameIndex,
-                    prompt: it.prompt,
-                    type: isSequence ? 'sequence_frame' : 'image_edit',
-                    tabId,
-                    tabName,
-                    isBatch: true,
-                    batchJobName: createdSdkJob.name,
-                    batchJobId: clientId,
-                    execute: async () => {
-                        // Batch tasks are processed remotely, this serves as tracking
-                        return "";
-                    }
-                });
+            const promptSummary = items.length === 1 
+                ? (items[0].prompt || 'Single image batch task')
+                : (isSequence 
+                    ? `Sequence (${items.length} frames): ${items[0]?.prompt ? (items[0].prompt.length > 80 ? items[0].prompt.slice(0, 80) + '...' : items[0].prompt) : 'Batch sequence'}` 
+                    : `${items.length} items: ${items[0]?.prompt ? (items[0].prompt.length > 80 ? items[0].prompt.slice(0, 80) + '...' : items[0].prompt) : 'Batch generation'}`);
+
+            enqueueTask({
+                nodeId,
+                nodeTitle: nodeTitle || 'Image Editor',
+                prompt: promptSummary,
+                type: isSequence ? 'sequence_frame' : 'image_edit',
+                tabId,
+                tabName,
+                isBatch: true,
+                batchJobName: createdSdkJob.name,
+                batchJobId: clientId,
+                itemCount: items.length,
+                initialStatus: (mapSdkState(createdSdkJob.state) === 'RUNNING' ? 'running' : 'queued') as TaskStatus
             });
         }
 
