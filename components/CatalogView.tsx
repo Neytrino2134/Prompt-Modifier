@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useAppContext } from '../contexts/AppContext';
 import type { CatalogItem } from '../hooks/useCatalog';
 import { CatalogItemType, ContentCatalogItemType } from '../hooks/useCatalog';
 import type { LibraryItem, ContentCatalogItem } from '../types';
@@ -8,7 +9,8 @@ import { useLanguage } from '../localization';
 import type { useContentCatalog } from '../hooks/useCatalog';
 import { 
     GoogleDriveIcon, CloudUploadIcon, CloudDownloadIcon, CopyIcon,
-    FolderIcon, GroupItemIcon, FileIcon, RenameIcon, SaveIcon, DeleteIcon, BackIcon, AddFolderIcon, LoadFileIcon, ClearCloudIcon, CharacterIcon, ScriptIcon, SequenceIcon
+    FolderIcon, GroupItemIcon, FileIcon, RenameIcon, SaveIcon, DeleteIcon, BackIcon, AddFolderIcon, LoadFileIcon, ClearCloudIcon, CharacterIcon, ScriptIcon, SequenceIcon,
+    PinLeftIcon, PinRightIcon, DetachIcon
 } from './icons/AppIcons';
 
 interface CatalogViewProps {
@@ -582,7 +584,7 @@ const ContentCatalogView: React.FC<{
             </div>
             <div className="flex-grow overflow-y-auto p-4">
                 {catalog.currentItems.length > 0 ? (
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         {catalog.currentItems.map((item) => (
                             <ContentCatalogItemCard
                                 key={item.id} item={item} dragItemType={dragItemType}
@@ -620,49 +622,172 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
     currentCatalogItems, catalogPath, onCatalogNavigateBack, onCatalogNavigateToFolder, onCreateCatalogFolder, onAddGroupFromCatalog, onRenameCatalogItem, onSaveCatalogItem, onDeleteCatalogItem, onLoadCatalogItemFromFile, onMoveCatalogItem,
     libraryItems, libraryPath, onNavigateBack, onNavigateToFolder, onCreateLibraryItem, onEditLibraryItem, onRenameLibraryItem, onDeleteLibraryItem, onSaveLibraryItem, onLoadLibraryItemFromFile, onMoveLibraryItem,
     onRenameCharacter, onRenameScript, onRenameSequence,
-    handleSyncCatalogs, isGoogleDriveReady, isSyncing, uploadCatalogItem, handleDeleteFromDrive, handleClearCloudFolder // New Prop
+    handleSyncCatalogs, isGoogleDriveReady, isSyncing, uploadCatalogItem, handleDeleteFromDrive, handleClearCloudFolder
   } = props;
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'groups' | 'library' | 'characters' | 'scripts' | 'sequences'>('groups');
   const [draggedItem, setDraggedItem] = useState<{ id: string; tab: string } | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
-  // --- Draggable State for Catalog Window ---
+  // --- Docking and Draggable State for Catalog Window ---
+  const [dockMode, setDockMode] = useState<'left' | 'right' | null>(() => {
+      try {
+          const saved = localStorage.getItem('settings_catalogDockMode');
+          if (saved === 'left' || saved === 'right') return saved;
+      } catch {}
+      return null;
+  });
+
   const [position, setPosition] = useState<{ x: number, y: number } | null>(null);
-  const dragStartRef = useRef<{ x: number, y: number } | null>(null);
+  const dragOffsetRef = useRef<{ offsetX: number, offsetY: number } | null>(null);
   const windowRef = useRef<HTMLDivElement>(null);
+
+  // Persist dockMode to local storage
+  useEffect(() => {
+      try {
+          if (dockMode) {
+              localStorage.setItem('settings_catalogDockMode', dockMode);
+          } else {
+              localStorage.removeItem('settings_catalogDockMode');
+          }
+      } catch {}
+  }, [dockMode]);
 
   // Initialize position to center on open (or keep if already set/moved)
   useEffect(() => {
-      if (isOpen && !position) {
-           const w = 896; // max-w-4xl is 56rem = 896px
+      if (isOpen && !position && !dockMode) {
+           const w = Math.min(896, window.innerWidth - 40);
            const h = window.innerHeight * 0.8;
-           const x = (window.innerWidth - w) / 2;
-           const y = (window.innerHeight - h) / 2;
-           setPosition({ x: Math.max(20, x), y: Math.max(20, y) });
+           const x = Math.max(20, (window.innerWidth - w) / 2);
+           const y = Math.max(20, (window.innerHeight - h) / 2);
+           setPosition({ x, y });
       }
-  }, [isOpen]);
+  }, [isOpen, position, dockMode]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+      // Ignore clicks on interactive controls
+      if ((e.target as HTMLElement).closest('button, input, select, textarea, [role="button"], a')) {
+          return;
+      }
       e.preventDefault();
       e.stopPropagation();
-      dragStartRef.current = { x: e.clientX, y: e.clientY };
-      e.currentTarget.setPointerCapture(e.pointerId);
+
+      const rect = windowRef.current?.getBoundingClientRect();
+      const currentX = rect ? rect.left : (position ? position.x : (window.innerWidth - 896) / 2);
+      const currentY = rect ? rect.top : (position ? position.y : (window.innerHeight * 0.1));
+
+      dragOffsetRef.current = {
+          offsetX: e.clientX - currentX,
+          offsetY: e.clientY - currentY
+      };
+
+      try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {}
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-      if (dragStartRef.current && position) {
-          const dx = e.clientX - dragStartRef.current.x;
-          const dy = e.clientY - dragStartRef.current.y;
-          setPosition({ x: position.x + dx, y: position.y + dy });
-          dragStartRef.current = { x: e.clientX, y: e.clientY };
+      if (dragOffsetRef.current) {
+          // If docked, dragging the header seamlessly undocks to floating mode
+          if (dockMode) {
+              setDockMode(null);
+          }
+          const newX = e.clientX - dragOffsetRef.current.offsetX;
+          const newY = e.clientY - dragOffsetRef.current.offsetY;
+
+          // Clamping bounds so the window never gets lost off-screen
+          const minX = -300;
+          const maxX = window.innerWidth - 100;
+          const minY = 0;
+          const maxY = window.innerHeight - 60;
+
+          setPosition({
+              x: Math.max(minX, Math.min(maxX, newX)),
+              y: Math.max(minY, Math.min(maxY, newY))
+          });
       }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-      dragStartRef.current = null;
-      e.currentTarget.releasePointerCapture(e.pointerId);
+      if (dragOffsetRef.current) {
+          dragOffsetRef.current = null;
+          try {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+          } catch {}
+      }
   };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+      if (dragOffsetRef.current) {
+          dragOffsetRef.current = null;
+          try {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+          } catch {}
+      }
+  };
+
+  const context = useAppContext();
+  const [windowWidth, setWindowWidth] = useState(() => typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isSidePanelOpen = Boolean(context?.isHistoryPanelOpen || context?.isTaskQueuePanelOpen);
+
+  const windowStyles = useMemo<React.CSSProperties>(() => {
+      if (dockMode === 'left') {
+          return {
+              position: 'fixed',
+              left: '54px',
+              top: '56px',
+              bottom: '54px',
+              width: 'min(760px, calc(50vw - 40px))',
+              minWidth: '360px',
+              maxWidth: 'calc(100vw - 54px - 16px)',
+              height: 'auto',
+              maxHeight: 'none',
+              transform: 'none',
+              zIndex: 150,
+              transition: 'left 0.3s cubic-bezier(0.2,0.8,0.2,1), bottom 0.3s cubic-bezier(0.2,0.8,0.2,1), width 0.3s cubic-bezier(0.2,0.8,0.2,1)'
+          };
+      }
+      if (dockMode === 'right') {
+          const isMobile = windowWidth < 640;
+          const sidePanelWidth = isMobile ? 320 : 384;
+          const rightOffset = isSidePanelOpen ? `${sidePanelWidth + 16}px` : '16px';
+          const maxWidth = isSidePanelOpen 
+              ? `calc(100vw - ${sidePanelWidth + 16}px - 54px)` 
+              : 'calc(100vw - 32px)';
+
+          return {
+              position: 'fixed',
+              right: rightOffset,
+              top: '56px',
+              bottom: '54px',
+              width: 'min(760px, calc(50vw - 24px))',
+              minWidth: '360px',
+              maxWidth: maxWidth,
+              height: 'auto',
+              maxHeight: 'none',
+              transform: 'none',
+              zIndex: 150,
+              transition: 'right 0.3s cubic-bezier(0.2,0.8,0.2,1), bottom 0.3s cubic-bezier(0.2,0.8,0.2,1), width 0.3s cubic-bezier(0.2,0.8,0.2,1)'
+          };
+      }
+      return {
+          position: 'fixed',
+          left: position ? `${position.x}px` : '50%',
+          top: position ? `${position.y}px` : '50%',
+          width: '100%',
+          maxWidth: '56rem', // max-w-4xl
+          height: '80vh',
+          transform: position ? 'none' : 'translate(-50%, -50%)',
+          zIndex: 150
+      };
+  }, [dockMode, position, isSidePanelOpen, windowWidth]);
 
   if (!isOpen) return null;
 
@@ -737,7 +862,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
       </div>
       <div className="flex-grow overflow-y-auto p-4">
         {currentCatalogItems.length > 0 ? (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {currentCatalogItems.map((item) => (
               <CatalogItemCard 
                 key={item.id} 
@@ -847,7 +972,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
       </div>
       <div className="flex-grow overflow-y-auto p-4">
         {libraryItems.length > 0 ? (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {libraryItems.map((item) => (
               <LibraryItemCard 
                 key={item.id} 
@@ -881,35 +1006,31 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
   );
 
   return (
-    <div className="fixed inset-0 z-50 pointer-events-none">
+    <div className="fixed inset-0 z-[150] pointer-events-none">
       <div 
         ref={windowRef}
-        className="pointer-events-auto fixed bg-gray-800 rounded-lg shadow-2xl w-full max-w-4xl border border-gray-700 flex flex-col h-[80vh] select-none" 
-        style={{
-            left: position ? position.x : '50%',
-            top: position ? position.y : '50%',
-            // If no position set yet (first render), center via transform. Otherwise follow drag.
-            transform: position ? 'none' : 'translate(-50%, -50%)'
-        }}
+        className="pointer-events-auto fixed bg-gray-800 rounded-lg shadow-2xl border border-gray-700 flex flex-col select-none" 
+        style={windowStyles}
         onMouseDown={e => e.stopPropagation()}
       >
         
         {/* HEADER */}
         <div 
-             className="p-4 pb-0 border-b border-gray-700 flex justify-between items-center flex-shrink-0 cursor-move"
+             className="p-3 pb-0 border-b border-gray-700 flex justify-between items-center flex-shrink-0 cursor-move"
              onPointerDown={handlePointerDown}
              onPointerMove={handlePointerMove}
              onPointerUp={handlePointerUp}
+             onPointerCancel={handlePointerCancel}
         >
-          <div className="flex items-end space-x-4" onPointerDown={e => e.stopPropagation()}>
-            <button onClick={() => setActiveTab('groups')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'groups' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.groups')}</button>
-            <button onClick={() => setActiveTab('library')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'library' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.library')}</button>
-            <button onClick={() => setActiveTab('characters')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'characters' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.characters')}</button>
-            <button onClick={() => setActiveTab('scripts')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'scripts' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.scripts')}</button>
-            <button onClick={() => setActiveTab('sequences')} className={`px-4 py-2 text-lg font-bold ${activeTab === 'sequences' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.sequences')}</button>
+          <div className="flex items-end space-x-2 sm:space-x-4 overflow-x-auto min-w-0 mr-2" onPointerDown={e => e.stopPropagation()}>
+            <button onClick={() => setActiveTab('groups')} className={`px-2 sm:px-4 py-2 text-base sm:text-lg font-bold whitespace-nowrap ${activeTab === 'groups' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.groups')}</button>
+            <button onClick={() => setActiveTab('library')} className={`px-2 sm:px-4 py-2 text-base sm:text-lg font-bold whitespace-nowrap ${activeTab === 'library' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.library')}</button>
+            <button onClick={() => setActiveTab('characters')} className={`px-2 sm:px-4 py-2 text-base sm:text-lg font-bold whitespace-nowrap ${activeTab === 'characters' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.characters')}</button>
+            <button onClick={() => setActiveTab('scripts')} className={`px-2 sm:px-4 py-2 text-base sm:text-lg font-bold whitespace-nowrap ${activeTab === 'scripts' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.scripts')}</button>
+            <button onClick={() => setActiveTab('sequences')} className={`px-2 sm:px-4 py-2 text-base sm:text-lg font-bold whitespace-nowrap ${activeTab === 'sequences' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}>{t('catalog.tabs.sequences')}</button>
           </div>
           
-          <div className="flex items-center gap-3" onPointerDown={e => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0" onPointerDown={e => e.stopPropagation()}>
              {/* Global Sync Button */}
              {handleSyncCatalogs && (
                  <button
@@ -930,12 +1051,52 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
                      ) : (
                          <CloudDownloadIcon className="h-4 w-4" />
                      )}
-                     <span className="text-xs font-bold">Sync Drive</span>
+                     <span className="text-xs font-bold hidden sm:inline">Sync Drive</span>
                  </button>
              )}
 
-             <button onClick={onClose} className="p-1 text-gray-400 rounded hover:bg-gray-600 hover:text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+             <div className="h-4 w-px bg-gray-600 mx-0.5 sm:mx-1"></div>
+
+             {/* Pin Left Button */}
+             <TooltipWrapper title={t('toolbar.dock.left')}>
+                <button
+                    onClick={() => setDockMode(prev => prev === 'left' ? null : 'left')}
+                    className={`p-1.5 rounded transition-colors ${dockMode === 'left' ? 'text-cyan-400 bg-cyan-900/40 border border-cyan-500/50' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                    aria-label={t('toolbar.dock.left')}
+                >
+                    <PinLeftIcon className="h-4 w-4" />
+                </button>
+             </TooltipWrapper>
+
+             {/* Pin Right Button */}
+             <TooltipWrapper title={t('toolbar.dock.right')}>
+                <button
+                    onClick={() => setDockMode(prev => prev === 'right' ? null : 'right')}
+                    className={`p-1.5 rounded transition-colors ${dockMode === 'right' ? 'text-cyan-400 bg-cyan-900/40 border border-cyan-500/50' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                    aria-label={t('toolbar.dock.right')}
+                >
+                    <PinRightIcon className="h-4 w-4" />
+                </button>
+             </TooltipWrapper>
+
+             {/* Detach / Unpin Button (shown when docked) */}
+             {dockMode !== null && (
+                 <TooltipWrapper title={t('toolbar.detach')}>
+                    <button
+                        onClick={() => setDockMode(null)}
+                        className="p-1.5 rounded text-cyan-400 hover:text-white hover:bg-gray-700 transition-colors"
+                        aria-label={t('toolbar.detach')}
+                    >
+                        <DetachIcon className="h-4 w-4" />
+                    </button>
+                 </TooltipWrapper>
+             )}
+
+             <div className="h-4 w-px bg-gray-600 mx-0.5 sm:mx-1"></div>
+
+             {/* Close Button */}
+             <button onClick={onClose} className="p-1.5 text-gray-400 rounded hover:bg-gray-700 hover:text-white transition-colors" aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
           </div>
         </div>

@@ -32,7 +32,8 @@ export interface ImageBatchItem {
 export interface ImageInputBatchConfig {
     subMode: ImageBatchSubMode; // 'crop' | 'grid'
     folderStructure?: 'per_image' | 'flat';
-    includeOriginal?: boolean; // include original/uncropped image in each folder
+    includeOriginal?: boolean; // include original/uncropped image in each folder (default true)
+    assetName?: string; // default "Asset_Name"
 }
 
 export interface ImageInputValue {

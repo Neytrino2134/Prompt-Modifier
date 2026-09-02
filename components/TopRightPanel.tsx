@@ -70,7 +70,12 @@ const TopRightPanel: React.FC = () => {
         isAutoSaving,
         logs,
         isDebugConsoleOpen,
-        setIsDebugConsoleOpen
+        setIsDebugConsoleOpen,
+        isHistoryPanelOpen,
+        setIsHistoryPanelOpen,
+        isTaskQueuePanelOpen,
+        setIsTaskQueuePanelOpen,
+        activeTaskCount,
     } = context;
     
     const operations: ActiveOperation[] = Array.from(activeOperations.values());
@@ -81,6 +86,9 @@ const TopRightPanel: React.FC = () => {
     
     // Check for tutorial step
     const isTutorialActive = tutorialStep === 'image_output_generating';
+
+    // Track whether any side panel (History or Task Queue) is open so TopRightPanel shifts along with it
+    const isSidePanelOpen = Boolean(isHistoryPanelOpen || isTaskQueuePanelOpen);
 
     useEffect(() => {
         if (isProcessing) {
@@ -152,7 +160,7 @@ const TopRightPanel: React.FC = () => {
     const timeDisplay = isProcessing ? elapsedTime : lastResult;
 
     return (
-        <div className="fixed top-2 right-2 z-50 flex flex-col items-end pointer-events-none select-none">
+        <div className={`fixed top-2 right-2 z-50 flex flex-col items-end pointer-events-none select-none transition-transform duration-300 ease-in-out ${isSidePanelOpen ? '-translate-x-80 sm:-translate-x-96' : 'translate-x-0'}`}>
              <TutorialTooltip 
                 content={t('tutorial.step3b')} 
                 isActive={!!isTutorialActive} 
@@ -226,7 +234,7 @@ const TopRightPanel: React.FC = () => {
                                        <div className="flex flex-col leading-tight">
                                             <span className="text-[10px] font-bold text-accent-text uppercase tracking-wider">System</span>
                                             <span className="text-xs text-white">Saved</span>
-                                        </div>
+                                       </div>
                                     </>
                                  ) : (
                                      <>
@@ -262,6 +270,51 @@ const TopRightPanel: React.FC = () => {
                                 </span>
                                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider leading-none mt-0.5">FPS</span>
                             </div>
+
+                            {/* Divider */}
+                            <div className="w-px h-8 bg-gray-700 mx-1"></div>
+
+                            {/* Generation History Button */}
+                            <Tooltip content={`${t('ui.generation_history') || 'Generation History'} (Ctrl + H)`} position="bottom">
+                                <button
+                                    onClick={() => setIsHistoryPanelOpen(!isHistoryPanelOpen)}
+                                    className={`p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 relative ${
+                                        isHistoryPanelOpen 
+                                            ? 'bg-accent text-white shadow-lg shadow-accent/20' 
+                                            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                                    }`}
+                                    aria-label={t('ui.generation_history') || 'Generation History'}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </button>
+                            </Tooltip>
+
+                            {/* Task Queue Button */}
+                            <Tooltip content={`${t('queue.title') || 'Task Queue'} (Ctrl + T)`} position="bottom">
+                                <button
+                                    onClick={() => setIsTaskQueuePanelOpen(!isTaskQueuePanelOpen)}
+                                    className={`p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 relative ${
+                                        isTaskQueuePanelOpen 
+                                            ? 'bg-accent text-white shadow-lg shadow-accent/20' 
+                                            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                                    }`}
+                                    aria-label={t('queue.title') || 'Task Queue'}
+                                >
+                                    <div className="relative flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                        </svg>
+                                        {activeTaskCount && activeTaskCount > 0 ? (
+                                            <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                </button>
+                            </Tooltip>
                         </>
                     )}
 

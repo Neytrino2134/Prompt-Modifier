@@ -383,7 +383,7 @@ export const TaskQueuePanel: React.FC = () => {
                             setIsTaskQueuePanelOpen(false);
                             setIsHistoryPanelOpen?.(true);
                         }}
-                        className="px-2.5 py-1 text-xs font-medium text-accent bg-accent/20 hover:bg-accent/30 border border-accent/40 rounded-md transition-colors flex items-center gap-1.5"
+                        className="px-2.5 py-1 text-xs font-medium text-cyan-400 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-800/60 rounded-md transition-colors flex items-center gap-1.5"
                         title={t('ui.to_history') || 'To History'}
                     >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -523,27 +523,37 @@ export const TaskQueuePanel: React.FC = () => {
             </div>
 
             {/* Main Tabs Navigation (Queue vs Batch Jobs) */}
-            <div className="grid grid-cols-2 p-1.5 bg-gray-950 border-b border-gray-800 text-xs font-medium">
+            <div className="flex border-b border-gray-800 bg-gray-950/80 px-2 pt-1 gap-1 select-none">
                 <button
                     onClick={() => setActiveTab('queue')}
-                    className={`py-1.5 rounded-md flex items-center justify-center gap-1.5 transition-colors ${
-                        activeTab === 'queue' ? 'bg-cyan-700 text-white font-semibold' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-900'
+                    className={`flex-1 py-2 px-3 text-xs font-semibold rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 ${
+                        activeTab === 'queue'
+                            ? 'border-accent text-white bg-gray-900'
+                            : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-900/50'
                     }`}
                 >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                     <span>{t('queue.title') || 'Queue'}</span>
-                    <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-gray-800/80 font-mono">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-gray-800 text-gray-300">
                         {tasks.length}
                     </span>
                 </button>
 
                 <button
                     onClick={() => setActiveTab('batch')}
-                    className={`py-1.5 rounded-md flex items-center justify-center gap-1.5 transition-colors ${
-                        activeTab === 'batch' ? 'bg-amber-600 text-white font-semibold' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-900'
+                    className={`flex-1 py-2 px-3 text-xs font-semibold rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 ${
+                        activeTab === 'batch'
+                            ? 'border-accent text-white bg-gray-900'
+                            : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-900/50'
                     }`}
                 >
+                    <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
                     <span>{t('batch.panelTitle') || 'Batch Jobs'}</span>
-                    <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-gray-800/80 font-mono">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-gray-800 text-gray-300">
                         {batchJobs.length}
                     </span>
                     {activeBatchJobsCount > 0 && (

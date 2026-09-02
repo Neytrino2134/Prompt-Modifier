@@ -14,6 +14,8 @@ interface BatchProcessingPanelProps {
     onChangeSubMode: (subMode: ImageBatchSubMode) => void;
     includeOriginal?: boolean;
     onChangeIncludeOriginal?: (include: boolean) => void;
+    assetName?: string;
+    onChangeAssetName?: (name: string) => void;
     cropRect: ImageInputCropRect | null;
     gridConfig: ImageInputGridConfig;
     isProcessing: boolean;
@@ -36,8 +38,10 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
     onAddBatchFiles,
     subMode,
     onChangeSubMode,
-    includeOriginal = false,
+    includeOriginal = true,
     onChangeIncludeOriginal,
+    assetName = 'Asset_Name',
+    onChangeAssetName,
     gridConfig,
     isProcessing,
     progress,
@@ -128,7 +132,7 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                 onChange={handleFileInputChange}
             />
 
-            {/* Top Toolbar in Batch Mode: Include Original & File Management */}
+            {/* Top Toolbar in Batch Mode: Include Original, Asset Name & File Management */}
             <div className="flex items-center justify-between px-1 text-xs gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 flex-wrap">
                     {/* Option: Include Original / Uncropped Image in ZIP */}
@@ -152,6 +156,20 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                         </span>
                         <span>Включить оригинальное изображение</span>
                     </button>
+
+                    {/* Asset Name Field */}
+                    <div className="flex items-center gap-1.5 bg-gray-900/90 border border-cyan-800/60 px-2 py-0.5 rounded text-[11px]">
+                        <span className="text-gray-400 font-medium">Имя ассета:</span>
+                        <input
+                            type="text"
+                            value={assetName}
+                            onChange={(e) => onChangeAssetName && onChangeAssetName(e.target.value)}
+                            disabled={isProcessing}
+                            placeholder="Asset_Name"
+                            className="w-28 bg-gray-950 border border-gray-700 focus:border-cyan-400 rounded px-1.5 py-0.5 text-cyan-200 font-mono text-[11px] focus:outline-none"
+                            title="Имя ассета (добавляется к названию архива и всем файлам)"
+                        />
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 ml-auto">

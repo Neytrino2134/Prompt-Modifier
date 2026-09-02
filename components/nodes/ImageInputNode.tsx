@@ -122,10 +122,14 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     });
 
     const [includeOriginal, setIncludeOriginal] = useState<boolean>(() => {
-        return batchConfig?.includeOriginal ?? false;
+        return batchConfig?.includeOriginal ?? true;
     });
 
-    // Synchronize batchSubMode and includeOriginal if external node value changed
+    const [assetName, setAssetName] = useState<string>(() => {
+        return batchConfig?.assetName || 'Asset_Name';
+    });
+
+    // Synchronize batchSubMode, includeOriginal, assetName if external node value changed
     useEffect(() => {
         if (batchConfig?.subMode && batchConfig.subMode !== batchSubMode) {
             setBatchSubMode(batchConfig.subMode);
@@ -133,7 +137,10 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         if (batchConfig?.includeOriginal !== undefined && batchConfig.includeOriginal !== includeOriginal) {
             setIncludeOriginal(batchConfig.includeOriginal);
         }
-    }, [batchConfig?.subMode, batchConfig?.includeOriginal]);
+        if (batchConfig?.assetName !== undefined && batchConfig.assetName !== assetName) {
+            setAssetName(batchConfig.assetName);
+        }
+    }, [batchConfig?.subMode, batchConfig?.includeOriginal, batchConfig?.assetName]);
 
     const fullResImage = getFullSizeImage(node.id, 0);
 
@@ -487,7 +494,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         const updatedBatchConfig = {
             ...currentBatchConfig,
             subMode: newSubMode,
-            includeOriginal
+            includeOriginal,
+            assetName
         };
 
         handleValueUpdate({
@@ -508,10 +516,23 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
     const handleIncludeOriginalChange = (newInclude: boolean) => {
         setIncludeOriginal(newInclude);
-        const currentBatchConfig = parsedValueRef.current.batchConfig || { subMode: batchSubMode };
+        const currentBatchConfig = parsedValueRef.current.batchConfig || { subMode: batchSubMode, assetName };
         const updatedBatchConfig = {
             ...currentBatchConfig,
-            includeOriginal: newInclude
+            includeOriginal: newInclude,
+            assetName
+        };
+        handleValueUpdate({
+            batchConfig: updatedBatchConfig
+        });
+    };
+
+    const handleAssetNameChange = (newAssetName: string) => {
+        setAssetName(newAssetName);
+        const currentBatchConfig = parsedValueRef.current.batchConfig || { subMode: batchSubMode, includeOriginal };
+        const updatedBatchConfig = {
+            ...currentBatchConfig,
+            assetName: newAssetName
         };
         handleValueUpdate({
             batchConfig: updatedBatchConfig
@@ -533,6 +554,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const JSZipConstructor = (JSZip as any).default || JSZip;
             const zip = new JSZipConstructor();
             const timestamp = getImageTimestampString();
+            const cleanAssetName = (assetName || 'Asset_Name').trim().replace(/[^a-zA-Z0-9_\-а-яА-ЯёЁ]/g, '_') || 'Asset_Name';
             let totalSlicesCount = 0;
 
             for (let i = 0; i < batchFiles.length; i++) {
@@ -552,7 +574,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 });
 
                 const cleanBaseName = item.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_\-а-яА-ЯёЁ]/g, '_');
-                const folderName = `${String(i + 1).padStart(2, '0')}_${cleanBaseName}`;
+                const folderName = `${String(i + 1).padStart(2, '0')}_${cleanBaseName}_${cleanAssetName}`;
                 const folder = zip.folder(folderName) || zip;
 
                 // 1. If includeOriginal is requested, write full uncropped original image in this subfolder
@@ -562,7 +584,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                         const mimeMatch = item.dataUrl.match(/data:([^;]+);/);
                         const mime = mimeMatch ? mimeMatch[1] : 'image/png';
                         const ext = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : mime.includes('webp') ? 'webp' : 'png';
-                        folder.file(`original_${cleanBaseName}.${ext}`, dataParts[1], { base64: true });
+                        folder.file(`original_${cleanBaseName}_${cleanAssetName}.${ext}`, dataParts[1], { base64: true });
                         totalSlicesCount += 1;
                     }
                 }
@@ -572,7 +594,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
                     const croppedDataUrl = await cropImageNormalized(item.dataUrl, activeCrop);
                     const base64Data = croppedDataUrl.split(',')[1];
-                    folder.file(`crop_${cleanBaseName}.png`, base64Data, { base64: true });
+                    folder.file(`crop_${cleanBaseName}_${cleanAssetName}.png`, base64Data, { base64: true });
                     totalSlicesCount += 1;
                 } else {
                     const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
@@ -593,7 +615,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                         const base64Data = sliceData.split(',')[1];
                         const row = Math.floor(s / activeGrid.cols) + 1;
                         const col = (s % activeGrid.cols) + 1;
-                        const sliceFileName = `slice_${String(s + 1).padStart(3, '0')}_r${row}_c${col}.png`;
+                        const sliceFileName = `slice_${String(s + 1).padStart(3, '0')}_${cleanAssetName}_r${row}_c${col}.png`;
                         folder.file(sliceFileName, base64Data, { base64: true });
                         totalSlicesCount += 1;
                     }
@@ -609,7 +631,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 compression: 'STORE'
             });
 
-            const zipFilename = `Batch_${batchSubMode === 'crop' ? 'Crop' : `Grid_${grid?.cols || 4}x${grid?.rows || 5}`}_${batchFiles.length}_images_${timestamp}.zip`;
+            const zipFilename = `Batch_${batchSubMode === 'crop' ? 'Crop' : `Grid_${grid?.cols || 4}x${grid?.rows || 5}`}_${cleanAssetName}_${batchFiles.length}_images_${timestamp}.zip`;
 
             const result = {
                 zipBlob,
@@ -1567,6 +1589,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     onChangeSubMode={handleBatchSubModeChange}
                     includeOriginal={includeOriginal}
                     onChangeIncludeOriginal={handleIncludeOriginalChange}
+                    assetName={assetName}
+                    onChangeAssetName={handleAssetNameChange}
                     cropRect={cropRect}
                     gridConfig={grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } }}
                     isProcessing={isBatchProcessing}
