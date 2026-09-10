@@ -295,14 +295,14 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
             {/* For Media Viewer, we maintain mount but hide it to preserve playback state */}
             {isMediaViewer ? (
                 <div
-                    className={`p-3 flex-grow min-h-0 flex flex-col ${node.isCollapsed && !isDockedWindow ? 'hidden' : 'flex'}`}
+                    className={`p-3 flex-grow min-h-0 flex flex-col h-full ${node.isCollapsed && !isDockedWindow ? 'hidden' : 'flex'}`}
                     onMouseDown={(e) => { e.stopPropagation(); if (selectNode) selectNode(node.id); }}
                 >
                     <NodeContent node={node} contentProps={contentProps} />
                 </div>
             ) : (
                 !isRerouteDot && (!node.isCollapsed || isDockedWindow) && (
-                    <div className="p-3 flex-grow min-h-0" onMouseDown={(e) => { e.stopPropagation(); if (selectNode) selectNode(node.id); }}>
+                    <div className="p-3 flex-grow min-h-0 flex flex-col h-full" onMouseDown={(e) => { e.stopPropagation(); if (selectNode) selectNode(node.id); }}>
                         <NodeContent node={node} contentProps={contentProps} />
                     </div>
                 )

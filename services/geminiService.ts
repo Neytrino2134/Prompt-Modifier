@@ -2,7 +2,7 @@
 import { GoogleGenAI, GenerateContentResponse, Modality, Type } from "@google/genai";
 import { convertToPNG } from '../utils/imageUtils';
 import { addMetadataToPNG } from '../utils/pngMetadata';
-import { getModelForMode } from './modelConfig';
+import { getModelForMode, getConfiguredTranscribeModel, getConfiguredVideoModel, isOmniModel } from './modelConfig';
 import { 
     generateOpenAiImage, 
     createOpenAiBatchImageJob, 
@@ -594,53 +594,182 @@ export const generateImage = async (
   }, 2, 2000); // Fewer retries for image gen as it is more expensive/slow
 };
 
+export interface GenerateVideoOptions {
+    model?: string;
+    aspectRatio?: '16:9' | '9:16' | '1:1';
+    resolution?: '720p' | '1080p';
+    duration?: '5s' | '10s';
+    videoMode?: 'text_to_video' | 'image_to_video' | 'video_edit';
+    images?: Array<{ data: string; mimeType: string }>;
+    videoSource?: { data?: string; uri?: string; mimeType: string };
+    previousInteractionId?: string;
+}
+
 export const generateVideo = async (
     prompt: string,
-    aspectRatio: '16:9' | '9:16' = '16:9',
-    resolution: '720p' | '1080p' = '720p'
+    optionsOrAspectRatio: GenerateVideoOptions | '16:9' | '9:16' | '1:1' = '16:9',
+    legacyResolution: '720p' | '1080p' = '720p'
 ): Promise<string> => {
-  // Video generation logic handles long polling, so we use fewer retries on the initial request
-  return callWithRetry(async () => {
-    const ai = createAIClient();
-    if (window.aistudio && !(await window.aistudio.hasSelectedApiKey())) {
-        await window.aistudio.openSelectKey();
-    }
-    if (!prompt || prompt.trim() === '') throw new Error("Prompt required.");
+    const options: GenerateVideoOptions = typeof optionsOrAspectRatio === 'object'
+        ? optionsOrAspectRatio
+        : { aspectRatio: optionsOrAspectRatio, resolution: legacyResolution };
 
-    try {
-      let operation = await ai.models.generateVideos({
-          model: 'veo-3.1-fast-generate-preview',
-          prompt: prompt,
-          config: { numberOfVideos: 1, resolution, aspectRatio }
-      });
+    const selectedModel = options.model || getConfiguredVideoModel() || 'gemini-omni-1.1-flash';
+    const aspectRatio = options.aspectRatio || '16:9';
+    const resolution = options.resolution || '720p';
+    const duration = options.duration || '5s';
+    const videoMode = options.videoMode || 'text_to_video';
 
-      while (!operation.done) {
-          await new Promise(resolve => setTimeout(resolve, 10000));
-          operation = await ai.operations.getVideosOperation({ operation: operation });
-      }
+    // Video generation logic handles long polling or synchronous interaction
+    return callWithRetry(async () => {
+        const ai = createAIClient();
+        if (window.aistudio && !(await window.aistudio.hasSelectedApiKey())) {
+            await window.aistudio.openSelectKey();
+        }
+        if (!prompt || prompt.trim() === '') throw new Error("Prompt required.");
 
-      const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-      if (!downloadLink) throw new Error("No video URI returned.");
-      
-      const response = await fetch(`${downloadLink}&key=${getApiKey()}`);
-      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
-      
-      const videoBlob = await response.blob();
-      return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(videoBlob);
-      });
+        // Branch 1: Gemini Omni Flash Model via ai.interactions.create
+        if (isOmniModel(selectedModel) || selectedModel.includes('omni')) {
+            try {
+                let interactionInput: any;
 
-    } catch (error: any) {
-      console.error("Error generating video:", error);
-      let message = error.message || '';
-      if (error.status) message += ` Status: ${error.status}`;
-      if (error.code) message += ` Code: ${error.code}`;
-      throw new Error(`Failed to video video. ${message}`);
-    }
-  }, 1); // Only 1 retry for video to avoid spamming expensive ops
+                if (videoMode === 'video_edit' && options.videoSource) {
+                    // Video-to-video editing mode
+                    const videoItem: any = {
+                        type: 'video',
+                        mime_type: options.videoSource.mimeType || 'video/mp4'
+                    };
+                    if (options.videoSource.uri) {
+                        videoItem.uri = options.videoSource.uri;
+                    } else if (options.videoSource.data) {
+                        videoItem.data = options.videoSource.data.replace(/^data:[^;]+;base64,/, '');
+                    }
+                    interactionInput = [
+                        videoItem,
+                        { type: 'text', text: prompt }
+                    ];
+                } else if ((videoMode === 'image_to_video' || (options.images && options.images.length > 0)) && options.images && options.images.length > 0) {
+                    // Image-to-video / Storyboard mode (multiple images supported)
+                    const imageParts = options.images.map(img => ({
+                        type: 'image',
+                        mime_type: img.mimeType || 'image/png',
+                        data: img.data.replace(/^data:[^;]+;base64,/, '')
+                    }));
+                    interactionInput = [
+                        ...imageParts,
+                        { type: 'text', text: prompt }
+                    ];
+                } else {
+                    // Text-to-video mode
+                    interactionInput = prompt;
+                }
+
+                const responseFormat: any = {
+                    type: 'video',
+                    aspect_ratio: aspectRatio,
+                    duration: duration
+                };
+
+                const interactionPayload: any = {
+                    model: selectedModel,
+                    input: interactionInput,
+                    background: false,
+                    store: true,
+                    stream: false,
+                    response_format: responseFormat
+                };
+
+                if (options.previousInteractionId) {
+                    interactionPayload.previous_interaction_id = options.previousInteractionId;
+                }
+
+                const interaction = await (ai as any).interactions.create(interactionPayload, { timeout: 300000 });
+
+                // Check output_video on interaction
+                const outputVideo = (interaction as any).output_video;
+                if (outputVideo && outputVideo.data) {
+                    const mime = outputVideo.mime_type || 'video/mp4';
+                    return `data:${mime};base64,${outputVideo.data}`;
+                }
+
+                // Check interaction.steps for model output video
+                if (Array.isArray((interaction as any).steps)) {
+                    for (const step of (interaction as any).steps) {
+                        if (step.type === 'model_output' && Array.isArray(step.content)) {
+                            const videoContent = step.content.find((c: any) => c.type === 'video');
+                            if (videoContent && videoContent.data) {
+                                const mime = videoContent.mime_type || 'video/mp4';
+                                return `data:${mime};base64,${videoContent.data}`;
+                            }
+                        }
+                    }
+                }
+
+                if ((interaction as any).output_text) {
+                    throw new Error(`Model response: ${(interaction as any).output_text}`);
+                }
+
+                throw new Error("No video data returned by Gemini Omni Flash.");
+            } catch (error: any) {
+                console.error("Error generating video with Omni Flash:", error);
+                let message = error.message || '';
+                if (error.status) message += ` Status: ${error.status}`;
+                if (error.code) message += ` Code: ${error.code}`;
+                throw new Error(`Failed to generate video with Omni Flash: ${message}`);
+            }
+        }
+
+        // Branch 2: Veo and standard video generation models (ai.models.generateVideos)
+        try {
+            const config: any = {
+                numberOfVideos: 1,
+                resolution: resolution === '1080p' ? '1080p' : '720p',
+                aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9'
+            };
+
+            const videoGenPayload: any = {
+                model: selectedModel,
+                prompt: prompt,
+                config
+            };
+
+            if (options.images && options.images.length > 0) {
+                const firstImg = options.images[0];
+                videoGenPayload.image = {
+                    imageBytes: firstImg.data.replace(/^data:[^;]+;base64,/, ''),
+                    mimeType: firstImg.mimeType || 'image/png'
+                };
+            }
+
+            let operation = await ai.models.generateVideos(videoGenPayload);
+
+            while (!operation.done) {
+                await new Promise(resolve => setTimeout(resolve, 8000));
+                operation = await ai.operations.getVideosOperation({ operation: operation });
+            }
+
+            const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+            if (!downloadLink) throw new Error("No video URI returned.");
+            
+            const response = await fetch(`${downloadLink}&key=${getApiKey()}`);
+            if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+            
+            const videoBlob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(videoBlob);
+            });
+
+        } catch (error: any) {
+            console.error("Error generating video:", error);
+            let message = error.message || '';
+            if (error.status) message += ` Status: ${error.status}`;
+            if (error.code) message += ` Code: ${error.code}`;
+            throw new Error(`Failed to generate video: ${message}`);
+        }
+    }, 1);
 };
 
 export const describeImage = async (base64ImageData: string, mimeType: string, softPrompt: boolean | undefined): Promise<string> => {
@@ -937,7 +1066,7 @@ export const createBatchImageJob = async (
     items: BatchRequestItemInput[],
     model: string = 'gemini-3-pro-image-preview',
     displayName?: string
-): Promise<{ name: string; state: string }> => {
+): Promise<{ name: string; state: string; rawJsonl?: string }> => {
     const isOpenAi = model.startsWith('dall-e') || model.startsWith('openai') || model.startsWith('gpt-image') || model.includes('gpt-image');
     if (isOpenAi) {
         return await createOpenAiBatchImageJob(items, model, displayName);
@@ -1172,5 +1301,110 @@ export const listAllRemoteBatchJobs = async (): Promise<any[]> => {
 
     return results;
 };
+
+/**
+ * Transcribes audio into text using multimodal audio models (gemini-3.8-flash, gemini-3.6-flash, gemini-3.5-transcribe).
+ * @param base64Audio Base64-encoded audio data (data URL or raw base64 string)
+ * @param mimeType The audio MIME type (e.g., 'audio/webm', 'audio/wav', 'audio/mp3', 'audio/ogg')
+ * @param model Model identifier (defaults to configured transcribe model)
+ */
+export const transcribeAudio = async (
+    base64Audio: string,
+    mimeType: string = 'audio/webm',
+    model: string = getConfiguredTranscribeModel()
+): Promise<string> => {
+    return callWithRetry(async () => {
+        const ai = createAIClient();
+        
+        // Strip out data URI prefix completely (e.g. data:audio/webm;codecs=opus;base64,...)
+        const rawBase64 = base64Audio.includes(',') 
+            ? base64Audio.split(',')[1] 
+            : base64Audio.replace(/^data:[^,]+,/, '');
+        const cleanBase64 = rawBase64.replace(/\s+/g, '').trim();
+
+        if (!cleanBase64) {
+            return "";
+        }
+
+        // Standardize pure audio MIME
+        let pureMime = (mimeType.split(';')[0] || 'audio/webm').trim();
+        if (base64Audio.startsWith('data:')) {
+            const dataPrefix = base64Audio.substring(5, base64Audio.indexOf(';'));
+            if (dataPrefix && dataPrefix.includes('/')) {
+                pureMime = dataPrefix.trim();
+            }
+        }
+
+        const audioPart = {
+            inlineData: {
+                mimeType: pureMime,
+                data: cleanBase64,
+            },
+        };
+
+        const promptText = "Transcribe the spoken audio verbatim into clean text in the language spoken (e.g. Russian, English). Output ONLY the exact transcribed text without quotes, introductory text, explanations, or timestamps. If you cannot detect any speech or it is only background noise, reply with [EMPTY].";
+        
+        // Order of models to try
+        const requestedModel = model || getConfiguredTranscribeModel() || 'gemini-3.8-flash';
+        const candidateModels = [
+            requestedModel,
+            'gemini-3.8-flash',
+            'gemini-3.6-flash',
+            'gemini-3.5-transcribe'
+        ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+
+        let lastError: any = null;
+
+        for (const targetModel of candidateModels) {
+            try {
+                const response = await ai.models.generateContent({
+                    model: targetModel,
+                    contents: [
+                        audioPart,
+                        { text: promptText }
+                    ]
+                });
+
+                let text = (response.text || '').trim();
+                // Check candidates if text property is empty
+                if (!text && response.candidates?.[0]?.content?.parts) {
+                    for (const p of response.candidates[0].content.parts) {
+                        if (p.text && p.text.trim()) {
+                            text = p.text.trim();
+                            break;
+                        }
+                    }
+                }
+
+                if (text) {
+                    // Strip codeblocks or quotes if added by model
+                    text = text.replace(/^```[a-z]*\s*|\s*```$/gi, '').trim();
+                    text = text.replace(/^["'«»“”„]+|["'«»“”„]+$/g, '').trim();
+
+                    // If model says [EMPTY] or [NO_SPEECH], treat as empty
+                    if (text === '[EMPTY]' || text === '[NO_SPEECH]' || text === 'EMPTY') {
+                        continue;
+                    }
+
+                    if (text.length > 0) {
+                        return text;
+                    }
+                }
+            } catch (error: any) {
+                lastError = error;
+                console.warn(`Transcription attempt with model ${targetModel} failed:`, error?.message || error);
+                // Continue to try next candidate model
+            }
+        }
+
+        if (lastError && candidateModels.length === 1) {
+            console.error("Transcription error:", lastError);
+            throw lastError;
+        }
+
+        return "";
+    });
+};
+
 
 

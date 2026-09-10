@@ -129,7 +129,20 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         return batchConfig?.assetName || 'Asset_Name';
     });
 
-    // Synchronize batchSubMode, includeOriginal, assetName if external node value changed
+    const [individualGridSettings, setIndividualGridSettings] = useState<boolean>(() => {
+        return batchConfig?.individualGridSettings ?? false;
+    });
+
+    // Local state and debouncing for border width (px) input
+    const [localBorderWidth, setLocalBorderWidth] = useState<string>(() => String(grid?.borderWidth ?? 24));
+    const borderDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        const externalVal = grid?.borderWidth ?? 24;
+        setLocalBorderWidth(String(externalVal));
+    }, [grid?.borderWidth]);
+
+    // Synchronize batchSubMode, includeOriginal, assetName, individualGridSettings if external node value changed
     useEffect(() => {
         if (batchConfig?.subMode && batchConfig.subMode !== batchSubMode) {
             setBatchSubMode(batchConfig.subMode);
@@ -140,7 +153,10 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         if (batchConfig?.assetName !== undefined && batchConfig.assetName !== assetName) {
             setAssetName(batchConfig.assetName);
         }
-    }, [batchConfig?.subMode, batchConfig?.includeOriginal, batchConfig?.assetName]);
+        if (batchConfig?.individualGridSettings !== undefined && batchConfig.individualGridSettings !== individualGridSettings) {
+            setIndividualGridSettings(batchConfig.individualGridSettings);
+        }
+    }, [batchConfig?.subMode, batchConfig?.includeOriginal, batchConfig?.assetName, batchConfig?.individualGridSettings]);
 
     const fullResImage = getFullSizeImage(node.id, 0);
 
@@ -167,6 +183,45 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         };
     }, [parsedValue]);
 
+    // Refs for synchronization in callbacks
+    const batchFilesRef = useRef<ImageBatchItem[]>(batchFiles);
+    useEffect(() => {
+        batchFilesRef.current = batchFiles;
+    }, [batchFiles]);
+
+    const selectedRefIndexRef = useRef<number>(selectedRefIndex);
+    useEffect(() => {
+        selectedRefIndexRef.current = selectedRefIndex;
+    }, [selectedRefIndex]);
+
+    const individualGridSettingsRef = useRef<boolean>(individualGridSettings);
+    useEffect(() => {
+        individualGridSettingsRef.current = individualGridSettings;
+    }, [individualGridSettings]);
+
+    // Active configurations for the current preview image (taking individual settings into account)
+    const activeGridConfig: ImageInputGridConfig = useMemo(() => {
+        const globalCols = grid?.cols || 4;
+        const globalRows = grid?.rows || 5;
+        if (mode === 'batch' && individualGridSettings && batchFiles[selectedRefIndex]?.gridConfig) {
+            const itemGrid = batchFiles[selectedRefIndex].gridConfig!;
+            return {
+                ...itemGrid,
+                cols: globalCols,
+                rows: globalRows,
+                bounds: itemGrid.bounds || { x: 0, y: 0, width: 1, height: 1 }
+            };
+        }
+        return grid || { cols: globalCols, rows: globalRows, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+    }, [mode, individualGridSettings, batchFiles, selectedRefIndex, grid]);
+
+    const activeCropRect: ImageInputCropRect = useMemo(() => {
+        if (mode === 'batch' && individualGridSettings && batchFiles[selectedRefIndex]?.cropRect) {
+            return batchFiles[selectedRefIndex].cropRect!;
+        }
+        return cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
+    }, [mode, individualGridSettings, batchFiles, selectedRefIndex, cropRect]);
+
     // Unique operation sequence token to prevent stale async slicing results from overriding current state
     const operationIdRef = useRef<number>(0);
 
@@ -180,7 +235,12 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     }, [onValueChange, node.id]);
 
     // Update single crop slice at full resolution
-    const updateSingleCropSlice = useCallback(async (rect: ImageInputCropRect, explicitMode?: ImageInputMode, overrideSrc?: string) => {
+    const updateSingleCropSlice = useCallback(async (
+        rect: ImageInputCropRect,
+        explicitMode?: ImageInputMode,
+        overrideSrc?: string,
+        targetRefIndex?: number
+    ) => {
         const masterSrc = overrideSrc || getFullSizeImage(node.id, 0) || image;
         if (!masterSrc) return;
 
@@ -194,9 +254,25 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const thumb = await generateThumbnail(highResCrop, 256, 256);
             if (thisOpId !== operationIdRef.current) return;
 
+            const currentMode = explicitMode || mode;
+            let currentBatch = batchFilesRef.current;
+            const targetIdx = targetRefIndex !== undefined ? targetRefIndex : selectedRefIndexRef.current;
+
+            if (currentMode === 'batch' && currentBatch.length > 0) {
+                currentBatch = currentBatch.map((bf, idx) => {
+                    if (idx === targetIdx) {
+                        return { ...bf, cropRect: { ...rect } };
+                    }
+                    return bf;
+                });
+                batchFilesRef.current = currentBatch;
+                setBatchFiles(currentBatch);
+            }
+
             const updates: Partial<ImageInputValue> = {
                 cropRect: rect,
-                croppedImage: thumb
+                croppedImage: thumb,
+                ...(currentMode === 'batch' ? { batchFiles: currentBatch } : {})
             };
             if (explicitMode) {
                 updates.mode = explicitMode;
@@ -205,23 +281,39 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         } catch (e) {
             console.error('Error cropping image:', e);
         }
-    }, [getFullSizeImage, node.id, image, setFullSizeImage, handleValueUpdate]);
+    }, [getFullSizeImage, node.id, image, setFullSizeImage, handleValueUpdate, mode]);
 
     // Update grid slices at full resolution
-    const updateGridSlices = useCallback(async (gridConfig: ImageInputGridConfig, explicitMode?: ImageInputMode, overrideSrc?: string) => {
+    const updateGridSlices = useCallback(async (
+        gridConfig: ImageInputGridConfig,
+        explicitMode?: ImageInputMode,
+        overrideSrc?: string,
+        targetRefIndex?: number
+    ) => {
         const masterSrc = overrideSrc || getFullSizeImage(node.id, 0) || image;
         if (!masterSrc) return;
 
         const thisOpId = ++operationIdRef.current;
         setIsSlicing(true);
         try {
-            const cols = Math.max(1, gridConfig.cols || 4);
-            const rows = Math.max(1, gridConfig.rows || 5);
+            // cols and rows are global across all images
+            const cols = Math.max(1, gridConfig.cols || grid?.cols || 4);
+            const rows = Math.max(1, gridConfig.rows || grid?.rows || 5);
             const bounds = gridConfig.bounds || { x: 0, y: 0, width: 1, height: 1 };
             const borderConfig = {
                 enableBorder: gridConfig.enableBorder,
                 borderWidth: gridConfig.borderWidth,
-                borderMode: gridConfig.borderMode
+                borderMode: gridConfig.borderMode,
+                customDividers: gridConfig.customDividers,
+                colDividers: gridConfig.colDividers,
+                rowDividers: gridConfig.rowDividers
+            };
+
+            const fullConfig: ImageInputGridConfig = {
+                ...gridConfig,
+                cols,
+                rows,
+                bounds
             };
 
             const { slices, thumbs } = await sliceImageGrid(masterSrc, cols, rows, bounds, borderConfig);
@@ -232,9 +324,25 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 setFullSizeImage(node.id, idx + 1, slice);
             });
 
+            const currentMode = explicitMode || mode;
+            let currentBatch = batchFilesRef.current;
+            const targetIdx = targetRefIndex !== undefined ? targetRefIndex : selectedRefIndexRef.current;
+
+            if (currentMode === 'batch' && currentBatch.length > 0) {
+                currentBatch = currentBatch.map((bf, idx) => {
+                    if (idx === targetIdx) {
+                        return { ...bf, gridConfig: { ...fullConfig } };
+                    }
+                    return bf;
+                });
+                batchFilesRef.current = currentBatch;
+                setBatchFiles(currentBatch);
+            }
+
             const updates: Partial<ImageInputValue> = {
-                grid: gridConfig,
-                extractedImages: thumbs
+                grid: fullConfig,
+                extractedImages: thumbs,
+                ...(currentMode === 'batch' ? { batchFiles: currentBatch } : {})
             };
             if (explicitMode) {
                 updates.mode = explicitMode;
@@ -247,7 +355,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 setIsSlicing(false);
             }
         }
-    }, [getFullSizeImage, node.id, image, setFullSizeImage, handleValueUpdate]);
+    }, [getFullSizeImage, node.id, image, setFullSizeImage, handleValueUpdate, mode, grid?.cols, grid?.rows]);
 
     const prevMasterSrcRef = useRef<string | null>(null);
 
@@ -263,16 +371,18 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         const isFirstLoad = prevMasterSrcRef.current === null;
         prevMasterSrcRef.current = masterSrc;
 
+        // For batch mode, index switching and batch uploads handle their own explicit slicing
+        if (mode === 'batch') {
+            return;
+        }
+
         if (isNewImage) {
             if (mode === 'single') {
                 const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
                 updateSingleCropSlice(activeCrop, undefined, masterSrc);
-            } else if (mode === 'grid' || (mode === 'batch' && batchSubMode === 'grid')) {
+            } else if (mode === 'grid') {
                 const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, undefined, masterSrc);
-            } else if (mode === 'batch' && batchSubMode === 'crop') {
-                const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
-                updateSingleCropSlice(activeCrop, undefined, masterSrc);
             }
         } else if (isFirstLoad) {
             if (mode === 'single' && !croppedImage) {
@@ -281,12 +391,9 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             } else if (mode === 'grid' && (!extractedImages || extractedImages.length === 0)) {
                 const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, undefined, masterSrc);
-            } else if (mode === 'batch' && batchSubMode === 'grid' && (!extractedImages || extractedImages.length === 0)) {
-                const activeGrid = grid || { cols: 2, rows: 2, bounds: { x: 0, y: 0, width: 1, height: 1 } };
-                updateGridSlices(activeGrid, undefined, masterSrc);
             }
         }
-    }, [fullResImage, image, mode, batchSubMode, updateSingleCropSlice, updateGridSlices, cropRect, grid, croppedImage, extractedImages]);
+    }, [fullResImage, image, mode, updateSingleCropSlice, updateGridSlices, cropRect, grid, croppedImage, extractedImages]);
 
     const handleImageChange = async (dataUrl: string) => {
         const promptFromMeta = await readPromptFromPNG(dataUrl);
@@ -315,7 +422,10 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 {
                     enableBorder: activeGrid.enableBorder,
                     borderWidth: activeGrid.borderWidth,
-                    borderMode: activeGrid.borderMode
+                    borderMode: activeGrid.borderMode,
+                    customDividers: activeGrid.customDividers,
+                    colDividers: activeGrid.colDividers,
+                    rowDividers: activeGrid.rowDividers
                 }
             );
             slices.forEach((slice, idx) => setFullSizeImage(node.id, idx + 1, slice));
@@ -392,19 +502,77 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         }
     };
 
+    const handlePasteFromClipboard = useCallback(async () => {
+        try {
+            const items = await navigator.clipboard.read();
+            const imageFiles: File[] = [];
+            for (const item of items) {
+                for (const type of item.types) {
+                    if (type.startsWith('image/')) {
+                        const blob = await item.getType(type);
+                        const ext = blob.type.split('/')[1] || 'png';
+                        const file = new File([blob], `clipboard_${Date.now()}.${ext}`, { type: blob.type });
+                        imageFiles.push(file);
+                    }
+                }
+            }
+            if (imageFiles.length > 0) {
+                if (mode === 'batch') {
+                    await loadMultipleFiles(imageFiles);
+                } else {
+                    onPasteImage(node.id, imageFiles[0]);
+                }
+                return;
+            }
+
+            const text = await navigator.clipboard.readText();
+            if (text && text.startsWith('data:image')) {
+                const res = await fetch(text);
+                const blob = await res.blob();
+                const file = new File([blob], `pasted_data_${Date.now()}.png`, { type: blob.type || 'image/png' });
+                if (mode === 'batch') {
+                    await loadMultipleFiles([file]);
+                } else {
+                    onPasteImage(node.id, file);
+                }
+                return;
+            }
+            if (addToast) addToast('В буфере обмена нет изображений', 'info');
+        } catch (err) {
+            console.error('Clipboard paste failed:', err);
+            if (addToast) addToast('Не удалось прочитать изображение из буфера', 'error');
+        }
+    }, [mode, loadMultipleFiles, onPasteImage, node.id, addToast]);
+
     const handleSelectReferenceIndex = async (index: number) => {
         if (index < 0 || index >= batchFiles.length) return;
+        selectedRefIndexRef.current = index;
         setSelectedRefIndex(index);
         const item = batchFiles[index];
         setFullSizeImage(node.id, 0, item.dataUrl);
         const thumb = await generateThumbnail(item.dataUrl, 256, 256);
 
+        const globalCols = grid?.cols || 4;
+        const globalRows = grid?.rows || 5;
+
         if (batchSubMode === 'crop') {
-            const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
-            updateSingleCropSlice(activeCrop, 'batch', item.dataUrl);
+            const activeCrop = (individualGridSettings && item.cropRect) ? item.cropRect : (cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
+            updateSingleCropSlice(activeCrop, 'batch', item.dataUrl, index);
         } else {
-            const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
-            updateGridSlices(activeGrid, 'batch', item.dataUrl);
+            const activeGrid = (individualGridSettings && item.gridConfig)
+                ? {
+                    ...item.gridConfig,
+                    cols: globalCols,
+                    rows: globalRows,
+                    bounds: item.gridConfig.bounds || { x: 0, y: 0, width: 1, height: 1 }
+                }
+                : {
+                    ...(grid || { cols: globalCols, rows: globalRows }),
+                    cols: globalCols,
+                    rows: globalRows,
+                    bounds: grid?.bounds || { x: 0, y: 0, width: 1, height: 1 }
+                };
+            updateGridSlices(activeGrid, 'batch', item.dataUrl, index);
         }
         handleValueUpdate({ image: thumb, batchFiles });
     };
@@ -452,6 +620,9 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         }));
 
         setBatchFiles(newItems);
+        newItems.forEach((item, i) => {
+            setFullSizeImage(node.id, i, item.dataUrl);
+        });
         setSelectedRefIndex(0);
         const firstItem = newItems[0];
         setFullSizeImage(node.id, 0, firstItem.dataUrl);
@@ -476,17 +647,16 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         const sig = upstreamImages.map(img => img.slice(0, 40) + img.length).join('|');
         if (sig === prevUpstreamSigRef.current) return;
         
-        const isFirstConnection = prevUpstreamSigRef.current === '' && sig !== '';
         prevUpstreamSigRef.current = sig;
 
         if (upstreamImages.length > 0) {
-            if (mode === 'batch' || upstreamImages.length > 1 || (isFirstConnection && !image)) {
+            if (mode === 'batch' || upstreamImages.length > 1) {
                 syncFromUpstream(upstreamImages);
-            } else if (upstreamImages.length === 1 && !image) {
+            } else if (upstreamImages.length === 1) {
                 handleImageChange(upstreamImages[0]);
             }
         }
-    }, [upstreamImages, mode, image, syncFromUpstream, handleImageChange]);
+    }, [upstreamImages, mode, syncFromUpstream, handleImageChange]);
 
     const handleBatchSubModeChange = (newSubMode: ImageBatchSubMode) => {
         setBatchSubMode(newSubMode);
@@ -495,7 +665,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             ...currentBatchConfig,
             subMode: newSubMode,
             includeOriginal,
-            assetName
+            assetName,
+            individualGridSettings
         };
 
         handleValueUpdate({
@@ -516,11 +687,12 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
     const handleIncludeOriginalChange = (newInclude: boolean) => {
         setIncludeOriginal(newInclude);
-        const currentBatchConfig = parsedValueRef.current.batchConfig || { subMode: batchSubMode, assetName };
+        const currentBatchConfig = parsedValueRef.current.batchConfig || { subMode: batchSubMode, assetName, individualGridSettings };
         const updatedBatchConfig = {
             ...currentBatchConfig,
             includeOriginal: newInclude,
-            assetName
+            assetName,
+            individualGridSettings
         };
         handleValueUpdate({
             batchConfig: updatedBatchConfig
@@ -529,14 +701,116 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
     const handleAssetNameChange = (newAssetName: string) => {
         setAssetName(newAssetName);
-        const currentBatchConfig = parsedValueRef.current.batchConfig || { subMode: batchSubMode, includeOriginal };
+        const currentBatchConfig = parsedValueRef.current.batchConfig || { subMode: batchSubMode, includeOriginal, individualGridSettings };
         const updatedBatchConfig = {
             ...currentBatchConfig,
-            assetName: newAssetName
+            assetName: newAssetName,
+            individualGridSettings
         };
         handleValueUpdate({
             batchConfig: updatedBatchConfig
         });
+    };
+
+    const handleIndividualGridSettingsChange = (newIndividual: boolean) => {
+        setIndividualGridSettings(newIndividual);
+        const currentBatchConfig = parsedValueRef.current.batchConfig || { subMode: batchSubMode, includeOriginal, assetName };
+        const updatedBatchConfig = {
+            ...currentBatchConfig,
+            individualGridSettings: newIndividual
+        };
+        handleValueUpdate({
+            batchConfig: updatedBatchConfig
+        });
+        if (addToast) {
+            addToast(
+                newIndividual
+                    ? 'Включена индивидуальная настройка сетки для каждого фото'
+                    : 'Отключена индивидуальная настройка (используется общая сетка)',
+                'info'
+            );
+        }
+    };
+
+    const handleApplyCurrentGridToAll = () => {
+        const currentActiveGrid = activeGridConfig;
+        const updatedBatch = batchFiles.map(item => ({
+            ...item,
+            gridConfig: { ...currentActiveGrid }
+        }));
+        batchFilesRef.current = updatedBatch;
+        setBatchFiles(updatedBatch);
+        handleValueUpdate({
+            batchFiles: updatedBatch,
+            grid: currentActiveGrid
+        });
+        if (addToast) {
+            addToast(`Текущие границы и разделители применены ко всем ${updatedBatch.length} фото в пакете`, 'success');
+        }
+    };
+
+    const handleResetGridForAll = () => {
+        const cols = grid?.cols || 4;
+        const rows = grid?.rows || 5;
+        const uniformGrid: ImageInputGridConfig = {
+            ...(grid || { cols: 4, rows: 5 }),
+            cols,
+            rows,
+            bounds: { x: 0, y: 0, width: 1, height: 1 },
+            customDividers: false,
+            colDividers: undefined,
+            rowDividers: undefined
+        };
+        const updatedBatch = batchFiles.map(item => ({
+            ...item,
+            gridConfig: { ...uniformGrid }
+        }));
+        batchFilesRef.current = updatedBatch;
+        setBatchFiles(updatedBatch);
+        const currentMaster = batchFiles[selectedRefIndex]?.dataUrl || getFullSizeImage(node.id, 0) || image;
+        if (currentMaster) {
+            updateGridSlices(uniformGrid, 'batch', currentMaster, selectedRefIndex);
+        }
+        handleValueUpdate({
+            batchFiles: updatedBatch,
+            grid: uniformGrid
+        });
+        if (addToast) {
+            addToast(`Разделители и границы сброшены ко всем ${updatedBatch.length} фото`, 'info');
+        }
+    };
+
+    const handleResetGridForCurrent = () => {
+        const cols = grid?.cols || 4;
+        const rows = grid?.rows || 5;
+        const uniformGrid: ImageInputGridConfig = {
+            ...(grid || { cols: 4, rows: 5 }),
+            cols,
+            rows,
+            bounds: { x: 0, y: 0, width: 1, height: 1 },
+            customDividers: false,
+            colDividers: undefined,
+            rowDividers: undefined
+        };
+        const updatedBatch = batchFiles.map((item, idx) => {
+            if (idx === selectedRefIndex) {
+                return { ...item, gridConfig: { ...uniformGrid } };
+            }
+            return item;
+        });
+        batchFilesRef.current = updatedBatch;
+        setBatchFiles(updatedBatch);
+        const currentMaster = batchFiles[selectedRefIndex]?.dataUrl || getFullSizeImage(node.id, 0) || image;
+        if (currentMaster) {
+            updateGridSlices(uniformGrid, 'batch', currentMaster, selectedRefIndex);
+        }
+        handleValueUpdate({
+            batchFiles: updatedBatch,
+            grid: uniformGrid
+        });
+        if (addToast) {
+            addToast(`Сетка фото #${selectedRefIndex + 1} сброшена к равномерной`, 'info');
+        }
     };
 
     const handleStartBatchProcess = async () => {
@@ -591,30 +865,44 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
                 // 2. Process crop or grid slices
                 if (batchSubMode === 'crop') {
-                    const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
+                    const activeCrop = (individualGridSettings && item.cropRect) ? item.cropRect : (cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
                     const croppedDataUrl = await cropImageNormalized(item.dataUrl, activeCrop);
                     const base64Data = croppedDataUrl.split(',')[1];
                     folder.file(`crop_${cleanBaseName}_${cleanAssetName}.png`, base64Data, { base64: true });
                     totalSlicesCount += 1;
                 } else {
-                    const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+                    const globalCols = grid?.cols || 4;
+                    const globalRows = grid?.rows || 5;
+                    const activeGrid = (individualGridSettings && item.gridConfig)
+                        ? {
+                            ...item.gridConfig,
+                            cols: globalCols,
+                            rows: globalRows,
+                            bounds: item.gridConfig.bounds || { x: 0, y: 0, width: 1, height: 1 }
+                        }
+                        : (grid || { cols: globalCols, rows: globalRows, bounds: { x: 0, y: 0, width: 1, height: 1 } });
+                    const cols = globalCols;
+                    const rows = globalRows;
                     const { slices } = await sliceImageGrid(
                         item.dataUrl,
-                        activeGrid.cols,
-                        activeGrid.rows,
+                        cols,
+                        rows,
                         activeGrid.bounds,
                         {
                             enableBorder: activeGrid.enableBorder,
                             borderWidth: activeGrid.borderWidth,
-                            borderMode: activeGrid.borderMode
+                            borderMode: activeGrid.borderMode,
+                            customDividers: activeGrid.customDividers,
+                            colDividers: activeGrid.colDividers,
+                            rowDividers: activeGrid.rowDividers
                         }
                     );
 
                     for (let s = 0; s < slices.length; s++) {
                         const sliceData = slices[s];
                         const base64Data = sliceData.split(',')[1];
-                        const row = Math.floor(s / activeGrid.cols) + 1;
-                        const col = (s % activeGrid.cols) + 1;
+                        const row = Math.floor(s / cols) + 1;
+                        const col = (s % cols) + 1;
                         const sliceFileName = `slice_${String(s + 1).padStart(3, '0')}_${cleanAssetName}_r${row}_c${col}.png`;
                         folder.file(sliceFileName, base64Data, { base64: true });
                         totalSlicesCount += 1;
@@ -1008,9 +1296,32 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             ...(grid || {}),
             cols: safeCols,
             rows: safeRows,
-            bounds: grid?.bounds || { x: 0, y: 0, width: 1, height: 1 },
-            selectedCells: undefined // reset selection to all
+            bounds: activeGridConfig.bounds || { x: 0, y: 0, width: 1, height: 1 },
+            selectedCells: undefined, // reset selection to all
+            colDividers: undefined, // reset dividers to equal distribution for new dimensions
+            rowDividers: undefined
         };
+
+        if (mode === 'batch' && batchFilesRef.current.length > 0) {
+            const updatedBatch = batchFilesRef.current.map(bf => {
+                if (bf.gridConfig) {
+                    return {
+                        ...bf,
+                        gridConfig: {
+                            ...bf.gridConfig,
+                            cols: safeCols,
+                            rows: safeRows,
+                            colDividers: undefined,
+                            rowDividers: undefined
+                        }
+                    };
+                }
+                return bf;
+            });
+            batchFilesRef.current = updatedBatch;
+            setBatchFiles(updatedBatch);
+        }
+
         updateGridSlices(newGrid, mode);
     };
 
@@ -1021,11 +1332,69 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             ...borderUpdates,
             selectedCells: undefined
         };
+        if (borderUpdates.borderWidth !== undefined) {
+            setLocalBorderWidth(String(borderUpdates.borderWidth));
+        }
         updateGridSlices(newGrid, mode);
     };
 
+    const handleBorderWidthInputChange = (valStr: string) => {
+        setLocalBorderWidth(valStr);
+        if (borderDebounceTimerRef.current) {
+            clearTimeout(borderDebounceTimerRef.current);
+        }
+        borderDebounceTimerRef.current = setTimeout(() => {
+            const parsed = parseInt(valStr);
+            if (!isNaN(parsed)) {
+                const clamped = Math.max(0, Math.min(300, parsed));
+                updateGridBorderConfig({ borderWidth: clamped });
+            }
+        }, 220);
+    };
+
+    const handleBorderWidthInputCommit = () => {
+        if (borderDebounceTimerRef.current) {
+            clearTimeout(borderDebounceTimerRef.current);
+        }
+        const parsed = parseInt(localBorderWidth);
+        const clamped = isNaN(parsed) ? (grid?.borderWidth ?? 24) : Math.max(0, Math.min(300, parsed));
+        setLocalBorderWidth(String(clamped));
+        if ((grid?.borderWidth ?? 24) !== clamped) {
+            updateGridBorderConfig({ borderWidth: clamped });
+        }
+    };
+
     return (
-        <div className="flex flex-col h-full space-y-2 select-none" data-node-id={node.id}>
+        <div 
+            className="flex flex-col h-full space-y-2 select-none" 
+            data-node-id={node.id}
+            tabIndex={0}
+            onPaste={async (e) => {
+                const target = e.target as HTMLElement;
+                const isTextInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+                if (isTextInput && target.getAttribute('type') !== 'file') return;
+                const items = e.clipboardData?.items;
+                if (items) {
+                    const imageFiles: File[] = [];
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.startsWith('image/')) {
+                            const file = items[i].getAsFile();
+                            if (file) imageFiles.push(file);
+                        }
+                    }
+                    if (imageFiles.length > 0) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (mode === 'batch') {
+                            await loadMultipleFiles(imageFiles);
+                        } else {
+                            onPasteImage(node.id, imageFiles[0]);
+                        }
+                        return;
+                    }
+                }
+            }}
+        >
             <ImageEditorModal 
                 isOpen={isEditorOpen}
                 onClose={() => setIsEditorOpen(false)}
@@ -1222,6 +1591,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                             {[
                                 { cols: 4, rows: 5, label: '4×5' },
                                 { cols: 5, rows: 4, label: '5×4' },
+                                { cols: 3, rows: 4, label: '3×4' },
+                                { cols: 4, rows: 3, label: '4×3' },
                                 { cols: 1, rows: 2, label: '1×2' },
                                 { cols: 2, rows: 1, label: '2×1' },
                                 { cols: 2, rows: 2, label: '2×2' },
@@ -1272,7 +1643,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     grid?.enableBorder
                                         ? 'bg-cyan-500 text-black font-semibold shadow-sm'
                                         : 'bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-700'
-                                }`}
+                                    }`}
                             >
                                 <span className="w-3.5 h-3.5 flex items-center justify-center rounded border border-current text-[10px] font-bold">
                                     {grid?.enableBorder ? '✓' : ''}
@@ -1287,10 +1658,13 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => {
+                                            if (borderDebounceTimerRef.current) clearTimeout(borderDebounceTimerRef.current);
                                             const current = grid?.borderWidth ?? 24;
-                                            updateGridBorderConfig({ borderWidth: Math.max(1, current - 1) });
+                                            const next = Math.max(0, current - 4);
+                                            updateGridBorderConfig({ borderWidth: next });
                                         }}
-                                        className="px-1 py-0.2 hover:bg-cyan-800/70 text-cyan-300 font-bold rounded"
+                                        className="px-1.5 py-0.2 hover:bg-cyan-800/70 text-cyan-300 font-bold rounded"
+                                        title="-4 px"
                                     >
                                         -
                                     </button>
@@ -1298,20 +1672,27 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                         type="number"
                                         min={0}
                                         max={300}
-                                        value={grid?.borderWidth ?? 24}
-                                        onChange={(e) => {
-                                            const val = Math.max(0, Math.min(300, parseInt(e.target.value) || 0));
-                                            updateGridBorderConfig({ borderWidth: val });
+                                        value={localBorderWidth}
+                                        onChange={(e) => handleBorderWidthInputChange(e.target.value)}
+                                        onBlur={handleBorderWidthInputCommit}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleBorderWidthInputCommit();
+                                                (e.target as HTMLInputElement).blur();
+                                            }
                                         }}
-                                        className="w-10 text-center font-mono font-bold bg-transparent text-cyan-200 focus:outline-none focus:bg-gray-800 rounded text-[11px]"
+                                        className="w-10 text-center font-mono font-bold bg-transparent text-cyan-200 focus:outline-none focus:bg-gray-800 rounded text-[11px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => {
+                                            if (borderDebounceTimerRef.current) clearTimeout(borderDebounceTimerRef.current);
                                             const current = grid?.borderWidth ?? 24;
-                                            updateGridBorderConfig({ borderWidth: Math.min(300, current + 1) });
+                                            const next = Math.min(300, current + 4);
+                                            updateGridBorderConfig({ borderWidth: next });
                                         }}
-                                        className="px-1 py-0.2 hover:bg-cyan-800/70 text-cyan-300 font-bold rounded"
+                                        className="px-1.5 py-0.2 hover:bg-cyan-800/70 text-cyan-300 font-bold rounded"
+                                        title="+4 px"
                                     >
                                         +
                                     </button>
@@ -1321,7 +1702,10 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                              <button
                                                 key={px}
                                                 type="button"
-                                                onClick={() => updateGridBorderConfig({ borderWidth: px })}
+                                                onClick={() => {
+                                                    if (borderDebounceTimerRef.current) clearTimeout(borderDebounceTimerRef.current);
+                                                    updateGridBorderConfig({ borderWidth: px });
+                                                }}
                                                 className={`px-1 py-0.2 rounded hover:bg-cyan-800/70 ${
                                                     (grid?.borderWidth ?? 24) === px
                                                         ? 'bg-cyan-700 text-white font-bold'
@@ -1365,6 +1749,60 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 </button>
                             </div>
                         )}
+                    </div>
+
+                    {/* Row 3: Custom / Editable Table Boundaries */}
+                    <div className="flex items-center justify-between border-t border-cyan-800/30 pt-1.5 flex-wrap gap-2 text-[11px]">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const nextCustom = !grid?.customDividers;
+                                    updateGridSlices({
+                                        ...(grid || { cols: 4, rows: 5 }),
+                                        customDividers: nextCustom
+                                    });
+                                }}
+                                className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-medium transition-colors ${
+                                    grid?.customDividers
+                                        ? 'bg-amber-500 text-black font-semibold shadow-sm'
+                                        : 'bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-700'
+                                }`}
+                                title="Включить ручное перемещение внутренних линий колонок и строк мышкой"
+                            >
+                                <span className="w-3.5 h-3.5 flex items-center justify-center rounded border border-current text-[10px] font-bold">
+                                    {grid?.customDividers ? '✓' : ''}
+                                </span>
+                                <span>Редактируемые границы (Таблица)</span>
+                            </button>
+
+                            {(grid?.customDividers || (grid?.colDividers && grid.colDividers.length > 0) || (grid?.rowDividers && grid.rowDividers.length > 0)) && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        updateGridSlices({
+                                            ...(grid || { cols: 4, rows: 5 }),
+                                            colDividers: undefined,
+                                            rowDividers: undefined
+                                        });
+                                    }}
+                                    className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-amber-300 hover:text-amber-200 rounded text-[10px] border border-amber-500/40 font-mono transition-colors"
+                                    title="Выровнять все столбцы и строки до одинаковой ширины и высоты"
+                                >
+                                    ⟲ Выровнять ячейки
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="text-[10px] text-gray-400 font-mono">
+                            {grid?.customDividers ? (
+                                <span className="text-amber-300/90 font-sans">
+                                    Потяните линии <span className="font-mono text-amber-200 font-bold">⇿ ⇳</span> между ячейками мышкой
+                                </span>
+                            ) : (
+                                <span>Линии можно двигать в любой момент</span>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -1421,7 +1859,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 {/* Interactive Overlays: Crop */}
                                 {(mode === 'single' || (mode === 'batch' && batchSubMode === 'crop')) && (
                                     <ImageCropOverlay
-                                        cropRect={cropRect}
+                                        cropRect={activeCropRect}
                                         onChangeCropRect={(newRect) => {
                                             updateSingleCropSlice(newRect, mode);
                                         }}
@@ -1435,7 +1873,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 {/* Interactive Overlays: Grid */}
                                 {(mode === 'grid' || (mode === 'batch' && batchSubMode === 'grid')) && (
                                     <ImageGridOverlay
-                                        gridConfig={grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } }}
+                                        gridConfig={activeGridConfig}
                                         onChangeGridConfig={(newConfig) => {
                                             updateGridSlices(newConfig, mode);
                                         }}
@@ -1591,8 +2029,13 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     onChangeIncludeOriginal={handleIncludeOriginalChange}
                     assetName={assetName}
                     onChangeAssetName={handleAssetNameChange}
-                    cropRect={cropRect}
-                    gridConfig={grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } }}
+                    individualGridSettings={individualGridSettings}
+                    onChangeIndividualGridSettings={handleIndividualGridSettingsChange}
+                    onApplyCurrentGridToAll={handleApplyCurrentGridToAll}
+                    onResetGridForAll={handleResetGridForAll}
+                    onResetGridForCurrent={handleResetGridForCurrent}
+                    cropRect={activeCropRect}
+                    gridConfig={activeGridConfig}
                     isProcessing={isBatchProcessing}
                     progress={batchProgress}
                     onStartBatchProcess={handleStartBatchProcess}
@@ -1602,6 +2045,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     addToast={addToast}
                     upstreamImagesCount={upstreamImages.length}
                     onSyncFromUpstream={() => syncFromUpstream()}
+                    onPasteClipboard={handlePasteFromClipboard}
                 />
             )}
             

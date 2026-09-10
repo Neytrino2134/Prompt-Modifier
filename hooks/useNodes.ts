@@ -188,21 +188,262 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                     }
                 } catch (e) { }
             } else if (node.type === NodeType.NOTE) {
-                // Note Node Text Append Logic
+                // Note Node Paste Logic (Supports full note data payload, reference arrays, and plain text)
                 try {
-                    const parsed = JSON.parse(node.value || '{}');
-                    const currentText = parsed.text || '';
-                    const newText = currentText ? `${currentText}\n${text}` : text;
-                    handleValueChange(nodeId, JSON.stringify({ ...parsed, text: newText }));
+                    const parsedClipboard = JSON.parse(text);
+
+                    // Case 1: Note payload (with type === 'note-data' or containing activeTab / references)
+                    if (
+                        parsedClipboard.type === 'note-data' ||
+                        (typeof parsedClipboard === 'object' && parsedClipboard !== null && ('references' in parsedClipboard || 'activeTab' in parsedClipboard))
+                    ) {
+                        const currentParsed = JSON.parse(node.value || '{}');
+                        const incomingRefs = Array.isArray(parsedClipboard.references) ? parsedClipboard.references : [];
+
+                        // Process references & sync to fullSizeImage cache
+                        const processedRefs: any[] = [];
+                        for (let i = 0; i < incomingRefs.length; i++) {
+                            const ref = incomingRefs[i];
+                            const imgSrc = ref.image;
+                            let thumb = imgSrc;
+                            if (imgSrc && typeof imgSrc === 'string' && imgSrc.startsWith('data:')) {
+                                setFullSizeImage(nodeId, i, imgSrc);
+                                try {
+                                    thumb = await generateThumbnail(imgSrc, 256, 256);
+                                } catch {
+                                    thumb = imgSrc;
+                                }
+                            }
+                            processedRefs.push({
+                                id: ref.id || `ref-${Date.now()}-${i}`,
+                                image: thumb,
+                                caption: ref.caption || ''
+                            });
+                        }
+
+                        const updatedValue = {
+                            ...currentParsed,
+                            text: parsedClipboard.text !== undefined ? parsedClipboard.text : (currentParsed.text || ''),
+                            references: processedRefs,
+                            activeTab: parsedClipboard.activeTab || (processedRefs.length > 0 ? 'reference' : (currentParsed.activeTab || 'note')),
+                            style: parsedClipboard.style ? { ...(currentParsed.style || {}), ...parsedClipboard.style } : currentParsed.style,
+                            isMinimal: parsedClipboard.isMinimal !== undefined ? parsedClipboard.isMinimal : currentParsed.isMinimal
+                        };
+
+                        handleValueChange(nodeId, JSON.stringify(updatedValue));
+                        addToast(t('toast.pastedFromClipboard'));
+                        return null;
+                    }
+
+                    // Case 2: Pasting an array of items (references, cards, prompt frames)
+                    if (Array.isArray(parsedClipboard) && parsedClipboard.length > 0) {
+                        const currentParsed = JSON.parse(node.value || '{}');
+                        const existingRefs = currentParsed.references || [];
+                        const startIndex = existingRefs.length;
+                        const newRefs: any[] = [];
+
+                        for (let i = 0; i < parsedClipboard.length; i++) {
+                            const item = parsedClipboard[i];
+                            const actualIndex = startIndex + i;
+                            const rawImg = item.image || item.src || (item.imageSources ? (item.imageSources['1:1'] || Object.values(item.imageSources)[0]) : null);
+                            let thumb = rawImg;
+                            if (rawImg && typeof rawImg === 'string' && rawImg.startsWith('data:')) {
+                                setFullSizeImage(nodeId, actualIndex, rawImg);
+                                try {
+                                    thumb = await generateThumbnail(rawImg, 256, 256);
+                                } catch {
+                                    thumb = rawImg;
+                                }
+                            }
+                            newRefs.push({
+                                id: `ref-${Date.now()}-${actualIndex}`,
+                                image: thumb,
+                                caption: item.caption || item.prompt || item.name || item.title || ''
+                            });
+                        }
+
+                        const updatedValue = {
+                            ...currentParsed,
+                            references: [...existingRefs, ...newRefs],
+                            activeTab: 'reference'
+                        };
+                        handleValueChange(nodeId, JSON.stringify(updatedValue));
+                        addToast(t('toast.pastedFromClipboard'));
+                        return null;
+                    }
+
+                    // Case 3: JSON with text/prompt property
+                    const currentParsed = JSON.parse(node.value || '{}');
+                    const incomingText = parsedClipboard.text || parsedClipboard.prompt || text;
+                    const currentText = currentParsed.text || '';
+                    const newText = currentText ? `${currentText}\n${incomingText}` : incomingText;
+                    handleValueChange(nodeId, JSON.stringify({ ...currentParsed, text: newText }));
                     addToast(t('toast.pastedFromClipboard'));
                     return null;
                 } catch (e) {
-                    // Fallback if parsing fails (legacy string content)
-                    const newText = node.value ? `${node.value}\n${text}` : text;
-                     // Upgrade structure
-                     handleValueChange(nodeId, JSON.stringify({ text: newText, references: [], activeTab: 'note' }));
-                     addToast(t('toast.pastedFromClipboard'));
-                     return null;
+                    // Fallback for plain text
+                    try {
+                        const currentParsed = JSON.parse(node.value || '{}');
+                        const currentText = currentParsed.text || '';
+                        const newText = currentText ? `${currentText}\n${text}` : text;
+                        handleValueChange(nodeId, JSON.stringify({ ...currentParsed, text: newText }));
+                        addToast(t('toast.pastedFromClipboard'));
+                        return null;
+                    } catch {
+                        const newText = node.value ? `${node.value}\n${text}` : text;
+                        handleValueChange(nodeId, JSON.stringify({ text: newText, references: [], activeTab: 'note' }));
+                        addToast(t('toast.pastedFromClipboard'));
+                        return null;
+                    }
+                }
+            } else if (node.type === NodeType.IMAGE_INPUT) {
+                try {
+                    const parsedClipboard = JSON.parse(text);
+
+                    // Case 1: Full Image Input Payload or Object with Batch/Grid/Image
+                    if (
+                        parsedClipboard.type === 'image-input-data' ||
+                        (typeof parsedClipboard === 'object' && parsedClipboard !== null && !Array.isArray(parsedClipboard) && ('batchFiles' in parsedClipboard || 'grid' in parsedClipboard || 'mode' in parsedClipboard || 'image' in parsedClipboard || 'fullSizeImage' in parsedClipboard))
+                    ) {
+                        const mainImg = parsedClipboard.fullSizeImage || parsedClipboard.image || (parsedClipboard.batchFiles?.[0]?.dataUrl) || null;
+                        let mainThumb = parsedClipboard.image || null;
+
+                        if (mainImg && typeof mainImg === 'string' && mainImg.startsWith('data:')) {
+                            setFullSizeImage(nodeId, 0, mainImg);
+                            try {
+                                mainThumb = await generateThumbnail(mainImg, 256, 256);
+                            } catch {
+                                mainThumb = mainImg;
+                            }
+                        }
+
+                        if (parsedClipboard.slices && typeof parsedClipboard.slices === 'object') {
+                            Object.entries(parsedClipboard.slices).forEach(([frame, sliceUrl]) => {
+                                if (typeof sliceUrl === 'string' && sliceUrl.startsWith('data:')) {
+                                    setFullSizeImage(nodeId, Number(frame), sliceUrl);
+                                }
+                            });
+                        }
+
+                        let currentVal: any = {};
+                        try {
+                            currentVal = JSON.parse(node.value || '{}');
+                        } catch {
+                            currentVal = {};
+                        }
+
+                        const incomingBatch = Array.isArray(parsedClipboard.batchFiles) ? parsedClipboard.batchFiles : [];
+                        const restoredBatchFiles: any[] = [];
+
+                        for (let i = 0; i < incomingBatch.length; i++) {
+                            const item = incomingBatch[i];
+                            let itemThumb = item.thumbnailUrl;
+                            if (!itemThumb && item.dataUrl && typeof item.dataUrl === 'string' && item.dataUrl.startsWith('data:')) {
+                                try {
+                                    itemThumb = await generateThumbnail(item.dataUrl, 128, 128);
+                                } catch {
+                                    itemThumb = item.dataUrl;
+                                }
+                            }
+                            restoredBatchFiles.push({
+                                id: item.id || `batch-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 7)}`,
+                                name: item.name || `image_${i + 1}.png`,
+                                dataUrl: item.dataUrl || itemThumb || mainImg,
+                                thumbnailUrl: itemThumb || item.dataUrl,
+                                width: item.width,
+                                height: item.height,
+                                size: item.size,
+                                cropRect: item.cropRect,
+                                gridConfig: item.gridConfig
+                            });
+                        }
+
+                        const updatedValue = {
+                            ...currentVal,
+                            image: mainThumb !== null ? mainThumb : currentVal.image,
+                            prompt: parsedClipboard.prompt !== undefined ? parsedClipboard.prompt : (currentVal.prompt || ''),
+                            mode: parsedClipboard.mode || (restoredBatchFiles.length > 0 ? 'batch' : (parsedClipboard.grid ? 'grid' : (parsedClipboard.cropRect ? 'single' : (currentVal.mode || 'full')))),
+                            cropRect: parsedClipboard.cropRect !== undefined ? parsedClipboard.cropRect : currentVal.cropRect,
+                            croppedImage: parsedClipboard.croppedImage !== undefined ? parsedClipboard.croppedImage : currentVal.croppedImage,
+                            grid: parsedClipboard.grid !== undefined ? parsedClipboard.grid : currentVal.grid,
+                            batchConfig: parsedClipboard.batchConfig !== undefined ? parsedClipboard.batchConfig : currentVal.batchConfig,
+                            batchFiles: restoredBatchFiles.length > 0 ? restoredBatchFiles : (currentVal.batchFiles || []),
+                            extractedImages: parsedClipboard.extractedImages !== undefined ? parsedClipboard.extractedImages : currentVal.extractedImages,
+                            showSlicesDrawer: parsedClipboard.showSlicesDrawer !== undefined ? parsedClipboard.showSlicesDrawer : currentVal.showSlicesDrawer,
+                            showControls: parsedClipboard.showControls !== undefined ? parsedClipboard.showControls : currentVal.showControls
+                        };
+
+                        handleValueChange(nodeId, JSON.stringify(updatedValue));
+                        addToast(t('toast.pastedFromClipboard'));
+                        return null;
+                    }
+
+                    // Case 2: Pasting an array of batch items or image objects
+                    if (Array.isArray(parsedClipboard) && parsedClipboard.length > 0) {
+                        let currentVal: any = {};
+                        try {
+                            currentVal = JSON.parse(node.value || '{}');
+                        } catch {
+                            currentVal = {};
+                        }
+
+                        const existingBatch = currentVal.batchFiles || [];
+                        const newBatch: any[] = [];
+
+                        for (let i = 0; i < parsedClipboard.length; i++) {
+                            const item = parsedClipboard[i];
+                            const rawSrc = item.dataUrl || item.image || item.src || (item.imageSources ? (item.imageSources['1:1'] || Object.values(item.imageSources)[0]) : null);
+                            if (rawSrc && typeof rawSrc === 'string' && rawSrc.startsWith('data:')) {
+                                let thumb = item.thumbnailUrl;
+                                if (!thumb) {
+                                    try {
+                                        thumb = await generateThumbnail(rawSrc, 128, 128);
+                                    } catch {
+                                        thumb = rawSrc;
+                                    }
+                                }
+                                newBatch.push({
+                                    id: `batch-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 7)}`,
+                                    name: item.name || item.caption || `image_${existingBatch.length + i + 1}.png`,
+                                    dataUrl: rawSrc,
+                                    thumbnailUrl: thumb,
+                                    width: item.width,
+                                    height: item.height,
+                                    size: item.size,
+                                    cropRect: item.cropRect,
+                                    gridConfig: item.gridConfig
+                                });
+                            }
+                        }
+
+                        if (newBatch.length > 0) {
+                            const mergedBatch = [...existingBatch, ...newBatch];
+                            const firstImg = mergedBatch[0]?.dataUrl;
+                            if (firstImg && (!currentVal.image || existingBatch.length === 0)) {
+                                setFullSizeImage(nodeId, 0, firstImg);
+                            }
+                            const updatedValue = {
+                                ...currentVal,
+                                mode: 'batch',
+                                batchFiles: mergedBatch
+                            };
+                            handleValueChange(nodeId, JSON.stringify(updatedValue));
+                            addToast(t('toast.pastedFromClipboard'));
+                            return null;
+                        }
+                    }
+                } catch {
+                    // Fallback for plain text: set as prompt if valid
+                    if (text && !text.startsWith('data:image')) {
+                        try {
+                            const currentVal = JSON.parse(node.value || '{}');
+                            handleValueChange(nodeId, JSON.stringify({ ...currentVal, prompt: text }));
+                            addToast(t('toast.pastedFromClipboard'));
+                            return null;
+                        } catch {
+                            // ignore
+                        }
+                    }
                 }
             }
 
@@ -314,13 +555,39 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                             } else if (node.type !== NodeType.TRANSLATOR) {
                                 // Image Input / Analyzer
                                 if (node.type === NodeType.IMAGE_INPUT) {
-                                    newValue = JSON.stringify({ 
-                                        ...parsed, 
-                                        image: thumbnailUrl, 
-                                        prompt: prompt || parsed.prompt || '',
-                                        extractedImages: [], 
-                                        croppedImage: null 
-                                    });
+                                    if (parsed.mode === 'batch') {
+                                        const existingBatch = Array.isArray(parsed.batchFiles) ? parsed.batchFiles : [];
+                                        const nextIdx = existingBatch.length;
+                                        const newBatchItem = {
+                                            id: `batch-${Date.now()}-${nextIdx}-${Math.random().toString(36).substring(2, 7)}`,
+                                            name: `Pasted_Image_${nextIdx + 1}.png`,
+                                            dataUrl: dataUrl,
+                                            thumbnailUrl: thumbnailUrl,
+                                            size: Math.round(dataUrl.length * 0.75)
+                                        };
+                                        const mergedBatch = [...existingBatch, newBatchItem];
+                                        if (existingBatch.length === 0 || !parsed.image) {
+                                            setFullSizeImage(nodeId, 0, dataUrl);
+                                            newValue = JSON.stringify({
+                                                ...parsed,
+                                                image: thumbnailUrl,
+                                                batchFiles: mergedBatch
+                                            });
+                                        } else {
+                                            newValue = JSON.stringify({
+                                                ...parsed,
+                                                batchFiles: mergedBatch
+                                            });
+                                        }
+                                    } else {
+                                        newValue = JSON.stringify({ 
+                                            ...parsed, 
+                                            image: thumbnailUrl, 
+                                            prompt: prompt || parsed.prompt || '',
+                                            extractedImages: [], 
+                                            croppedImage: null 
+                                        });
+                                    }
                                 } else {
                                     newValue = JSON.stringify({ ...parsed, image: thumbnailUrl, prompt: prompt || parsed.prompt || '' });
                                 }
@@ -417,9 +684,57 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                 const parsed = JSON.parse(node.value);
                 switch (node.type) {
                     case NodeType.IMAGE_INPUT:
-                        imageUrl = getFullSizeImage(node.id, 0) || parsed.image;
-                        if (!imageUrl) textToCopy = parsed.prompt || '';
-                        else textToCopy = '';
+                        {
+                            const fullRes = getFullSizeImage(node.id, 0) || parsed.image || (parsed.batchFiles?.[0]?.dataUrl) || null;
+
+                            // Collect all high-res slices from cache
+                            const slices: Record<number, string> = {};
+                            for (let i = 1; i <= 100; i++) {
+                                const sliceImg = getFullSizeImage(node.id, i);
+                                if (sliceImg) {
+                                    slices[i] = sliceImg;
+                                }
+                            }
+
+                            // Process batch files to make sure they contain full dataUrls
+                            let processedBatchFiles: any[] = [];
+                            if (Array.isArray(parsed.batchFiles)) {
+                                processedBatchFiles = parsed.batchFiles.map((bf: any) => ({
+                                    id: bf.id || `batch-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`,
+                                    name: bf.name || 'image.png',
+                                    dataUrl: bf.dataUrl || bf.thumbnailUrl || fullRes,
+                                    thumbnailUrl: bf.thumbnailUrl,
+                                    width: bf.width,
+                                    height: bf.height,
+                                    size: bf.size,
+                                    cropRect: bf.cropRect,
+                                    gridConfig: bf.gridConfig
+                                }));
+                            }
+
+                            const exportPayload = {
+                                type: 'image-input-data',
+                                nodeTitle: node.title,
+                                image: fullRes,
+                                fullSizeImage: fullRes,
+                                prompt: parsed.prompt || '',
+                                mode: parsed.mode || (processedBatchFiles.length > 0 ? 'batch' : (parsed.grid ? 'grid' : (parsed.cropRect ? 'single' : 'full'))),
+                                cropRect: parsed.cropRect || null,
+                                croppedImage: parsed.croppedImage || null,
+                                grid: parsed.grid || null,
+                                batchConfig: parsed.batchConfig || null,
+                                batchFiles: processedBatchFiles,
+                                extractedImages: parsed.extractedImages || [],
+                                slices: Object.keys(slices).length > 0 ? slices : undefined,
+                                showSlicesDrawer: parsed.showSlicesDrawer,
+                                showControls: parsed.showControls,
+                                width: node.width,
+                                height: node.height
+                            };
+
+                            textToCopy = JSON.stringify(exportPayload, null, 2);
+                            imageUrl = null;
+                        }
                         break;
                     case NodeType.IMAGE_ANALYZER:
                         imageUrl = getFullSizeImage(node.id, 0) || parsed.image;
@@ -467,7 +782,26 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                         textToCopy = parsed.prompt || '';
                         break;
                     case NodeType.NOTE:
-                        textToCopy = parsed.text || '';
+                        {
+                            const exportReferences = (parsed.references || []).map((ref: any, i: number) => {
+                                const highRes = getFullSizeImage(node.id, i);
+                                return {
+                                    id: ref.id || `ref-${i}`,
+                                    image: highRes || ref.image || null,
+                                    caption: ref.caption || ''
+                                };
+                            });
+                            const notePayload = {
+                                type: 'note-data',
+                                nodeTitle: node.title,
+                                activeTab: parsed.activeTab || 'note',
+                                text: parsed.text || '',
+                                style: parsed.style,
+                                isMinimal: parsed.isMinimal,
+                                references: exportReferences
+                            };
+                            textToCopy = JSON.stringify(notePayload, null, 2);
+                        }
                         break;
                     case NodeType.PROMPT_ANALYZER:
                     case NodeType.CHARACTER_ANALYZER:
@@ -478,7 +812,21 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                     default:
                         textToCopy = node.value;
                 }
-            } else if ((node.type === NodeType.IMAGE_OUTPUT || node.type === NodeType.IMAGE_INPUT) && node.value.startsWith('data:image')) {
+            } else if (node.type === NodeType.IMAGE_INPUT && node.value.startsWith('data:image')) {
+                const fullRes = getFullSizeImage(node.id, 0) || node.value;
+                const exportPayload = {
+                    type: 'image-input-data',
+                    nodeTitle: node.title,
+                    image: fullRes,
+                    fullSizeImage: fullRes,
+                    mode: 'full',
+                    prompt: '',
+                    width: node.width,
+                    height: node.height
+                };
+                textToCopy = JSON.stringify(exportPayload, null, 2);
+                imageUrl = null;
+            } else if (node.type === NodeType.IMAGE_OUTPUT && node.value.startsWith('data:image')) {
                 imageUrl = getFullSizeImage(node.id, 0) || node.value;
                 textToCopy = '';
             } else {
@@ -552,6 +900,18 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, autoDownload: enabled } : n));
     };
 
+    const handleDurationChange = (nodeId: string, duration: string) => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, duration } : n));
+    };
+
+    const handleUseBatchChange = (nodeId: string, useBatch: boolean) => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, useBatch } : n));
+    };
+
+    const handleVideoModeChange = (nodeId: string, videoMode: 'text_to_video' | 'image_to_video' | 'video_edit') => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, videoMode } : n));
+    };
+
     const handleSetImageEditorOutputToInput = (nodeId: string) => {
         const node = nodes.find(n => n.id === nodeId);
         if (!node || node.type !== NodeType.IMAGE_EDITOR) return;
@@ -618,6 +978,9 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         handleSizeChange,
         handleCustomPromptChange,
         handleAutoDownloadChange,
+        handleDurationChange,
+        handleUseBatchChange,
+        handleVideoModeChange,
         handleSetImageEditorOutputToInput,
         handleRefreshImageEditor,
         handleToggleNodeCollapse,

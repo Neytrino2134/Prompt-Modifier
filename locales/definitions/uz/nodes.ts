@@ -139,6 +139,7 @@ export const nodes = {
     'node.content.enableAspectRatioFormatting': 'Nisbatni formatlashni yoqish',
     'node.content.autoDownload': 'Avto Yuklash',
     'node.content.generateImage': 'Rasm Yaratish',
+    'node.content.generateImage_batch': 'Rasm Yaratish (Batch)',
     'node.content.enhancing': 'Yaxshilanmoqda...',
     'node.content.enhancePrompt': 'Promptni Yaxshilash',
     'node.content.sanitizing': 'Tozalanmoqda...',

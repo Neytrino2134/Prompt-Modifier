@@ -11,18 +11,18 @@ interface ConnectionQuickAddMenuProps {
 }
 
 const NODE_HOTKEY_MAP: Partial<Record<NodeType, string>> = {
-  [NodeType.IMAGE_INPUT]: 'U',
+  [NodeType.IMAGE_INPUT]: 'I',
   [NodeType.IMAGE_OUTPUT]: 'O',
   [NodeType.PROMPT_ANALYZER]: 'A',
-  [NodeType.IMAGE_ANALYZER]: 'A',
+  [NodeType.IMAGE_ANALYZER]: 'Shift+A',
   [NodeType.PROMPT_PROCESSOR]: 'P',
-  [NodeType.VIDEO_PROMPT_PROCESSOR]: 'V',
+  [NodeType.VIDEO_PROMPT_PROCESSOR]: 'Shift+P',
   [NodeType.TRANSLATOR]: 'L',
-  [NodeType.IMAGE_EDITOR]: 'I',
+  [NodeType.IMAGE_EDITOR]: 'Shift+I',
   [NodeType.REROUTE_DOT]: 'R',
-  [NodeType.DATA_READER]: 'D',
+  [NodeType.DATA_READER]: 'Shift+R',
   [NodeType.VIDEO_EDITOR]: 'E',
-  [NodeType.IMAGE_SEQUENCE_GENERATOR]: 'Q',
+  [NodeType.IMAGE_SEQUENCE_GENERATOR]: 'Shift+Q',
 };
 
 const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen, info, onClose, onSelect }) => {
@@ -113,7 +113,18 @@ const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen,
         const matchedItem = currentOptions.find(item => {
             const expectedHotkey = NODE_HOTKEY_MAP[item.type];
             if (!expectedHotkey) return false;
-            return pressedKey === expectedHotkey || pressedCode === `Key${expectedHotkey}`;
+            
+            const parts = expectedHotkey.split('+').map(p => p.trim().toUpperCase());
+            const needsShift = parts.includes('SHIFT');
+            const needsCtrl = parts.includes('CTRL') || parts.includes('CMD');
+            const needsAlt = parts.includes('ALT');
+            const keyPart = parts[parts.length - 1];
+            
+            if (e.shiftKey !== needsShift) return false;
+            if ((e.ctrlKey || e.metaKey) !== needsCtrl) return false;
+            if (e.altKey !== needsAlt) return false;
+            
+            return pressedKey === keyPart || pressedCode === `Key${keyPart}`;
         });
 
         if (matchedItem) {
@@ -173,6 +184,7 @@ const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen,
     >
       {currentOptions.map((item, index) => {
         const hotkey = NODE_HOTKEY_MAP[item.type];
+        const cleanTitle = item.title.replace(/\s*\([^)]+\)\s*$/, '');
         return (
           <button
             key={item.type}
@@ -182,7 +194,7 @@ const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen,
             <div className="flex items-center space-x-3">
               <span className="text-xs font-mono font-bold text-gray-500 group-hover:text-white w-4 text-right">{index + 1}.</span>
               <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">{item.icon}</div>
-              <span className="text-sm font-semibold">{item.title}</span>
+              <span className="text-sm font-semibold">{cleanTitle}</span>
             </div>
             {hotkey && (
               <span className="ml-3 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-gray-700/80 group-hover:bg-accent-hover text-gray-400 group-hover:text-white border border-gray-600/50 transition-colors">

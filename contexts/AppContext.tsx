@@ -529,15 +529,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // ... (rest of the file as is)
 
     // Gemini Hooks
+    const taskQueueHook = useTaskQueue();
+
     const geminiAnalysisHook = useGeminiAnalysis({
-        nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, t, setFullSizeImage, getFullSizeImage, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, addToast
+        nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, t, setFullSizeImage, getFullSizeImage, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, addToast, taskQueue: taskQueueHook
     });
 
     const geminiModificationHook = useGeminiModification({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, getUpstreamNodeValues, setError: globalState.setError, t, activeTabId, setTabs, activeTabName: activeTab.name, registerOperation, unregisterOperation, addToast
     });
-
-    const taskQueueHook = useTaskQueue();
 
     const updateNodeInStorage = useCallback((targetTabId: string, nodeId: string, valueUpdater: (prevVal: any) => any, imageCacheUpdate?: { frame: number, url: string }) => {
         const safeParse = (val: string) => {
@@ -598,6 +598,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addToast,
         enqueueTask: taskQueueHook.enqueueTask,
         updateTaskByBatchJob: taskQueueHook.updateTaskByBatchJob,
+        completeBatchTasksForNode: taskQueueHook.completeBatchTasksForNode,
         triggerAutoSave: forceSaveSession,
         t
     });

@@ -139,6 +139,7 @@ export const nodes = {
     'node.content.enableAspectRatioFormatting': 'Habilitar Formatação de Proporção',
     'node.content.autoDownload': 'Download Automático',
     'node.content.generateImage': 'Gerar Imagem',
+    'node.content.generateImage_batch': 'Gerar Imagem (Batch)',
     'node.content.enhancing': 'Melhorando...',
     'node.content.enhancePrompt': 'Melhorar Prompt',
     'node.content.sanitizing': 'Higienizando...',

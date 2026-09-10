@@ -127,11 +127,17 @@ export const getOutputHandleType = (node: Node, handleId?: string): 'text' | 'im
         case NodeType.IMAGE_SEQUENCE_GENERATOR:
             if (handleId === 'all_images') return 'image';
             return null;
-        case NodeType.NOTE:
+        case NodeType.NOTE: {
              if (handleId === 'all_images') return 'image';
              if (handleId === 'all_captions') return 'text';
-             // Removed 'reference_data' output
-             return null;
+             try {
+                 const parsed = JSON.parse(node.value || '{}');
+                 if (parsed.activeTab === 'reference') return null;
+                 return 'text';
+             } catch {
+                 return 'text';
+             }
+        }
         case NodeType.REROUTE_DOT:
             try {
                 const parsed = JSON.parse(node.value || '{}');
@@ -386,6 +392,25 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                 } else {
                      y = COLLAPSED_NODE_HEIGHT / 2;
                 }
+            } else if (node.type === NodeType.NOTE && !isInput) {
+                let isRef = true;
+                try {
+                    const parsed = JSON.parse(node.value || '{}');
+                    if (parsed.activeTab === 'note') isRef = false;
+                } catch {}
+                if (isRef) {
+                    const handles = ['all_images', 'all_captions'];
+                    const idx = handles.indexOf(handleId || '');
+                    if (idx !== -1) {
+                        y = (idx + 1) * (COLLAPSED_NODE_HEIGHT / (handles.length + 1));
+                    } else {
+                        y = COLLAPSED_NODE_HEIGHT / 2;
+                    }
+                } else {
+                    y = COLLAPSED_NODE_HEIGHT / 2;
+                }
+            } else if (node.type === NodeType.NOTE && isInput) {
+                y = COLLAPSED_NODE_HEIGHT / 2;
             } else {
                 y = COLLAPSED_NODE_HEIGHT / 2;
             }
@@ -510,6 +535,35 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                  } else if (handleId === 'text') {
                      y = imagePaneTop + paneHeight + spacing + paneHeight / 2;
                  }
+            } else if (node.type === NodeType.NOTE && isInput) {
+                let isRef = true;
+                try {
+                    const parsed = JSON.parse(node.value || '{}');
+                    if (parsed.activeTab === 'note') isRef = false;
+                } catch {}
+                if (isRef) {
+                    y = 80 + (h - 80) / 2;
+                } else {
+                    y = h / 2;
+                }
+            } else if (node.type === NodeType.NOTE && !isInput) {
+                let isRef = true;
+                try {
+                    const parsed = JSON.parse(node.value || '{}');
+                    if (parsed.activeTab === 'note') isRef = false;
+                } catch {}
+                if (isRef) {
+                    const availableHeight = h - 80;
+                    if (handleId === 'all_images') {
+                        y = 80 + availableHeight * 0.33;
+                    } else if (handleId === 'all_captions') {
+                        y = 80 + availableHeight * 0.66;
+                    } else {
+                        y = 80 + availableHeight * 0.33;
+                    }
+                } else {
+                    y = h / 2;
+                }
             }
         }
         return { x: node.position.x + x, y: node.position.y + y };

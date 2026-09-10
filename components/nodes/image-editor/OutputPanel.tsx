@@ -12,7 +12,7 @@ import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { setupImageDragData } from '../../../utils/imageUtils';
 import ConfirmDialog from '../../ConfirmDialog';
 import { useAppContext } from '../../../contexts/AppContext';
-import { isGptImage2Model, isOpenAiImageModel } from '../../../services/modelConfig';
+import { isGptImage2Model, isOpenAiImageModel, resolveImageEditorModel } from '../../../services/modelConfig';
 
 // Helper component for input with stylish spinners
 const InputWithSpinners: React.FC<{
@@ -136,7 +136,10 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs
 }) => {
     const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
-    const { isBatchMode } = useAppContext();
+    const { isBatchMode, isFormingBatch, getNodeActiveBatchJob, isNodeBatchActive } = useAppContext();
+    const isForming = isFormingBatch ? isFormingBatch(nodeId) : false;
+    const activeBatchJob = getNodeActiveBatchJob ? getNodeActiveBatchJob(nodeId) : undefined;
+    const isBatchActive = isNodeBatchActive ? isNodeBatchActive(nodeId) : false;
     
     // Range State
     const [rangeStart, setRangeStart] = useState('');
@@ -159,15 +162,16 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     const [scrollTop, setScrollTop] = useState(0);
     const [containerWidth, setContainerWidth] = useState(0);
 
-    const isFlashImage = model === 'gemini-2.5-flash-image' || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
-    const isPro = model === 'gemini-3-pro-image-preview';
-    const isGpt2 = isGptImage2Model(model);
-    const isDalle3 = model === 'dall-e-3';
-    const isDalle2 = model === 'dall-e-2';
-    const isOpenAi = isOpenAiImageModel(model);
+    const effectiveModel = resolveImageEditorModel(model);
+    const isFlashImage = effectiveModel === 'gemini-2.5-flash-image' || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview';
+    const isPro = effectiveModel === 'gemini-3-pro-image-preview';
+    const isGpt2 = isGptImage2Model(effectiveModel);
+    const isDalle3 = effectiveModel === 'dall-e-3';
+    const isDalle2 = effectiveModel === 'dall-e-2';
+    const isOpenAi = isOpenAiImageModel(effectiveModel);
 
-    const showAspectRatio = !isGpt2 && !isDalle2 && (isFlashImage || isPro || model?.startsWith('imagen') || isOpenAi);
-    const showResolution = isPro || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
+    const showAspectRatio = !isGpt2 && !isDalle2 && (isFlashImage || isPro || effectiveModel?.startsWith('imagen') || isOpenAi);
+    const showResolution = isPro || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview';
     const showQuality = isGpt2 || isDalle3;
     const showGptSize = isGpt2 || isDalle2;
     const showOutputFormat = isGpt2;
@@ -245,7 +249,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     }, [checkedInputIndices]);
 
     const isMainActionDisabled = useMemo(() => {
-        if (isEditing) return true;
+        if (isEditing || isForming || !!activeBatchJob) return true;
 
         if (isSequenceMode) {
             // Sequence Mode ('Run selected'):
@@ -272,7 +276,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                 return false;
             }
         }
-    }, [isEditing, isSequenceMode, hasValidPrompt, activeSelectedCount, isSequentialEditingWithPrompts, hasInputImages, hasCheckedInputImages]);
+    }, [isEditing, isForming, activeBatchJob, isSequenceMode, hasValidPrompt, activeSelectedCount, isSequentialEditingWithPrompts, hasInputImages, hasCheckedInputImages]);
 
     // Layout Calculations
     const layout = useMemo(() => {
@@ -384,8 +388,8 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                 <div className="flex items-center gap-2">
                      <label className="text-xs font-medium text-gray-400 pl-1">{isSequenceMode ? t('image_sequence.output_images_title') : t('node.content.outputImage')}</label>
                      {isBatchMode && (
-                         <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-950/80 text-amber-300 border border-amber-600/60 flex items-center gap-1" title={t('batch.modeDesc') || 'Batch API Mode (-50% cost)'}>
-                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                         <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-600/60 flex items-center gap-1" title={t('batch.modeDesc') || 'Batch API Mode (-50% cost)'}>
+                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                              {t('batch.badgeDelayed') || 'Batch'}
                          </span>
                      )}
@@ -537,7 +541,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             {!isSequenceMode && (
                 <div onClick={onOutputClick} onWheel={(e) => e.stopPropagation()} className="relative w-full flex-grow bg-gray-900/50 rounded-md flex items-center justify-center overflow-hidden group cursor-pointer">
                     {outputImage ? <img src={fullSizeOutputForCopy || outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { setupImageDragData(e, imageToDrag, `Output_${Date.now()}.png`); e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
-                    {outputImage && !isEditing && (
+                    {outputImage && !isEditing && !isBatchActive && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-4">
                             <button onClick={(e) => { e.stopPropagation(); onCopy(); }} className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto" aria-label={t('node.action.copy')} title={t('node.action.copy')}>
                                 {LargeCopyIcon}
@@ -545,8 +549,28 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                             <button onClick={(e) => { e.stopPropagation(); onDownload(); }} className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto" aria-label={t('node.action.download')} title={t('node.action.download')}><svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
                         </div>
                     )}
-                    {isEditing && <div className="absolute inset-0 bg-gray-800/80 flex flex-col items-center justify-center text-white"><svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span className="mt-2 font-semibold">{t('node.content.generating')}</span></div>}
-                    {outputImage && (
+                    {(isEditing || isBatchActive) && (
+                        <div className="absolute inset-0 bg-gray-800/80 backdrop-blur-sm flex flex-col items-center justify-center text-white z-10 px-4 text-center">
+                            <svg className="animate-spin h-8 w-8 text-white mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="font-semibold text-sm">
+                                {isForming 
+                                    ? (t('batch.formingRequest') || 'Forming batch request...')
+                                    : activeBatchJob 
+                                        ? (t('batch.waitingForResponse') || 'Waiting for response from service')
+                                        : (hasInputImages ? t('node.content.editing') : t('node.content.generating'))
+                                }
+                            </span>
+                            {activeBatchJob && (
+                                <span className="text-[11px] text-emerald-400 mt-1 font-mono">
+                                    {activeBatchJob.displayName || activeBatchJob.name} ({activeBatchJob.state})
+                                </span>
+                            )}
+                        </div>
+                    )}
+                    {outputImage && !isBatchActive && (
                         <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ActionButton title={t('node.action.copy')} onClick={(e) => { e.stopPropagation(); onCopy(); }}>
                                 <CopyIcon />
@@ -681,7 +705,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                 {/* Model Switch Dropdown */}
                 <div className="flex-1 min-w-[130px]">
                      <CustomSelect
-                         value={model}
+                         value={effectiveModel}
                          onChange={(value) => onUpdateState({ model: value })}
                          disabled={isEditing}
                          options={modelOptions}
@@ -791,21 +815,33 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                         <button 
                             onClick={isSequenceMode ? onRunSelected : onEdit}
                             disabled={isMainActionDisabled} 
-                            className={`flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-all ${
+                            className={`flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 ${
                                 isBatchMode 
-                                    ? 'bg-amber-600 hover:bg-amber-500 active:bg-amber-700 shadow-md shadow-amber-950/40' 
+                                    ? 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 shadow-md shadow-emerald-950/40' 
                                     : 'bg-cyan-600 hover:bg-cyan-700'
                             }`}
                         >
                             {isEditing 
                                 ? (hasInputImages ? t('node.content.editing') : t('node.content.generating')) 
-                                : (isSequenceMode 
-                                    ? (isBatchMode ? (t('image_sequence.run_selected_batch') || `${t('image_sequence.run_selected')} (Batch)`) : t('image_sequence.run_selected')) 
-                                    : (!hasInputImages 
-                                        ? (isBatchMode ? (t('node.content.generateImage_batch') || `${t('node.content.generateImage')} (Batch)`) : t('node.content.generateImage')) 
-                                        : (isBatchMode ? (t('node.content.applyEdit_batch') || `${t('node.content.applyEdit')} (Batch)`) : t('node.content.applyEdit'))
+                                : isForming
+                                    ? (
+                                        <>
+                                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>{t('batch.formingRequest') || 'Forming batch request...'}</span>
+                                        </>
                                       )
-                                  )
+                                    : activeBatchJob
+                                        ? <span>{t('batch.waitingForResponseButton') || 'Waiting for response (Batch)'}</span>
+                                        : (isSequenceMode 
+                                            ? (isBatchMode ? (t('image_sequence.run_selected_batch') || `${t('image_sequence.run_selected')} (Batch)`) : t('image_sequence.run_selected')) 
+                                            : (!hasInputImages 
+                                                ? (isBatchMode ? (t('node.content.generateImage_batch') || `${t('node.content.generateImage')} (Batch)`) : t('node.content.generateImage')) 
+                                                : (isBatchMode ? (t('node.content.applyEdit_batch') || `${t('node.content.applyEdit')} (Batch)`) : t('node.content.applyEdit'))
+                                              )
+                                          )
                             }
                         </button>
                     )}

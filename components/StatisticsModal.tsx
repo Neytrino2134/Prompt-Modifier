@@ -963,7 +963,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                               {rec.category}
                             </span>
                             {rec.generationMode === 'batch' ? (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-800/80 text-amber-300 font-bold uppercase">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/80 text-emerald-300 font-bold uppercase">
                                 📦 Batch
                               </span>
                             ) : (

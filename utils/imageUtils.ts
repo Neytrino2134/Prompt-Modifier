@@ -322,12 +322,52 @@ export const cropImageNormalized = (
     });
 };
 
+export const getEffectiveDividers = (count: number, dividers?: number[]): number[] => {
+    if (count <= 1) return [];
+    if (dividers && Array.isArray(dividers) && dividers.length === count - 1) {
+        let valid = true;
+        let prev = 0;
+        for (let i = 0; i < dividers.length; i++) {
+            const val = dividers[i];
+            if (typeof val !== 'number' || isNaN(val) || val <= prev || val >= 1) {
+                valid = false;
+                break;
+            }
+            prev = val;
+        }
+        if (valid) return dividers;
+    }
+    const res: number[] = [];
+    for (let i = 1; i < count; i++) {
+        res.push(i / count);
+    }
+    return res;
+};
+
+export const getIntervalsFromDividers = (dividers: number[]): Array<{ start: number; end: number; size: number }> => {
+    const points = [0, ...dividers, 1];
+    const intervals: Array<{ start: number; end: number; size: number }> = [];
+    for (let i = 0; i < points.length - 1; i++) {
+        const start = points[i];
+        const end = points[i + 1];
+        intervals.push({ start, end, size: Math.max(0.0001, end - start) });
+    }
+    return intervals;
+};
+
 export const sliceImageGrid = (
     base64Image: string,
     cols: number,
     rows: number,
     bounds: { x: number; y: number; width: number; height: number } = { x: 0, y: 0, width: 1, height: 1 },
-    borderConfig?: { enableBorder?: boolean; borderWidth?: number; borderMode?: 'inner' | 'all' }
+    borderConfig?: {
+        enableBorder?: boolean;
+        borderWidth?: number;
+        borderMode?: 'inner' | 'all';
+        customDividers?: boolean;
+        colDividers?: number[];
+        rowDividers?: number[];
+    }
 ): Promise<{ slices: string[]; thumbs: string[] }> => {
     return new Promise((resolve, reject) => {
         if (!base64Image) {
@@ -352,51 +392,49 @@ export const sliceImageGrid = (
                 const rawBw = enableBorder ? Math.max(0, Number(borderConfig?.borderWidth) || 0) : 0;
                 const borderMode = borderConfig?.borderMode || 'inner';
 
-                let cellW: number;
-                let cellH: number;
-                let bwX = 0;
-                let bwY = 0;
-                let offsetX = 0;
-                let offsetY = 0;
-
-                if (rawBw > 0) {
-                    if (borderMode === 'all') {
-                        // Both outer borders and inner gutters have thickness rawBw
-                        const maxBwX = Math.max(0, (gridW - safeCols * 2) / (safeCols + 1));
-                        const maxBwY = Math.max(0, (gridH - safeRows * 2) / (safeRows + 1));
-                        bwX = Math.min(rawBw, maxBwX);
-                        bwY = Math.min(rawBw, maxBwY);
-                        const availW = Math.max(safeCols * 2, gridW - (safeCols + 1) * bwX);
-                        const availH = Math.max(safeRows * 2, gridH - (safeRows + 1) * bwY);
-                        cellW = availW / safeCols;
-                        cellH = availH / safeRows;
-                        offsetX = bwX;
-                        offsetY = bwY;
-                    } else {
-                        // 'inner': Only inner gutters between adjacent cells
-                        const maxBwX = safeCols > 1 ? Math.max(0, (gridW - safeCols * 2) / (safeCols - 1)) : 0;
-                        const maxBwY = safeRows > 1 ? Math.max(0, (gridH - safeRows * 2) / (safeRows - 1)) : 0;
-                        bwX = safeCols > 1 ? Math.min(rawBw, maxBwX) : 0;
-                        bwY = safeRows > 1 ? Math.min(rawBw, maxBwY) : 0;
-                        const availW = Math.max(safeCols * 2, gridW - (safeCols - 1) * bwX);
-                        const availH = Math.max(safeRows * 2, gridH - (safeRows - 1) * bwY);
-                        cellW = availW / safeCols;
-                        cellH = availH / safeRows;
-                        offsetX = 0;
-                        offsetY = 0;
-                    }
-                } else {
-                    cellW = gridW / safeCols;
-                    cellH = gridH / safeRows;
-                }
+                const effColDividers = getEffectiveDividers(safeCols, borderConfig?.colDividers);
+                const effRowDividers = getEffectiveDividers(safeRows, borderConfig?.rowDividers);
+                const colIntervals = getIntervalsFromDividers(effColDividers);
+                const rowIntervals = getIntervalsFromDividers(effRowDividers);
 
                 const slices: string[] = [];
                 const thumbs: string[] = [];
 
                 for (let r = 0; r < safeRows; r++) {
                     for (let c = 0; c < safeCols; c++) {
-                        const sx = Math.round(gridX + offsetX + c * (cellW + bwX));
-                        const sy = Math.round(gridY + offsetY + r * (cellH + bwY));
+                        const colInt = colIntervals[c];
+                        const rowInt = rowIntervals[r];
+
+                        const unpaddedColStart = colInt.start * gridW;
+                        const unpaddedColEnd = colInt.end * gridW;
+                        const unpaddedRowStart = rowInt.start * gridH;
+                        const unpaddedRowEnd = rowInt.end * gridH;
+
+                        let padLeft = 0;
+                        let padRight = 0;
+                        let padTop = 0;
+                        let padBottom = 0;
+
+                        if (rawBw > 0) {
+                            if (borderMode === 'all') {
+                                padLeft = (c === 0) ? rawBw : rawBw / 2;
+                                padRight = (c === safeCols - 1) ? rawBw : rawBw / 2;
+                                padTop = (r === 0) ? rawBw : rawBw / 2;
+                                padBottom = (r === safeRows - 1) ? rawBw : rawBw / 2;
+                            } else {
+                                // 'inner'
+                                padLeft = (c === 0) ? 0 : rawBw / 2;
+                                padRight = (c === safeCols - 1) ? 0 : rawBw / 2;
+                                padTop = (r === 0) ? 0 : rawBw / 2;
+                                padBottom = (r === safeRows - 1) ? 0 : rawBw / 2;
+                            }
+                        }
+
+                        const sx = Math.round(gridX + unpaddedColStart + padLeft);
+                        const sy = Math.round(gridY + unpaddedRowStart + padTop);
+                        const cellW = (unpaddedColEnd - padRight) - (unpaddedColStart + padLeft);
+                        const cellH = (unpaddedRowEnd - padBottom) - (unpaddedRowStart + padTop);
+
                         const maxAllowedW = Math.max(1, naturalW - sx);
                         const maxAllowedH = Math.max(1, naturalH - sy);
                         const sw = Math.max(1, Math.min(Math.round(cellW), maxAllowedW));

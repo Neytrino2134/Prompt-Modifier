@@ -9,7 +9,7 @@ import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { expandImageAspectRatio } from '../../services/imageActions';
 import { generateThumbnail, setupImageDragData } from '../../utils/imageUtils';
-import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel } from '../../services/modelConfig';
+import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel, resolveImageModel } from '../../services/modelConfig';
 
 export const ImageOutputNode: React.FC<NodeContentProps> = ({ 
     node, 
@@ -37,7 +37,21 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
     addToast 
 }) => {
     const context = useAppContext();
-    const { tutorialStep, tutorialTargetId, advanceTutorial, skipTutorial } = context || {};
+    const { 
+        tutorialStep, 
+        tutorialTargetId, 
+        advanceTutorial, 
+        skipTutorial, 
+        isBatchMode, 
+        setIsBatchMode,
+        isFormingBatch,
+        getNodeActiveBatchJob,
+        isNodeBatchActive
+    } = context || {};
+
+    const isForming = isFormingBatch ? isFormingBatch(node.id) : false;
+    const activeBatchJob = getNodeActiveBatchJob ? getNodeActiveBatchJob(node.id) : undefined;
+    const isBatchBusy = isNodeBatchActive ? isNodeBatchActive(node.id) : false;
     
     const [transformingRatio, setTransformingRatio] = useState<string | null>(null);
 
@@ -126,16 +140,17 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
     const isOpenAiActive = useOpenAiEnabled();
     const modelOptions = useMemo(() => getImageModelOptions(), [isOpenAiActive]);
     
-    const isGpt2 = isGptImage2Model(node.model);
-    const isDalle3 = node.model === 'dall-e-3';
-    const isDalle2 = node.model === 'dall-e-2';
-    const isOpenAiModel = isOpenAiImageModel(node.model);
+    const effectiveModel = resolveImageModel(node.model);
+    const isGpt2 = isGptImage2Model(effectiveModel);
+    const isDalle3 = effectiveModel === 'dall-e-3';
+    const isDalle2 = effectiveModel === 'dall-e-2';
+    const isOpenAiModel = isOpenAiImageModel(effectiveModel);
 
-    const isNanoBananaPro = node.model === 'gemini-3-pro-image-preview';
-    const isFlashImagePreview = node.model === 'gemini-3.1-flash-image-preview' || node.model === 'gemini-3.1-flash-image';
-    const isFlashImage = node.model === 'gemini-2.5-flash-image';
+    const isNanoBananaPro = effectiveModel === 'gemini-3-pro-image-preview';
+    const isFlashImagePreview = effectiveModel === 'gemini-3.1-flash-image-preview' || effectiveModel === 'gemini-3.1-flash-image';
+    const isFlashImage = effectiveModel === 'gemini-2.5-flash-image';
     // An 'imagen' model is selected if the model string is not set (default) or starts with 'imagen-4.0'
-    const isImagenModel = !node.model || node.model.startsWith('imagen-4.0');
+    const isImagenModel = !effectiveModel || effectiveModel.startsWith('imagen-4.0');
     const isAspectRatioEnabled = !isGpt2 && (isImagenModel || isNanoBananaPro || isFlashImage || isFlashImagePreview || isOpenAiModel);
 
     let availableResolutions = [
@@ -247,14 +262,25 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                 ) : (
                     <span className="text-gray-400">{t('node.content.imageHere')}</span>
                 )}
-                <div className={`absolute inset-0 bg-gray-800/70 backdrop-blur-sm flex flex-col items-center justify-center text-white z-10 transition-opacity duration-300 ${(isGeneratingImage || (isExecutingChain && !node.value)) ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                <div className={`absolute inset-0 bg-gray-800/70 backdrop-blur-sm flex flex-col items-center justify-center text-white z-10 transition-opacity duration-300 ${(isGeneratingImage || (isExecutingChain && !node.value) || isBatchBusy) ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     <svg className="animate-spin h-8 w-8 text-accent-text" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span className="mt-2 font-semibold text-accent-text">{isExecutingChain ? 'Executing...' : t('node.content.generating')}</span>
+                    <span className="mt-2 font-semibold text-accent-text text-center px-4">
+                        {isForming
+                            ? (t('batch.formingRequest') || 'Forming batch request...')
+                            : activeBatchJob
+                                ? (t('batch.waitingForResponse') || 'Waiting for response from service')
+                                : (isExecutingChain ? 'Executing...' : t('node.content.generating'))}
+                    </span>
+                    {activeBatchJob && (
+                        <span className="text-[11px] text-emerald-400 mt-1 font-mono">
+                            {activeBatchJob.displayName || activeBatchJob.name} ({activeBatchJob.state})
+                        </span>
+                    )}
                 </div>
-                {node.value && !(isGeneratingImage || (isExecutingChain && !node.value)) && (
+                {node.value && !(isGeneratingImage || (isExecutingChain && !node.value) || isBatchBusy) && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-4">
                         <button
                             onClick={handleCopyLarge}
@@ -335,7 +361,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                 <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.generationMode')}</label>
                 <CustomSelect
                     id={`model-select-${node.id}`}
-                    value={node.model || 'imagen-4.0-generate-001'}
+                    value={effectiveModel}
                     onChange={(value) => onModelChange(node.id, value)}
                     disabled={isGeneratingImage || isExecutingChain}
                     options={modelOptions}
@@ -440,6 +466,39 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                     label={t('node.content.autoDownload')}
                 />
             </div>
+
+            {/* Batch API Synchronized Mode Toggle & Status Indicator */}
+            <div 
+                onClick={() => {
+                    if (!isGeneratingImage && !isExecutingChain && setIsBatchMode) {
+                        setIsBatchMode(!isBatchMode);
+                    }
+                }}
+                className={`mb-2 p-2 rounded-md border cursor-pointer select-none transition-all ${
+                    isBatchMode 
+                        ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200' 
+                        : 'bg-gray-800/40 border-gray-700/50 hover:border-gray-600 text-gray-300'
+                } ${(isGeneratingImage || isExecutingChain) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-medium">
+                        <span className={`w-2 h-2 rounded-full ${isBatchMode ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`}></span>
+                        <span>{t('batch.mode') || 'Batch API Mode'}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700/60 font-mono">
+                            -50% Cost
+                        </span>
+                    </div>
+                    <div className={`w-8 h-4 rounded-full relative transition-colors flex-shrink-0 ${isBatchMode ? 'bg-emerald-500' : 'bg-gray-600'}`}>
+                        <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${isBatchMode ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
+                    </div>
+                </div>
+                {isBatchMode && (
+                    <div className="mt-1.5 text-[11px] text-emerald-300/90 leading-tight flex items-start gap-1">
+                        <span>⏳</span>
+                        <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
+                    </div>
+                )}
+            </div>
             
             <div className="flex space-x-2 h-10">
                 <TutorialTooltip 
@@ -468,10 +527,28 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                     ) : (
                         <button
                             onClick={handleGenerateClick}
-                            disabled={isExecutingChain || isGlobalProcessing || !!transformingRatio}
-                            className="w-full h-full px-4 font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
+                            disabled={isExecutingChain || !!transformingRatio || isForming || !!activeBatchJob}
+                            className={`w-full h-full px-4 font-bold text-white rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                                isBatchMode 
+                                    ? 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 shadow-md shadow-emerald-950/40' 
+                                    : 'bg-accent hover:bg-accent-hover'
+                            }`}
                         >
-                            {t('node.content.generateImage')}
+                            {isForming ? (
+                                <>
+                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>{t('batch.formingRequest') || 'Forming batch request...'}</span>
+                                </>
+                            ) : activeBatchJob ? (
+                                <span>{t('batch.waitingForResponseButton') || 'Waiting for response (Batch)'}</span>
+                            ) : isBatchMode ? (
+                                (t('node.content.generateImage_batch') || `${t('node.content.generateImage')} (Batch)`)
+                            ) : (
+                                t('node.content.generateImage')
+                            )}
                         </button>
                     )}
                 </TutorialTooltip>
@@ -489,7 +566,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                 ) : (
                     <button
                         onClick={() => onExecuteChain(node.id)}
-                        disabled={isGeneratingImage || isExecutingChain || isGlobalProcessing || !!transformingRatio}
+                        disabled={isGeneratingImage || isExecutingChain || !!transformingRatio}
                         className="h-10 w-10 flex-shrink-0 flex items-center justify-center font-bold text-white bg-accent-secondary rounded-md hover:bg-accent-secondary-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
                         title={t('node.action.executeChainTitle')}
                     >

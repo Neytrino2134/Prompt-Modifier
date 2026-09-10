@@ -278,6 +278,10 @@ export type AppContextType =
   restoreFailedCards: boolean;
   setRestoreFailedCards: (val: boolean | ((prev: boolean) => boolean)) => void;
   batchJobs: BatchJobRecord[];
+  formingBatchNodeIds: string[];
+  isFormingBatch: (nodeId: string) => boolean;
+  getNodeActiveBatchJob: (nodeId: string) => BatchJobRecord | undefined;
+  isNodeBatchActive: (nodeId: string) => boolean;
   isBatchPolling: boolean;
   fetchingJobIds: { [jobId: string]: boolean };
   fetchBatchJobResults: (jobId: string, options?: { forceRestore?: boolean }) => Promise<any>;
@@ -288,6 +292,8 @@ export type AppContextType =
   deleteBatchJob: (jobId: string) => void;
   clearFinishedBatchJobs: () => void;
   clearAllBatchJobs: () => void;
+  getBatchJobJsonl?: (jobId: string) => string | undefined;
+  downloadBatchJsonl?: (jobId: string) => void;
   updateNodeInStorage: (tabId: string, nodeId: string, updater: (nodeVal: any) => any, cacheData?: { frame: number; url: string }) => void;
 
   // Session Persistence

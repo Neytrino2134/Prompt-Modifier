@@ -11,10 +11,11 @@ import {
     UndoIcon, RedoIcon, AlignLeftIcon, AlignCenterXIcon, AlignRightIcon, 
     AlignTopIcon, AlignCenterYIcon, AlignBottomIcon, 
     DistributeHorizontalIcon, DistributeVerticalIcon, GroupIcon,
-    EyeIcon, EyeOffIcon
+    EyeIcon, EyeOffIcon,
+    ToolbarFullModeIcon, ToolbarSimpleModeIcon, ToolbarAnalysisModeIcon, ToolbarVideoModeIcon, ToolbarCharactersModeIcon
 } from './icons/AppIcons';
 import { useLanguage } from '../localization';
-import { NodeType } from '../types';
+import { NodeType, ToolbarViewMode } from '../types';
 import { Tooltip } from './Tooltip';
 import { COLLAPSED_NODE_HEIGHT } from '../utils/nodeUtils';
 
@@ -41,29 +42,47 @@ const CanvasLayer: React.FC = () => {
     const context = useAppContext();
     const { t } = useLanguage();
     const [isViewControlsCollapsed, setIsViewControlsCollapsed] = useState(false);
-    const [isVerticalViewControls, setIsVerticalViewControls] = useState(false);
+    const [isVerticalViewControls, setIsVerticalViewControls] = useState(typeof window !== 'undefined' ? window.innerWidth <= 1920 : true);
     const [isToolbarCollapsed, setIsToolbarCollapsed] = useState(false);
     const [isToolbarCompact, setIsToolbarCompact] = useState(false);
-    const [tongueHeight, setTongueHeight] = useState(0);
+    const [toolbarViewMode, setToolbarViewMode] = useState<ToolbarViewMode>('simple');
+    const [tongueHeight, setTongueHeight] = useState(28);
     const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+    const tongueElementRef = useRef<HTMLDivElement | null>(null);
     
+    const updateTongueHeight = useCallback(() => {
+        if (tongueElementRef.current) {
+            const rect = tongueElementRef.current.getBoundingClientRect();
+            if (rect.height > 0) {
+                setTongueHeight(rect.height);
+            }
+        }
+    }, []);
+
     const tongueRef = useCallback((node: HTMLDivElement | null) => {
+        tongueElementRef.current = node;
         if (node !== null) {
-            setTongueHeight(node.getBoundingClientRect().height);
+            const rect = node.getBoundingClientRect();
+            if (rect.height > 0) {
+                setTongueHeight(rect.height);
+            }
         }
     }, []);
 
     useEffect(() => {
+        updateTongueHeight();
+    }, [isToolbarCompact, toolbarViewMode, updateTongueHeight]);
+
+    useEffect(() => {
         const handleResize = () => {
           setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-          const TOOLBAR_ESTIMATED_WIDTH = 800;
-          const SIDE_MARGIN_THRESHOLD = 450;
-          const threshold = TOOLBAR_ESTIMATED_WIDTH + (SIDE_MARGIN_THRESHOLD * 2);
-          setIsVerticalViewControls(window.innerWidth < threshold);
+          setIsVerticalViewControls(window.innerWidth <= 1920);
+          updateTongueHeight();
         };
+        handleResize();
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    }, [updateTongueHeight]);
 
     if (!context) return null;
 
@@ -91,7 +110,7 @@ const CanvasLayer: React.FC = () => {
         handleExecuteChain, isExecutingChain, stopChainExecution, executingNodeId,
         handleEditImage, isEditingImage, handleSendMessage, isChatting, handleTranslate, isTranslating,
         handleGenerateScript, isGeneratingScript, triggerLoadScriptFile, handleGenerateCharacters, isGeneratingCharacters,
-        handleGenerateVideo, isGeneratingVideo, handleGenerateImageSequence, onGenerateSelectedFrames,
+        handleGenerateVideo, isGeneratingVideo, handleStopVideo, handleGenerateImageSequence, onGenerateSelectedFrames,
         isGeneratingSequence, handleStopImageSequence, isStoppingSequence, handleRegenerateFrame,
         onDownloadImageFromUrl, onCopyImageToClipboard, triggerLoadImageSequenceFile, triggerLoadPromptSequenceFile,
         handleProcessImage, isProcessingImage, handleSetImageEditorOutputToInput, connectedInputs, connectedImageSources,
@@ -107,7 +126,7 @@ const CanvasLayer: React.FC = () => {
         isSnapToGrid, setIsSnapToGrid, lineStyle, setLineStyle, handleZoomChange, scaleToSliderValue, sliderValueToScale,
         handleClearCanvas, isSmartGuidesEnabled, setIsSmartGuidesEnabled, resetView, smartGuides, selectionRect, groupButtonPosition,
         getConnectionPoints, removeConnectionById, handleSplitConnection,
-        onRefreshChat, handleRefreshImageEditor, handleAutoDownloadChange, handleModelChange, handleQualityChange, handleOutputFormatChange, handleSizeChange, handleCustomPromptChange, handleResolutionChange, handleAspectRatioChange,
+        onRefreshChat, handleRefreshImageEditor, handleAutoDownloadChange, handleDurationChange, handleUseBatchChange, handleVideoModeChange, handleModelChange, handleQualityChange, handleOutputFormatChange, handleSizeChange, handleCustomPromptChange, handleResolutionChange, handleAspectRatioChange,
         onRenameCharacter, onRenameScript, onRenameSequence, handleRenameNode, setRenameInfo, handleToggleNodePin,
         onAddNode, handleOpenQuickSearch, handleToggleCatalog, handleSaveCanvas, handleLoadCanvas, handleSaveProject,
         getTransformedPoint, setSpawnLine,
@@ -198,7 +217,7 @@ const CanvasLayer: React.FC = () => {
             onAnalyzeCharacter: handleAnalyzeCharacter,
             isAnalyzingCharacter: isAnalyzingCharacter === node.id,
             onAnalyzeImage: handleAnalyzeImage,
-            isAnalyzingImage: isAnalyzingImage === node.id,
+            isAnalyzingImage: typeof isAnalyzingImage === 'function' ? isAnalyzingImage(node.id) : (isAnalyzingImage === node.id || isAnalyzingImage === true),
             onImageToText: onImageToText,
             onGenerateImage: handleGenerateImage,
             isGeneratingImage: typeof isGeneratingImage === 'function' ? isGeneratingImage(node.id) : (isGeneratingImage === node.id || isGeneratingImage === true),
@@ -218,7 +237,8 @@ const CanvasLayer: React.FC = () => {
             onGenerateCharacters: handleGenerateCharacters,
             isGeneratingCharacters: isGeneratingCharacters === node.id,
             onGenerateVideo: handleGenerateVideo,
-            isGeneratingVideo: isGeneratingVideo === node.id,
+            onStopVideo: handleStopVideo,
+            isGeneratingVideo: typeof isGeneratingVideo === 'function' ? isGeneratingVideo(node.id) : isGeneratingVideo === node.id,
             onGenerateImageSequence: handleGenerateImageSequence,
             onGenerateSelectedFrames: onGenerateSelectedFrames,
             isGeneratingSequence: isGeneratingSequence === node.id,
@@ -230,7 +250,7 @@ const CanvasLayer: React.FC = () => {
             onLoadImageSequenceFile: triggerLoadImageSequenceFile,
             onLoadPromptSequenceFile: triggerLoadPromptSequenceFile,
             onProcessImage: handleProcessImage,
-            isProcessingImage: isProcessingImage === node.id,
+            isProcessingImage: typeof isProcessingImage === 'function' ? isProcessingImage(node.id) : (isProcessingImage === node.id || isProcessingImage === true),
             activeTool: effectiveTool,
             onOutputHandleMouseDown: handleStartConnection,
             onOutputHandleTouchStart: handleStartConnectionTouch,
@@ -257,6 +277,9 @@ const CanvasLayer: React.FC = () => {
             onSizeChange: handleSizeChange,
             onCustomPromptChange: handleCustomPromptChange,
             onAutoDownloadChange: handleAutoDownloadChange,
+            onDurationChange: handleDurationChange,
+            onUseBatchChange: handleUseBatchChange,
+            onVideoModeChange: handleVideoModeChange,
             onRefreshChat: onRefreshChat,
             onRefreshImageEditor: handleRefreshImageEditor,
             connectedInputs: connectedInputs.get(node.id),
@@ -590,7 +613,7 @@ const CanvasLayer: React.FC = () => {
                     style={{ 
                         bottom: '8px', 
                         transform: isToolbarCollapsed 
-                            ? `translate(-50%, calc(100% - ${tongueHeight > 0 ? tongueHeight : 32}px))` 
+                            ? `translate(-50%, calc(100% - ${tongueHeight > 0 ? tongueHeight : 28}px + 8px))` 
                             : 'translate(-50%, 0)', 
                         maxWidth: 'calc(100% - 112px)',
                         width: 'max-content' 
@@ -599,31 +622,60 @@ const CanvasLayer: React.FC = () => {
                 >
                     <div 
                         ref={tongueRef}
-                        className="flex items-center justify-center bg-gray-800/90 backdrop-blur-md border border-gray-600 border-b-0 rounded-t-lg shadow-sm overflow-hidden"
+                        className="flex items-center justify-center bg-gray-800/90 backdrop-blur-md border border-gray-600 border-b-0 rounded-t-lg shadow-sm overflow-hidden text-xs"
                     >
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setIsToolbarCompact(!isToolbarCompact); }}
-                            className={`px-3 py-1 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none ${isToolbarCompact ? 'text-accent-text' : 'text-gray-400 hover:text-gray-200'}`}
-                            title={isToolbarCompact ? "Expand Titles" : "Compact Mode (Hide Titles)"}
-                        >
-                            {isToolbarCompact ? (
-                                <EyeOffIcon className="h-3.5 w-3.5" />
-                            ) : (
-                                <EyeIcon className="h-3.5 w-3.5" />
-                            )}
-                        </button>
+                        {!isToolbarCompact && (
+                            <>
+                                <div className="flex items-center px-1 py-0.5 space-x-0.5">
+                                    {(['full', 'simple', 'analysis', 'video', 'characters'] as ToolbarViewMode[]).map((mode) => (
+                                        <Tooltip key={mode} content={t(`toolbar.mode.${mode}.tooltip`)} position="top">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setToolbarViewMode(mode); }}
+                                                className={`p-1 rounded transition-colors focus:outline-none flex items-center justify-center ${
+                                                    toolbarViewMode === mode 
+                                                        ? 'bg-accent text-white shadow-sm' 
+                                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/60'
+                                                }`}
+                                            >
+                                                {mode === 'full' && <ToolbarFullModeIcon className="h-3.5 w-3.5" />}
+                                                {mode === 'simple' && <ToolbarSimpleModeIcon className="h-3.5 w-3.5" />}
+                                                {mode === 'analysis' && <ToolbarAnalysisModeIcon className="h-3.5 w-3.5" />}
+                                                {mode === 'video' && <ToolbarVideoModeIcon className="h-3.5 w-3.5" />}
+                                                {mode === 'characters' && <ToolbarCharactersModeIcon className="h-3.5 w-3.5" />}
+                                            </button>
+                                        </Tooltip>
+                                    ))}
+                                </div>
 
-                        <div className="w-px h-3 bg-gray-600"></div>
+                                <div className="w-px h-3.5 bg-gray-600"></div>
+                            </>
+                        )}
 
-                        <button 
-                             onClick={(e) => { e.stopPropagation(); setIsToolbarCollapsed(!isToolbarCollapsed); }}
-                             className="px-3 py-1 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none text-gray-400 hover:text-gray-200"
-                             title={isToolbarCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')}
-                        >
-                            <div className={`transform transition-transform duration-300 ${isToolbarCollapsed ? 'rotate-180' : 'rotate-0'}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                            </div>
-                        </button>
+                        <Tooltip content={isToolbarCompact ? t('toolbar.expandTitles') : t('toolbar.compactMode')} position="top">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setIsToolbarCompact(!isToolbarCompact); }}
+                                className={`p-1.5 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none ${isToolbarCompact ? 'text-accent-text' : 'text-gray-400 hover:text-gray-200'}`}
+                            >
+                                {isToolbarCompact ? (
+                                    <EyeOffIcon className="h-3.5 w-3.5" />
+                                ) : (
+                                    <EyeIcon className="h-3.5 w-3.5" />
+                                )}
+                            </button>
+                        </Tooltip>
+
+                        <div className="w-px h-3.5 bg-gray-600"></div>
+
+                        <Tooltip content={isToolbarCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')} position="top">
+                            <button 
+                                 onClick={(e) => { e.stopPropagation(); setIsToolbarCollapsed(!isToolbarCollapsed); }}
+                                 className="p-1.5 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none text-gray-400 hover:text-gray-200"
+                            >
+                                <div className={`transform transition-transform duration-300 ${isToolbarCollapsed ? 'rotate-180' : 'rotate-0'}`}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </div>
+                            </button>
+                        </Tooltip>
                     </div>
 
                     <div className="bg-gray-900/50 backdrop-blur-md border border-gray-700 rounded-lg p-1 shadow-2xl w-full">
@@ -636,6 +688,7 @@ const CanvasLayer: React.FC = () => {
                             onSaveProject={handleSaveProject}
                             isDetached={false}
                             isCompact={isToolbarCompact}
+                            viewMode={toolbarViewMode}
                         />
                     </div>
                 </div>

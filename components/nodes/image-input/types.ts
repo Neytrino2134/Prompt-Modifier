@@ -17,6 +17,9 @@ export interface ImageInputGridConfig {
     enableBorder?: boolean; // toggle border thickness/cut-off
     borderWidth?: number; // border thickness in pixels (e.g., 0..200)
     borderMode?: ImageGridBorderMode; // 'inner' (only inner frames/gutters) | 'all' (all borders: inner and outer)
+    customDividers?: boolean; // toggle editable custom table-like row & column dividers
+    colDividers?: number[]; // normalized split points [x1, x2, ..., x_{cols-1}] in 0..1 range within bounds
+    rowDividers?: number[]; // normalized split points [y1, y2, ..., y_{rows-1}] in 0..1 range within bounds
 }
 
 export interface ImageBatchItem {
@@ -27,6 +30,8 @@ export interface ImageBatchItem {
     width?: number;
     height?: number;
     size?: number;
+    cropRect?: ImageInputCropRect;
+    gridConfig?: ImageInputGridConfig;
 }
 
 export interface ImageInputBatchConfig {
@@ -34,6 +39,7 @@ export interface ImageInputBatchConfig {
     folderStructure?: 'per_image' | 'flat';
     includeOriginal?: boolean; // include original/uncropped image in each folder (default true)
     assetName?: string; // default "Asset_Name"
+    individualGridSettings?: boolean; // toggle individual grid/table boundaries per image
 }
 
 export interface ImageInputValue {

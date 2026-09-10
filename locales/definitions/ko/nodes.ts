@@ -126,6 +126,7 @@ export const nodes = {
     'node.content.enableAspectRatioFormatting': '종횡비 포맷팅 활성화',
     'node.content.autoDownload': '자동 다운로드',
     'node.content.generateImage': '이미지 생성',
+    'node.content.generateImage_batch': '이미지 생성 (Batch)',
     'node.content.enhancing': '향상 중...',
     'node.content.enhancePrompt': '프롬프트 향상',
     'node.content.sanitizing': '정화 중...',

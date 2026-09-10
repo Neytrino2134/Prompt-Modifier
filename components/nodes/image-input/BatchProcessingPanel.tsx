@@ -16,6 +16,11 @@ interface BatchProcessingPanelProps {
     onChangeIncludeOriginal?: (include: boolean) => void;
     assetName?: string;
     onChangeAssetName?: (name: string) => void;
+    individualGridSettings?: boolean;
+    onChangeIndividualGridSettings?: (individual: boolean) => void;
+    onApplyCurrentGridToAll?: () => void;
+    onResetGridForAll?: () => void;
+    onResetGridForCurrent?: () => void;
     cropRect: ImageInputCropRect | null;
     gridConfig: ImageInputGridConfig;
     isProcessing: boolean;
@@ -27,6 +32,7 @@ interface BatchProcessingPanelProps {
     addToast?: (msg: string, type?: any) => void;
     upstreamImagesCount?: number;
     onSyncFromUpstream?: () => void;
+    onPasteClipboard?: () => void;
 }
 
 export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
@@ -42,6 +48,11 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
     onChangeIncludeOriginal,
     assetName = 'Asset_Name',
     onChangeAssetName,
+    individualGridSettings = false,
+    onChangeIndividualGridSettings,
+    onApplyCurrentGridToAll,
+    onResetGridForAll,
+    onResetGridForCurrent,
     gridConfig,
     isProcessing,
     progress,
@@ -49,8 +60,10 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
     onCancelBatchProcess,
     batchResult,
     onDownloadZip,
+    addToast,
     upstreamImagesCount = 0,
-    onSyncFromUpstream
+    onSyncFromUpstream,
+    onPasteClipboard
 }) => {
     const multiFileInputRef = useRef<HTMLInputElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +71,44 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
     // Horizontal Virtualization State
     const [scrollLeft, setScrollLeft] = useState(0);
     const [containerWidth, setContainerWidth] = useState(400);
+
+    const handlePasteFromClipboard = useCallback(async () => {
+        if (onPasteClipboard) {
+            onPasteClipboard();
+            return;
+        }
+        try {
+            const items = await navigator.clipboard.read();
+            const imageFiles: File[] = [];
+            for (const item of items) {
+                for (const type of item.types) {
+                    if (type.startsWith('image/')) {
+                        const blob = await item.getType(type);
+                        const ext = blob.type.split('/')[1] || 'png';
+                        const file = new File([blob], `clipboard_${Date.now()}.${ext}`, { type: blob.type });
+                        imageFiles.push(file);
+                    }
+                }
+            }
+            if (imageFiles.length > 0) {
+                onAddBatchFiles(imageFiles);
+                return;
+            }
+
+            const text = await navigator.clipboard.readText();
+            if (text && text.startsWith('data:image')) {
+                const res = await fetch(text);
+                const blob = await res.blob();
+                const file = new File([blob], `pasted_data_${Date.now()}.png`, { type: blob.type || 'image/png' });
+                onAddBatchFiles([file]);
+                return;
+            }
+            if (addToast) addToast('В буфере обмена нет изображений', 'info');
+        } catch (err) {
+            console.error('Clipboard paste failed:', err);
+            if (addToast) addToast('Не удалось прочитать изображение из буфера', 'error');
+        }
+    }, [onPasteClipboard, onAddBatchFiles, addToast]);
 
     useEffect(() => {
         if (!scrollContainerRef.current) return;
@@ -87,7 +138,9 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
     const ITEM_WIDTH = 64;
     const ITEM_GAP = 6;
     const SLOT_WIDTH = ITEM_WIDTH + ITEM_GAP;
-    const totalContentWidth = batchFiles.length > 0 ? (batchFiles.length * SLOT_WIDTH - ITEM_GAP) : 0;
+    // Total items include all batch images plus the '+' card and 'Paste' card
+    const totalSlotCount = batchFiles.length + 2;
+    const totalContentWidth = totalSlotCount * SLOT_WIDTH - ITEM_GAP;
 
     const visibleItems = useMemo(() => {
         if (batchFiles.length === 0) return [];
@@ -213,6 +266,74 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                 </div>
             </div>
 
+            {/* Individual Grid Settings & Batch Actions Toolbar (when Grid mode) */}
+            {subMode === 'grid' && (
+                <div className="flex items-center justify-between px-2 py-1.5 bg-gray-900/90 border border-amber-800/40 rounded text-xs gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Individual per-image toggle */}
+                        <button
+                            type="button"
+                            onClick={() => onChangeIndividualGridSettings && onChangeIndividualGridSettings(!individualGridSettings)}
+                            disabled={isProcessing}
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1.5 border ${
+                                individualGridSettings
+                                    ? 'bg-amber-950/90 border-amber-400 text-amber-200 shadow-sm font-semibold'
+                                    : 'bg-gray-950/80 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600'
+                            } disabled:opacity-50`}
+                            title="Сохранять индивидуальные размеры, разделители и границы строк/колонок для каждого изображения в пакете отдельно"
+                        >
+                            <span className={`w-3.5 h-3.5 flex items-center justify-center rounded border text-[10px] font-bold ${
+                                individualGridSettings
+                                    ? 'bg-amber-400 border-amber-300 text-black'
+                                    : 'border-gray-500 bg-transparent text-transparent'
+                            }`}>
+                                ✓
+                            </span>
+                            <span>Индивидуальная настройка для каждого фото</span>
+                        </button>
+                    </div>
+
+                    {/* Batch Actions: Apply to all, Reset for all, Reset for current */}
+                    <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+                        {onApplyCurrentGridToAll && batchFiles.length > 1 && (
+                            <button
+                                type="button"
+                                onClick={onApplyCurrentGridToAll}
+                                disabled={isProcessing}
+                                className="px-2 py-0.5 bg-gray-800 hover:bg-cyan-900 text-cyan-300 hover:text-cyan-100 border border-cyan-700/60 rounded text-[10px] font-medium transition-colors disabled:opacity-50 flex items-center gap-1"
+                                title="Скопировать текущие границы и разделители сетки на ВСЕ изображения пакета"
+                            >
+                                <span>⇉ Применить текущую для всех</span>
+                            </button>
+                        )}
+
+                        {onResetGridForCurrent && (
+                            <button
+                                type="button"
+                                onClick={onResetGridForCurrent}
+                                disabled={isProcessing}
+                                className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 rounded text-[10px] font-medium transition-colors disabled:opacity-50"
+                                title="Сбросить кастомные разделители выбранного фото к равномерной сетке"
+                            >
+                                ⟲ Сбросить для этого фото
+                            </button>
+                        )}
+
+                        {onResetGridForAll && batchFiles.length > 1 && (
+                            <button
+                                type="button"
+                                onClick={onResetGridForAll}
+                                disabled={isProcessing}
+                                className="px-2 py-0.5 bg-gray-800 hover:bg-red-950 text-amber-300 hover:text-red-300 border border-amber-600/50 hover:border-red-600 rounded text-[10px] font-medium transition-colors disabled:opacity-50"
+                                title="Сбросить кастомные разделители у ВСЕХ изображений пакета к равномерной сетке"
+                            >
+                                ⟲ Сбросить для всех
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Batch Status & Action Bar */}
             <div className="p-2 bg-gray-950/80 border border-gray-800 rounded-md flex flex-col gap-2">
                 <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
@@ -312,86 +433,188 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                 )}
             </div>
 
-            {/* Virtualized Reference Carousel / File Strip (Scrolls with mouse wheel) */}
-            {batchFiles.length > 0 && (
-                <div className="w-full flex flex-col gap-1">
-                    <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
-                        <span>
-                            Пример для настройки: <b className="text-cyan-300">#{selectedReferenceIndex + 1} ({batchFiles[selectedReferenceIndex]?.name})</b>
-                        </span>
-                        <span className="text-[10px] text-gray-500">Колесико мыши: прокрутка списка • Клик: выбор примера</span>
-                    </div>
-
-                    <div 
-                        ref={scrollContainerRef}
-                        onWheel={handleWheelScroll}
-                        onScroll={handleScroll}
-                        className="w-full overflow-x-auto overflow-y-hidden p-1.5 bg-gray-950/70 border border-gray-800 rounded-md custom-scrollbar h-[76px] relative"
-                    >
-                        <div 
-                            style={{ width: `${totalContentWidth}px`, height: '64px', position: 'relative' }}
+            {/* Virtualized Reference Carousel / File Strip (Always visible for preview configuration) */}
+            <div className="w-full flex flex-col gap-1">
+                <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
+                    <span className="truncate max-w-[50%]">
+                        Пример для настройки:{' '}
+                        {batchFiles.length > 0 ? (
+                            <b className="text-cyan-300">#{selectedReferenceIndex + 1} ({batchFiles[selectedReferenceIndex]?.name})</b>
+                        ) : (
+                            <span className="text-gray-500 italic">Нет файлов (добавьте изображения)</span>
+                        )}
+                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                            type="button"
+                            onClick={handlePasteFromClipboard}
+                            disabled={isProcessing}
+                            className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-medium bg-emerald-950/60 hover:bg-emerald-900/60 px-1.5 py-0.5 rounded border border-emerald-800/60 transition-colors disabled:opacity-50"
+                            title="Вставить изображение из буфера обмена (Ctrl+V)"
                         >
-                            {visibleItems.map(({ file, index: idx, left }) => {
-                                const isRef = idx === selectedReferenceIndex;
-                                return (
-                                    <div
-                                        key={file.id || idx}
-                                        onClick={() => onSelectReferenceIndex(idx)}
-                                        style={{
-                                            position: 'absolute',
-                                            left: `${left}px`,
-                                            top: 0,
-                                            width: `${ITEM_WIDTH}px`,
-                                            height: `${ITEM_WIDTH}px`,
-                                        }}
-                                        className={`rounded overflow-hidden cursor-pointer group transition-all ${
-                                            isRef
-                                                ? 'ring-2 ring-cyan-400 border-transparent shadow-md scale-105 z-10'
-                                                : 'border border-gray-700/80 hover:border-gray-500 opacity-70 hover:opacity-100'
-                                        }`}
-                                        title={`#${idx + 1}: ${file.name}`}
-                                    >
-                                        {/* Uses 128x128 compressed thumbnail for super fast rendering, original dataUrl is preserved for full resolution batch processing */}
-                                        <img
-                                            src={file.thumbnailUrl || file.dataUrl}
-                                            alt={file.name}
-                                            loading="lazy"
-                                            className="w-full h-full object-cover pointer-events-none select-none"
-                                        />
-
-                                        {/* Number & Ref Badge */}
-                                        <div className="absolute top-0.5 left-0.5 bg-black/80 text-cyan-300 text-[8px] font-mono px-1 rounded z-10">
-                                            {isRef ? '★ Ref' : `#${idx + 1}`}
-                                        </div>
-
-                                        {/* Delete Button on Hover */}
-                                        {!isProcessing && (
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onRemoveBatchFile(idx);
-                                                }}
-                                                className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-600/90 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow z-10"
-                                                title="Удалить из пакета"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                                </svg>
-                                            </button>
-                                        )}
-
-                                        {/* Filename bottom banner */}
-                                        <div className="absolute bottom-0 inset-x-0 bg-black/80 text-gray-300 text-[7px] truncate px-0.5 py-0.2 text-center font-mono">
-                                            {file.name}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            <span>Вставить (Ctrl+V)</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => multiFileInputRef.current?.click()}
+                            disabled={isProcessing}
+                            className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium bg-cyan-950/60 hover:bg-cyan-900/60 px-1.5 py-0.5 rounded border border-cyan-800/60 transition-colors disabled:opacity-50"
+                            title="Выбрать файлы с устройства"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span>+ Добавить</span>
+                        </button>
+                        {batchFiles.length > 0 && (
+                            <span className="text-[10px] text-gray-500 hidden sm:inline ml-1">• Колесико: прокрутка</span>
+                        )}
                     </div>
                 </div>
-            )}
+
+                <div 
+                    ref={scrollContainerRef}
+                    onWheel={handleWheelScroll}
+                    onScroll={handleScroll}
+                    className="w-full overflow-x-auto overflow-y-hidden p-1.5 bg-gray-950/70 border border-gray-800 rounded-md custom-scrollbar h-[76px] relative"
+                >
+                    <div 
+                        style={{ width: `${Math.max(totalContentWidth, 240)}px`, height: '64px', position: 'relative' }}
+                    >
+                        {/* Rendered Batch Images */}
+                        {visibleItems.map(({ file, index: idx, left }) => {
+                            const isRef = idx === selectedReferenceIndex;
+                            const hasCustomGrid = Boolean(
+                                file.gridConfig && (
+                                    (file.gridConfig.colDividers && file.gridConfig.colDividers.length > 0) ||
+                                    (file.gridConfig.rowDividers && file.gridConfig.rowDividers.length > 0) ||
+                                    file.gridConfig.customDividers
+                                )
+                            );
+
+                            return (
+                                <div
+                                    key={file.id || idx}
+                                    onClick={() => onSelectReferenceIndex(idx)}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${left}px`,
+                                        top: 0,
+                                        width: `${ITEM_WIDTH}px`,
+                                        height: `${ITEM_WIDTH}px`,
+                                    }}
+                                    className={`rounded overflow-hidden cursor-pointer group transition-all ${
+                                        isRef
+                                            ? 'ring-2 ring-cyan-400 border-transparent shadow-md scale-105 z-10'
+                                            : 'border border-gray-700/80 hover:border-gray-500 opacity-70 hover:opacity-100'
+                                    }`}
+                                    title={`#${idx + 1}: ${file.name}${hasCustomGrid ? ' (Индивидуальная сетка настроена)' : ''}`}
+                                >
+                                    {/* Uses 128x128 compressed thumbnail for super fast rendering */}
+                                    <img
+                                        src={file.thumbnailUrl || file.dataUrl}
+                                        alt={file.name}
+                                        loading="lazy"
+                                        className="w-full h-full object-cover pointer-events-none select-none"
+                                    />
+
+                                    {/* Number & Ref Badge */}
+                                    <div className="absolute top-0.5 left-0.5 bg-black/80 text-cyan-300 text-[8px] font-mono px-1 rounded z-10">
+                                        {isRef ? '★ Ref' : `#${idx + 1}`}
+                                    </div>
+
+                                    {/* Custom Grid Indicator Badge */}
+                                    {individualGridSettings && hasCustomGrid && (
+                                        <div className="absolute top-0.5 right-6 bg-amber-950/90 text-amber-300 text-[7px] font-mono px-0.5 py-0.2 rounded border border-amber-500/60 z-10">
+                                            ▦
+                                        </div>
+                                    )}
+
+                                    {/* Delete Button on Hover */}
+                                    {!isProcessing && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onRemoveBatchFile(idx);
+                                            }}
+                                            className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-600/90 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow z-10"
+                                            title="Удалить из пакета"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    )}
+
+                                    {/* Filename bottom banner */}
+                                    <div className="absolute bottom-0 inset-x-0 bg-black/80 text-gray-300 text-[7px] truncate px-0.5 py-0.2 text-center font-mono">
+                                        {file.name}
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {/* Direct '+' Add Button in Strip */}
+                        <div
+                            onClick={() => multiFileInputRef.current?.click()}
+                            style={{
+                                position: 'absolute',
+                                left: `${batchFiles.length * SLOT_WIDTH}px`,
+                                top: 0,
+                                width: `${ITEM_WIDTH}px`,
+                                height: `${ITEM_WIDTH}px`,
+                            }}
+                            className="rounded overflow-hidden cursor-pointer border-2 border-dashed border-cyan-500/60 hover:border-cyan-400 bg-cyan-950/30 hover:bg-cyan-900/40 flex flex-col items-center justify-center text-cyan-300 transition-all group shrink-0"
+                            title="Добавить файлы изображений в пакет"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 group-hover:scale-110 transition-transform text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span className="text-[8px] font-medium text-cyan-200 mt-0.5">Добавить</span>
+                        </div>
+
+                        {/* Direct 'Paste' Clipboard Button in Strip */}
+                        <div
+                            onClick={handlePasteFromClipboard}
+                            style={{
+                                position: 'absolute',
+                                left: `${(batchFiles.length + 1) * SLOT_WIDTH}px`,
+                                top: 0,
+                                width: `${ITEM_WIDTH}px`,
+                                height: `${ITEM_WIDTH}px`,
+                            }}
+                            className="rounded overflow-hidden cursor-pointer border-2 border-dashed border-emerald-500/60 hover:border-emerald-400 bg-emerald-950/30 hover:bg-emerald-900/40 flex flex-col items-center justify-center text-emerald-300 transition-all group shrink-0"
+                            title="Вставить изображение из буфера обмена (Ctrl+V)"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 group-hover:scale-110 transition-transform text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            <span className="text-[8px] font-medium text-emerald-200 mt-0.5">Вставить</span>
+                        </div>
+
+                        {/* Empty state informative prompt when 0 files added */}
+                        {batchFiles.length === 0 && (
+                            <div 
+                                style={{
+                                    position: 'absolute',
+                                    left: `${2 * SLOT_WIDTH + 8}px`,
+                                    top: 0,
+                                    right: 0,
+                                    height: `${ITEM_WIDTH}px`,
+                                }}
+                                className="flex flex-col justify-center text-[10px] text-gray-400 pl-2 leading-tight select-none pointer-events-none"
+                            >
+                                <span className="text-cyan-300 font-medium">Нет добавленных файлов</span>
+                                <span className="text-gray-500 text-[9px]">Нажмите «+» или «Вставить» (или Ctrl+V), чтобы добавить изображения</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

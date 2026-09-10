@@ -140,6 +140,7 @@ export const nodes = {
     'node.content.enableAspectRatioFormatting': 'アスペクト比フォーマットを有効化',
     'node.content.autoDownload': '自動ダウンロード',
     'node.content.generateImage': '画像を生成',
+    'node.content.generateImage_batch': '画像を生成 (Batch)',
     'node.content.enhancing': '強化中...',
     'node.content.enhancePrompt': 'プロンプトを強化',
     'node.content.sanitizing': '無害化中...',

@@ -38,8 +38,8 @@ export const ImageCropOverlay: React.FC<ImageCropOverlayProps> = ({
 
     // Sync from external prop when not dragging
     useEffect(() => {
-        if (!isDragging && cropRect) {
-            setLocalRect(cropRect);
+        if (!isDragging) {
+            setLocalRect(cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
         }
     }, [cropRect, isDragging]);
 

@@ -127,6 +127,7 @@ export const nodes = {
     'node.content.enableAspectRatioFormatting': '启用宽高比格式化',
     'node.content.autoDownload': '自动下载',
     'node.content.generateImage': '生成图像',
+    'node.content.generateImage_batch': '生成图像 (Batch)',
     'node.content.enhancing': '增强中...',
     'node.content.enhancePrompt': '增强提示词',
     'node.content.sanitizing': '净化中...',

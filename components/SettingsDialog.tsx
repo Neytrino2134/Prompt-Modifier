@@ -9,17 +9,32 @@ import { Theme, Point } from '../types';
 import { 
     getAvailableFlashModels, 
     getAvailableProModels, 
+    getAvailableTranscribeModels,
+    getAvailableVideoModels,
     getConfiguredFlashModel, 
     getConfiguredProModel, 
+    getConfiguredTranscribeModel,
+    getConfiguredVideoModel,
+    getConfiguredImageModel,
+    setConfiguredImageModel,
+    getConfiguredImageEditorModel,
+    setConfiguredImageEditorModel,
+    getImageModelOptions,
+    getImageEditorModelOptions,
     setConfiguredFlashModel, 
     setConfiguredProModel,
+    setConfiguredTranscribeModel,
+    setConfiguredVideoModel,
     addCustomModel,
     ModelOption,
+    VideoModelOption,
+    ImageModelOption,
     isOpenAiEnabled,
     setOpenAiEnabled,
     getOpenAiApiKey,
     setOpenAiApiKey
 } from '../services/modelConfig';
+import { MicrophoneSettingsTab } from './MicrophoneSettingsTab';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -37,11 +52,18 @@ const KeyIcon = () => (
   </svg>
 );
 
+const MicIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+  </svg>
+);
+
 const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToast, setIsInstantCloseEnabled, anchorPosition }) => {
   const { t } = useLanguage();
   const context = useAppContext();
   
   const [isVisible, setIsVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'api' | 'llm' | 'microphone' | 'appearance' | 'cloud'>('all');
   
   // Draggable State
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -56,6 +78,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     api: false,
     llm: false,
+    microphone: false,
     appearance: false,
     cloud: false,
   });
@@ -157,10 +180,18 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   // LLM Models State
   const [flashModel, setFlashModel] = useState<string>(getConfiguredFlashModel);
   const [proModel, setProModel] = useState<string>(getConfiguredProModel);
+  const [transcribeModel, setTranscribeModel] = useState<string>(getConfiguredTranscribeModel);
+  const [videoModel, setVideoModel] = useState<string>(getConfiguredVideoModel);
+  const [imageModel, setImageModel] = useState<string>(getConfiguredImageModel);
+  const [imageEditorModel, setImageEditorModel] = useState<string>(getConfiguredImageEditorModel);
   const [availableFlash, setAvailableFlash] = useState<ModelOption[]>(getAvailableFlashModels);
   const [availablePro, setAvailablePro] = useState<ModelOption[]>(getAvailableProModels);
+  const [availableTranscribe, setAvailableTranscribe] = useState<ModelOption[]>(getAvailableTranscribeModels);
+  const [availableVideo, setAvailableVideo] = useState<VideoModelOption[]>(getAvailableVideoModels);
+  const [availableImage, setAvailableImage] = useState<ImageModelOption[]>(() => getImageModelOptions(isOpenAiEnabled()));
+  const [availableImageEditor, setAvailableImageEditor] = useState<ImageModelOption[]>(() => getImageEditorModelOptions(isOpenAiEnabled()));
   const [customModelInput, setCustomModelInput] = useState('');
-  const [customModelTier, setCustomModelTier] = useState<'flash' | 'pro'>('flash');
+  const [customModelTier, setCustomModelTier] = useState<'flash' | 'pro' | 'video'>('flash');
 
   // Check if running in Electron context
   const isElectron = !!(window as any).electronAPI;
@@ -187,8 +218,16 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       
       setFlashModel(getConfiguredFlashModel());
       setProModel(getConfiguredProModel());
+      setTranscribeModel(getConfiguredTranscribeModel());
+      setVideoModel(getConfiguredVideoModel());
+      setImageModel(getConfiguredImageModel());
+      setImageEditorModel(getConfiguredImageEditorModel());
       setAvailableFlash(getAvailableFlashModels());
       setAvailablePro(getAvailableProModels());
+      setAvailableTranscribe(getAvailableTranscribeModels());
+      setAvailableVideo(getAvailableVideoModels());
+      setAvailableImage(getImageModelOptions(isOpenAiEnabled()));
+      setAvailableImageEditor(getImageEditorModelOptions(isOpenAiEnabled()));
 
       if (storedAnimMode) {
           setAnimMode(storedAnimMode);
@@ -204,23 +243,46 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       const trimmed = customModelInput.trim();
       if (!trimmed) return;
       
-      const newModel: ModelOption = {
-          id: trimmed,
-          name: trimmed,
-          description: `Custom ${customModelTier.toUpperCase()} Model`,
-          tier: customModelTier
-      };
-
-      addCustomModel(newModel);
-      setAvailableFlash(getAvailableFlashModels());
-      setAvailablePro(getAvailableProModels());
-      
-      if (customModelTier === 'flash') {
-          setFlashModel(trimmed);
-          setConfiguredFlashModel(trimmed);
+      if (customModelTier === 'video') {
+          const newVideoModel: VideoModelOption = {
+              id: trimmed,
+              name: trimmed,
+              description: 'Custom Video Model',
+              provider: 'google',
+              tier: 'flash',
+              supportedAspectRatios: ['16:9', '9:16', '1:1'],
+              supportedResolutions: ['720p', '1080p'],
+              supportedDurations: ['5s', '10s']
+          };
+          // Also persist as custom model
+          addCustomModel({
+              id: trimmed,
+              name: trimmed,
+              description: 'Custom Video Model',
+              tier: 'flash'
+          });
+          setVideoModel(trimmed);
+          setConfiguredVideoModel(trimmed);
+          setAvailableVideo(getAvailableVideoModels());
       } else {
-          setProModel(trimmed);
-          setConfiguredProModel(trimmed);
+          const newModel: ModelOption = {
+              id: trimmed,
+              name: trimmed,
+              description: `Custom ${customModelTier.toUpperCase()} Model`,
+              tier: customModelTier
+          };
+
+          addCustomModel(newModel);
+          setAvailableFlash(getAvailableFlashModels());
+          setAvailablePro(getAvailableProModels());
+          
+          if (customModelTier === 'flash') {
+              setFlashModel(trimmed);
+              setConfiguredFlashModel(trimmed);
+          } else {
+              setProModel(trimmed);
+              setConfiguredProModel(trimmed);
+          }
       }
       
       setCustomModelInput('');
@@ -238,6 +300,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   const handleOpenAiToggle = (checked: boolean) => {
       setOpenAiEnabledState(checked);
       setOpenAiEnabled(checked);
+      setAvailableImage(getImageModelOptions(checked));
+      setAvailableImageEditor(getImageEditorModelOptions(checked));
   };
 
   // Handler for OpenAI API Key (instant save)
@@ -443,8 +507,84 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
             {t('dialog.settings.description')}
           </p>
 
+          {/* Category Tabs */}
+          <div className="flex items-center gap-1 p-1 bg-gray-900/90 rounded-lg border border-gray-700/60 overflow-x-auto custom-scrollbar no-scrollbar">
+              <button
+                  type="button"
+                  onClick={() => setActiveTab('all')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all ${
+                      activeTab === 'all'
+                          ? 'bg-gray-700 text-white shadow-sm'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  }`}
+              >
+                  {t('settings.tab.all')}
+              </button>
+              <button
+                  type="button"
+                  onClick={() => setActiveTab('api')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                      activeTab === 'api'
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  }`}
+              >
+                  <KeyIcon />
+                  <span>{t('settings.tab.api')}</span>
+              </button>
+              <button
+                  type="button"
+                  onClick={() => setActiveTab('llm')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                      activeTab === 'llm'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  }`}
+              >
+                  <span className="text-xs">⚡</span>
+                  <span>{t('settings.tab.models')}</span>
+              </button>
+              <button
+                  type="button"
+                  onClick={() => setActiveTab('microphone')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                      activeTab === 'microphone'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  }`}
+              >
+                  <MicIcon />
+                  <span>{t('settings.tab.microphone')}</span>
+              </button>
+              <button
+                  type="button"
+                  onClick={() => setActiveTab('appearance')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                      activeTab === 'appearance'
+                          ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  }`}
+              >
+                  <PaletteIcon />
+                  <span>{t('settings.tab.appearance')}</span>
+              </button>
+              <button
+                  type="button"
+                  onClick={() => setActiveTab('cloud')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                      activeTab === 'cloud'
+                          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  }`}
+              >
+                  <GoogleDriveIcon className="w-3.5 h-3.5" />
+                  <span>{t('settings.tab.cloud')}</span>
+              </button>
+          </div>
+
           {/* Group 1: API & Access */}
-          <div className="space-y-1.5">
+          {(activeTab === 'all' || activeTab === 'api') && (
+            <div className="space-y-1.5">
              <button 
                 type="button"
                 onClick={() => toggleSection('api')}
@@ -592,8 +732,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                  </div>
              )}
           </div>
+          )}
 
           {/* Group: LLM Models Selection */}
+          {(activeTab === 'all' || activeTab === 'llm') && (
           <div className="space-y-1.5">
              <button 
                 type="button"
@@ -676,6 +818,106 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                          />
                      </div>
 
+                     {/* Audio Transcription Model Selection */}
+                     <div className="space-y-1 pt-2 border-t border-gray-800">
+                         <div className="flex items-center justify-between">
+                             <label className="block text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                                 <span className="text-cyan-400">🎙️</span>
+                                 {t('settings.llmTranscribeModelLabel')}
+                             </label>
+                             <span className="text-[10px] text-cyan-400/80 font-mono">{transcribeModel}</span>
+                         </div>
+                         <p className="text-[11px] text-gray-400 leading-tight">
+                             {t('settings.llmTranscribeModelDesc')}
+                         </p>
+                         <CustomSelect
+                             value={transcribeModel}
+                             onChange={(val) => {
+                                 setTranscribeModel(val);
+                                 setConfiguredTranscribeModel(val);
+                             }}
+                             options={availableTranscribe.map(m => ({
+                                 value: m.id,
+                                 label: `${m.name} (${m.id})`
+                             }))}
+                         />
+                     </div>
+
+                     {/* Default Image Generation Model Selection */}
+                     <div className="space-y-1 pt-2 border-t border-gray-800">
+                         <div className="flex items-center justify-between">
+                             <label className="block text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                                 <span className="text-emerald-400">🖼️</span>
+                                 {t('settings.llmImageModelLabel')}
+                             </label>
+                             <span className="text-[10px] text-emerald-400/80 font-mono">{imageModel}</span>
+                         </div>
+                         <p className="text-[11px] text-gray-400 leading-tight">
+                             {t('settings.llmImageModelDesc')}
+                         </p>
+                         <CustomSelect
+                             value={imageModel}
+                             onChange={(val) => {
+                                 setImageModel(val);
+                                 setConfiguredImageModel(val);
+                             }}
+                             options={availableImage.map(m => ({
+                                 value: m.value,
+                                 label: m.label
+                             }))}
+                         />
+                     </div>
+
+                     {/* Default AI Image Editor Model Selection */}
+                     <div className="space-y-1 pt-2 border-t border-gray-800">
+                         <div className="flex items-center justify-between">
+                             <label className="block text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                                 <span className="text-sky-400">🎨</span>
+                                 {t('settings.llmImageEditorModelLabel')}
+                             </label>
+                             <span className="text-[10px] text-sky-400/80 font-mono">{imageEditorModel}</span>
+                         </div>
+                         <p className="text-[11px] text-gray-400 leading-tight">
+                             {t('settings.llmImageEditorModelDesc')}
+                         </p>
+                         <CustomSelect
+                             value={imageEditorModel}
+                             onChange={(val) => {
+                                 setImageEditorModel(val);
+                                 setConfiguredImageEditorModel(val);
+                             }}
+                             options={availableImageEditor.map(m => ({
+                                 value: m.value,
+                                 label: m.label
+                             }))}
+                         />
+                     </div>
+
+                     {/* Video Generation Model Selection */}
+                     <div className="space-y-1 pt-2 border-t border-gray-800">
+                         <div className="flex items-center justify-between">
+                             <label className="block text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                                 <span className="text-rose-400">🎬</span>
+                                 {t('settings.llmVideoModelLabel')}
+                             </label>
+                             <span className="text-[10px] text-rose-400/80 font-mono">{videoModel}</span>
+                         </div>
+                         <p className="text-[11px] text-gray-400 leading-tight">
+                             {t('settings.llmVideoModelDesc')}
+                         </p>
+                         <CustomSelect
+                             value={videoModel}
+                             onChange={(val) => {
+                                 setVideoModel(val);
+                                 setConfiguredVideoModel(val);
+                             }}
+                             options={availableVideo.map(m => ({
+                                 value: m.id,
+                                 label: `${m.name} (${m.id})`
+                             }))}
+                         />
+                     </div>
+
                      {/* Add Custom Model to Pool */}
                      <div className="space-y-1.5 pt-2 border-t border-gray-800">
                          <label className="block text-[11px] font-medium text-gray-400">
@@ -686,16 +928,17 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                                  type="text"
                                  value={customModelInput}
                                  onChange={(e) => setCustomModelInput(e.target.value)}
-                                 placeholder="e.g. gemini-3.7-flash or gemini-3.5-pro"
+                                 placeholder="e.g. gemini-3.7-flash, gemini-omni-1.1-flash or veo-2.0"
                                  className="flex-1 p-2 bg-gray-900 border border-gray-700 rounded-md text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-accent"
                              />
                              <select
                                  value={customModelTier}
-                                 onChange={(e) => setCustomModelTier(e.target.value as 'flash' | 'pro')}
+                                 onChange={(e) => setCustomModelTier(e.target.value as 'flash' | 'pro' | 'video')}
                                  className="bg-gray-900 border border-gray-700 rounded-md text-xs text-gray-300 px-2 focus:outline-none"
                              >
                                  <option value="flash">Flash</option>
                                  <option value="pro">Pro</option>
+                                 <option value="video">Video</option>
                              </select>
                              <button
                                  type="button"
@@ -710,8 +953,56 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                  </div>
              )}
           </div>
+          )}
 
-          {/* Group 2: Appearance & Behavior */}
+          {/* Group 3: Microphone Settings & Live Testing */}
+          {(activeTab === 'all' || activeTab === 'microphone') && (
+            <div className="space-y-1.5">
+              {activeTab === 'all' ? (
+                <>
+                  <button 
+                    type="button"
+                    onClick={() => toggleSection('microphone')}
+                    className="w-full flex justify-between items-center px-3.5 py-2.5 bg-gray-900/80 hover:bg-gray-700/60 rounded-lg border border-gray-700/70 transition-all text-left group select-none shadow-sm"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-emerald-400 group-hover:scale-110 transition-transform">
+                        <MicIcon />
+                      </span>
+                      <span className="text-xs font-bold text-gray-200 group-hover:text-white uppercase tracking-wider">
+                        {t('settings.group.microphone')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-gray-400 group-hover:text-gray-200">
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        className={`h-4 w-4 transition-transform duration-200 ${!collapsedSections.microphone ? 'rotate-180 text-emerald-400' : 'rotate-0'}`} 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor" 
+                        strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </button>
+                  
+                  {!collapsedSections.microphone && (
+                    <div className="bg-gray-900/50 p-3.5 rounded-lg border border-gray-700/50">
+                      <MicrophoneSettingsTab />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="bg-gray-900/60 p-4 rounded-xl border border-gray-700/60 shadow-md">
+                  <MicrophoneSettingsTab />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Group: Appearance & Behavior */}
+          {(activeTab === 'all' || activeTab === 'appearance') && (
           <div className="space-y-1.5">
              <button 
                 type="button"
@@ -882,8 +1173,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                  </div>
              )}
           </div>
+          )}
 
-          {/* Group 3: Cloud Storage */}
+          {/* Group 5: Cloud Storage */}
+          {(activeTab === 'all' || activeTab === 'cloud') && (
           <div className="space-y-1.5">
              <button 
                 type="button"
@@ -1025,6 +1318,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
                  </div>
              )}
           </div>
+          )}
 
         </div>
 

@@ -64,6 +64,17 @@ export const NoteNode: React.FC<NodeContentProps> = ({ node, onValueChange, t, d
     // State for undo shuffle
     const [previousReferencesState, setPreviousReferencesState] = useState<ReferenceItem[] | null>(null);
 
+    // Ensure full size image cache is synchronized with references on mount or data change
+    useEffect(() => {
+        if (Array.isArray(data.references)) {
+            data.references.forEach((ref, idx) => {
+                if (ref.image && !getFullSizeImage(node.id, idx)) {
+                    setFullSizeImage(node.id, idx, ref.image);
+                }
+            });
+        }
+    }, [data.references, node.id, getFullSizeImage, setFullSizeImage]);
+
     const updateData = useCallback((updates: Partial<NoteData>) => {
         const newData = { ...data, ...updates };
         onValueChange(node.id, JSON.stringify(newData));
@@ -324,6 +335,7 @@ export const NoteNode: React.FC<NodeContentProps> = ({ node, onValueChange, t, d
                     />
                 ) : (
                     <ReferencesTab 
+                        nodeTitle={node.title}
                         references={data.references}
                         isLocked={!!isPromptDataConnected}
                         onAddImages={handleAddImages}

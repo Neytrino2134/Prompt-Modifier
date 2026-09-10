@@ -6,6 +6,7 @@ import { GeminiGenerationCommonProps } from './types';
 import { NodeType } from '../../types';
 import { RATIO_INDICES } from '../../utils/nodeUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
+import { resolveImageModel } from '../../services/modelConfig';
 
 const triggerDownload = (url: string, prompt: string) => {
     let assetUrl = url;
@@ -54,16 +55,21 @@ export const useImageNode = ({
     activeTabIdRef,
     setFullSizeImage,
     addToHistory,
-    taskQueue
+    addToast,
+    taskQueue,
+    batchManager
 }: GeminiGenerationCommonProps) => {
-    const [isGeneratingImageLocal, setIsGeneratingImageLocal] = useState<string | null>(null);
+    const [generatingNodeIds, setGeneratingNodeIds] = useState<Set<string>>(new Set());
 
     const isGeneratingImage = useCallback((nodeId?: string, cardIndex?: number) => {
         if (nodeId && taskQueue) {
             return taskQueue.isTaskRunningForNode(nodeId, cardIndex);
         }
-        return isGeneratingImageLocal === nodeId;
-    }, [taskQueue, isGeneratingImageLocal]);
+        if (nodeId) {
+            return generatingNodeIds.has(nodeId);
+        }
+        return generatingNodeIds.size > 0;
+    }, [taskQueue, generatingNodeIds]);
 
     const handleStopImage = useCallback((nodeId?: string) => {
         if (nodeId && taskQueue) {
@@ -112,11 +118,65 @@ export const useImageNode = ({
         }
 
         setError(null);
+        const effectiveModel = resolveImageModel(node.model);
+
+        // Batch API Mode Interception
+        if (batchManager?.isBatchMode) {
+            try {
+                if (node.type === NodeType.CHARACTER_CARD) {
+                    await batchManager.createBatchGeneration({
+                        nodeId,
+                        nodeTitle: node.title || 'Character Card',
+                        tabId: currentTabId,
+                        tabName: activeTabName,
+                        model: effectiveModel,
+                        isSequence: false,
+                        items: [{
+                            id: `char-${nodeId}-${cardIndex}-${Date.now()}`,
+                            frameIndex: cardIndex,
+                            prompt,
+                            aspectRatio,
+                            resolution: node.resolution,
+                            quality: node.quality,
+                            outputFormat: node.outputFormat,
+                            size: node.size,
+                            autoDownload: !!node.autoDownload
+                        }]
+                    });
+                } else {
+                    await batchManager.createBatchGeneration({
+                        nodeId,
+                        nodeTitle: node.title || 'Image Output',
+                        tabId: currentTabId,
+                        tabName: activeTabName,
+                        model: effectiveModel,
+                        isSequence: false,
+                        items: [{
+                            id: `output-${nodeId}-0-${Date.now()}`,
+                            frameIndex: 0,
+                            prompt,
+                            aspectRatio: node.aspectRatio || '1:1',
+                            resolution: node.resolution,
+                            quality: node.quality,
+                            outputFormat: node.outputFormat,
+                            size: node.size,
+                            autoDownload: !!node.autoDownload
+                        }]
+                    });
+                }
+            } catch (err: any) {
+                console.error("Batch creation failed:", err);
+                const errMsg = err?.message || 'Failed to submit Batch API job';
+                setError(errMsg);
+                if (addToast) addToast(errMsg, 'error');
+            }
+            return;
+        }
 
         const executeGen = async (signal: AbortSignal) => {
-            registerOperation({ id: nodeId, type: 'generation', description: t('node.content.generating'), tabId: activeTabId, tabName: activeTabName });
+            registerOperation({ id: nodeId, type: 'generation', description: t('node.content.generating'), tabId: currentTabId, tabName: activeTabName });
             return await raceWithAbort(
-                generateImage(prompt, aspectRatio, undefined, node.model, node.resolution, {
+                generateImage(prompt, aspectRatio, undefined, effectiveModel, node.resolution, {
                     quality: node.quality,
                     outputFormat: node.outputFormat,
                     size: node.size
@@ -129,7 +189,7 @@ export const useImageNode = ({
             const thumbnailUrl = await generateThumbnail(imageUrl, 256, 256);
             
             if (addToHistory) {
-                addToHistory(imageUrl, prompt, node.model || 'imagen-4.0-generate-001', { aspectRatio, resolution: node.resolution });
+                addToHistory(imageUrl, prompt, effectiveModel, { aspectRatio, resolution: node.resolution });
             }
             
             if (node.type === NodeType.CHARACTER_CARD) {
@@ -163,6 +223,9 @@ export const useImageNode = ({
                 }
             }
             unregisterOperation(nodeId);
+            if (addToast) {
+                addToast(t('node.action.generateSuccess') || 'Image generated successfully', 'success');
+            }
         };
 
         const onError = (e: any) => {
@@ -187,17 +250,21 @@ export const useImageNode = ({
             });
         } else {
             try {
-                setIsGeneratingImageLocal(nodeId);
+                setGeneratingNodeIds(prev => new Set(prev).add(nodeId));
                 const abortCtrl = new AbortController();
                 const url = await executeGen(abortCtrl.signal);
                 await onSuccess(url);
             } catch (e: any) {
                 onError(e);
             } finally {
-                setIsGeneratingImageLocal(null);
+                setGeneratingNodeIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(nodeId);
+                    return next;
+                });
             }
         }
-    }, [nodes, getUpstreamNodeValues, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, activeTabIdRef, setFullSizeImage, addToHistory, taskQueue]);
+    }, [nodes, getUpstreamNodeValues, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabName, activeTabIdRef, setFullSizeImage, addToHistory, taskQueue, addToast]);
 
     return {
         isGeneratingImage,

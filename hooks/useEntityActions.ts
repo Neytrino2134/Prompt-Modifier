@@ -309,7 +309,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
 
         const fullSizeImages: Record<string, Record<number, string>> = {};
         groupNodes.forEach(n => {
-            for (let i = 0; i < 20; i++) {
+            for (let i = 0; i <= 100; i++) {
                 const img = getFullSizeImage(n.id, i);
                 if (img) {
                     if (!fullSizeImages[n.id]) fullSizeImages[n.id] = {};
@@ -352,7 +352,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             const newId = `node-${nodeIdCounter.current}-${timestamp}-${index}`;
             idMap.set(node.id, newId);
 
-            for (let i = 0; i < 20; i++) {
+            for (let i = 0; i <= 100; i++) {
                 const img = getFullSizeImage(node.id, i);
                 if (img) setFullSizeImage(newId, i, img);
             }

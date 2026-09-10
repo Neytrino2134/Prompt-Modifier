@@ -87,6 +87,7 @@ export type Tool = 'edit' | 'cutter' | 'selection' | 'reroute' | 'zoom';
 export type LineStyle = 'spaghetti' | 'orthogonal';
 export type Alignment = 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom' | 'distribute-horizontal' | 'distribute-vertical';
 export type DockMode = 'full' | 'left' | 'right' | 'tl' | 'tr' | 'bl' | 'br' | 'q1' | 'q2' | 'q3' | 'q4';
+export type ToolbarViewMode = 'full' | 'simple' | 'analysis' | 'video' | 'characters';
 
 export interface Point {
   x: number;
@@ -139,6 +140,9 @@ export interface Node {
   quality?: string;
   outputFormat?: string;
   size?: string;
+  duration?: string; // Video duration: e.g. '5s', '10s'
+  useBatch?: boolean; // Batch API mode toggle
+  videoMode?: 'text_to_video' | 'image_to_video' | 'video_edit'; // Omni Flash video generation mode
 }
 
 export interface Connection {
@@ -247,6 +251,7 @@ export interface BatchJobItem {
     quality?: string;
     outputFormat?: string;
     size?: string;
+    images?: { base64ImageData: string; mimeType: string }[];
     autoCrop169?: boolean;
     autoDownload?: boolean;
     status: TaskStatus;
@@ -269,6 +274,7 @@ export interface BatchJobRecord {
     tabName?: string;
     isSequence: boolean;
     items: BatchJobItem[];
+    rawJsonl?: string;
     error?: string;
 }
 
@@ -385,7 +391,11 @@ export interface NodeContentProps {
   onGenerateCharacters: (nodeId: string) => void;
   isGeneratingCharacters: boolean; 
   onGenerateVideo: (nodeId: string) => void;
+  onStopVideo?: (nodeId?: string) => void;
   isGeneratingVideo: boolean;
+  onDurationChange?: (nodeId: string, duration: string) => void;
+  onUseBatchChange?: (nodeId: string, useBatch: boolean) => void;
+  onVideoModeChange?: (nodeId: string, videoMode: 'text_to_video' | 'image_to_video' | 'video_edit') => void;
   onResolutionChange: (nodeId: string, resolution: '720p' | '1080p' | '1K' | '2K' | '4K') => void;
   onLoadImageSequenceFile: (nodeId: string) => void;
   onLoadPromptSequenceFile: (nodeId: string) => void;

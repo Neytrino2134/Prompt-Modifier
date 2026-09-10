@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { ReferenceItemCard } from './ReferenceItemCard';
 import { ActionButton } from '../../ActionButton';
 import { setupImageDragData } from '../../../utils/imageUtils';
+import JSZip from 'jszip';
 
 interface ReferenceItem {
     id: string;
@@ -11,6 +12,7 @@ interface ReferenceItem {
 }
 
 interface ReferencesTabProps {
+    nodeTitle?: string;
     references: ReferenceItem[];
     isLocked: boolean; // Connected to upstream
     
@@ -40,7 +42,7 @@ const GAP = 8;
 const CONTAINER_PADDING = 8;
 
 export const ReferencesTab: React.FC<ReferencesTabProps> = ({
-    references, isLocked, onAddImages, onReorder, onUpdateCaption, onRemoveReference, onDetach,
+    nodeTitle, references, isLocked, onAddImages, onReorder, onUpdateCaption, onRemoveReference, onDetach,
     onShuffle, onUndoShuffle, canUndoShuffle,
     t, deselectAllNodes, setImageViewer, addToast, getFullSizeImage,
     isMinimal
@@ -57,6 +59,7 @@ export const ReferencesTab: React.FC<ReferencesTabProps> = ({
     const [insertionIndex, setInsertionIndex] = useState<number | null>(null);
     const [selectedRefId, setSelectedRefId] = useState<string | null>(null);
     const [manualOrderInputs, setManualOrderInputs] = useState<Record<string, string>>({});
+    const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
     // Observe container resize
     useEffect(() => {
@@ -248,6 +251,168 @@ export const ReferencesTab: React.FC<ReferencesTabProps> = ({
         }
     };
 
+    const getImageStats = (src: string): Promise<{ width: number; height: number; aspectRatio: string; format: string; mimeType: string }> => {
+        let mimeType = 'image/png';
+        let format = 'png';
+        const match = src.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,/i);
+        if (match) {
+            mimeType = match[1].toLowerCase();
+            if (mimeType.includes('jpeg') || mimeType.includes('jpg')) format = 'jpg';
+            else if (mimeType.includes('webp')) format = 'webp';
+            else if (mimeType.includes('gif')) format = 'gif';
+            else format = 'png';
+        } else {
+            const extMatch = src.split('?')[0].match(/\.(png|jpe?g|webp|gif|svg)$/i);
+            if (extMatch) {
+                format = extMatch[1].toLowerCase().replace('jpeg', 'jpg');
+                mimeType = `image/${format === 'jpg' ? 'jpeg' : format}`;
+            }
+        }
+
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const width = img.naturalWidth || img.width;
+                const height = img.naturalHeight || img.height;
+                const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+                const divisor = gcd(width, height) || 1;
+                const aspectX = Math.round(width / divisor);
+                const aspectY = Math.round(height / divisor);
+                const aspectRatio = (aspectX <= 32 && aspectY <= 32 && aspectX > 0 && aspectY > 0)
+                    ? `${aspectX}:${aspectY}`
+                    : (height > 0 ? (width / height).toFixed(2) : '1:1');
+                resolve({ width, height, aspectRatio, format, mimeType });
+            };
+            img.onerror = () => {
+                resolve({ width: 0, height: 0, aspectRatio: 'unknown', format, mimeType });
+            };
+            img.src = src;
+        });
+    };
+
+    const handleDownloadAllZip = async () => {
+        if (references.length === 0 || isDownloadingZip) return;
+
+        const validReferences = references
+            .map((ref, index) => ({ ref, index, fullImage: getFullSizeImage(index) || ref.image }))
+            .filter(item => Boolean(item.fullImage));
+
+        if (validReferences.length === 0) {
+            if (addToast) addToast(t('node.note.action.noImages') || 'Нет изображений для скачивания', 'error');
+            return;
+        }
+
+        setIsDownloadingZip(true);
+        try {
+            const zip = new JSZip();
+            const padLength = Math.max(2, String(references.length).length);
+            const metadataItems: Array<{
+                index: number;
+                position: number;
+                id: string;
+                filename: string;
+                caption: string;
+                width: number;
+                height: number;
+                aspectRatio: string;
+                format: string;
+                sizeBytes?: number;
+            }> = [];
+            const captionsList: string[] = [];
+
+            for (let i = 0; i < validReferences.length; i++) {
+                const { ref, index, fullImage } = validReferences[i];
+                const position = index + 1;
+                const numPrefix = String(position).padStart(padLength, '0');
+
+                // 1. Get image statistics (dimensions, format)
+                const stats = await getImageStats(fullImage!);
+
+                // 2. Clean caption for filename
+                const cleanCaption = (ref.caption || '')
+                    .trim()
+                    .replace(/[\/\\:*?"<>|\r\n\t]+/g, '_')
+                    .replace(/\s+/g, '_')
+                    .replace(/^_+|_+$/g, '')
+                    .slice(0, 50);
+
+                // 3. Construct filename: e.g. 01_MyCaption_1024x1024.png or 01_reference_1024x1024.png
+                const dimStr = stats.width && stats.height ? `_${stats.width}x${stats.height}` : '';
+                const captionPart = cleanCaption ? `_${cleanCaption}` : '_reference';
+                const filename = `${numPrefix}${captionPart}${dimStr}.${stats.format}`;
+
+                // 4. Fetch blob and add to ZIP
+                const response = await fetch(fullImage!);
+                const blob = await response.blob();
+                zip.file(filename, blob);
+
+                // 5. Accumulate metadata & captions
+                metadataItems.push({
+                    index: i + 1,
+                    position,
+                    id: ref.id,
+                    filename,
+                    caption: ref.caption || '',
+                    width: stats.width,
+                    height: stats.height,
+                    aspectRatio: stats.aspectRatio,
+                    format: stats.format,
+                    sizeBytes: blob.size
+                });
+
+                captionsList.push(
+                    `#${numPrefix} [${filename}]${stats.width ? ` (${stats.width}x${stats.height})` : ''}\n${ref.caption ? ref.caption : '(No caption)'}\n`
+                );
+            }
+
+            // Export metadata.json
+            const metadata = {
+                exportDate: new Date().toISOString(),
+                nodeTitle: nodeTitle || 'Note References',
+                totalItems: validReferences.length,
+                items: metadataItems
+            };
+            zip.file('metadata.json', JSON.stringify(metadata, null, 2));
+
+            // Export captions.txt
+            const captionsText = `=== Note References Captions ===\nExport Date: ${new Date().toLocaleString()}\nTotal Images: ${validReferences.length}\n\n` + captionsList.join('\n----------------------------------------\n\n');
+            zip.file('captions.txt', captionsText);
+
+            // Export summary.txt
+            const summaryText = `Note References Archive Summary\n===============================\nTitle: ${nodeTitle || 'Note'}\nExport Date: ${new Date().toLocaleString()}\nTotal Exported Images: ${validReferences.length}\n\nFiles List:\n${metadataItems.map(m => `  ${m.position.toString().padStart(padLength, '0')}. ${m.filename} | ${m.width}x${m.height} (${m.aspectRatio}) | ${(m.sizeBytes ? (m.sizeBytes / 1024).toFixed(1) + ' KB' : '')}${m.caption ? ` | Caption: "${m.caption.slice(0, 60)}${m.caption.length > 60 ? '...' : ''}"` : ''}`).join('\n')}\n`;
+            zip.file('summary.txt', summaryText);
+
+            // Generate ZIP Blob
+            const content = await zip.generateAsync({
+                type: 'blob',
+                compression: 'STORE'
+            });
+
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const cleanNodeTitle = (nodeTitle || 'Note_References')
+                .replace(/[\/\\:*?"<>|\r\n\t]+/g, '_')
+                .replace(/\s+/g, '_')
+                .slice(0, 30);
+            const zipFilename = `${cleanNodeTitle}_${validReferences.length}_refs_${dateStr}.zip`;
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = zipFilename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+
+            if (addToast) addToast(t('node.note.action.zipSuccess') || 'ZIP архив успешно скачан!', 'success');
+        } catch (err: any) {
+            console.error('Error generating Note references ZIP:', err);
+            if (addToast) addToast(`Ошибка создания ZIP: ${err?.message || err}`, 'error');
+        } finally {
+            setIsDownloadingZip(false);
+        }
+    };
+
     const openImageViewer = (index: number) => {
         const ref = references[index];
         if (!ref || !ref.image) return;
@@ -286,6 +451,25 @@ export const ReferencesTab: React.FC<ReferencesTabProps> = ({
                     </div>
                     
                     <div className="flex items-center space-x-2">
+                        {!isEmpty && (
+                            <ActionButton 
+                                title={isDownloadingZip ? (t('node.note.action.downloadingZip') || 'Creating ZIP archive...') : (t('node.note.action.downloadZip') || 'Download all as ZIP archive')} 
+                                onClick={handleDownloadAllZip}
+                                disabled={isDownloadingZip}
+                                className="hover:text-cyan-400 hover:border-cyan-500/50"
+                            >
+                                {isDownloadingZip ? (
+                                    <svg className="animate-spin h-4 w-4 text-cyan-400" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                )}
+                            </ActionButton>
+                        )}
                         {!isLocked && !isEmpty && (
                              <div className="flex items-center space-x-1">
                                 <ActionButton title={t('node.note.action.undoShuffle')} onClick={onUndoShuffle} disabled={!canUndoShuffle}>

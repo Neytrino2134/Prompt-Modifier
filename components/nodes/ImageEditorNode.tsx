@@ -16,7 +16,7 @@ import { OutputPanel } from './image-editor/OutputPanel';
 import { DEFAULT_EDITOR_STATE, ImageEditorState, ImageSlot, MIN_LEFT_PANE_WIDTH, MIN_RIGHT_PANE_WIDTH, MIN_TOP_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT_WITH_PREVIEW } from './image-editor/types';
 import { ImageEditorLeftPane } from './image-editor/ImageEditorLeftPane';
 import { SequencedPromptListRef } from './image-editor/SequencedPromptList';
-import { useOpenAiEnabled, getImageEditorModelOptions } from '../../services/modelConfig';
+import { useOpenAiEnabled, getImageEditorModelOptions, resolveImageEditorModel } from '../../services/modelConfig';
 
 export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onEditImage, onStopEdit, isEditingImage, onPasteImage, onSetImageEditorOutputToInput, connectedImageSources, t, deselectAllNodes, connectedInputs, onCopyImageToClipboard, onDownloadImage, libraryItems, onDetachImageToNode, getUpstreamNodeValues, viewTransform, setImageViewer, getFullSizeImage, setFullSizeImage, onDownloadImageFromUrl, onRefreshUpstreamData, isStopping, onCutConnections, addToast, clearImagesForNodeFromCache }) => {
     const { setConnections, handleNavigateToNodeFrame, nodes: allNodes, connections } = useAppContext();
@@ -48,7 +48,8 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     const isOpenAiActive = useOpenAiEnabled();
     const modelOptions = useMemo(() => getImageEditorModelOptions(), [isOpenAiActive]);
     
-    const isNanoBanana = model === 'gemini-3-pro-image-preview';
+    const effectiveModel = resolveImageEditorModel(model);
+    const isNanoBanana = effectiveModel === 'gemini-3-pro-image-preview';
     const isTextConnected = connectedInputs?.has('text');
     
     const viewScale = viewTransform?.scale || 1;
@@ -955,7 +956,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                                 src, 
                                 frameNumber: 0, 
                                 prompt,
-                                model: parsedValueRef.current.model || node.model || 'imagen-4.0-generate-001',
+                                model: resolveImageEditorModel(parsedValueRef.current.model || node.model),
                                 aspectRatio: parsedValueRef.current.aspectRatio || node.aspectRatio,
                                 resolution: parsedValueRef.current.resolution || node.resolution
                             }], 
@@ -966,7 +967,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 
                 onSequenceOutputClick={(i, clickedSrc) => {
                     if (!clickedSrc) return;
-                    const modelToUse = parsedValueRef.current.model || node.model || 'imagen-4.0-generate-001';
+                    const modelToUse = resolveImageEditorModel(parsedValueRef.current.model || node.model);
                     const ratioToUse = parsedValueRef.current.aspectRatio || node.aspectRatio;
                     const resToUse = parsedValueRef.current.resolution || node.resolution;
                     const validSources: { src: string; frameNumber: number; prompt: string; model?: string; aspectRatio?: string; resolution?: string }[] = [];

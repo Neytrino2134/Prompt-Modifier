@@ -143,6 +143,7 @@ export const useGeminiGeneration = ({
 
         isGeneratingVideo: videoNode.isGeneratingVideo,
         handleGenerateVideo: videoNode.handleGenerateVideo,
+        handleStopVideo: videoNode.handleStopVideo,
 
         isEditingImage: editorNode.isEditingImage,
         isStoppingEdit: editorNode.isStoppingEdit,

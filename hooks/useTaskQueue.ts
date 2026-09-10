@@ -32,9 +32,17 @@ export const useTaskQueue = () => {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...patch } : t));
     }, []);
 
-    // Helper to update batch tasks by batchJobId or batchJobName
+    // Helper to update batch tasks by batchJobId, batchJobName or nodeId
     const updateTaskByBatchJob = useCallback((batchJobIdOrName: string, patch: Partial<GenerationTask>) => {
-        setTasks(prev => prev.map(t => (t.batchJobId === batchJobIdOrName || t.batchJobName === batchJobIdOrName) ? { ...t, ...patch } : t));
+        setTasks(prev => prev.map(t => (t.batchJobId === batchJobIdOrName || t.batchJobName === batchJobIdOrName || (t.nodeId === batchJobIdOrName && t.isBatch)) ? { ...t, ...patch } : t));
+    }, []);
+
+    // Helper to explicitly mark all active batch tasks for a specific node as completed
+    const completeBatchTasksForNode = useCallback((nodeId: string, resultUrl?: string) => {
+        setTasks(prev => prev.map(t => (t.nodeId === nodeId && t.isBatch && (t.status === 'running' || t.status === 'queued')) 
+            ? { ...t, status: 'completed' as TaskStatus, resultUrl: resultUrl || t.resultUrl, completedAt: Date.now() } 
+            : t
+        ));
     }, []);
 
     // Main Queue Processor (Only processes non-batch local tasks with execute handler)
@@ -215,6 +223,7 @@ export const useTaskQueue = () => {
         enqueueTask,
         updateTask,
         updateTaskByBatchJob,
+        completeBatchTasksForNode,
         cancelTask,
         cancelAllNodeTasks,
         retryTask,

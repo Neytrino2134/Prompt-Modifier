@@ -101,7 +101,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
     const isRestricted = isRestrictedDockingNode(node.type);
 
     const nodeBatchJobs = React.useMemo(() => {
-        if (node.type !== NodeType.IMAGE_EDITOR) return [];
+        if (node.type !== NodeType.IMAGE_EDITOR && node.type !== NodeType.IMAGE_OUTPUT && node.type !== NodeType.CHARACTER_CARD) return [];
         return (batchJobs || []).filter(j => j && j.nodeId === node.id);
     }, [node.type, node.id, batchJobs]);
 
@@ -370,10 +370,10 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                         {/* Batch Waiting Status Badge */}
                         {isWaitingBatch && (
                             <div 
-                                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-300 text-[11px] font-medium animate-pulse select-none"
+                                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-[11px] font-medium animate-pulse select-none"
                                 title={t('batch.waitingServerTooltip') || 'Задача отправлена в Batch API и обрабатывается на сервере (до 24ч). Нода защищена от случайного закрытия.'}
                             >
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                                 <span className="truncate max-w-[170px] sm:max-w-none">{t('batch.waitingServerStatus') || 'Waiting for server response'}</span>
                             </div>
                         )}

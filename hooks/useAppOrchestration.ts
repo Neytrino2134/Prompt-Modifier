@@ -214,6 +214,91 @@ export const useAppOrchestration = (
                             return;
                         }
 
+                        // Paste Image Input Node Data (Full Batch + Parameters + Images)
+                        if (
+                            json.type === 'image-input-data' ||
+                            (typeof json === 'object' && json !== null && !Array.isArray(json) && ('batchFiles' in json || 'grid' in json || ('image' in json && ('cropRect' in json || 'batchConfig' in json || 'extractedImages' in json || 'fullSizeImage' in json))))
+                        ) {
+                            const title = json.nodeTitle || t('node.title.image_input') || 'Image Input';
+                            const newNodeId = entityActionsHook.onAddNode(NodeType.IMAGE_INPUT, pos, title);
+
+                            // 1. Process and restore main image to cache slot 0
+                            const mainImg = json.fullSizeImage || json.image || (json.batchFiles?.[0]?.dataUrl) || null;
+                            let mainThumbnail = json.image || null;
+
+                            if (mainImg && typeof mainImg === 'string' && mainImg.startsWith('data:')) {
+                                setFullSizeImage(newNodeId, 0, mainImg);
+                                try {
+                                    mainThumbnail = await generateThumbnail(mainImg, 256, 256);
+                                } catch {
+                                    mainThumbnail = mainImg;
+                                }
+                            }
+
+                            // 2. Restore high-res slices to cache
+                            if (json.slices && typeof json.slices === 'object') {
+                                Object.entries(json.slices).forEach(([frame, sliceUrl]) => {
+                                    if (typeof sliceUrl === 'string' && sliceUrl.startsWith('data:')) {
+                                        setFullSizeImage(newNodeId, Number(frame), sliceUrl);
+                                    }
+                                });
+                            }
+
+                            // 3. Process batch files & thumbnails
+                            const restoredBatchFiles: any[] = [];
+                            const incomingBatch = Array.isArray(json.batchFiles) ? json.batchFiles : [];
+                            for (let i = 0; i < incomingBatch.length; i++) {
+                                const item = incomingBatch[i];
+                                let itemThumb = item.thumbnailUrl;
+                                if (!itemThumb && item.dataUrl && typeof item.dataUrl === 'string' && item.dataUrl.startsWith('data:')) {
+                                    try {
+                                        itemThumb = await generateThumbnail(item.dataUrl, 128, 128);
+                                    } catch {
+                                        itemThumb = item.dataUrl;
+                                    }
+                                }
+                                restoredBatchFiles.push({
+                                    id: item.id || `batch-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 7)}`,
+                                    name: item.name || `image_${i + 1}.png`,
+                                    dataUrl: item.dataUrl || itemThumb || mainImg,
+                                    thumbnailUrl: itemThumb || item.dataUrl,
+                                    width: item.width,
+                                    height: item.height,
+                                    size: item.size,
+                                    cropRect: item.cropRect,
+                                    gridConfig: item.gridConfig
+                                });
+                            }
+
+                            // 4. Build node value
+                            const nodeValue = JSON.stringify({
+                                image: mainThumbnail,
+                                prompt: json.prompt || '',
+                                mode: json.mode || (restoredBatchFiles.length > 0 ? 'batch' : (json.grid ? 'grid' : (json.cropRect ? 'single' : 'full'))),
+                                cropRect: json.cropRect || null,
+                                croppedImage: json.croppedImage || null,
+                                grid: json.grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } },
+                                batchConfig: json.batchConfig || { subMode: 'crop', includeOriginal: true, assetName: 'Asset_Name' },
+                                batchFiles: restoredBatchFiles,
+                                extractedImages: json.extractedImages || [],
+                                showSlicesDrawer: json.showSlicesDrawer ?? true,
+                                showControls: json.showControls ?? false
+                            });
+
+                            nodesHook.handleValueChange(newNodeId, nodeValue);
+
+                            if (setNodes && (json.width || json.height)) {
+                                setNodes((nds: Node[]) => nds.map(n => n.id === newNodeId ? {
+                                    ...n,
+                                    width: json.width || n.width,
+                                    height: json.height || n.height
+                                } : n));
+                            }
+
+                            addToast(t('toast.pastedFromClipboard'));
+                            return;
+                        }
+
                         // Paste Script Analyzer Data (Script Viewer Node)
                         if (json.type === 'script-analyzer-data' || (json.scenes && Array.isArray(json.scenes) && json.scenes[0]?.frames)) {
                             const newNodeId = entityActionsHook.onAddNode(NodeType.SCRIPT_VIEWER, pos);
@@ -313,6 +398,87 @@ export const useAppOrchestration = (
                                 const targetWidth = (charCards.length * CARD_NODE_WIDTH_STEP) + CARD_NODE_BASE_WIDTH_OFFSET;
                                 setNodes((nds: Node[]) => nds.map(n => n.id === newNodeId ? { ...n, width: targetWidth } : n));
                             }
+                            return;
+                        }
+
+                        // Paste Note Data (Full Note Node with References / Text / Styles)
+                        if (
+                            json.type === 'note-data' ||
+                            (typeof json === 'object' && json !== null && !Array.isArray(json) && ('references' in json || ('text' in json && 'activeTab' in json)))
+                        ) {
+                            const title = json.nodeTitle || 'Note';
+                            const newNodeId = entityActionsHook.onAddNode(NodeType.NOTE, pos, title);
+
+                            const incomingRefs = Array.isArray(json.references) ? json.references : [];
+                            const processedRefs: any[] = [];
+
+                            for (let i = 0; i < incomingRefs.length; i++) {
+                                const ref = incomingRefs[i];
+                                const imgSrc = ref.image;
+                                let thumb = imgSrc;
+                                if (imgSrc && typeof imgSrc === 'string' && imgSrc.startsWith('data:')) {
+                                    setFullSizeImage(newNodeId, i, imgSrc);
+                                    try {
+                                        thumb = await generateThumbnail(imgSrc, 256, 256);
+                                    } catch {
+                                        thumb = imgSrc;
+                                    }
+                                }
+                                processedRefs.push({
+                                    id: ref.id || `ref-${Date.now()}-${i}`,
+                                    image: thumb,
+                                    caption: ref.caption || ''
+                                });
+                            }
+
+                            const noteValue = JSON.stringify({
+                                text: json.text || '',
+                                references: processedRefs,
+                                activeTab: json.activeTab || (processedRefs.length > 0 ? 'reference' : 'note'),
+                                style: json.style || { fontSize: 14, color: '#ffffff', isBold: false, isItalic: false, textAlign: 'left' },
+                                isMinimal: json.isMinimal || false
+                            });
+
+                            nodesHook.handleValueChange(newNodeId, noteValue);
+                            addToast(t('toast.pastedFromClipboard'));
+                            return;
+                        }
+
+                        // Paste Array of References as Note Node (if not character-card)
+                        if (Array.isArray(json) && json.length > 0 && (json[0]?.image !== undefined || json[0]?.caption !== undefined) && json[0]?.type !== 'character-card' && !json[0]?.imageSources) {
+                            const title = 'Note References';
+                            const newNodeId = entityActionsHook.onAddNode(NodeType.NOTE, pos, title);
+                            const processedRefs: any[] = [];
+
+                            for (let i = 0; i < json.length; i++) {
+                                const ref = json[i];
+                                const imgSrc = ref.image || ref.src;
+                                let thumb = imgSrc;
+                                if (imgSrc && typeof imgSrc === 'string' && imgSrc.startsWith('data:')) {
+                                    setFullSizeImage(newNodeId, i, imgSrc);
+                                    try {
+                                        thumb = await generateThumbnail(imgSrc, 256, 256);
+                                    } catch {
+                                        thumb = imgSrc;
+                                    }
+                                }
+                                processedRefs.push({
+                                    id: `ref-${Date.now()}-${i}`,
+                                    image: thumb,
+                                    caption: ref.caption || ref.prompt || ''
+                                });
+                            }
+
+                            const noteValue = JSON.stringify({
+                                text: '',
+                                references: processedRefs,
+                                activeTab: 'reference',
+                                style: { fontSize: 14, color: '#ffffff', isBold: false, isItalic: false, textAlign: 'left' },
+                                isMinimal: false
+                            });
+
+                            nodesHook.handleValueChange(newNodeId, noteValue);
+                            addToast(t('toast.pastedFromClipboard'));
                             return;
                         }
 

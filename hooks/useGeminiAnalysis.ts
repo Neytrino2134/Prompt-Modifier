@@ -4,6 +4,23 @@ import type { Node, Tab, ActiveOperation, ToastType } from '../types';
 import { NodeType } from '../types';
 import { analyzePrompt, describeImage, analyzeCharacter, generateImage, extractTextFromImage, generatePromptFromImage } from '../services/geminiService';
 import { generateThumbnail } from '../utils/imageUtils';
+import type { useTaskQueue } from './useTaskQueue';
+
+const raceWithAbort = <T>(promise: Promise<T>, signal: AbortSignal): Promise<T> => {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+            if (signal.aborted) {
+                reject(new DOMException('Aborted', 'AbortError'));
+            }
+            const onAbort = () => {
+                signal.removeEventListener('abort', onAbort);
+                reject(new DOMException('Aborted', 'AbortError'));
+            };
+            signal.addEventListener('abort', onAbort);
+        })
+    ]);
+};
 
 interface UseGeminiAnalysisProps {
     nodes: Node[];
@@ -19,14 +36,32 @@ interface UseGeminiAnalysisProps {
     registerOperation: (op: ActiveOperation) => void;
     unregisterOperation: (id: string) => void;
     addToast: (message: string, type?: ToastType) => void;
+    taskQueue?: ReturnType<typeof useTaskQueue>;
 }
 
-export const useGeminiAnalysis = ({ nodes, setNodes, getUpstreamNodeValues, setError, t, setFullSizeImage, getFullSizeImage, activeTabId, setTabs, activeTabName, registerOperation, unregisterOperation, addToast }: UseGeminiAnalysisProps) => {
+export const useGeminiAnalysis = ({ nodes, setNodes, getUpstreamNodeValues, setError, t, setFullSizeImage, getFullSizeImage, activeTabId, setTabs, activeTabName, registerOperation, unregisterOperation, addToast, taskQueue }: UseGeminiAnalysisProps) => {
     const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
     const [isAnalyzingCharacter, setIsAnalyzingCharacter] = useState<string | null>(null);
-    const [isAnalyzingImage, setIsAnalyzingImage] = useState<string | null>(null);
-    const [isProcessingImage, setIsProcessingImage] = useState<string | null>(null);
+    const [analyzingImageNodeIds, setAnalyzingImageNodeIds] = useState<Set<string>>(new Set());
+    const [processingImageNodeIds, setProcessingImageNodeIds] = useState<Set<string>>(new Set());
     const [isUpdatingCharacterPrompt, setIsUpdatingCharacterPrompt] = useState<string | null>(null);
+
+    const isProcessingImage = useCallback((nodeId?: string) => {
+        if (nodeId && taskQueue) {
+            return taskQueue.isTaskRunningForNode(nodeId) || processingImageNodeIds.has(nodeId);
+        }
+        if (nodeId) {
+            return processingImageNodeIds.has(nodeId);
+        }
+        return processingImageNodeIds.size > 0 || (taskQueue ? taskQueue.tasks.some(t => t.type === 'image_gen' && (t.status === 'running' || t.status === 'queued')) : false);
+    }, [taskQueue, processingImageNodeIds]);
+
+    const isAnalyzingImage = useCallback((nodeId?: string) => {
+        if (nodeId) {
+            return analyzingImageNodeIds.has(nodeId);
+        }
+        return analyzingImageNodeIds.size > 0;
+    }, [analyzingImageNodeIds]);
 
     const activeTabIdRef = useRef(activeTabId);
     useEffect(() => {
@@ -135,7 +170,7 @@ export const useGeminiAnalysis = ({ nodes, setNodes, getUpstreamNodeValues, setE
 
     const handleAnalyzeImage = useCallback(async (nodeId: string) => {
         const currentTabId = activeTabIdRef.current;
-        setIsAnalyzingImage(nodeId);
+        setAnalyzingImageNodeIds(prev => new Set(prev).add(nodeId));
         setError(null);
         registerOperation({ id: nodeId, type: 'analysis', description: t('node.content.analyzing'), tabId: activeTabId, tabName: activeTabName });
 
@@ -171,14 +206,18 @@ export const useGeminiAnalysis = ({ nodes, setNodes, getUpstreamNodeValues, setE
         } catch (e: any) {
             setError(e.message);
         } finally {
-            setIsAnalyzingImage(null);
+            setAnalyzingImageNodeIds(prev => {
+                const next = new Set(prev);
+                next.delete(nodeId);
+                return next;
+            });
             unregisterOperation(nodeId);
         }
     }, [getUpstreamNodeValues, nodes, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName]);
     
     const handleImageToText = useCallback(async (nodeId: string) => {
         const currentTabId = activeTabIdRef.current;
-        setIsAnalyzingImage(nodeId);
+        setAnalyzingImageNodeIds(prev => new Set(prev).add(nodeId));
         setError(null);
         registerOperation({ id: nodeId, type: 'analysis', description: t('node.content.analyzing'), tabId: activeTabId, tabName: activeTabName });
 
@@ -226,63 +265,118 @@ export const useGeminiAnalysis = ({ nodes, setNodes, getUpstreamNodeValues, setE
         } catch (e: any) {
             setError(e.message);
         } finally {
-            setIsAnalyzingImage(null);
+            setAnalyzingImageNodeIds(prev => {
+                const next = new Set(prev);
+                next.delete(nodeId);
+                return next;
+            });
             unregisterOperation(nodeId);
         }
     }, [getUpstreamNodeValues, nodes, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, getFullSizeImage]);
 
     const handleProcessImage = useCallback(async (nodeId: string) => {
         const currentTabId = activeTabIdRef.current;
-        setIsProcessingImage(nodeId);
-        setError(null);
-        registerOperation({ id: nodeId, type: 'generation', description: t('node.content.processing'), tabId: activeTabId, tabName: activeTabName });
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
 
-        try {
-            const node = nodes.find(n => n.id === nodeId);
-            if (!node) return;
+        let base64ImageData = '';
+        let mimeType = '';
 
-            let base64ImageData = '';
-            let mimeType = '';
-
-            if (node.type === NodeType.IMAGE_INPUT) {
-                const fullRes = getFullSizeImage(nodeId, 0);
-                let imageSrc = fullRes;
-                if (!imageSrc) {
-                    try {
-                        const parsed = JSON.parse(node.value || '{}');
-                        imageSrc = parsed.image;
-                    } catch {}
-                }
-                if (!imageSrc) throw new Error("No image found in node.");
-                if (imageSrc.startsWith('data:')) {
-                    base64ImageData = imageSrc.split(',')[1];
-                    mimeType = imageSrc.match(/:(.*?);/)?.[1] || 'image/png';
-                } else throw new Error("Image format not supported.");
-            } else {
-                const upstreamValues = getUpstreamNodeValues(nodeId, 'image');
-                const imageInput = upstreamValues.find(v => typeof v === 'object') as { base64ImageData: string; mimeType: string; } | undefined;
-                if (imageInput) {
-                    base64ImageData = imageInput.base64ImageData;
-                    mimeType = imageInput.mimeType;
-                }
+        if (node.type === NodeType.IMAGE_INPUT) {
+            const fullRes = getFullSizeImage(nodeId, 0);
+            let imageSrc = fullRes;
+            if (!imageSrc) {
+                try {
+                    const parsed = JSON.parse(node.value || '{}');
+                    imageSrc = parsed.image;
+                } catch {}
             }
-            
-            if (!base64ImageData) throw new Error("No image to process.");
-
-            const removalPrompt = "Remove all possible overlays, text, watermarks, and watermarked texts. Pay special attention to the top and bottom of the image, restoring the original background naturally.";
-
-            const newFullResUrl = await generateImage(removalPrompt, '1:1', [{ base64ImageData, mimeType }], 'gemini-3-flash-preview');
-            const newThumbnailUrl = await generateThumbnail(newFullResUrl, 256, 256); 
-            
-            updateNodeInStorage(currentTabId, nodeId, (prevVal) => ({ ...prevVal, image: newThumbnailUrl }), { frame: 0, url: newFullResUrl });
-
-        } catch (e: any) {
-            setError(e.message);
-        } finally {
-            setIsProcessingImage(null);
-            unregisterOperation(nodeId);
+            if (!imageSrc) {
+                setError(t('error.noImageFound') || "No image found in node.");
+                return;
+            }
+            if (imageSrc.startsWith('data:')) {
+                base64ImageData = imageSrc.split(',')[1];
+                mimeType = imageSrc.match(/:(.*?);/)?.[1] || 'image/png';
+            } else {
+                setError("Image format not supported.");
+                return;
+            }
+        } else {
+            const upstreamValues = getUpstreamNodeValues(nodeId, 'image');
+            const imageInput = upstreamValues.find(v => typeof v === 'object') as { base64ImageData: string; mimeType: string; } | undefined;
+            if (imageInput) {
+                base64ImageData = imageInput.base64ImageData;
+                mimeType = imageInput.mimeType;
+            }
         }
-    }, [nodes, setError, getUpstreamNodeValues, getFullSizeImage, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, t]);
+        
+        if (!base64ImageData) {
+            setError("No image to process.");
+            return;
+        }
+
+        const removalPrompt = "Remove all possible overlays, text, watermarks, and watermarked texts. Pay special attention to the top and bottom of the image, restoring the original background naturally.";
+
+        setProcessingImageNodeIds(prev => new Set(prev).add(nodeId));
+        setError(null);
+        registerOperation({ id: nodeId, type: 'generation', description: t('node.content.processing'), tabId: currentTabId, tabName: activeTabName });
+
+        const executeProcessing = async (signal?: AbortSignal): Promise<string> => {
+            const genPromise = generateImage(removalPrompt, '1:1', [{ base64ImageData, mimeType }], 'gemini-3-flash-preview');
+            if (signal) {
+                return await raceWithAbort(genPromise, signal);
+            }
+            return await genPromise;
+        };
+
+        const handleSuccess = async (newFullResUrl: string) => {
+            const newThumbnailUrl = await generateThumbnail(newFullResUrl, 256, 256); 
+            updateNodeInStorage(currentTabId, nodeId, (prevVal) => ({ ...prevVal, image: newThumbnailUrl }), { frame: 0, url: newFullResUrl });
+            unregisterOperation(nodeId);
+            setProcessingImageNodeIds(prev => {
+                const next = new Set(prev);
+                next.delete(nodeId);
+                return next;
+            });
+            if (addToast) {
+                addToast(t('node.action.processSuccess') || 'Image processed successfully', 'success');
+            }
+        };
+
+        const handleError = (e: any) => {
+            unregisterOperation(nodeId);
+            setProcessingImageNodeIds(prev => {
+                const next = new Set(prev);
+                next.delete(nodeId);
+                return next;
+            });
+            if (e?.name !== 'AbortError' && e?.message !== 'Aborted') {
+                setError(e?.message || 'Processing failed');
+            }
+        };
+
+        if (taskQueue) {
+            taskQueue.enqueueTask({
+                nodeId,
+                nodeTitle: node.title || (node.type === NodeType.IMAGE_INPUT ? 'Image Input' : 'Image Processor'),
+                prompt: removalPrompt,
+                type: 'image_gen',
+                tabId: currentTabId,
+                tabName: activeTabName,
+                execute: executeProcessing,
+                onSuccess: handleSuccess,
+                onError: handleError
+            });
+        } else {
+            try {
+                const newFullResUrl = await executeProcessing();
+                await handleSuccess(newFullResUrl);
+            } catch (e: any) {
+                handleError(e);
+            }
+        }
+    }, [nodes, setError, getUpstreamNodeValues, getFullSizeImage, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, t, taskQueue, addToast]);
     
     const handleUpdateCharacterPromptFromImage = useCallback(async (nodeId: string, cardIndex: number) => {
         const currentTabId = activeTabIdRef.current;

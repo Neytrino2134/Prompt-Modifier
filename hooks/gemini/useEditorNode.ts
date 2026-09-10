@@ -8,6 +8,7 @@ import { generateImage } from '../../services/geminiService';
 import { generateThumbnail, formatImageForAspectRatio, cropImageTo169 } from '../../utils/imageUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { GeminiGenerationCommonProps } from './types';
+import { resolveImageEditorModel } from '../../services/modelConfig';
 
 // Helper for local download triggering within the hook
 const triggerDownload = (url: string, prompt: string, frameNumber: number = 0) => {
@@ -81,6 +82,7 @@ export const useEditorNode = ({
         if (!node) return;
 
         const parsed = JSON.parse(node.value || '{}');
+        const effectiveModel = resolveImageEditorModel(parsed.model);
         const isSequenceMode = parsed.isSequenceMode;
 
         // Gather Inputs A
@@ -205,6 +207,8 @@ export const useEditorNode = ({
                             imgA = allInputImages[0];
                         } else if (!imgA && parsed.checkedInputIndices && parsed.checkedInputIndices.length === 1) {
                             imgA = allInputImages[parsed.checkedInputIndices[0]];
+                        } else if (!imgA && allInputImages.length > 0) {
+                            imgA = allInputImages[i % allInputImages.length];
                         }
                         if (!imgA && parsed.model !== 'gemini-3-pro-image-preview') continue;
                         if (imgA) imagesForFrame = [imgA];
@@ -268,7 +272,7 @@ export const useEditorNode = ({
                         nodeId,
                         nodeTitle: node.title || 'Image Editor',
                         tabId: currentTabId,
-                        model: parsed.model || 'gemini-3-pro-image-preview',
+                        model: effectiveModel,
                         isSequence: true,
                         items: batchItems
                     });
@@ -279,9 +283,11 @@ export const useEditorNode = ({
                 let imagesToUseInputs: { base64ImageData: string; mimeType: string; }[] = [];
                 const checkedInputIndices = parsed.checkedInputIndices;
                 
-                if (checkedInputIndices && Array.isArray(checkedInputIndices)) {
+                if (checkedInputIndices && Array.isArray(checkedInputIndices) && checkedInputIndices.length > 0) {
                     imagesToUseInputs = allInputImages.filter((_, i) => checkedInputIndices.includes(i));
-                } else {
+                }
+                
+                if (imagesToUseInputs.length === 0 && allInputImages.length > 0) {
                     imagesToUseInputs = allInputImages;
                 }
 
@@ -311,7 +317,7 @@ export const useEditorNode = ({
                     nodeId,
                     nodeTitle: node.title || 'Image Editor',
                     tabId: currentTabId,
-                    model: parsed.model || 'gemini-3-pro-image-preview',
+                    model: effectiveModel,
                     isSequence: false,
                     items: [{
                         id: 'single-0',
@@ -357,7 +363,7 @@ export const useEditorNode = ({
                     } else if (!imgA && parsed.checkedInputIndices && parsed.checkedInputIndices.length === 1) {
                         imgA = allInputImages[parsed.checkedInputIndices[0]];
                     }
-                    if (!imgA && parsed.model !== 'gemini-3-pro-image-preview') continue;
+                    if (!imgA && effectiveModel !== 'gemini-3-pro-image-preview') continue;
                     if (imgA) imagesForFrame = [imgA];
                     
                     if (parsed.isSequentialCombinationMode) {
@@ -407,7 +413,7 @@ export const useEditorNode = ({
                     }
 
                     return await raceWithAbort(
-                        generateImage(promptWithOutpaint, parsed.aspectRatio, imagesToUse, parsed.model, parsed.resolution, {
+                        generateImage(promptWithOutpaint, parsed.aspectRatio, imagesToUse, effectiveModel, parsed.resolution, {
                             quality: parsed.quality,
                             outputFormat: parsed.outputFormat,
                             size: parsed.size
@@ -417,7 +423,7 @@ export const useEditorNode = ({
                 };
 
                 const onSuccess = async (imageUrl: string) => {
-                    if (addToHistory) addToHistory(imageUrl, promptToUse, parsed.model || 'imagen-4.0-generate-001', { aspectRatio: parsed.aspectRatio, resolution: parsed.resolution });
+                    if (addToHistory) addToHistory(imageUrl, promptToUse, effectiveModel, { aspectRatio: parsed.aspectRatio, resolution: parsed.resolution });
                     let finalImageUrl = imageUrl;
                     if (parsed.autoCrop169) {
                          try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
@@ -507,7 +513,7 @@ export const useEditorNode = ({
                 }
 
                 return await raceWithAbort(
-                     generateImage(promptWithOutpaint, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution, {
+                     generateImage(promptWithOutpaint, parsed.aspectRatio, processedImages, effectiveModel, parsed.resolution, {
                          quality: parsed.quality,
                          outputFormat: parsed.outputFormat,
                          size: parsed.size
@@ -517,7 +523,7 @@ export const useEditorNode = ({
             };
 
             const onSuccess = async (imageUrl: string) => {
-                if (addToHistory) addToHistory(imageUrl, promptToUse, parsed.model || 'imagen-4.0-generate-001', { aspectRatio: parsed.aspectRatio, resolution: parsed.resolution });
+                if (addToHistory) addToHistory(imageUrl, promptToUse, effectiveModel, { aspectRatio: parsed.aspectRatio, resolution: parsed.resolution });
                 let finalImageUrl = imageUrl;
                 if (parsed.autoCrop169) {
                      try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}

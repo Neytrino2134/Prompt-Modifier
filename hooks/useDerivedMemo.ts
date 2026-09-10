@@ -122,65 +122,116 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
             if (inputConn) return findImageDataSource(inputConn.fromNodeId, inputConn.fromHandleId, visited, optimizedForUI);
         }
 
+        const fullRes = getFullSizeImage(node.id, 0);
+        let parsed: any = {};
         try {
-            const parsed = JSON.parse(node.value || '{}');
-            switch (node.type) {
-                case NodeType.IMAGE_INPUT: {
-                    const mode = parsed.mode || 'full';
-                    if (mode === 'single' && (parsed.cropRect || parsed.croppedImage)) {
-                        const croppedFull = getFullSizeImage(node.id, 1);
-                        if (croppedFull && !optimizedForUI) return croppedFull;
-                        if (parsed.croppedImage) return parsed.croppedImage;
-                    } else if (mode === 'grid' && parsed.grid) {
+            parsed = JSON.parse(node.value || '{}');
+        } catch {
+            // node.value might be a raw data URL or plain string
+        }
+
+        switch (node.type) {
+            case NodeType.IMAGE_OUTPUT: {
+                const rawVal = typeof node.value === 'string' ? node.value : '';
+                const imgVal = (typeof parsed === 'object' && parsed !== null) ? (parsed.image || parsed.outputImage) : null;
+                if (optimizedForUI) {
+                    return rawVal.startsWith('data:') ? rawVal : (imgVal || fullRes || (rawVal ? rawVal : null));
+                }
+                return fullRes || (rawVal.startsWith('data:') ? rawVal : null) || imgVal || null;
+            }
+            case NodeType.IMAGE_INPUT: {
+                const rawVal = typeof node.value === 'string' ? node.value : '';
+                if (rawVal.startsWith('data:image')) return rawVal;
+
+                const mode = parsed.mode || 'full';
+                if (mode === 'single' && (parsed.cropRect || parsed.croppedImage)) {
+                    const croppedFull = getFullSizeImage(node.id, 1);
+                    if (croppedFull && !optimizedForUI) return croppedFull;
+                    if (parsed.croppedImage) return parsed.croppedImage;
+                } else if (mode === 'grid' && parsed.grid) {
+                    const firstFull = getFullSizeImage(node.id, 1);
+                    if (firstFull && !optimizedForUI) return firstFull;
+                    if (parsed.extractedImages?.[0]) return parsed.extractedImages[0];
+                } else if (mode === 'batch') {
+                    const subMode = parsed.batchConfig?.subMode || (parsed.grid ? 'grid' : 'crop');
+                    if (subMode === 'grid' && parsed.grid && Array.isArray(parsed.extractedImages) && parsed.extractedImages.length > 0) {
                         const firstFull = getFullSizeImage(node.id, 1);
                         if (firstFull && !optimizedForUI) return firstFull;
                         if (parsed.extractedImages?.[0]) return parsed.extractedImages[0];
+                    } else if (subMode === 'crop' && (parsed.cropRect || parsed.croppedImage)) {
+                        const croppedFull = getFullSizeImage(node.id, 1);
+                        if (croppedFull && !optimizedForUI) return croppedFull;
+                        if (parsed.croppedImage) return parsed.croppedImage;
                     }
-                    return (optimizedForUI && parsed.image) ? parsed.image : (getFullSizeImage(node.id, 0) || parsed.image || null);
                 }
-                case NodeType.POSE_CREATOR: return parsed.renderedImage || null;
-                case NodeType.IMAGE_ANALYZER:
-                case NodeType.CHARACTER_CARD:
-                     if (node.type === NodeType.CHARACTER_CARD && fromHandleId !== 'image') break;
-                     
-                     const charArr = Array.isArray(parsed) ? parsed : [parsed];
-                     // Only consider active characters for direct image output, or just the primary one
-                     // Usually image output from card is primary.
-                     const outputChar = charArr.find((c: any) => c.isOutput) || charArr[0];
-                     
-                     // If primary is inactive, do we return null? 
-                     // The requirement specifically mentioned "All character data" output point.
-                     // For 'image' output, it's safer to respect it too if it's the primary one.
-                     if (outputChar && outputChar.isActive === false) return null;
-
-                     const charIdx = charArr.indexOf(outputChar);
-                     // Respect the selected ratio of the character card for image output
-                     const ratio = outputChar.selectedRatio || '1:1';
-                     const ratioIdx = RATIO_INDICES[ratio] || 1;
-                     
-                     const cachedFull = getFullSizeImage(node.id, (charIdx * 10) + ratioIdx);
-                     if (cachedFull && !optimizedForUI) return cachedFull;
-                     
-                     // Fallback to thumbnail of selected ratio or general image
-                     return outputChar?.thumbnails?.[ratio] || outputChar?.image || null;
-
-                case NodeType.IMAGE_OUTPUT: return getFullSizeImage(node.id, 0) || parsed.image || parsed.outputImage || (typeof node.value === 'string' && node.value.startsWith('data:') ? node.value : null);
-                case NodeType.IMAGE_EDITOR: {
-                    if (parsed.isSequenceMode && Array.isArray(parsed.sequenceOutputs) && parsed.sequenceOutputs.length > 0) {
-                        const checked = Array.isArray(parsed.checkedSequenceOutputIndices) && parsed.checkedSequenceOutputIndices.length > 0
-                            ? parsed.checkedSequenceOutputIndices
-                            : parsed.sequenceOutputs.map((_: any, i: number) => i);
-                        const firstIdx = checked[0] !== undefined ? checked[0] : 0;
-                        const out = parsed.sequenceOutputs[firstIdx];
-                        const full = getFullSizeImage(node.id, 1000 + firstIdx);
-                        if (full && !optimizedForUI) return full;
-                        if (out?.thumbnail) return out.thumbnail;
-                    }
-                    return optimizedForUI ? parsed.outputImage : (getFullSizeImage(node.id, 0) || parsed.outputImage || null);
-                }
+                return (optimizedForUI && parsed.image) ? parsed.image : (fullRes || parsed.image || null);
             }
-        } catch {
-            if (node.type === NodeType.IMAGE_INPUT && node.value.startsWith('data:image')) return node.value;
+            case NodeType.POSE_CREATOR: return parsed.renderedImage || fullRes || null;
+            case NodeType.IMAGE_ANALYZER:
+            case NodeType.CHARACTER_CARD:
+                 if (node.type === NodeType.CHARACTER_CARD && fromHandleId !== 'image') break;
+                 
+                 const charArr = Array.isArray(parsed) ? parsed : [parsed];
+                 // Only consider active characters for direct image output, or just the primary one
+                 // Usually image output from card is primary.
+                 const outputChar = charArr.find((c: any) => c.isOutput) || charArr[0];
+                 
+                 // If primary is inactive, do we return null? 
+                 // The requirement specifically mentioned "All character data" output point.
+                 // For 'image' output, it's safer to respect it too if it's the primary one.
+                 if (outputChar && outputChar.isActive === false) return null;
+
+                 const charIdx = charArr.indexOf(outputChar);
+                 // Respect the selected ratio of the character card for image output
+                 const ratio = outputChar.selectedRatio || '1:1';
+                 const ratioIdx = RATIO_INDICES[ratio] || 1;
+                 
+                 const cachedFull = getFullSizeImage(node.id, (charIdx * 10) + ratioIdx) || getFullSizeImage(node.id, charIdx * 10);
+                 if (cachedFull && !optimizedForUI) return cachedFull;
+                 
+                 // Fallback to thumbnail of selected ratio or general image
+                 return outputChar?.thumbnails?.[ratio] || outputChar?.image || cachedFull || null;
+
+            case NodeType.IMAGE_EDITOR: {
+                if (parsed.isSequenceMode && Array.isArray(parsed.sequenceOutputs) && parsed.sequenceOutputs.length > 0) {
+                    const checked = Array.isArray(parsed.checkedSequenceOutputIndices) && parsed.checkedSequenceOutputIndices.length > 0
+                        ? parsed.checkedSequenceOutputIndices
+                        : parsed.sequenceOutputs.map((_: any, i: number) => i);
+                    const firstIdx = checked[0] !== undefined ? checked[0] : 0;
+                    const out = parsed.sequenceOutputs[firstIdx];
+                    const full = getFullSizeImage(node.id, 1000 + firstIdx);
+                    if (full && !optimizedForUI) return full;
+                    if (out?.thumbnail) return out.thumbnail;
+                }
+                return optimizedForUI ? (parsed.outputImage || fullRes || null) : (fullRes || parsed.outputImage || null);
+            }
+            case NodeType.IMAGE_SEQUENCE_GENERATOR: {
+                if (parsed.images) {
+                    const checked = parsed.checkedFrameNumbers || [];
+                    const frameNum = checked[0] !== undefined ? checked[0] : (parsed.selectedFrameNumber !== null ? parsed.selectedFrameNumber : 0);
+                    const full = getFullSizeImage(node.id, 1000 + frameNum);
+                    if (full && !optimizedForUI) return full;
+                    if (parsed.images[frameNum]) return parsed.images[frameNum];
+                }
+                return fullRes || null;
+            }
+            case NodeType.NOTE: {
+                if (fromHandleId === 'all_images' || fromHandleId === undefined || fromHandleId === 'image') {
+                    if (Array.isArray(parsed.references) && parsed.references.length > 0) {
+                        const firstIdx = parsed.references.findIndex((r: any) => r.image);
+                        if (firstIdx !== -1) {
+                            const full = getFullSizeImage(node.id, firstIdx);
+                            if (full && !optimizedForUI) return full;
+                            const thumb = parsed.references[firstIdx]?.image;
+                            return (optimizedForUI && thumb) ? thumb : (full || thumb || null);
+                        }
+                    }
+                }
+                return null;
+            }
+        }
+        if (typeof node.value === 'string' && node.value.startsWith('data:image')) {
+            return node.value;
         }
         return null;
     }, [nodes, connections, getFullSizeImage]);
@@ -354,7 +405,12 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
 
     const getUpstreamNodeValues = useCallback((nodeId: string, handleId?: string, currentNodes?: Node[], optimizedForUI: boolean = false) => {
         const activeNodes = currentNodes || nodes;
-        const inputConnections = connections.filter(c => c.toNodeId === nodeId && (handleId === undefined || c.toHandleId === handleId));
+        const inputConnections = connections.filter(c => c.toNodeId === nodeId && (
+            handleId === undefined || 
+            c.toHandleId === handleId || 
+            (!c.toHandleId && handleId === 'image') || 
+            (c.toHandleId === 'image' && handleId === undefined)
+        ));
         
         const values: (string | any)[] = [];
         
@@ -430,6 +486,17 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                                 values.push(fromNode.value);
                             }
                         }
+                    } else if (fromNode.type === NodeType.NOTE) {
+                        const isRefMode = parsed.activeTab === 'reference' || conn.fromHandleId === 'all_captions';
+                        if (isRefMode) {
+                            const refs = Array.isArray(parsed.references) ? parsed.references : [];
+                            const captions = refs
+                                .map((r: any) => (typeof r.caption === 'string' ? r.caption : ''))
+                                .filter((c: string) => c.trim().length > 0);
+                            values.push(captions.join('\n\n'));
+                        } else {
+                            values.push(parsed.text || '');
+                        }
                     } else {
                         values.push(fromNode.value);
                     }
@@ -486,19 +553,52 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                                 values.push({ base64ImageData: parts[1], mimeType: mime });
                                 continue;
                             }
-                        } else if (mode === 'batch' && Array.isArray(parsed.batchFiles) && parsed.batchFiles.length > 0) {
-                            let pushedAny = false;
-                            parsed.batchFiles.forEach((file: any, fileIdx: number) => {
-                                const fullUrl = getFullSizeImage(fromNode.id, fileIdx);
-                                const url = (optimizedForUI ? file.dataUrl : (fullUrl || file.dataUrl));
+                        } else if (mode === 'batch') {
+                            const subMode = parsed.batchConfig?.subMode || (parsed.grid ? 'grid' : 'crop');
+                            if (subMode === 'grid' && parsed.grid && Array.isArray(parsed.extractedImages) && parsed.extractedImages.length > 0) {
+                                const totalCells = (parsed.grid.cols || 1) * (parsed.grid.rows || 1);
+                                const selectedCells: number[] = Array.isArray(parsed.grid.selectedCells)
+                                    ? parsed.grid.selectedCells
+                                    : Array.from({ length: totalCells }, (_, i) => i);
+                                
+                                const thumbs = parsed.extractedImages || [];
+                                let pushedAny = false;
+                                selectedCells.forEach((cellIdx) => {
+                                    const fullUrl = getFullSizeImage(fromNode.id, 1 + cellIdx);
+                                    const thumbUrl = thumbs[cellIdx];
+                                    const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
+                                    if (url && url.startsWith('data:')) {
+                                        const parts = url.split(',');
+                                        const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                        values.push({ base64ImageData: parts[1], mimeType: mime });
+                                        pushedAny = true;
+                                    }
+                                });
+                                if (pushedAny) continue;
+                            } else if (subMode === 'crop' && (parsed.cropRect || parsed.croppedImage)) {
+                                const fullUrl = getFullSizeImage(fromNode.id, 1);
+                                const thumbUrl = parsed.croppedImage;
+                                const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl || getFullSizeImage(fromNode.id, 0) || parsed.image);
                                 if (url && url.startsWith('data:')) {
                                     const parts = url.split(',');
                                     const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
                                     values.push({ base64ImageData: parts[1], mimeType: mime });
-                                    pushedAny = true;
+                                    continue;
                                 }
-                            });
-                            if (pushedAny) continue;
+                            } else if (Array.isArray(parsed.batchFiles) && parsed.batchFiles.length > 0) {
+                                let pushedAny = false;
+                                parsed.batchFiles.forEach((file: any, fileIdx: number) => {
+                                    const fullUrl = getFullSizeImage(fromNode.id, fileIdx);
+                                    const url = (optimizedForUI ? file.dataUrl : (fullUrl || file.dataUrl));
+                                    if (url && url.startsWith('data:')) {
+                                        const parts = url.split(',');
+                                        const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                        values.push({ base64ImageData: parts[1], mimeType: mime });
+                                        pushedAny = true;
+                                    }
+                                });
+                                if (pushedAny) continue;
+                            }
                         } else {
                             // Normal / Full Mode or fallback
                             const fullUrl = getFullSizeImage(fromNode.id, 0);
@@ -512,6 +612,22 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             }
                         }
                     } catch {}
+                } else if (fromNode.type === NodeType.IMAGE_OUTPUT) {
+                    const fullUrl = getFullSizeImage(fromNode.id, 0);
+                    let rawUrl = (typeof fromNode.value === 'string' && fromNode.value.startsWith('data:')) ? fromNode.value : '';
+                    if (!rawUrl) {
+                        try {
+                            const parsed = JSON.parse(fromNode.value || '{}');
+                            rawUrl = parsed.image || parsed.outputImage || '';
+                        } catch {}
+                    }
+                    const url = (optimizedForUI && rawUrl) ? rawUrl : (fullUrl || rawUrl);
+                    if (url && url.startsWith('data:')) {
+                        const parts = url.split(',');
+                        const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                        values.push({ base64ImageData: parts[1], mimeType: mime });
+                        continue;
+                    }
                 } else if (fromNode.type === NodeType.IMAGE_EDITOR) {
                     try {
                         const parsed = JSON.parse(fromNode.value || '{}');
@@ -545,6 +661,26 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                                 values.push({ base64ImageData: parts[1], mimeType: mime });
                                 continue;
                             }
+                        }
+                    } catch {}
+                } else if (fromNode.type === NodeType.NOTE) {
+                    try {
+                        const parsed = JSON.parse(fromNode.value || '{}');
+                        const isRef = parsed.activeTab === 'reference' || conn.fromHandleId === 'all_images' || conn.fromHandleId === undefined;
+                        if (isRef && Array.isArray(parsed.references) && parsed.references.length > 0) {
+                            let pushedAny = false;
+                            parsed.references.forEach((ref: any, refIdx: number) => {
+                                const fullUrl = getFullSizeImage(fromNode.id, refIdx);
+                                const thumbUrl = ref.image;
+                                const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
+                                if (url && url.startsWith('data:')) {
+                                    const parts = url.split(',');
+                                    const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                    values.push({ base64ImageData: parts[1], mimeType: mime });
+                                    pushedAny = true;
+                                }
+                            });
+                            if (pushedAny) continue;
                         }
                     } catch {}
                 }
