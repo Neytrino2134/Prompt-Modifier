@@ -337,6 +337,93 @@ export const getMinNodeSize = (nodeType: NodeType): { minWidth: number, minHeigh
     }
 };
 
+export const PROXY_NODE_WIDTH = 160;
+export const PROXY_NODE_HEIGHT = 48;
+export const DETACHED_GHOST_WIDTH = 230;
+export const DETACHED_GHOST_HEIGHT = 52;
+
+export interface ProxyHandleDefinition {
+    handleId?: string;
+    type: 'text' | 'image' | 'character_data' | 'video' | 'audio' | null;
+    title: string;
+}
+
+export const getProxyHandles = (node: Node, isInput: boolean): ProxyHandleDefinition[] => {
+    if (isInput) {
+        if (node.type === NodeType.IMAGE_EDITOR) {
+            let isImageEditorSequential = false;
+            let isSequentialEditingWithPrompts = false;
+            try {
+                const val = JSON.parse(node.value || '{}');
+                isImageEditorSequential = !!(val.isSequenceMode && val.isSequentialCombinationMode);
+                isSequentialEditingWithPrompts = !!(val.isSequenceMode && val.isSequentialEditingWithPrompts);
+            } catch {}
+
+            const handles: ProxyHandleDefinition[] = [];
+            if (!isSequentialEditingWithPrompts) {
+                handles.push({ handleId: 'image', type: 'image', title: 'Image' });
+            }
+            if (isImageEditorSequential) {
+                handles.push({ handleId: 'image_b', type: 'image', title: 'Image B' });
+            }
+            handles.push({ handleId: 'text', type: 'text', title: 'Text' });
+            return handles;
+        } else if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {
+            return [
+                { handleId: 'character_data', type: 'character_data', title: 'Character Data Input' },
+                { handleId: 'prompt_input', type: 'text', title: 'Text' }
+            ];
+        } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
+            return [{ handleId: 'prompts_sequence', type: 'text', title: 'Prompts Sequence Input' }];
+        } else if (node.type === NodeType.NOTE) {
+            return [{ handleId: 'prompt_data', type: 'text', title: 'Prompt Input' }];
+        } else if (node.type === NodeType.VIDEO_EDITOR) {
+            return [
+                { handleId: 'video', type: 'video', title: 'Video' },
+                { handleId: 'audio', type: 'audio', title: 'Audio' },
+                { handleId: 'image', type: 'image', title: 'Image' },
+                { handleId: 'text', type: 'text', title: 'Text' }
+            ];
+        } else if (node.type === NodeType.CHARACTER_CARD) {
+            return [{ handleId: undefined, type: 'text', title: 'Input' }];
+        } else {
+            const inputType = getInputHandleType(node, undefined);
+            if (inputType !== null || node.type === NodeType.REROUTE_DOT || node.type === NodeType.DATA_READER) {
+                return [{ handleId: undefined, type: inputType, title: 'Input' }];
+            }
+            return [];
+        }
+    } else {
+        const outputType = getOutputHandleType(node, undefined);
+        if (node.type === NodeType.IMAGE_EDITOR) {
+            return [{ handleId: undefined, type: 'image', title: 'Output' }];
+        } else if (node.type === NodeType.IMAGE_INPUT || node.type === NodeType.IMAGE_ANALYZER) {
+            return [
+                { handleId: 'image', type: 'image', title: 'Image Output' },
+                { handleId: 'text', type: 'text', title: 'Text Output' }
+            ];
+        } else if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {
+            return [{ handleId: 'all_images', type: 'image', title: 'All Images' }];
+        } else if (node.type === NodeType.CHARACTER_GENERATOR) {
+            return [{ handleId: 'character-0', type: 'character_data', title: 'Characters' }];
+        } else if (node.type === NodeType.NOTE) {
+            return [
+                { handleId: 'all_images', type: 'image', title: 'Images' },
+                { handleId: 'all_captions', type: 'text', title: 'Captions' }
+            ];
+        } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
+            return [{ handleId: 'all_data', type: 'text', title: 'All Data' }];
+        } else if (node.type === NodeType.CHARACTER_CARD) {
+            return [{ handleId: 'all_data', type: 'character_data', title: 'All Data' }];
+        } else if (node.type === NodeType.SCRIPT_GENERATOR) {
+            return [{ handleId: 'summary', type: 'text', title: 'Summary' }];
+        } else if (outputType !== null || node.type === NodeType.REROUTE_DOT) {
+            return [{ handleId: undefined, type: outputType, title: 'Output' }];
+        }
+        return [];
+    }
+};
+
 export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Connection): { start: { x: number; y: number }, end: { x: number; y: number } } => {
     
     // Internal helper to keep logic consistent for external usage if needed
@@ -348,13 +435,28 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
              return { x: node.position.x + (isInput ? (isRL ? node.width : 0) : (isRL ? 0 : node.width)), y: node.position.y + node.height / 2 };
         }
 
-        if (node.dockState) {
-            const x = isInput ? 0 : 160;
-            let handles: (string | undefined)[] = isInput ? [undefined] : [undefined];
-            if (node.type === NodeType.IMAGE_EDITOR && isInput) handles = ['image', 'text'];
-            else if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR && isInput) handles = ['character_data', 'prompt_input'];
-            let idx = handles.indexOf(handleId); if (idx === -1) idx = 0;
-            return { x: node.position.x + x, y: node.position.y + (idx + 1) * (48 / (handles.length + 1)) };
+        const isProxy = Boolean(node.dockState);
+        const isDetachedGhost = Boolean(node.isDetachedWindow);
+
+        if (isProxy || isDetachedGhost) {
+            const width = isDetachedGhost ? DETACHED_GHOST_WIDTH : PROXY_NODE_WIDTH;
+            const height = isDetachedGhost ? DETACHED_GHOST_HEIGHT : PROXY_NODE_HEIGHT;
+            const x = isInput ? 0 : width;
+
+            const handles = getProxyHandles(node, isInput);
+            let idx = -1;
+            if (handles.length > 0) {
+                idx = handles.findIndex(h => h.handleId === handleId || (h.handleId === undefined && !handleId));
+                if (idx === -1) {
+                    // Fallback to first handle so lines never float in the air
+                    idx = 0;
+                }
+            }
+            const count = Math.max(handles.length, 1);
+            const step = height / (count + 1);
+            const y = idx >= 0 ? (idx + 1) * step : height / 2;
+
+            return { x: node.position.x + x, y: node.position.y + y };
         }
         
         const min = getMinNodeSize(node.type);

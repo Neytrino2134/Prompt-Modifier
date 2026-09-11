@@ -17,7 +17,7 @@ import {
 import { useLanguage } from '../localization';
 import { NodeType, ToolbarViewMode } from '../types';
 import { Tooltip } from './Tooltip';
-import { COLLAPSED_NODE_HEIGHT } from '../utils/nodeUtils';
+import { COLLAPSED_NODE_HEIGHT, PROXY_NODE_WIDTH, PROXY_NODE_HEIGHT, DETACHED_GHOST_WIDTH, DETACHED_GHOST_HEIGHT } from '../utils/nodeUtils';
 
 // Helper wrapper for tooltips
 const TopTooltipWrapper: React.FC<{ title: string; children: React.ReactNode; align?: 'center' | 'left' | 'right' }> = ({ title, children, align = 'center' }) => {
@@ -130,8 +130,54 @@ const CanvasLayer: React.FC = () => {
         onRenameCharacter, onRenameScript, onRenameSequence, handleRenameNode, setRenameInfo, handleToggleNodePin,
         onAddNode, handleOpenQuickSearch, handleToggleCatalog, handleSaveCanvas, handleLoadCanvas, handleSaveProject,
         getTransformedPoint, setSpawnLine,
-        tutorialStep, advanceTutorial
+        tutorialStep, advanceTutorial,
+        panelStyle, isPanelAutoHide
     } = context;
+
+    const isModern = panelStyle === 'modern';
+    const [isBottomToolbarHovered, setIsBottomToolbarHovered] = useState(false);
+    const [isBottomToolbarPinned, setIsBottomToolbarPinned] = useState(false);
+    const [isViewControlsHovered, setIsViewControlsHovered] = useState(false);
+
+    const bottomToolbarTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const viewControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const handleBottomToolbarMouseEnter = () => {
+        if (bottomToolbarTimerRef.current) {
+            clearTimeout(bottomToolbarTimerRef.current);
+            bottomToolbarTimerRef.current = null;
+        }
+        setIsBottomToolbarHovered(true);
+    };
+
+    const handleBottomToolbarMouseLeave = () => {
+        if (bottomToolbarTimerRef.current) clearTimeout(bottomToolbarTimerRef.current);
+        bottomToolbarTimerRef.current = setTimeout(() => {
+            setIsBottomToolbarHovered(false);
+        }, 350);
+    };
+
+    const handleViewControlsMouseEnter = () => {
+        if (viewControlsTimerRef.current) {
+            clearTimeout(viewControlsTimerRef.current);
+            viewControlsTimerRef.current = null;
+        }
+        setIsViewControlsHovered(true);
+    };
+
+    const handleViewControlsMouseLeave = () => {
+        if (viewControlsTimerRef.current) clearTimeout(viewControlsTimerRef.current);
+        viewControlsTimerRef.current = setTimeout(() => {
+            setIsViewControlsHovered(false);
+        }, 350);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (bottomToolbarTimerRef.current) clearTimeout(bottomToolbarTimerRef.current);
+            if (viewControlsTimerRef.current) clearTimeout(viewControlsTimerRef.current);
+        };
+    }, []);
 
     // --- Node Group Map for Layering ---
     // Pre-calculate which group each node belongs to for O(1) lookup during rendering
@@ -165,10 +211,11 @@ const CanvasLayer: React.FC = () => {
             if (node.isPinned) return true; // Pinned nodes are usually critical
             if (draggingInfo?.type === 'node' && draggingInfo.offsets.has(node.id)) return true;
 
-            const nodeHeight = node.isCollapsed ? COLLAPSED_NODE_HEIGHT : node.height;
+            const nodeWidth = node.isDetachedWindow ? DETACHED_GHOST_WIDTH : (node.dockState ? PROXY_NODE_WIDTH : node.width);
+            const nodeHeight = node.isDetachedWindow ? DETACHED_GHOST_HEIGHT : (node.dockState ? PROXY_NODE_HEIGHT : (node.isCollapsed ? COLLAPSED_NODE_HEIGHT : node.height));
             return (
                 node.position.x < viewport.right &&
-                node.position.x + node.width > viewport.left &&
+                node.position.x + nodeWidth > viewport.left &&
                 node.position.y < viewport.bottom &&
                 node.position.y + nodeHeight > viewport.top
             );
@@ -332,6 +379,8 @@ const CanvasLayer: React.FC = () => {
             isInstantCloseEnabled: isInstantCloseEnabled,
             handleDockNode: handleDockNode,
             handleUndockNode: handleUndockNode,
+            handleDetachNodeToMiniApp: context.handleDetachNodeToMiniApp,
+            handleReattachNodeFromMiniApp: context.handleReattachNodeFromMiniApp,
             onToggleNodePin: handleToggleNodePin,
             onUpdateCharacterDescription: onUpdateCharacterDescription,
             isUpdatingDescription: isUpdatingDescription
@@ -587,13 +636,11 @@ const CanvasLayer: React.FC = () => {
 
                     {/* VIRTUALIZED NODES */}
                     {visibleEntities.visibleNodes.map((node: any) => (
-                        // If node is docked, render a PROXY here (isProxy=true)
-                        // If not docked, render normally
                         <NodeView 
                             key={node.id} 
                             node={node} 
                             {...getNodeViewProps(node)} 
-                            isProxy={!!node.dockState} // Crucial logic: if docked, render as proxy on canvas
+                            isProxy={!!node.dockState} // Classic proxy on canvas only if docked
                         />
                     ))}
 
@@ -611,18 +658,23 @@ const CanvasLayer: React.FC = () => {
                 <div 
                     className="absolute left-1/2 z-20 flex flex-col items-center transition-transform duration-300 ease-in-out"
                     style={{ 
-                        bottom: '8px', 
-                        transform: isToolbarCollapsed 
-                            ? `translate(-50%, calc(100% - ${tongueHeight > 0 ? tongueHeight : 28}px + 8px))` 
+                        bottom: isModern ? '0px' : '8px', 
+                        transform: (isToolbarCollapsed || (isModern && isPanelAutoHide && !isBottomToolbarPinned && !isBottomToolbarHovered))
+                            ? `translate(-50%, calc(100% - ${tongueHeight > 0 ? tongueHeight : (isModern ? 24 : 28)}px ${isModern ? '' : '+ 8px'}))` 
                             : 'translate(-50%, 0)', 
-                        maxWidth: 'calc(100% - 112px)',
+                        maxWidth: isModern ? 'calc(100% - 64px)' : 'calc(100% - 112px)',
                         width: 'max-content' 
                     }}
+                    onMouseEnter={handleBottomToolbarMouseEnter}
+                    onMouseLeave={handleBottomToolbarMouseLeave}
                     onMouseDown={e => e.stopPropagation()}
                 >
                     <div 
                         ref={tongueRef}
-                        className="flex items-center justify-center bg-gray-800/90 backdrop-blur-md border border-gray-600 border-b-0 rounded-t-lg shadow-sm overflow-hidden text-xs"
+                        className={isModern
+                            ? "flex items-center justify-center bg-gray-900/70 backdrop-blur-md border border-gray-700/40 border-b-0 rounded-t-md shadow-sm overflow-hidden text-xs py-0.5 px-1"
+                            : "flex items-center justify-center bg-gray-800/90 backdrop-blur-md border border-gray-600 border-b-0 rounded-t-lg shadow-sm overflow-hidden text-xs"
+                        }
                     >
                         {!isToolbarCompact && (
                             <>
@@ -634,7 +686,9 @@ const CanvasLayer: React.FC = () => {
                                                 className={`p-1 rounded transition-colors focus:outline-none flex items-center justify-center ${
                                                     toolbarViewMode === mode 
                                                         ? 'bg-accent text-white shadow-sm' 
-                                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/60'
+                                                        : isModern 
+                                                            ? 'text-gray-400 hover:text-gray-100 hover:bg-gray-800/80'
+                                                            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/60'
                                                 }`}
                                             >
                                                 {mode === 'full' && <ToolbarFullModeIcon className="h-3.5 w-3.5" />}
@@ -647,14 +701,14 @@ const CanvasLayer: React.FC = () => {
                                     ))}
                                 </div>
 
-                                <div className="w-px h-3.5 bg-gray-600"></div>
+                                <div className={`w-px h-3.5 ${isModern ? 'bg-gray-750' : 'bg-gray-600'}`}></div>
                             </>
                         )}
 
                         <Tooltip content={isToolbarCompact ? t('toolbar.expandTitles') : t('toolbar.compactMode')} position="top">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setIsToolbarCompact(!isToolbarCompact); }}
-                                className={`p-1.5 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none ${isToolbarCompact ? 'text-accent-text' : 'text-gray-400 hover:text-gray-200'}`}
+                                className={`p-1.5 transition-colors flex items-center justify-center ${isModern ? 'hover:bg-gray-800/60' : 'hover:bg-gray-700'} focus:outline-none ${isToolbarCompact ? 'text-accent-text' : 'text-gray-400 hover:text-gray-200'}`}
                             >
                                 {isToolbarCompact ? (
                                     <EyeOffIcon className="h-3.5 w-3.5" />
@@ -664,21 +718,40 @@ const CanvasLayer: React.FC = () => {
                             </button>
                         </Tooltip>
 
-                        <div className="w-px h-3.5 bg-gray-600"></div>
+                        <div className={`w-px h-3.5 ${isModern ? 'bg-gray-750' : 'bg-gray-600'}`}></div>
 
-                        <Tooltip content={isToolbarCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')} position="top">
-                            <button 
-                                 onClick={(e) => { e.stopPropagation(); setIsToolbarCollapsed(!isToolbarCollapsed); }}
-                                 className="p-1.5 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none text-gray-400 hover:text-gray-200"
-                            >
-                                <div className={`transform transition-transform duration-300 ${isToolbarCollapsed ? 'rotate-180' : 'rotate-0'}`}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                </div>
-                            </button>
-                        </Tooltip>
+                        {isModern ? (
+                            <Tooltip content={isBottomToolbarPinned ? t('toolbar.unpinPanel') : t('toolbar.pinPanel')} position="top">
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setIsBottomToolbarPinned(p => !p); }}
+                                    className={`p-1.5 transition-colors flex items-center justify-center hover:bg-gray-800/60 rounded focus:outline-none ${
+                                        isBottomToolbarPinned ? 'text-accent' : 'text-gray-400 hover:text-gray-200'
+                                    }`}
+                                    title={isBottomToolbarPinned ? t('toolbar.unpinPanel') : t('toolbar.pinPanel')}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                    </svg>
+                                </button>
+                            </Tooltip>
+                        ) : (
+                            <Tooltip content={isToolbarCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')} position="top">
+                                <button 
+                                     onClick={(e) => { e.stopPropagation(); setIsToolbarCollapsed(!isToolbarCollapsed); }}
+                                     className="p-1.5 transition-colors flex items-center justify-center hover:bg-gray-700 focus:outline-none text-gray-400 hover:text-gray-200"
+                                >
+                                    <div className={`transform transition-transform duration-300 ${isToolbarCollapsed ? 'rotate-180' : 'rotate-0'}`}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
+                                </button>
+                            </Tooltip>
+                        )}
                     </div>
 
-                    <div className="bg-gray-900/50 backdrop-blur-md border border-gray-700 rounded-lg p-1 shadow-2xl w-full">
+                    <div className={isModern
+                        ? "bg-gray-900/60 backdrop-blur-md border border-gray-700/40 border-b-0 rounded-t-xl rounded-b-none p-1 shadow-xl w-full"
+                        : "bg-gray-900/50 backdrop-blur-md border border-gray-700 rounded-lg p-1 shadow-2xl w-full"
+                    }>
                         <Toolbar 
                             onAddNode={handleAddNodeFromToolbar}
                             onOpenSearch={() => handleOpenQuickSearch({ x: window.innerWidth / 2, y: window.innerHeight / 2 })}
@@ -695,18 +768,56 @@ const CanvasLayer: React.FC = () => {
             )}
 
             {!focusedNodeId && (
-                <div className="absolute bottom-2 left-2 z-20 pointer-events-auto" onMouseDown={e => e.stopPropagation()}>
-                    <div className="bg-gray-900/50 backdrop-blur-md p-1 rounded-lg border border-gray-700 shadow-lg">
-                        <div className={`flex ${isVerticalViewControls ? 'flex-col-reverse items-start gap-2' : 'flex-row items-center space-x-2'}`}>
+                <div 
+                    className={`absolute z-20 pointer-events-auto transition-all duration-300 ease-in-out ${
+                        isModern ? 'bottom-0 left-0' : 'bottom-2 left-2'
+                    }`}
+                    style={isModern ? {
+                        transform: (isViewControlsCollapsed || (isPanelAutoHide && !isViewControlsHovered))
+                            ? (isVerticalViewControls ? 'translateY(calc(100% - 36px))' : 'translateX(calc(-100% + 36px))')
+                            : 'translate(0, 0)'
+                    } : undefined}
+                    onMouseEnter={handleViewControlsMouseEnter}
+                    onMouseLeave={handleViewControlsMouseLeave}
+                    onMouseDown={e => e.stopPropagation()}
+                >
+                    <div className={isModern
+                        ? "bg-gray-900/60 backdrop-blur-md p-1 rounded-none rounded-tr-xl border border-b-0 border-l-0 border-gray-700/40 shadow-xl"
+                        : "bg-gray-900/50 backdrop-blur-md p-1 rounded-lg border border-gray-700 shadow-lg"
+                    }>
+                        <div className={`flex ${isVerticalViewControls ? 'flex-col-reverse items-start gap-1.5' : 'flex-row items-center space-x-1.5'}`}>
                             <TopTooltipWrapper title={isViewControlsCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')} align="left">
                                 <button
                                     onClick={() => setIsViewControlsCollapsed(p => !p)}
-                                    className="p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-accent hover:text-white text-gray-300"
+                                    className={isModern
+                                        ? "p-1.5 rounded-lg transition-all duration-200 focus:outline-none flex items-center justify-center h-8.5 w-8.5 bg-gray-800/60 hover:bg-accent hover:text-white text-gray-300 border border-gray-700/40"
+                                        : "p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-accent hover:text-white text-gray-300"
+                                    }
                                 >
-                                    {isViewControlsCollapsed ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>}
+                                    {isModern ? (
+                                        isVerticalViewControls ? (
+                                            (isViewControlsCollapsed || (isPanelAutoHide && !isViewControlsHovered)) ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                            )
+                                        ) : (
+                                            (isViewControlsCollapsed || (isPanelAutoHide && !isViewControlsHovered)) ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                            )
+                                        )
+                                    ) : (
+                                        isViewControlsCollapsed ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                        )
+                                    )}
                                 </button>
                             </TopTooltipWrapper>
-                            {!isViewControlsCollapsed && (
+                            {(isModern || !isViewControlsCollapsed) && (
                                 <ViewControlsToolbar
                                     isSnapToGrid={isSnapToGrid}
                                     onSnapToGridChange={() => setIsSnapToGrid(p => !p)}
@@ -725,6 +836,7 @@ const CanvasLayer: React.FC = () => {
                                     onSmartGuidesChange={() => setIsSmartGuidesEnabled(p => !p)}
                                     onResetView={resetView}
                                     vertical={isVerticalViewControls}
+                                    isModern={isModern}
                                 />
                             )}
                         </div>

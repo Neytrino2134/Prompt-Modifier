@@ -5,7 +5,7 @@ import { ReloadIcon, GoogleDriveIcon, SettingsIcon, FolderIcon, DeleteIcon, Copy
 import { CustomCheckbox } from './CustomCheckbox';
 import CustomSelect from './CustomSelect';
 import { useAppContext } from '../contexts/AppContext';
-import { Theme, Point } from '../types';
+import { Theme, Point, PanelAnimation } from '../types';
 import { 
     getAvailableFlashModels, 
     getAvailableProModels, 
@@ -64,6 +64,28 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
   
   const [isVisible, setIsVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'api' | 'llm' | 'microphone' | 'appearance' | 'cloud'>('all');
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const handleSelectTab = (tab: 'all' | 'api' | 'llm' | 'microphone' | 'appearance' | 'cloud') => {
+    setActiveTab(tab);
+    const targetTabEl = tabRefs.current[tab];
+    if (targetTabEl) {
+      targetTabEl.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }
+  };
+
+  const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (tabsContainerRef.current) {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) || e.deltaY !== 0) {
+        tabsContainerRef.current.scrollLeft += e.deltaY;
+      }
+    }
+  };
   
   // Draggable State
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -163,7 +185,13 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
       connectionOpacity,
       setConnectionOpacity,
       autoSaveInterval,
-      setAutoSaveInterval
+      setAutoSaveInterval,
+      panelStyle,
+      setPanelStyle,
+      isPanelAutoHide,
+      setIsPanelAutoHide,
+      panelAnimation = 'shimmer',
+      setPanelAnimation
   } = context;
 
   const [apiKey, setApiKey] = useState('');
@@ -508,25 +536,33 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
           </p>
 
           {/* Category Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-gray-900/90 rounded-lg border border-gray-700/60 overflow-x-auto custom-scrollbar no-scrollbar">
+          <div 
+            ref={tabsContainerRef}
+            onWheel={handleTabsWheel}
+            className="flex items-center gap-1 p-1 bg-gray-900/90 rounded-lg border border-gray-700/60 overflow-x-auto no-scrollbar scroll-smooth"
+          >
               <button
                   type="button"
-                  onClick={() => setActiveTab('all')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all ${
+                  ref={el => { tabRefs.current['all'] = el; }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectTab('all')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-0 outline-none select-none border ${
                       activeTab === 'all'
-                          ? 'bg-gray-700 text-white shadow-sm'
-                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                          ? 'bg-gray-700 text-white shadow-sm border-gray-600'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border-transparent'
                   }`}
               >
                   {t('settings.tab.all')}
               </button>
               <button
                   type="button"
-                  onClick={() => setActiveTab('api')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  ref={el => { tabRefs.current['api'] = el; }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectTab('api')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-0 outline-none select-none flex items-center gap-1.5 border ${
                       activeTab === 'api'
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border-transparent'
                   }`}
               >
                   <KeyIcon />
@@ -534,11 +570,13 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
               </button>
               <button
                   type="button"
-                  onClick={() => setActiveTab('llm')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  ref={el => { tabRefs.current['llm'] = el; }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectTab('llm')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-0 outline-none select-none flex items-center gap-1.5 border ${
                       activeTab === 'llm'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border-transparent'
                   }`}
               >
                   <span className="text-xs">⚡</span>
@@ -546,11 +584,13 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
               </button>
               <button
                   type="button"
-                  onClick={() => setActiveTab('microphone')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  ref={el => { tabRefs.current['microphone'] = el; }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectTab('microphone')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-0 outline-none select-none flex items-center gap-1.5 border ${
                       activeTab === 'microphone'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border-transparent'
                   }`}
               >
                   <MicIcon />
@@ -558,11 +598,13 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
               </button>
               <button
                   type="button"
-                  onClick={() => setActiveTab('appearance')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  ref={el => { tabRefs.current['appearance'] = el; }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectTab('appearance')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-0 outline-none select-none flex items-center gap-1.5 border ${
                       activeTab === 'appearance'
-                          ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                          ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border-transparent'
                   }`}
               >
                   <PaletteIcon />
@@ -570,11 +612,13 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
               </button>
               <button
                   type="button"
-                  onClick={() => setActiveTab('cloud')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  ref={el => { tabRefs.current['cloud'] = el; }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectTab('cloud')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-0 outline-none select-none flex items-center gap-1.5 border ${
                       activeTab === 'cloud'
-                          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border-transparent'
                   }`}
               >
                   <GoogleDriveIcon className="w-3.5 h-3.5" />
@@ -1034,6 +1078,209 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, addToa
              {!collapsedSections.appearance && (
                  <div className="bg-gray-900/50 p-3.5 rounded-lg border border-gray-700/50 space-y-3.5">
                      
+                     {/* Panel Style Selector */}
+                     <div className="space-y-1.5">
+                         <div className="flex justify-between items-center">
+                             <label className="block text-xs font-semibold text-gray-300">
+                                 {t('settings.panelStyleLabel')}
+                             </label>
+                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/30 font-mono">
+                                 {panelStyle === 'modern' ? 'Edge-Docked' : 'Floating'}
+                             </span>
+                         </div>
+                         <div className="grid grid-cols-2 gap-2 p-1 bg-gray-900 rounded-lg border border-gray-700">
+                             <button
+                                 type="button"
+                                 onClick={() => setPanelStyle('modern')}
+                                 className={`flex flex-col items-center justify-center p-2.5 rounded-md text-left transition-all ${
+                                     panelStyle === 'modern'
+                                         ? 'bg-accent text-white shadow-md shadow-accent/20 border border-white/20'
+                                         : 'bg-gray-800/80 text-gray-400 hover:text-gray-200 hover:bg-gray-700/60 border border-transparent'
+                                 }`}
+                             >
+                                 <div className="flex items-center gap-1.5 font-bold text-xs">
+                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+                                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16h16M8 4v16" />
+                                     </svg>
+                                     <span>{t('settings.panelStyle.modern')}</span>
+                                 </div>
+                                 <p className={`text-[10px] mt-1 text-center leading-tight line-clamp-2 ${panelStyle === 'modern' ? 'text-white/80' : 'text-gray-500'}`}>
+                                     {t('settings.panelStyle.modernDesc')}
+                                 </p>
+                             </button>
+                             <button
+                                 type="button"
+                                 onClick={() => setPanelStyle('classic')}
+                                 className={`flex flex-col items-center justify-center p-2.5 rounded-md text-left transition-all ${
+                                     panelStyle === 'classic'
+                                         ? 'bg-accent text-white shadow-md shadow-accent/20 border border-white/20'
+                                         : 'bg-gray-800/80 text-gray-400 hover:text-gray-200 hover:bg-gray-700/60 border border-transparent'
+                                 }`}
+                             >
+                                 <div className="flex items-center gap-1.5 font-bold text-xs">
+                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                         <rect x="3" y="3" width="18" height="18" rx="4" />
+                                         <circle cx="12" cy="12" r="3" />
+                                     </svg>
+                                     <span>{t('settings.panelStyle.classic')}</span>
+                                 </div>
+                                 <p className={`text-[10px] mt-1 text-center leading-tight line-clamp-2 ${panelStyle === 'classic' ? 'text-white/80' : 'text-gray-500'}`}>
+                                     {t('settings.panelStyle.classicDesc')}
+                                 </p>
+                             </button>
+                         </div>
+                     </div>
+
+                     {/* Panel Auto-hide Checkbox */}
+                     {panelStyle === 'modern' && (
+                         <div className="p-2.5 bg-gray-900/80 rounded-lg border border-gray-700/70 space-y-1">
+                             <CustomCheckbox
+                                 id="panelAutoHide"
+                                 checked={isPanelAutoHide}
+                                 onChange={setIsPanelAutoHide}
+                                 label={t('settings.panelAutoHideLabel')}
+                                 className="text-xs font-medium text-gray-200"
+                             />
+                             <p className="text-[11px] text-gray-400 pl-6 leading-relaxed">
+                                 {t('settings.panelAutoHideDesc')}
+                             </p>
+                         </div>
+                     )}
+
+                     {/* Panel Animation Effect Setting */}
+                     <div className="space-y-2 p-3 bg-gray-900/90 rounded-lg border border-gray-700/70">
+                         <div className="flex justify-between items-start gap-2">
+                             <div>
+                                 <label className="block text-xs font-semibold text-gray-200">
+                                     {t('settings.panelAnimationLabel')}
+                                 </label>
+                                 <p className="text-[11px] text-gray-400 leading-tight mt-0.5">
+                                     {t('settings.panelAnimationDesc')}
+                                 </p>
+                             </div>
+                             <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-mono font-medium border flex-shrink-0 ${
+                                 panelAnimation === 'none'
+                                     ? 'bg-gray-800 text-gray-400 border-gray-700'
+                                     : 'bg-accent/15 text-accent border-accent/30 shadow-sm shadow-accent/10'
+                             }`}>
+                                 {t(`settings.panelAnimation.${panelAnimation}` as any)}
+                             </span>
+                         </div>
+
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                             {[
+                                 {
+                                     id: 'pulse' as PanelAnimation,
+                                     labelKey: 'settings.panelAnimation.pulse',
+                                     descKey: 'settings.panelAnimation.pulseDesc',
+                                     icon: (
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                             <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                         </svg>
+                                     )
+                                 },
+                                 {
+                                     id: 'breath' as PanelAnimation,
+                                     labelKey: 'settings.panelAnimation.breath',
+                                     descKey: 'settings.panelAnimation.breathDesc',
+                                     icon: (
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zm0-4a5 5 0 100-10 5 5 0 000 10z" />
+                                         </svg>
+                                     )
+                                 },
+                                 {
+                                     id: 'wave' as PanelAnimation,
+                                     labelKey: 'settings.panelAnimation.wave',
+                                     descKey: 'settings.panelAnimation.waveDesc',
+                                     icon: (
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 12c3-4 6-4 9 0s6 4 9 0M3 17c3-4 6-4 9 0s6 4 9 0M3 7c3-4 6-4 9 0s6 4 9 0" />
+                                         </svg>
+                                     )
+                                 },
+                                 {
+                                     id: 'aurora' as PanelAnimation,
+                                     labelKey: 'settings.panelAnimation.aurora',
+                                     descKey: 'settings.panelAnimation.auroraDesc',
+                                     icon: (
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                         </svg>
+                                     )
+                                 },
+                                 {
+                                     id: 'neon' as PanelAnimation,
+                                     labelKey: 'settings.panelAnimation.neon',
+                                     descKey: 'settings.panelAnimation.neonDesc',
+                                     icon: (
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                             <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                                         </svg>
+                                     )
+                                 },
+                                 {
+                                     id: 'shimmer' as PanelAnimation,
+                                     labelKey: 'settings.panelAnimation.shimmer',
+                                     descKey: 'settings.panelAnimation.shimmerDesc',
+                                     icon: (
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" />
+                                         </svg>
+                                     )
+                                 },
+                                 {
+                                     id: 'none' as PanelAnimation,
+                                     labelKey: 'settings.panelAnimation.none',
+                                     descKey: 'settings.panelAnimation.noneDesc',
+                                     icon: (
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                             <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                         </svg>
+                                     )
+                                 }
+                             ].map((opt) => {
+                                 const isSelected = panelAnimation === opt.id;
+                                 return (
+                                     <button
+                                         key={opt.id}
+                                         type="button"
+                                         onClick={() => setPanelAnimation(opt.id)}
+                                         className={`flex items-start gap-2.5 p-2 rounded-lg text-left transition-all border ${
+                                             isSelected
+                                                 ? 'bg-accent/20 border-accent text-white shadow-sm ring-1 ring-accent/40'
+                                                 : 'bg-gray-800/60 border-gray-700/60 text-gray-300 hover:bg-gray-700/60 hover:border-gray-600 hover:text-white'
+                                         }`}
+                                     >
+                                         <div className={`p-1.5 rounded-md flex-shrink-0 mt-0.5 ${
+                                             isSelected
+                                                 ? 'bg-accent text-white shadow-sm shadow-accent/30'
+                                                 : 'bg-gray-700/60 text-gray-400'
+                                         }`}>
+                                             {opt.icon}
+                                         </div>
+                                         <div className="flex-1 min-w-0">
+                                             <div className="flex items-center justify-between gap-1">
+                                                 <span className="text-xs font-semibold truncate">
+                                                     {t(opt.labelKey as any)}
+                                                 </span>
+                                                 {isSelected && (
+                                                     <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse flex-shrink-0" />
+                                                 )}
+                                             </div>
+                                             <p className={`text-[10px] leading-tight mt-0.5 line-clamp-2 ${
+                                                 isSelected ? 'text-white/80' : 'text-gray-400'
+                                             }`}>
+                                                 {t(opt.descKey as any)}
+                                             </p>
+                                         </div>
+                                     </button>
+                                 );
+                             })}
+                         </div>
+                     </div>
+
                      {/* Theme Selector */}
                      <div className="space-y-1.5">
                          <label className="block text-xs font-medium text-gray-400">{t('settings.themeLabel')}</label>

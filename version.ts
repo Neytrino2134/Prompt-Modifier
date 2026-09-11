@@ -1,2 +1,2 @@
 
-export const APP_VERSION = "v0.1.20";
+export const APP_VERSION = "v0.2.1";

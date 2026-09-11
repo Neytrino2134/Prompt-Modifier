@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Node, NodeType } from '../../types';
-import { getInputHandleType, getOutputHandleType, COLLAPSED_NODE_HEIGHT, HEADER_HEIGHT, CONTENT_PADDING } from '../../utils/nodeUtils';
+import { getInputHandleType, getOutputHandleType, COLLAPSED_NODE_HEIGHT, HEADER_HEIGHT, CONTENT_PADDING, getProxyHandles, PROXY_NODE_HEIGHT, DETACHED_GHOST_HEIGHT } from '../../utils/nodeUtils';
 
 interface HandleProps {
   node: Node;
@@ -112,41 +112,13 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
 
     // --- Proxy Mode Handles ---
     if (isProxy) {
-        let handles: { handleId?: string; type: 'text' | 'image' | 'character_data' | 'video' | 'audio' | null; title: string }[] = [];
-        if (node.type === NodeType.IMAGE_EDITOR) {
-             if (!isSequentialEditingWithPrompts) {
-                 handles.push({ handleId: 'image', type: 'image', title: 'Image' });
-             }
-             if (isImageEditorSequential) {
-                 handles.push({ handleId: 'image_b', type: 'image', title: 'Image B' });
-             }
-             handles.push({ handleId: 'text', type: 'text', title: 'Text' });
-        } else if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {
-             handles = [{ handleId: 'character_data', type: 'character_data', title: 'Character Data Input' }, { handleId: 'prompt_input', type: 'text', title: 'Text' }];
-        } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
-             handles = [{ handleId: 'prompts_sequence', type: 'text', title: 'Prompts Sequence Input' }];
-        } else if (node.type === NodeType.NOTE) {
-             handles = [{ handleId: 'prompt_data', type: 'text', title: 'Prompt Input' }];
-        } else if (node.type === NodeType.VIDEO_EDITOR) {
-             handles = [
-                 { handleId: 'video', type: 'video', title: 'Video' }, 
-                 { handleId: 'audio', type: 'audio', title: 'Audio' }, 
-                 { handleId: 'image', type: 'image', title: 'Image' }, 
-                 { handleId: 'text', type: 'text', title: 'Text' }
-             ];
-        } else if (node.type === NodeType.CHARACTER_CARD) {
-             handles = [{ handleId: undefined, type: 'text', title: 'Input' }];
-        } else {
-             const inputType = getInputHandleType(node, undefined);
-             if (inputType !== null || node.type === NodeType.REROUTE_DOT || node.type === NodeType.DATA_READER) {
-                 handles = [{ handleId: undefined, type: inputType, title: 'Input' }];
-             }
-        }
+        const proxyHeight = Boolean(node.isDetachedWindow) ? DETACHED_GHOST_HEIGHT : PROXY_NODE_HEIGHT;
+        const handles = getProxyHandles(node, true);
         
         if (handles.length === 0) return null;
         
+        const step = proxyHeight / (handles.length + 1);
         return (<> {handles.map((handle, index) => {
-            const step = 48 / (handles.length + 1);
             return renderHandle(handle, `${(index + 1) * step}px`, handle.handleId || `proxy-in-${index}`);
         })} </>);
     }
@@ -362,26 +334,13 @@ export const OutputHandles: React.FC<HandleProps> = ({ node, getHandleColor, han
 
     // --- Proxy Mode Outputs ---
     if (isProxy) {
-        let handles: { handleId?: string; type: 'text' | 'image' | 'character_data' | 'video' | 'audio' | null; title: string }[] = [];
-        const outputType = getOutputHandleType(node, undefined);
-        if (node.type === NodeType.IMAGE_EDITOR) {
-             handles = [{ handleId: undefined, type: 'image', title: 'Output' }];
-        } else if (node.type === NodeType.CHARACTER_GENERATOR) {
-             handles = [{ handleId: 'character-0', type: 'character_data', title: 'Characters' }];
-        } else if (node.type === NodeType.NOTE) {
-             handles = [{ handleId: 'all_images', type: 'image', title: 'Images' }, { handleId: 'all_captions', type: 'text', title: 'Captions' }];
-        } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
-             handles = [{ handleId: 'all_data', type: 'text', title: 'All Data' }];
-        } else if (node.type === NodeType.CHARACTER_CARD) {
-             handles = [{ handleId: 'all_data', type: 'character_data', title: 'All Data' }];
-        } else if (outputType !== null || node.type === NodeType.REROUTE_DOT) {
-             handles = [{ handleId: undefined, type: outputType, title: 'Output' }];
-        }
+        const proxyHeight = Boolean(node.isDetachedWindow) ? DETACHED_GHOST_HEIGHT : PROXY_NODE_HEIGHT;
+        const handles = getProxyHandles(node, false);
         
         if (handles.length === 0) return null;
         
+        const step = proxyHeight / (handles.length + 1);
         return (<> {handles.map((handle, index) => {
-             const step = 48 / (handles.length + 1);
              return renderHandle(handle, `${(index + 1) * step}px`, handle.handleId || `proxy-out-${index}`);
         })} </>);
     }

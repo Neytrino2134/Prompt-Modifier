@@ -1,5 +1,5 @@
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import type { Node, Connection, Point, Group, ToastType, Alignment, DockMode, BatchJobRecord } from '../types';
 import { NodeType } from '../types';
 import { getEmptyValueForNodeType, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
@@ -154,25 +154,27 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
 
                 const minSize = getMinNodeSize(node.type);
                 const margin = 56;
+                const marginTop = 130;
                 const windowWidth = window.innerWidth;
                 const windowHeight = window.innerHeight;
                 let newWidth = node.width;
                 let newHeight = node.height;
                 const doubleMargin = margin * 2;
                 const quarterWidth = (windowWidth - doubleMargin) / 4;
+                const availableHeight = windowHeight - marginTop - margin;
 
                 if (mode === 'left' || mode === 'right') {
                     newWidth = (windowWidth / 2) - (margin * 1.5);
-                    newHeight = windowHeight - doubleMargin;
+                    newHeight = availableHeight;
                 } else if (mode === 'full') {
                     newWidth = windowWidth - doubleMargin;
-                    newHeight = windowHeight - doubleMargin;
+                    newHeight = availableHeight;
                 } else if (['q1', 'q2', 'q3', 'q4'].includes(mode)) {
                     newWidth = quarterWidth;
-                    newHeight = windowHeight - doubleMargin;
+                    newHeight = availableHeight;
                 } else {
                     newWidth = (windowWidth / 2) - (margin * 1.5);
-                    newHeight = (windowHeight / 2) - (margin * 1.5);
+                    newHeight = Math.max(minSize.minHeight, (availableHeight / 2) - (margin * 0.5));
                 }
 
                 newWidth = Math.max(newWidth, minSize.minWidth);
@@ -180,6 +182,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
 
                 return {
                     ...node,
+                    isDetachedWindow: false,
                     isCollapsed: false,
                     position: finalCanvasPosition,
                     width: newWidth,
@@ -234,6 +237,116 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             }, 50);
         }, 50);
     }, [setNodes]);
+
+    const handleDetachNodeToMiniApp = useCallback((nodeId: string) => {
+        const targetNode = nodes.find(n => n.id === nodeId);
+        if (!targetNode) return;
+
+        // Save snapshot to localStorage so the mini app window loads instantly
+        try {
+            localStorage.setItem(`detached_node_init_${nodeId}`, JSON.stringify(targetNode));
+        } catch (e) {
+            console.error("Failed to cache detached node data", e);
+        }
+
+        // Set node to detached state on canvas (renders ghost proxy) and clear dockState
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, isDetachedWindow: true, dockState: undefined } : n));
+
+        const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+        if (isElectron && (window as any).electronAPI.openNodeMiniApp) {
+            (window as any).electronAPI.openNodeMiniApp({
+                nodeId,
+                title: targetNode.title,
+                width: Math.max(540, targetNode.width || 600),
+                height: Math.max(480, targetNode.height || 650),
+                alwaysOnTop: false
+            });
+        } else {
+            // Browser pop-out fallback
+            const url = `${window.location.origin}${window.location.pathname}?detachedNodeId=${encodeURIComponent(nodeId)}&miniApp=true`;
+            window.open(url, `mini_node_${nodeId}`, 'width=600,height=700,menubar=no,toolbar=no,location=no,status=no');
+        }
+
+        addToast(t('node.detachedToast') || 'Нода откреплена в отдельное мини-приложение', 'info');
+    }, [nodes, setNodes, addToast, t]);
+
+    const handleReattachNodeFromMiniApp = useCallback((nodeId: string) => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, isDetachedWindow: false } : n));
+
+        const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+        if (isElectron && (window as any).electronAPI.closeNodeMiniApp) {
+            (window as any).electronAPI.closeNodeMiniApp(nodeId);
+            (window as any).electronAPI.syncNodeAction?.({ type: 'REATTACH_NODE', nodeId });
+        }
+
+        try {
+            const channel = new BroadcastChannel('prompt_modifier_detached_nodes');
+            channel.postMessage({ type: 'REATTACH_NODE', nodeId });
+            channel.close();
+        } catch {}
+
+        try {
+            localStorage.removeItem(`detached_node_init_${nodeId}`);
+        } catch {}
+
+        addToast(t('node.reattachedToast') || 'Нода возвращена на холст', 'info');
+    }, [setNodes, addToast, t]);
+
+    // Synchronize detached mini-app window events with canvas
+    useEffect(() => {
+        let channel: BroadcastChannel | null = null;
+        try {
+            channel = new BroadcastChannel('prompt_modifier_detached_nodes');
+            channel.onmessage = (event) => {
+                const data = event.data;
+                if (!data || !data.type) return;
+
+                if (data.type === 'NODE_VALUE_CHANGE') {
+                    setNodes(nds => nds.map(n => n.id === data.nodeId ? { ...n, value: data.value } : n));
+                } else if (data.type === 'NODE_PROPERTY_CHANGE') {
+                    setNodes(nds => nds.map(n => n.id === data.nodeId ? { ...n, ...data.properties } : n));
+                } else if (data.type === 'REQUEST_NODE_DATA') {
+                    const node = nodes.find(n => n.id === data.nodeId);
+                    if (node && channel) {
+                        channel.postMessage({ type: 'RESPONSE_NODE_DATA', nodeId: data.nodeId, node });
+                    }
+                } else if (data.type === 'REATTACH_NODE') {
+                    setNodes(nds => nds.map(n => n.id === data.nodeId ? { ...n, isDetachedWindow: false } : n));
+                }
+            };
+        } catch {}
+
+        const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+        let removeCloseListener: (() => void) | undefined;
+        let removeSyncListener: (() => void) | undefined;
+
+        if (isElectron) {
+            const api = (window as any).electronAPI;
+            if (api.onMiniAppClosed) {
+                removeCloseListener = api.onMiniAppClosed(({ nodeId }: { nodeId: string }) => {
+                    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, isDetachedWindow: false } : n));
+                });
+            }
+            if (api.onNodeSyncAction) {
+                removeSyncListener = api.onNodeSyncAction((data: any) => {
+                    if (!data || !data.type) return;
+                    if (data.type === 'NODE_VALUE_CHANGE') {
+                        setNodes(nds => nds.map(n => n.id === data.nodeId ? { ...n, value: data.value } : n));
+                    } else if (data.type === 'NODE_PROPERTY_CHANGE') {
+                        setNodes(nds => nds.map(n => n.id === data.nodeId ? { ...n, ...data.properties } : n));
+                    } else if (data.type === 'REATTACH_NODE') {
+                        setNodes(nds => nds.map(n => n.id === data.nodeId ? { ...n, isDetachedWindow: false } : n));
+                    }
+                });
+            }
+        }
+
+        return () => {
+            if (channel) channel.close();
+            if (removeCloseListener) removeCloseListener();
+            if (removeSyncListener) removeSyncListener();
+        };
+    }, [nodes, setNodes]);
 
     const getPromptForNode = useCallback((nodeId: string): string => {
         const node = nodes.find(n => n.id === nodeId);
@@ -628,6 +741,8 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         handleAlignNodes,
         handleDockNode,
         handleUndockNode,
+        handleDetachNodeToMiniApp,
+        handleReattachNodeFromMiniApp,
         handleDownloadImage // Exposed here
     };
 };

@@ -46,6 +46,11 @@ interface NodeHeaderProps {
     isInstantCloseEnabled?: boolean;
     onToggleCharacterImages?: () => void;
     allImagesCollapsed?: boolean;
+    handleDetachNodeToMiniApp?: (nodeId: string) => void;
+    handleReattachNodeFromMiniApp?: (nodeId: string) => void;
+    isMiniAppWindow?: boolean;
+    onToggleMiniAppPin?: () => void;
+    isMiniAppPinned?: boolean;
 }
 
 export const NodeHeader: React.FC<NodeHeaderProps> = ({
@@ -82,7 +87,12 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
     handleRequestDelete,
     isInstantCloseEnabled,
     onToggleCharacterImages,
-    allImagesCollapsed
+    allImagesCollapsed,
+    handleDetachNodeToMiniApp: propHandleDetach,
+    handleReattachNodeFromMiniApp: propHandleReattach,
+    isMiniAppWindow,
+    onToggleMiniAppPin,
+    isMiniAppPinned
 }) => {
     const { t } = useLanguage();
     const context = useAppContext();
@@ -96,6 +106,9 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
         fetchingJobIds,
         fetchBatchJobResults
     } = context || {};
+
+    const handleDetachNode = propHandleDetach || context?.handleDetachNodeToMiniApp;
+    const handleReattachNode = propHandleReattach || context?.handleReattachNodeFromMiniApp;
 
     const isFullScreen = focusedNodeId === node.id;
     const isRestricted = isRestrictedDockingNode(node.type);
@@ -117,6 +130,62 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
     }, [nodeBatchJobs, isWaitingBatch]);
 
     const isDownloadingBatch = completedBatchJob ? !!fetchingJobIds?.[completedBatchJob.id] : false;
+
+    // Batch Auto-Download Eligibility & Toggle
+    const isBatchAutoDownloadEligible = node.type === NodeType.IMAGE_EDITOR || node.type === NodeType.IMAGE_OUTPUT;
+    const isBatchActive = (context?.isBatchMode) || node.useBatch || isWaitingBatch || !!completedBatchJob;
+
+    const isAutoDownloadEnabled = React.useMemo(() => {
+        if (node.type === NodeType.IMAGE_EDITOR) {
+            try {
+                const parsed = JSON.parse(node.value || '{}');
+                if (parsed.autoDownload !== undefined) return !!parsed.autoDownload;
+            } catch { }
+        }
+        return !!node.autoDownload;
+    }, [node.type, node.value, node.autoDownload]);
+
+    const handleToggleBatchAutoDownload = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const nextVal = !isAutoDownloadEnabled;
+
+        if (context?.handleAutoDownloadChange) {
+            context.handleAutoDownloadChange(node.id, nextVal);
+        }
+
+        if (node.type === NodeType.IMAGE_EDITOR) {
+            try {
+                const parsed = JSON.parse(node.value || '{}');
+                const updated = { ...parsed, autoDownload: nextVal };
+                onValueChange(node.id, JSON.stringify(updated));
+            } catch { }
+        }
+
+        if (context?.setBatchJobs) {
+            context.setBatchJobs((prev: any[]) => prev.map(j => {
+                if (j.nodeId === node.id) {
+                    return {
+                        ...j,
+                        items: (j.items || []).map((it: any) => ({ ...it, autoDownload: nextVal }))
+                    };
+                }
+                return j;
+            }));
+        }
+
+        if (nextVal && completedBatchJob && fetchBatchJobResults && !isDownloadingBatch) {
+            fetchBatchJobResults(completedBatchJob.id, { forceRestore: true });
+        }
+
+        if (addToast) {
+            addToast(
+                nextVal
+                    ? (t('batch.autoDownloadEnabledToast') || 'Авто-скачка с сервера включена')
+                    : (t('batch.autoDownloadDisabledToast') || 'Авто-скачка с сервера выключена'),
+                'info'
+            );
+        }
+    };
 
     // Note Specific Logic
     const isNote = node.type === NodeType.NOTE;
@@ -285,7 +354,21 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                                     {node.isCollapsed ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>)}
                                 </ActionButton>}
 
-                                {!isDockedWindow && !isFullScreen && handleToggleNodePin && (
+                                {isMiniAppWindow && onToggleMiniAppPin && (
+                                    <ActionButton
+                                        title={isMiniAppPinned ? (t('titlebar.unpinAlwaysOnTop') || 'Открепить поверх окон') : (t('titlebar.pinAlwaysOnTop') || 'PIN - закрепить поверх остальных окон')}
+                                        onClick={(e) => { e.stopPropagation(); onToggleMiniAppPin(); }}
+                                        className={`p-1 rounded transition-all border ${
+                                            isMiniAppPinned 
+                                                ? 'border-cyan-500 bg-cyan-950/70 text-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]' 
+                                                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-600'
+                                        }`}
+                                    >
+                                        <PinIcon className={`h-4 w-4 transition-transform duration-200 ${isMiniAppPinned ? 'rotate-[-45deg] scale-110 text-cyan-400' : ''}`} />
+                                    </ActionButton>
+                                )}
+
+                                {!isDockedWindow && !isFullScreen && !isMiniAppWindow && handleToggleNodePin && (
                                     <ActionButton
                                         title={node.isPinned ? t('node.action.unpin') : t('node.action.pin')}
                                         onClick={(e) => { e.stopPropagation(); handleToggleNodePin(node.id); }}
@@ -365,6 +448,26 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                                     </ActionButton>
                                 )}
                             </>
+                        )}
+
+                        {/* Batch Auto-Download Option (when Batch mode is active for AI Image Editor and Image Output) */}
+                        {isBatchAutoDownloadEligible && isBatchActive && (
+                            <button
+                                type="button"
+                                onClick={handleToggleBatchAutoDownload}
+                                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all select-none border cursor-pointer ${
+                                    isAutoDownloadEnabled
+                                        ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/60 shadow-sm'
+                                        : 'bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-gray-200 border-gray-600/60'
+                                }`}
+                                title={t('batch.autoDownloadTooltip') || 'Авто-скачка с сервера при получении ответа (Batch API)'}
+                            >
+                                <svg className={`w-3.5 h-3.5 shrink-0 ${isAutoDownloadEnabled ? 'text-emerald-400' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                <span className="truncate">{t('batch.autoDownloadLabel') || 'Авто-скачка'}</span>
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isAutoDownloadEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                            </button>
                         )}
 
                         {/* Batch Waiting Status Badge */}
@@ -564,6 +667,38 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                                 onClick={(e) => { e.stopPropagation(); onCutConnections(node.id); }}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121M12 12L4.5 4.5" /><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l.707-.707M19.5 4.5l-.707.707" /></svg>
+                            </ActionButton>
+                        )}
+
+                        {/* Detach Node into Mini-App Window Button (when on canvas) */}
+                        {!isDockedWindow && !isFullScreen && !isMiniAppWindow && !isNoteMinimal && handleDetachNode && (
+                            <ActionButton
+                                title={t('node.action.detachMiniApp') || 'Открепить в отдельное мини-приложение'}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDetachNode(node.id);
+                                }}
+                                className="p-1 rounded hover:bg-gray-600 transition-colors text-gray-400 hover:text-cyan-400"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                            </ActionButton>
+                        )}
+
+                        {/* Reattach to Canvas Button (when inside mini-app window) */}
+                        {isMiniAppWindow && handleReattachNode && (
+                            <ActionButton
+                                title={t('node.action.reattachToCanvas') || 'Вернуть ноду обратно на холст'}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleReattachNode(node.id);
+                                }}
+                                className="p-1 rounded hover:bg-gray-600 transition-colors text-cyan-400 hover:text-cyan-300"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                                </svg>
                             </ActionButton>
                         )}
 

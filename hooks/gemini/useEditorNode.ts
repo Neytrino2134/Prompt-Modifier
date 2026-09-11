@@ -262,7 +262,7 @@ export const useEditorNode = ({
                         outputFormat: parsed.outputFormat,
                         size: parsed.size,
                         autoCrop169: parsed.autoCrop169,
-                        autoDownload: false,
+                        autoDownload: parsed.autoDownload !== undefined ? !!parsed.autoDownload : !!node.autoDownload,
                         frameIndex: i
                     });
                 }
@@ -329,7 +329,7 @@ export const useEditorNode = ({
                         outputFormat: parsed.outputFormat,
                         size: parsed.size,
                         autoCrop169: parsed.autoCrop169,
-                        autoDownload: false,
+                        autoDownload: parsed.autoDownload !== undefined ? !!parsed.autoDownload : !!node.autoDownload,
                         frameIndex: 0
                     }]
                 });

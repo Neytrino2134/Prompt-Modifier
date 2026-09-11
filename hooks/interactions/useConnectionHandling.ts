@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useRef, MutableRefObject } from 'react';
 import { Node, Connection, ConnectingInfo, NodeType, Point } from '../../types';
-import { getOutputHandleType, getInputHandleType, COLLAPSED_NODE_HEIGHT, getConnectionPoints } from '../../utils/nodeUtils';
+import { getOutputHandleType, getInputHandleType, COLLAPSED_NODE_HEIGHT, getConnectionPoints, PROXY_NODE_WIDTH, PROXY_NODE_HEIGHT, DETACHED_GHOST_WIDTH, DETACHED_GHOST_HEIGHT, getProxyHandles } from '../../utils/nodeUtils';
 
 interface UseConnectionHandlingProps {
     nodesRef: MutableRefObject<Node[]>;
@@ -161,10 +161,14 @@ export const useConnectionHandling = ({
                 let effectiveWidth = node.width;
                 let effectiveHeight = node.height;
 
-                if (node.dockState) {
+                if (node.isDetachedWindow) {
+                    // Detached Ghost Node Dimensions
+                    effectiveWidth = DETACHED_GHOST_WIDTH;
+                    effectiveHeight = DETACHED_GHOST_HEIGHT;
+                } else if (node.dockState) {
                     // Proxy Node Dimensions
-                    effectiveWidth = 160;
-                    effectiveHeight = 48;
+                    effectiveWidth = PROXY_NODE_WIDTH;
+                    effectiveHeight = PROXY_NODE_HEIGHT;
                 } else if (node.isCollapsed) {
                     // Collapsed Node Dimensions
                     effectiveHeight = COLLAPSED_NODE_HEIGHT;
@@ -187,7 +191,15 @@ export const useConnectionHandling = ({
                     let targetHandleId: string | undefined = undefined;
                     let isValid = false;
 
-                    if (targetNode.type === NodeType.IMAGE_EDITOR) {
+                    const isProxyOrGhost = Boolean(targetNode.dockState || targetNode.isDetachedWindow);
+                    if (isProxyOrGhost) {
+                        const proxyHandles = getProxyHandles(targetNode, true);
+                        const matchingHandle = proxyHandles.find(h => !h.type || h.type === connectingInfo.fromType);
+                        if (matchingHandle) {
+                            targetHandleId = matchingHandle.handleId;
+                            isValid = true;
+                        }
+                    } else if (targetNode.type === NodeType.IMAGE_EDITOR) {
                         const fromType = connectingInfo.fromType;
                         if (fromType === 'image') {
                             let isSeqCombo = false;

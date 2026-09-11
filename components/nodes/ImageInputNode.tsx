@@ -1534,33 +1534,9 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             {/* Mode-Specific Quick Sub-Toolbar: Grid Settings */}
             {image && (mode === 'grid' || (mode === 'batch' && batchSubMode === 'grid')) && (
                 <div className="flex flex-col gap-1.5 bg-cyan-950/40 border border-cyan-800/40 p-2 rounded-md text-xs text-cyan-200 animate-fadeIn">
-                    {/* Row 1: Grid Dimensions (Cols/Rows) and Presets */}
+                    {/* Row 1: Grid Dimensions (Rows/Cols) and Presets */}
                     <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                            {/* Columns (X) */}
-                            <div className="flex items-center gap-1">
-                                <span className="font-semibold text-cyan-300 text-[11px]">Столбцы (X):</span>
-                                <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
-                                    <button
-                                        type="button"
-                                        onClick={() => updateGridDims((grid?.cols || 4) - 1, grid?.rows || 5)}
-                                        className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                    >
-                                        -
-                                    </button>
-                                    <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
-                                        {grid?.cols || 4}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateGridDims((grid?.cols || 4) + 1, grid?.rows || 5)}
-                                        className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                            </div>
-
                             {/* Rows (Y) */}
                             <div className="flex items-center gap-1">
                                 <span className="font-semibold text-cyan-300 text-[11px]">Строки (Y):</span>
@@ -1584,22 +1560,47 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Columns (X) */}
+                            <div className="flex items-center gap-1">
+                                <span className="font-semibold text-cyan-300 text-[11px]">Столбцы (X):</span>
+                                <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => updateGridDims((grid?.cols || 4) - 1, grid?.rows || 5)}
+                                        className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
+                                    >
+                                        -
+                                    </button>
+                                    <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
+                                        {grid?.cols || 4}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => updateGridDims((grid?.cols || 4) + 1, grid?.rows || 5)}
+                                        className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Quick Presets */}
+                        {/* Quick Presets (Sorted Ascending, Row×Col) */}
                         <div className="flex items-center gap-1 text-[11px] flex-wrap">
                             {[
-                                { cols: 4, rows: 5, label: '4×5' },
-                                { cols: 5, rows: 4, label: '5×4' },
-                                { cols: 3, rows: 4, label: '3×4' },
-                                { cols: 4, rows: 3, label: '4×3' },
-                                { cols: 1, rows: 2, label: '1×2' },
-                                { cols: 2, rows: 1, label: '2×1' },
-                                { cols: 2, rows: 2, label: '2×2' },
-                                { cols: 3, rows: 3, label: '3×3' },
-                                { cols: 4, rows: 4, label: '4×4' },
+                                { rows: 1, cols: 2, label: '1×2' },
+                                { rows: 2, cols: 1, label: '2×1' },
+                                { rows: 2, cols: 2, label: '2×2' },
+                                { rows: 3, cols: 3, label: '3×3' },
+                                { rows: 3, cols: 4, label: '3×4' },
+                                { rows: 4, cols: 3, label: '4×3' },
+                                { rows: 4, cols: 4, label: '4×4' },
+                                { rows: 4, cols: 5, label: '4×5' },
+                                { rows: 5, cols: 4, label: '5×4' },
+                                { rows: 5, cols: 5, label: '5×5' },
                             ].map((preset) => {
-                                const isActive = (grid?.cols || 4) === preset.cols && (grid?.rows || 5) === preset.rows;
+                                const isActive = (grid?.rows || 5) === preset.rows && (grid?.cols || 4) === preset.cols;
                                 return (
                                     <button
                                         key={preset.label}
@@ -1792,6 +1793,29 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     ⟲ Выровнять ячейки
                                 </button>
                             )}
+
+                            {/* Include Original Image in Multiple Grid */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const nextInclude = !(grid?.includeOriginal ?? true);
+                                    updateGridSlices({
+                                        ...(grid || { cols: 4, rows: 5 }),
+                                        includeOriginal: nextInclude
+                                    });
+                                }}
+                                className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-medium transition-colors ${
+                                    (grid?.includeOriginal ?? true)
+                                        ? 'bg-cyan-500 text-black font-semibold shadow-sm'
+                                        : 'bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-700'
+                                }`}
+                                title="Добавить в ZIP архив оригинальное неразрезанное изображение"
+                            >
+                                <span className="w-3.5 h-3.5 flex items-center justify-center rounded border border-current text-[10px] font-bold">
+                                    {(grid?.includeOriginal ?? true) ? '✓' : ''}
+                                </span>
+                                <span>Включить оригинал</span>
+                            </button>
                         </div>
 
                         <div className="text-[10px] text-gray-400 font-mono">
@@ -2004,6 +2028,14 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 <ImageSlicesPreview
                     nodeId={node.id}
                     slices={extractedImages}
+                    originalImage={image}
+                    includeOriginal={grid?.includeOriginal ?? true}
+                    onChangeIncludeOriginal={(val) => {
+                        updateGridSlices({
+                            ...(grid || { cols: 4, rows: 5 }),
+                            includeOriginal: val
+                        });
+                    }}
                     getFullSizeImage={getFullSizeImage}
                     onCopyImageToClipboard={onCopyImageToClipboard}
                     onDownloadImage={onDownloadImage}

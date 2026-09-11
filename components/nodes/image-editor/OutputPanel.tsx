@@ -388,8 +388,8 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                 <div className="flex items-center gap-2">
                      <label className="text-xs font-medium text-gray-400 pl-1">{isSequenceMode ? t('image_sequence.output_images_title') : t('node.content.outputImage')}</label>
                      {isBatchMode && (
-                         <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-600/60 flex items-center gap-1" title={t('batch.modeDesc') || 'Batch API Mode (-50% cost)'}>
-                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                         <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-gray-800 text-accent-secondary border border-gray-700 flex items-center gap-1" title={t('batch.modeDesc') || 'Batch API Mode (-50% cost)'}>
+                             <span className="w-1.5 h-1.5 rounded-full bg-accent-secondary animate-pulse"></span>
                              {t('batch.badgeDelayed') || 'Batch'}
                          </span>
                      )}
@@ -564,7 +564,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                 }
                             </span>
                             {activeBatchJob && (
-                                <span className="text-[11px] text-emerald-400 mt-1 font-mono">
+                                <span className="text-[11px] text-accent-secondary mt-1 font-mono">
                                     {activeBatchJob.displayName || activeBatchJob.name} ({activeBatchJob.state})
                                 </span>
                             )}
@@ -817,7 +817,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                             disabled={isMainActionDisabled} 
                             className={`flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 ${
                                 isBatchMode 
-                                    ? 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 shadow-md shadow-emerald-950/40' 
+                                    ? 'bg-accent-secondary hover:bg-accent-secondary-hover active:bg-accent-secondary shadow-md' 
                                     : 'bg-cyan-600 hover:bg-cyan-700'
                             }`}
                         >

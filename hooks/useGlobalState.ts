@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme } from '../types';
+import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme, PanelStyle, PanelAnimation } from '../types';
 
 export const useGlobalState = (currentNodes: Node[]) => {
     // Toasts
@@ -202,6 +202,36 @@ export const useGlobalState = (currentNodes: Node[]) => {
         document.documentElement.setAttribute('data-theme', theme);
     }, []);
 
+    // Panel Style & Auto-hide Settings
+    const [panelStyle, setPanelStyleState] = useState<PanelStyle>(() => {
+        return (localStorage.getItem('settings_panelStyle') as PanelStyle) || 'modern';
+    });
+
+    const setPanelStyle = useCallback((style: PanelStyle) => {
+        setPanelStyleState(style);
+        localStorage.setItem('settings_panelStyle', style);
+    }, []);
+
+    const [isPanelAutoHide, setIsPanelAutoHideState] = useState<boolean>(() => {
+        const stored = localStorage.getItem('settings_panelAutoHide');
+        return stored === null ? true : stored === 'true';
+    });
+
+    const setIsPanelAutoHide = useCallback((autoHide: boolean) => {
+        setIsPanelAutoHideState(autoHide);
+        localStorage.setItem('settings_panelAutoHide', autoHide ? 'true' : 'false');
+    }, []);
+
+    // Top Panel Animation Mode
+    const [panelAnimation, setPanelAnimationState] = useState<PanelAnimation>(() => {
+        return (localStorage.getItem('settings_panelAnimation') as PanelAnimation) || 'shimmer';
+    });
+
+    const setPanelAnimation = useCallback((anim: PanelAnimation) => {
+        setPanelAnimationState(anim);
+        localStorage.setItem('settings_panelAnimation', anim);
+    }, []);
+
     // Apply theme on mount/change
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', currentTheme);
@@ -301,6 +331,9 @@ export const useGlobalState = (currentNodes: Node[]) => {
         connectionOpacity, setConnectionOpacity,
         autoSaveInterval, setAutoSaveInterval,
         currentTheme, setTheme,
+        panelStyle, setPanelStyle,
+        isPanelAutoHide, setIsPanelAutoHide,
+        panelAnimation, setPanelAnimation,
         clearSelectionsSignal,
         globalImageEditor,
         openGlobalImageEditor,

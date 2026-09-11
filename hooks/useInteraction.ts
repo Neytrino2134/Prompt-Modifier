@@ -200,6 +200,10 @@ export const useInteraction = (props: UseInteractionProps) => {
         updatePointerPosition({ clientX: point.clientX, clientY: point.clientY });
         const currentPointerPosition = getTransformedPoint({ x: point.clientX, y: point.clientY });
 
+        if (gestures.isRightClickActive()) {
+            gestures.handleRightClickWindowDrag(e as MouseEvent);
+        }
+
         if (isPanning) {
              if (e.type === 'touchmove') {
                  gestures.handleCanvasTouchMove(e as TouchEvent);
@@ -234,6 +238,7 @@ export const useInteraction = (props: UseInteractionProps) => {
     };
 
     const handleGlobalEnd = (e: MouseEvent | TouchEvent | PointerEvent) => {
+        gestures.handleRightClickEnd();
         if (isPanning) stopPanning();
         if (zoomDragInfo) setZoomDragInfo(null);
         
@@ -355,5 +360,6 @@ export const useInteraction = (props: UseInteractionProps) => {
         groupButtonPosition,
         handlePaste,
         selectNode,
+        wasRightClickPan: gestures.wasRightClickPan,
     };
 };

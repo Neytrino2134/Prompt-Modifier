@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, LogEntry, LogLevel, BatchJobRecord } from '../types';
+import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, PanelStyle, PanelAnimation, LogEntry, LogLevel, BatchJobRecord } from '../types';
 import { NodeType } from '../types';
 import { LanguageCode, TranslationKey } from '../localization';
 import {
@@ -221,6 +221,8 @@ export type AppContextType =
   clientPointerPositionRef: React.MutableRefObject<Point>;
   handleDockNode: (nodeId: string, mode: DockMode) => void;
   handleUndockNode: (nodeId: string) => void;
+  handleDetachNodeToMiniApp: (nodeId: string) => void;
+  handleReattachNodeFromMiniApp: (nodeId: string) => void;
   handlePaste: (isAlternativeMode?: boolean) => void;
   selectNode: (nodeId: string) => void;
   focusedNodeId: string | null;
@@ -251,6 +253,12 @@ export type AppContextType =
   // Theme props
   currentTheme: Theme;
   setTheme: (theme: Theme) => void;
+  panelStyle: PanelStyle;
+  setPanelStyle: (style: PanelStyle) => void;
+  isPanelAutoHide: boolean;
+  setIsPanelAutoHide: (autoHide: boolean) => void;
+  panelAnimation: PanelAnimation;
+  setPanelAnimation: (anim: PanelAnimation) => void;
 
   // New handler
   handleUpdateCharacterPromptFromImage: (nodeId: string, cardIndex: number) => void;
@@ -278,6 +286,8 @@ export type AppContextType =
   restoreFailedCards: boolean;
   setRestoreFailedCards: (val: boolean | ((prev: boolean) => boolean)) => void;
   batchJobs: BatchJobRecord[];
+  setBatchJobs?: React.Dispatch<React.SetStateAction<BatchJobRecord[]>> | ((updater: (prev: BatchJobRecord[]) => BatchJobRecord[]) => void);
+  handleAutoDownloadChange?: (nodeId: string, enabled: boolean) => void;
   formingBatchNodeIds: string[];
   isFormingBatch: (nodeId: string) => boolean;
   getNodeActiveBatchJob: (nodeId: string) => BatchJobRecord | undefined;
@@ -298,4 +308,10 @@ export type AppContextType =
 
   // Session Persistence
   forceSaveSession: () => Promise<void>;
+
+  // Header & Status Bar Safe Zone State
+  isStatusBarOpen: boolean;
+  setIsStatusBarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  headerHeight: number;
+  setHeaderHeight: (height: number) => void;
 };

@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, ReactNode, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import type { AppContextType } from './AppContextTypes';
 import { useLanguage, LanguageCode } from '../localization';
 import { NodeType, Tool } from '../types';
@@ -371,7 +371,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loadCanvasState
     ]);
 
-    const handleAddTab = useCallback((customName?: string) => {
+    const handleAddTab = useCallback((customName?: string | unknown) => {
         const currentLiveState: CanvasState = {
             nodes: nodesHook.nodes,
             connections: connectionsHook.connections,
@@ -382,7 +382,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
 
         const defaultState = getLocalizedCanvasState(language as LanguageCode);
-        const newTab = createNewTab(customName || `Canvas ${tabs.length + 1}`, defaultState);
+        const safeName = typeof customName === 'string' && customName.trim() ? customName.trim() : `Canvas ${tabs.length + 1}`;
+        const newTab = createNewTab(safeName, defaultState);
 
         isLoadingStateRef.current = true;
         lastLoadedTabIdRef.current = newTab.id;
@@ -951,6 +952,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
     }, [generationHistoryHook, taskQueueHook]);
 
+    // Header & Status Bar Safe Zone State
+    const [isStatusBarOpen, setIsStatusBarOpen] = useState<boolean>(() => {
+        const saved = localStorage.getItem('settings_isStatusBarOpen');
+        return saved !== null ? saved === 'true' : true;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('settings_isStatusBarOpen', String(isStatusBarOpen));
+    }, [isStatusBarOpen]);
+
+    const [headerHeight, setHeaderHeight] = useState<number>(76);
+
     const interactionHook = useInteraction({
         ...nodesHook, ...connectionsHook, ...groupsHook, ...canvasHook,
         ...dialogsHook, handleToggleCatalog: dialogsHook.handleToggleCatalog,
@@ -1056,9 +1069,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
         const target = e.target as Element;
         if (target.closest('.node-view') || target.closest('.group-view') || target.closest('.connection-view') || target.closest('input, textarea, button, a, select')) return;
+        
+        // Suppress context menu if the user was holding right click to drag the canvas
+        if (interactionHook.wasRightClickPan && interactionHook.wasRightClickPan()) {
+            e.preventDefault();
+            return;
+        }
+
         e.preventDefault();
         dialogsHook.handleOpenContextMenu({ x: e.clientX, y: e.clientY });
-    }, [dialogsHook.handleOpenContextMenu]);
+    }, [dialogsHook.handleOpenContextMenu, interactionHook]);
 
     const handleResetCanvas = useCallback((e?: React.MouseEvent) => {
         const performReset = () => {
@@ -1396,6 +1416,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             isAutoSaving: tabsHook.isAutoSaving,
             autoSaveInterval: globalState.autoSaveInterval,
             setAutoSaveInterval: globalState.setAutoSaveInterval,
+            panelStyle: globalState.panelStyle,
+            setPanelStyle: globalState.setPanelStyle,
+            isPanelAutoHide: globalState.isPanelAutoHide,
+            setIsPanelAutoHide: globalState.setIsPanelAutoHide,
+            panelAnimation: globalState.panelAnimation,
+            setPanelAnimation: globalState.setPanelAnimation,
 
             onUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
             handleUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
@@ -1442,7 +1468,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             updateNodeInStorage,
             forceSaveSession,
             setIsHistoryPanelOpen,
-            setIsTaskQueuePanelOpen
+            setIsTaskQueuePanelOpen,
+            isStatusBarOpen,
+            setIsStatusBarOpen,
+            headerHeight,
+            setHeaderHeight
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,
@@ -1463,7 +1493,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         onDownloadImageFromUrl, onCopyImageToClipboard, handleNavigateToNodeFrame, handleSplitConnection,
         connectionsHook.removeConnectionsByNodeId,
         handleRemoveGroup, handleSaveGroupToCatalog, handleSaveGroupToDisk, handleDetachAndPasteConcept, onDetachImageToNode,
-        onSaveCharacterToCatalog, onSaveGeneratedCharacterToCatalog, onSaveScriptToCatalog, onSaveSequenceToCatalog
+        onSaveCharacterToCatalog, onSaveGeneratedCharacterToCatalog, onSaveScriptToCatalog, onSaveSequenceToCatalog,
+        isStatusBarOpen, setIsStatusBarOpen, headerHeight, setHeaderHeight
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

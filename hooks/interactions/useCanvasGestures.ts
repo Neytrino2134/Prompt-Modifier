@@ -43,6 +43,64 @@ export const useCanvasGestures = ({
         startTransform: { scale: number; translate: Point };
     } | null>(null);
 
+    // Right-click drag tracking (for moving the Electron window)
+    const rightClickDragRef = useRef<{ 
+        startScreenX: number; 
+        startScreenY: number; 
+        lastScreenX: number; 
+        lastScreenY: number; 
+        isDragging: boolean;
+    } | null>(null);
+    const lastRightClickDragTimeRef = useRef<number>(0);
+
+    const isRightClickActive = useCallback(() => {
+        return !!rightClickDragRef.current;
+    }, []);
+
+    const handleRightClickWindowDrag = useCallback((e: MouseEvent) => {
+        if (!rightClickDragRef.current) return;
+        const screenX = typeof e.screenX === 'number' && e.screenX !== 0 ? e.screenX : e.clientX;
+        const screenY = typeof e.screenY === 'number' && e.screenY !== 0 ? e.screenY : e.clientY;
+
+        const totalDist = Math.hypot(
+            screenX - rightClickDragRef.current.startScreenX, 
+            screenY - rightClickDragRef.current.startScreenY
+        );
+
+        if (totalDist > 3) {
+            rightClickDragRef.current.isDragging = true;
+            lastRightClickDragTimeRef.current = Date.now();
+        }
+
+        if (rightClickDragRef.current.isDragging) {
+            const deltaX = screenX - rightClickDragRef.current.lastScreenX;
+            const deltaY = screenY - rightClickDragRef.current.lastScreenY;
+            rightClickDragRef.current.lastScreenX = screenX;
+            rightClickDragRef.current.lastScreenY = screenY;
+
+            // Move the Electron application window
+            const api = (window as any).electronAPI;
+            if (api?.moveBy && (deltaX !== 0 || deltaY !== 0)) {
+                api.moveBy(deltaX, deltaY);
+            }
+        }
+    }, []);
+
+    const handleRightClickEnd = useCallback(() => {
+        if (rightClickDragRef.current) {
+            if (rightClickDragRef.current.isDragging) {
+                lastRightClickDragTimeRef.current = Date.now();
+            }
+            rightClickDragRef.current = null;
+        }
+    }, []);
+
+    const wasRightClickDrag = useCallback(() => {
+        if (rightClickDragRef.current?.isDragging) return true;
+        if (Date.now() - lastRightClickDragTimeRef.current < 300) return true;
+        return false;
+    }, []);
+
     const getTouchDistance = (t1: React.Touch | Touch, t2: React.Touch | Touch) => {
         const dx = t1.clientX - t2.clientX;
         const dy = t1.clientY - t2.clientY;
@@ -66,6 +124,20 @@ export const useCanvasGestures = ({
             e.preventDefault(); 
             startPanning({ x: e.clientX, y: e.clientY }); 
             return; 
+        }
+
+        // Right mouse button (moves Electron window when dragged)
+        if (e.button === 2) {
+            const screenX = typeof e.screenX === 'number' && e.screenX !== 0 ? e.screenX : e.clientX;
+            const screenY = typeof e.screenY === 'number' && e.screenY !== 0 ? e.screenY : e.clientY;
+            rightClickDragRef.current = { 
+                startScreenX: screenX, 
+                startScreenY: screenY, 
+                lastScreenX: screenX, 
+                lastScreenY: screenY, 
+                isDragging: false 
+            };
+            return;
         }
 
         if (e.button === 0) {
@@ -162,6 +234,11 @@ export const useCanvasGestures = ({
         handleCanvasTouchStart,
         handleCanvasTouchMove,
         handleCanvasTouchEnd,
+        isRightClickActive,
+        handleRightClickWindowDrag,
+        handleRightClickEnd,
+        wasRightClickDrag,
+        wasRightClickPan: wasRightClickDrag,
         pinchRef // Exposed for cleanup if needed
     };
 };

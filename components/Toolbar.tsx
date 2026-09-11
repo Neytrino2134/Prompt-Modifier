@@ -24,16 +24,23 @@ const ToolButton: React.FC<{
     isActive?: boolean;
     children: React.ReactNode;
     hoverColorClass?: string;
-}> = ({ title, onClick, isActive = false, children, hoverColorClass }) => {
-    const baseClasses = "p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9";
+    isModern?: boolean;
+}> = ({ title, onClick, isActive = false, children, hoverColorClass, isModern = false }) => {
+    const sizeClasses = isModern ? "p-1.5 h-8 w-8 rounded-md" : "p-2 h-9 w-9 rounded-md";
+    const baseClasses = `${sizeClasses} transition-all duration-200 focus:outline-none focus:ring-0 outline-none select-none flex items-center justify-center`;
+    
     // Theme refactoring: Use bg-accent for active state
-    const activeClasses = "bg-accent text-white shadow-lg shadow-accent/20";
-    // Theme refactoring: Use hover:bg-accent for hover state (or specific hover class if provided, though we default to accent now)
-    const inactiveClasses = `bg-gray-700 ${hoverColorClass || 'hover:bg-accent hover:text-white'} text-gray-300`;
+    const activeClasses = "bg-accent text-white shadow-md shadow-accent/30";
+    
+    const inactiveClasses = isModern
+        ? `bg-gray-800/80 ${hoverColorClass || 'hover:bg-accent hover:text-white'} text-gray-300 border border-gray-700/60`
+        : `bg-gray-700 ${hoverColorClass || 'hover:bg-accent hover:text-white'} text-gray-300`;
 
     return (
         <div className="relative group flex items-center">
             <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={onClick}
                 aria-label={title}
                 className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
@@ -41,7 +48,7 @@ const ToolButton: React.FC<{
                 {children}
             </button>
             <div
-              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-slate-700 text-slate-200 text-sm whitespace-nowrap rounded-md shadow-xl z-50 transition-opacity duration-200 opacity-0 pointer-events-none group-hover:opacity-100"
+              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 bg-gray-900/95 text-gray-200 text-xs font-medium whitespace-nowrap rounded-md shadow-xl z-50 border border-gray-700/80 backdrop-blur-md transition-opacity duration-150 opacity-0 pointer-events-none group-hover:opacity-100"
               role="tooltip"
             >
               {title}
@@ -50,16 +57,16 @@ const ToolButton: React.FC<{
     );
 };
 
-const ToolGroup: React.FC<{ title: string; children: React.ReactNode; isDetached?: boolean; hoverColorClass?: string; titleColorClass?: string; isCompact?: boolean }> = ({ title, children, isDetached, hoverColorClass, titleColorClass, isCompact }) => {
-    const groupContainerClasses = `flex items-center space-x-1`;
+const ToolGroup: React.FC<{ title: string; children: React.ReactNode; isDetached?: boolean; hoverColorClass?: string; titleColorClass?: string; isCompact?: boolean; isModern?: boolean }> = ({ title, children, isDetached, hoverColorClass, titleColorClass, isCompact, isModern = false }) => {
+    const groupContainerClasses = isModern ? `flex items-center space-x-0.5` : `flex items-center space-x-1`;
 
     return (
         <div className="flex flex-col items-center">
-            {!isDetached && !isCompact && <span className={`text-xs font-semibold mb-1 select-none ${titleColorClass || 'text-gray-400'}`}>{title}</span>}
+            {!isDetached && !isCompact && <span className={`text-[10px] font-medium tracking-wide uppercase mb-0.5 select-none ${titleColorClass || 'text-gray-400'}`}>{title}</span>}
             <div className={groupContainerClasses}>
                 {React.Children.map(children, child =>
                     React.isValidElement(child)
-                        ? React.cloneElement(child, { hoverColorClass } as any)
+                        ? React.cloneElement(child, { hoverColorClass, isModern } as any)
                         : child
                 )}
             </div>
@@ -90,20 +97,22 @@ const isGroupVisible = (
 const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCatalog, onSaveCanvas, onLoadCanvas, isDetached, onSaveProject, isCompact, viewMode = 'full' }) => {
   const { t } = useLanguage();
   const context = useAppContext();
-  const { tutorialStep, advanceTutorial, skipTutorial, handleSaveToDrive, isGoogleDriveSaving, setIsHistoryPanelOpen, isHistoryPanelOpen, setIsTaskQueuePanelOpen, isTaskQueuePanelOpen, activeTaskCount } = context || {};
+  const { tutorialStep, advanceTutorial, skipTutorial, handleSaveToDrive, isGoogleDriveSaving, setIsHistoryPanelOpen, isHistoryPanelOpen, setIsTaskQueuePanelOpen, isTaskQueuePanelOpen, activeTaskCount, panelStyle } = context || {};
+
+  const isModern = panelStyle === 'modern';
 
   const containerClasses = isDetached
     ? "grid grid-cols-3 gap-2"
-    : "flex items-center flex-wrap justify-center gap-2";
+    : isModern
+      ? "flex items-center flex-wrap justify-center gap-1.5"
+      : "flex items-center flex-wrap justify-center gap-2";
 
-  // Removed specific color classes (e.g. hover:bg-blue-600) to allow the Theme (bg-accent) to control colors
   return (
-    <div
-        className={containerClasses}>
+    <div className={containerClasses}>
       
       {isGroupVisible('catalog', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.catalog')} isActive={tutorialStep === 'toolbar_group_catalog'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-            <ToolGroup title={t('toolbar.group.catalog')} isDetached={isDetached} isCompact={isCompact}>
+            <ToolGroup title={t('toolbar.group.catalog')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
               <ToolButton title={t('toolbar.addNode')} onClick={onOpenSearch}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -138,7 +147,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('general', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.general')} isActive={tutorialStep === 'toolbar_group_general'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-          <ToolGroup title={t('toolbar.group.general')} isDetached={isDetached} isCompact={isCompact}>
+          <ToolGroup title={t('toolbar.group.general')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
             <ToolButton title={t('toolbar.addNote')} onClick={(e) => onAddNode(NodeType.NOTE, e)}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
@@ -156,7 +165,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('input', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.input')} isActive={tutorialStep === 'toolbar_group_input'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-          <ToolGroup title={t('toolbar.group.input')} isDetached={isDetached} isCompact={isCompact}>
+          <ToolGroup title={t('toolbar.group.input')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
             <ToolButton title={t('toolbar.addTextInput')} onClick={(e) => onAddNode(NodeType.TEXT_INPUT, e)}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 6h10M12 6v12" />
@@ -183,7 +192,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('processing', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.processing')} isActive={tutorialStep === 'toolbar_group_processing'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-          <ToolGroup title={t('toolbar.group.processing')} isDetached={isDetached} isCompact={isCompact}>
+          <ToolGroup title={t('toolbar.group.processing')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
             <ToolButton title={t('toolbar.addImageAnalyzer')} onClick={(e) => onAddNode(NodeType.IMAGE_ANALYZER, e)}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.792V5.25a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 5.25v13.5A2.25 2.25 0 005.25 21h7.55" />
@@ -208,7 +217,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('character', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.character')} isActive={tutorialStep === 'toolbar_group_character'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-          <ToolGroup title={t('toolbar.group.character')} isDetached={isDetached} isCompact={isCompact}>
+          <ToolGroup title={t('toolbar.group.character')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
             <ToolButton title={t('toolbar.addCharacterGenerator')} onClick={(e) => onAddNode(NodeType.CHARACTER_GENERATOR, e)}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
@@ -239,7 +248,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('output', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.output')} isActive={tutorialStep === 'toolbar_group_output'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-          <ToolGroup title={t('toolbar.group.output')} isDetached={isDetached} isCompact={isCompact}>
+          <ToolGroup title={t('toolbar.group.output')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
             <ToolButton title={t('toolbar.addImageOutput')} onClick={(e) => onAddNode(NodeType.IMAGE_OUTPUT, e)}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
@@ -247,7 +256,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
               </svg>
             </ToolButton>
             <ToolButton title={t('toolbar.addImageEditor')} onClick={(e) => onAddNode(NodeType.IMAGE_EDITOR, e)}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
               </svg>
@@ -263,7 +272,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('aiTools', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.ai')} isActive={tutorialStep === 'toolbar_group_ai'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-          <ToolGroup title={t('toolbar.group.aiTools')} isDetached={isDetached} isCompact={isCompact}>
+          <ToolGroup title={t('toolbar.group.aiTools')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
             <ToolButton title={t('toolbar.addTranslator')} onClick={(e) => onAddNode(NodeType.TRANSLATOR, e)}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L12 6l6 12M8 14h8" />
@@ -280,7 +289,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('scripts', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.scripts')} isActive={tutorialStep === 'toolbar_group_scripts'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-          <ToolGroup title={t('toolbar.group.scripts')} isDetached={isDetached} isCompact={isCompact}>
+          <ToolGroup title={t('toolbar.group.scripts')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
               <ToolButton title={t('toolbar.addScriptGenerator')} onClick={(e) => onAddNode(NodeType.SCRIPT_GENERATOR, e)}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h.01M15 12h.01M10.5 16.5h3M15 19.5h-6a2.25 2.25 0 01-2.25-2.25V6.75A2.25 2.25 0 018.25 4.5h7.5a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0115.75 19.5h-1.5" />
@@ -297,7 +306,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('video', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.video')} isActive={tutorialStep === 'toolbar_group_video'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-          <ToolGroup title={t('toolbar.group.video')} isDetached={isDetached} isCompact={isCompact}>
+          <ToolGroup title={t('toolbar.group.video')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
               <ToolButton title={t('toolbar.addVideoPromptProcessor')} onClick={(e) => onAddNode(NodeType.VIDEO_PROMPT_PROCESSOR, e)}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -321,7 +330,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('file', viewMode) && (
         <TutorialTooltip content={t('tutorial.group.file')} isActive={tutorialStep === 'toolbar_group_file'} position="top" onNext={advanceTutorial} onSkip={skipTutorial}>
-          <ToolGroup title={t('toolbar.group.file')} isDetached={isDetached} isCompact={isCompact}>
+          <ToolGroup title={t('toolbar.group.file')} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
               <ToolButton title={t('toolbar.saveProject')} onClick={() => onSaveProject && onSaveProject()}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />

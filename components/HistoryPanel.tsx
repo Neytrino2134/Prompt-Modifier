@@ -149,7 +149,13 @@ export const HistoryPanel: React.FC = () => {
 
   return (
     <>
-      <div className={`fixed top-0 right-0 bottom-0 w-80 sm:w-96 bg-gray-900 border-l border-gray-700 shadow-2xl z-[200] flex flex-col transition-transform duration-300 ease-in-out ${isHistoryPanelOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
+      <div 
+        className={`fixed right-0 w-80 sm:w-96 bg-gray-900 border-l border-gray-700 shadow-2xl z-30 flex flex-col transition-transform duration-300 ease-in-out ${isHistoryPanelOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}
+        style={{
+          top: 'var(--app-header-height, 76px)',
+          height: 'calc(100vh - var(--app-header-height, 76px))'
+        }}
+      >
         {/* Header */}
         <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur-sm z-10 sticky top-0 select-none">
           <h2 className="text-gray-100 font-semibold flex items-center gap-2 text-sm select-none">

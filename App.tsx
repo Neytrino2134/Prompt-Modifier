@@ -6,11 +6,11 @@ import { AppProvider, useAppContext } from './contexts/AppContext';
 import CanvasLayer from './components/CanvasLayer';
 import AppHeader from './components/AppHeader';
 import DialogLayer from './components/DialogLayer';
-import TopRightPanel from './components/TopRightPanel';
 import ImageViewer from './components/ImageViewer';
 import { DockingMenu } from './components/DockingMenu';
 import { SideDockingPanels } from './components/SideDockingPanels';
 import { BottomMediaPanel } from './components/BottomMediaPanel';
+import { DetachedNodeMiniApp } from './components/DetachedNodeMiniApp';
 
 const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // secondaryLanguage is the user's preferred "native" language (e.g., RU, ES)
@@ -102,6 +102,9 @@ const Editor: React.FC = () => {
       if (isElectron && setConfirmInfo && t) {
           removeElectronListener = (window as any).electronAPI.onCloseRequested(() => {
               if (hasContentRef.current) {
+                  // Ensure Electron window is brought to front, un-minimized and focused
+                  (window as any).electronAPI?.bringToFront?.();
+
                   // Show in-app custom dialog with Save & Close, Close without Saving, and Cancel
                   setConfirmInfo({
                       title: t('dialog.exitApp.title'),
@@ -241,7 +244,6 @@ const Editor: React.FC = () => {
 
         {/* 2. UI Chrome Layer - Headers, Panels, Overlays - Rendered Immediately */}
         <AppHeader />
-        <TopRightPanel />
         
         {/* Global Media Player Control Panel */}
         <BottomMediaPanel />
@@ -330,10 +332,17 @@ const Editor: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const detachedNodeId = urlParams ? urlParams.get('detachedNodeId') : null;
+
   return (
     <LanguageProvider>
       <AppProvider>
-        <Editor />
+        {detachedNodeId ? (
+          <DetachedNodeMiniApp nodeId={detachedNodeId} />
+        ) : (
+          <Editor />
+        )}
       </AppProvider>
     </LanguageProvider>
   );

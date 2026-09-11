@@ -59,6 +59,17 @@ export const TaskQueuePanel: React.FC = () => {
     const [viewingJsonl, setViewingJsonl] = useState<{ id: string; content: string; name: string } | null>(null);
     const [copiedJsonl, setCopiedJsonl] = useState(false);
 
+    // Listen for custom open-task-queue event to select the specific tab (queue or batch)
+    React.useEffect(() => {
+        const handler = (e: any) => {
+            if (e.detail?.tab && (e.detail.tab === 'queue' || e.detail.tab === 'batch')) {
+                setActiveTab(e.detail.tab);
+            }
+        };
+        window.addEventListener('open-task-queue', handler);
+        return () => window.removeEventListener('open-task-queue', handler);
+    }, []);
+
     // Sort batch jobs: In-progress (RUNNING or PENDING) are strictly PINNED on top.
     // Within groups, sorted by createdAt / updatedAt according to batchSortOrder ('desc' = newest first).
     const sortedBatchJobs = useMemo(() => {
@@ -314,8 +325,8 @@ export const TaskQueuePanel: React.FC = () => {
         switch (state) {
             case 'RUNNING':
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-emerald-900/50 text-emerald-300 border border-emerald-700/50">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-accent-secondary border border-gray-700">
+                        <span className="w-2 h-2 rounded-full bg-accent-secondary animate-pulse"></span>
                         {t('batch.running') || 'Processing (Batch)'}
                     </span>
                 );
@@ -358,11 +369,17 @@ export const TaskQueuePanel: React.FC = () => {
     };
 
     return (
-        <div className={`fixed top-0 right-0 bottom-0 w-80 sm:w-96 bg-gray-900 border-l border-gray-800 shadow-2xl z-[200] flex flex-col font-sans transition-transform duration-300 ease-in-out ${isTaskQueuePanelOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
+        <div 
+            className={`fixed right-0 w-80 sm:w-96 bg-gray-900 border-l border-gray-800 shadow-2xl z-30 flex flex-col font-sans transition-transform duration-300 ease-in-out ${isTaskQueuePanelOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}
+            style={{
+                top: 'var(--app-header-height, 76px)',
+                height: 'calc(100vh - var(--app-header-height, 76px))'
+            }}
+        >
             {/* Header */}
             <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/90 backdrop-blur-sm z-10 sticky top-0 select-none">
                 <div className="flex items-center gap-2 select-none">
-                    <div className={`w-2.5 h-2.5 rounded-full ${isBatchMode ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400 animate-pulse'}`}></div>
+                    <div className={`w-2.5 h-2.5 rounded-full ${isBatchMode ? 'bg-accent-secondary animate-pulse' : 'bg-accent-text animate-pulse'}`}></div>
                     <h2 className="text-gray-100 font-semibold text-base flex items-center gap-1.5">
                         <span>{t('queue.title') || 'Task Queue & Batch'}</span>
                     </h2>
@@ -370,7 +387,7 @@ export const TaskQueuePanel: React.FC = () => {
                         onClick={() => setIsSettingsOpen(prev => !prev)}
                         className={`p-1 rounded-md transition-colors ${
                             isSettingsOpen 
-                                ? 'text-emerald-300 bg-gray-800 ring-1 ring-emerald-500/50' 
+                                ? 'text-accent-secondary bg-gray-800 ring-1 ring-gray-700' 
                                 : 'text-gray-400 hover:text-white hover:bg-gray-800/80'
                         }`}
                         title={t('queue.settings') || 'Settings'}
@@ -504,7 +521,7 @@ export const TaskQueuePanel: React.FC = () => {
                             <span className="text-xs font-semibold text-gray-200">
                                 {t('batch.mode') || 'Batch API Mode'}
                             </span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700/60 font-mono">
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-accent-secondary border border-gray-700 font-mono">
                                 -50% Cost
                             </span>
                         </div>
@@ -522,7 +539,7 @@ export const TaskQueuePanel: React.FC = () => {
                             onChange={(e) => setIsBatchMode(e.target.checked)}
                             className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-secondary"></div>
                     </label>
                 </div>
             </div>
@@ -550,11 +567,11 @@ export const TaskQueuePanel: React.FC = () => {
                     onClick={() => setActiveTab('batch')}
                     className={`flex-1 py-2 px-3 text-xs font-semibold rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 ${
                         activeTab === 'batch'
-                            ? 'border-accent text-white bg-gray-900'
+                            ? 'border-accent-secondary text-white bg-gray-900'
                             : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-900/50'
                     }`}
                 >
-                    <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-3.5 h-3.5 text-accent-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
                     <span>{t('batch.panelTitle') || 'Batch Jobs'}</span>
@@ -562,7 +579,7 @@ export const TaskQueuePanel: React.FC = () => {
                         {batchJobs.length}
                     </span>
                     {activeBatchJobsCount > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span className="w-2 h-2 rounded-full bg-accent-secondary animate-pulse"></span>
                     )}
                 </button>
             </div>
@@ -664,7 +681,7 @@ export const TaskQueuePanel: React.FC = () => {
                                                 </span>
                                             )}
                                             {task.isBatch && (
-                                                <span className="px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 font-semibold text-[10px] uppercase flex items-center gap-1">
+                                                <span className="px-1.5 py-0.2 rounded bg-gray-800 text-accent-secondary border border-gray-700 font-semibold text-[10px] uppercase flex items-center gap-1">
                                                     <span>Batch API</span>
                                                     {task.itemCount && task.itemCount > 1 && (
                                                         <span className="opacity-90 font-normal">({task.itemCount})</span>
@@ -753,16 +770,16 @@ export const TaskQueuePanel: React.FC = () => {
             {/* TAB CONTENT: BATCH API JOBS */}
             {activeTab === 'batch' && (
                 <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-950">
-                    <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-xs text-emerald-200">
+                    <div className="p-2.5 rounded-lg bg-gray-900 border border-gray-800 text-xs text-gray-200">
                         <div className="font-semibold flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 text-accent-secondary">
                                 <span>⚡</span>
                                 <span>{t('batch.title') || 'Gemini Batch API'}</span>
                             </div>
                             <button
                                 onClick={() => pollActiveBatchJobs()}
                                 disabled={isBatchPolling}
-                                className="px-2 py-0.5 rounded bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 text-[10px] font-medium flex items-center gap-1 transition-colors"
+                                className="px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-accent-secondary border border-gray-700 text-[10px] font-medium flex items-center gap-1 transition-colors"
                             >
                                 <svg className={`w-3 h-3 ${isBatchPolling ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -770,7 +787,7 @@ export const TaskQueuePanel: React.FC = () => {
                                 <span>{isBatchPolling ? (t('batch.checking') || 'Checking...') : (t('batch.pollNow') || 'Poll Now')}</span>
                             </button>
                         </div>
-                        <p className="text-[11px] text-emerald-300/80 leading-relaxed">
+                        <p className="text-[11px] text-gray-300 leading-relaxed">
                             {t('batch.modeDesc') || 'Batch requests are processed asynchronously within 24 hours at 50% discount. Results automatically populate your nodes upon completion.'}
                         </p>
                     </div>
@@ -782,11 +799,11 @@ export const TaskQueuePanel: React.FC = () => {
                                 className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 hover:text-white text-[11px] transition-colors"
                                 title={batchSortOrder === 'desc' ? (t('batch.sortNewestDesc') || 'Сортировка: Самые новые вверху (В процессе закреплены)') : (t('batch.sortOldestDesc') || 'Сортировка: Сначала старые (В процессе закреплены)')}
                             >
-                                <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <svg className="w-3.5 h-3.5 text-accent-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                                 </svg>
                                 <span>{t('batch.sortByDate') || 'Сортировка по дате'}:</span>
-                                <span className="font-semibold text-emerald-300">
+                                <span className="font-semibold text-accent-secondary">
                                     {batchSortOrder === 'desc' ? (t('batch.sortNewest') || 'Новые вверху') : (t('batch.sortOldest') || 'Старые вверху')}
                                 </span>
                             </button>
@@ -804,7 +821,7 @@ export const TaskQueuePanel: React.FC = () => {
 
                     {sortedBatchJobs.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-48 text-gray-500 text-center px-4">
-                            <svg className="w-10 h-10 mb-2 opacity-30 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="w-10 h-10 mb-2 opacity-30 text-accent-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             <p className="text-sm">{t('batch.noJobs') || 'No Batch API jobs submitted yet'}</p>
@@ -828,7 +845,7 @@ export const TaskQueuePanel: React.FC = () => {
                                     key={jobId}
                                     className={`p-3 rounded-lg bg-gray-900 border transition-all ${
                                         job.state === 'RUNNING'
-                                            ? 'border-emerald-600/60 shadow-lg shadow-emerald-950/20 ring-1 ring-emerald-500/30'
+                                            ? 'border-gray-700 shadow-lg'
                                             : job.state === 'PENDING'
                                             ? 'border-yellow-700/50 shadow-md shadow-yellow-950/20'
                                             : job.state === 'SUCCEEDED'
@@ -841,14 +858,14 @@ export const TaskQueuePanel: React.FC = () => {
                                         <div className="flex flex-col truncate">
                                             <div className="flex items-center gap-1.5 truncate">
                                                 {(job.state === 'RUNNING' || job.state === 'PENDING') && (
-                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-950/80 border border-emerald-800/80 text-emerald-300 flex-shrink-0" title={t('batch.pinnedInProgress') || 'Закреплено: задача в процессе'}>
+                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-gray-800 border border-gray-700 text-accent-secondary flex-shrink-0" title={t('batch.pinnedInProgress') || 'Закреплено: задача в процессе'}>
                                                         <span>📌</span>
                                                         <span>{t('batch.inProgress') || 'В процессе'}</span>
                                                     </span>
                                                 )}
                                                 <button
                                                     onClick={() => handleNodeClick(job.nodeId)}
-                                                    className="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline truncate text-left"
+                                                    className="text-xs font-semibold text-accent-secondary hover:underline truncate text-left"
                                                     title={t('queue.click_to_go') || 'Click to jump to node'}
                                                 >
                                                     <span className="truncate">{job.displayName || job.nodeTitle || 'Batch Job'}</span>
@@ -874,7 +891,7 @@ export const TaskQueuePanel: React.FC = () => {
                                         </div>
                                         <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
                                             <div
-                                                className="h-full transition-all duration-300 bg-emerald-500"
+                                                className="h-full transition-all duration-300 bg-accent-secondary"
                                                 style={{
                                                     width: `${progressPercent}%`
                                                 }}
@@ -894,11 +911,11 @@ export const TaskQueuePanel: React.FC = () => {
                                             <button
                                                 onClick={() => fetchBatchJobResults(jobId)}
                                                 disabled={isFetchingThisJob}
-                                                className="w-full py-1.5 px-3 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                                                className="w-full py-1.5 px-3 rounded bg-gray-800 hover:bg-gray-700 text-accent-secondary border border-gray-700 text-xs font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
                                             >
                                                 {isFetchingThisJob ? (
                                                     <>
-                                                        <svg className="animate-spin h-3.5 w-3.5 text-emerald-300" viewBox="0 0 24 24">
+                                                        <svg className="animate-spin h-3.5 w-3.5 text-accent-secondary" viewBox="0 0 24 24">
                                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                                         </svg>
@@ -922,11 +939,11 @@ export const TaskQueuePanel: React.FC = () => {
                                             <button
                                                 onClick={() => handleDownloadBatchZip({ ...job, id: jobId, items: jobItems })}
                                                 disabled={isDownloadingThisZip}
-                                                className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-medium flex items-center gap-1 transition-colors disabled:opacity-50"
+                                                className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-accent-secondary border border-gray-700 text-[11px] font-medium flex items-center gap-1 transition-colors disabled:opacity-50"
                                                 title={t('batch.downloadAllZip') || 'Скачать все изображения в ZIP'}
                                             >
                                                 {isDownloadingThisZip ? (
-                                                    <svg className="animate-spin h-3 w-3 text-emerald-300" viewBox="0 0 24 24">
+                                                    <svg className="animate-spin h-3 w-3 text-accent-secondary" viewBox="0 0 24 24">
                                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                                     </svg>
@@ -974,7 +991,7 @@ export const TaskQueuePanel: React.FC = () => {
                                                     return (
                                                         <div
                                                             key={item.id || `item-${idx}`}
-                                                            className="group relative aspect-square rounded bg-gray-900 border border-gray-700/60 overflow-hidden cursor-pointer hover:border-emerald-500/80 transition-all shadow-sm"
+                                                            className="group relative aspect-square rounded bg-gray-900 border border-gray-750 overflow-hidden cursor-pointer hover:border-accent-secondary transition-all shadow-sm"
                                                             onClick={() => setImageViewer?.({
                                                                 sources: completedItems.map((it, i) => ({
                                                                     src: it.resultUrl!,
@@ -1006,7 +1023,7 @@ export const TaskQueuePanel: React.FC = () => {
                                                                         e.stopPropagation();
                                                                         handleDownloadSingleImage(item.resultUrl!, idx, job.id);
                                                                     }}
-                                                                    className="p-1 rounded-full bg-gray-900/90 text-gray-200 hover:text-white hover:bg-emerald-600 transition-colors shadow"
+                                                                    className="p-1 rounded-full bg-gray-900/90 text-gray-200 hover:text-white hover:bg-accent-secondary transition-colors shadow"
                                                                     title={t('node.action.download') || 'Скачать'}
                                                                 >
                                                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -1032,10 +1049,10 @@ export const TaskQueuePanel: React.FC = () => {
                                                     <button
                                                         onClick={() => handleCheckBatchStatus(jobId)}
                                                         disabled={checkingJobId === jobId}
-                                                        className="px-2 py-0.5 rounded bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-200 transition-colors flex items-center gap-1 text-[10px]"
+                                                        className="px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-accent-secondary border border-gray-700 transition-colors flex items-center gap-1 text-[10px]"
                                                     >
                                                         {checkingJobId === jobId && (
-                                                            <svg className="animate-spin h-2.5 w-2.5 text-emerald-300" viewBox="0 0 24 24">
+                                                            <svg className="animate-spin h-2.5 w-2.5 text-accent-secondary" viewBox="0 0 24 24">
                                                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                                             </svg>
@@ -1071,7 +1088,7 @@ export const TaskQueuePanel: React.FC = () => {
                                                         downloadBatchJsonl(jobId);
                                                     }
                                                 }}
-                                                className="px-2 py-0.5 rounded bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/80 transition-colors flex items-center gap-1 text-[10px]"
+                                                className="px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-accent-secondary border border-gray-700 transition-colors flex items-center gap-1 text-[10px]"
                                                 title="Скачать JSONL файл этого запроса"
                                             >
                                                 <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -1085,9 +1102,9 @@ export const TaskQueuePanel: React.FC = () => {
                                                     const content = getBatchJobJsonl ? getBatchJobJsonl(jobId) : job.rawJsonl;
                                                     if (content) {
                                                         setViewingJsonl({
-                                                            id: jobId,
-                                                            content,
-                                                            name: job.displayName || job.name || jobId
+                                                             id: jobId,
+                                                             content,
+                                                             name: job.displayName || job.name || jobId
                                                         });
                                                         setCopiedJsonl(false);
                                                     } else {
@@ -1134,7 +1151,7 @@ export const TaskQueuePanel: React.FC = () => {
                         {/* Modal Header */}
                         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-950/60">
                             <div className="flex items-center gap-2 truncate">
-                                <span className="text-emerald-400 font-mono text-sm">📄</span>
+                                <span className="text-accent-secondary font-mono text-sm">📄</span>
                                 <h3 className="text-sm font-semibold text-gray-100">
                                     JSONL Batch Request
                                 </h3>
@@ -1158,7 +1175,7 @@ export const TaskQueuePanel: React.FC = () => {
                                 Фактическая строка JSONL, отправляемая в OpenAI Batch API (endpoint /v1/images/edits или /v1/images/generations):
                             </p>
                             <div className="relative">
-                                <pre className="p-3 rounded-lg bg-gray-950 border border-gray-800 text-emerald-300 text-[11px] overflow-x-auto whitespace-pre-wrap break-all max-h-96 select-all">
+                                <pre className="p-3 rounded-lg bg-gray-950 border border-gray-800 text-accent-secondary text-[11px] overflow-x-auto whitespace-pre-wrap break-all max-h-96 select-all">
                                     {viewingJsonl.content}
                                 </pre>
                             </div>
@@ -1190,8 +1207,8 @@ export const TaskQueuePanel: React.FC = () => {
                                     }}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
                                         copiedJsonl 
-                                            ? 'bg-emerald-600 text-white' 
-                                            : 'bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40'
+                                            ? 'bg-accent-secondary text-white' 
+                                            : 'bg-gray-800 hover:bg-gray-700 text-accent-secondary border border-gray-700'
                                     }`}
                                 >
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">

@@ -180,7 +180,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
             
             {usePortal && isVisible && coords && createPortal(
                 <div
-                    className="fixed z-[9999] px-3 py-1.5 bg-slate-700 text-slate-200 text-xs font-medium whitespace-nowrap rounded-md shadow-xl pointer-events-none"
+                    className="fixed z-[9999] px-3 py-1.5 bg-gray-900/95 text-gray-200 text-xs font-medium whitespace-nowrap rounded-md shadow-2xl border border-gray-700/80 backdrop-blur-sm pointer-events-none"
                     style={{
                         top: coords.y,
                         left: coords.x,

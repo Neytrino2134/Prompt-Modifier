@@ -20,6 +20,7 @@ export interface ImageInputGridConfig {
     customDividers?: boolean; // toggle editable custom table-like row & column dividers
     colDividers?: number[]; // normalized split points [x1, x2, ..., x_{cols-1}] in 0..1 range within bounds
     rowDividers?: number[]; // normalized split points [y1, y2, ..., y_{rows-1}] in 0..1 range within bounds
+    includeOriginal?: boolean; // include uncropped original image in ZIP (default true)
 }
 
 export interface ImageBatchItem {

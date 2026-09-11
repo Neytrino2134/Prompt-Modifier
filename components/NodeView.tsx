@@ -75,6 +75,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
     const minSize = useMemo(() => getMinNodeSize(node.type), [node.type]);
     const isDockedWindow = !!node.dockState && !isProxy;
     const isProxyMode = !!node.dockState && !!isProxy;
+    const isDetachedGhost = Boolean(node.isDetachedWindow);
 
     // Get override type for generic inputs like DataReader
     const connectedInputType = connectedInputTypes?.get(node.id);
@@ -90,12 +91,13 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
         activeTool,
         connectingInfo,
         isDockedWindow,
-        isProxyMode
+        isProxyMode,
+        isDetachedGhost
     });
 
     // --- Styles & Classes ---
     // Pass group context to style generator
-    const styles = getNodeStyles(node, isDockedWindow, isProxyMode, isRerouteDot, isSelected, isHovered, minSize, !!isFocused, isGrouped, isGroupDragging, isBringToFrontOnHoverEnabled);
+    const styles = getNodeStyles(node, isDockedWindow, isProxyMode, isRerouteDot, isSelected, isHovered, minSize, !!isFocused, isGrouped, isGroupDragging, isBringToFrontOnHoverEnabled, isDetachedGhost);
     const classes = getNodeClasses(
         node,
         isDockedWindow,
@@ -197,7 +199,61 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
     }, [node.value, node.type, node.id, props.onValueChange, allImagesCollapsed]);
 
 
-    // --- Render Proxy ---
+    // --- Render Detached Mini-App Ghost ---
+    if (isDetachedGhost) {
+        return (
+            <div
+                className={`node-view absolute flex items-center justify-between rounded-xl border-2 border-dashed border-cyan-500/90 bg-gray-950/85 backdrop-blur-md text-gray-200 px-3 py-2 shadow-[0_0_18px_rgba(6,182,212,0.35)] select-none cursor-move transition-[border-color,box-shadow] duration-200 ${
+                    isSelected ? 'border-cyan-400 ring-2 ring-cyan-400/50 text-white shadow-[0_0_22px_rgba(6,182,212,0.55)]' : 'hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.45)]'
+                }`}
+                style={{ ...styles, zIndex: isSelected ? 15 : 11 }}
+                onMouseUp={gestures.handleMouseUp}
+                onMouseEnter={() => onNodeMouseEnter(node.id)}
+                onMouseLeave={onNodeMouseLeave}
+                onMouseDown={gestures.handleDragMouseDown}
+                onTouchStart={gestures.handleDragTouchStart}
+                onContextMenu={(e) => { if (handleOpenNodeContextMenu) handleOpenNodeContextMenu(e, node.id); }}
+                onWheel={(e) => e.stopPropagation()}
+            >
+                {/* Left: Pulse indicator and node title */}
+                <div className="flex items-center space-x-2 truncate max-w-[130px] pointer-events-none">
+                    <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500 shadow-[0_0_6px_rgba(6,182,212,0.9)]"></span>
+                    </span>
+                    <div className="flex flex-col min-w-0">
+                        <span className="font-bold text-xs text-gray-100 truncate leading-tight">{node.title}</span>
+                        <span className="text-[9px] font-semibold text-cyan-400 tracking-wider uppercase">
+                            {t('node.miniAppBadge') || 'Mini App'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Right: Return to Canvas Action */}
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (props.handleReattachNodeFromMiniApp) {
+                            props.handleReattachNodeFromMiniApp(node.id);
+                        }
+                    }}
+                    className="ml-2 text-xs text-cyan-300 hover:text-white bg-cyan-950/70 hover:bg-cyan-900 px-2 py-1 rounded-md transition-all flex items-center gap-1 border border-cyan-700/80 hover:border-cyan-400 shadow-sm z-10 flex-shrink-0 cursor-pointer"
+                    title={t('node.action.reattachToCanvas') || 'Вернуть ноду обратно на холст'}
+                >
+                    <svg className="w-3 h-3 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                    <span className="text-[10px] font-semibold whitespace-nowrap">{t('node.action.reattachShort') || 'Вернуть'}</span>
+                </button>
+
+                <InputHandles node={node} getHandleColor={getHandleColor} handleCursor={handleCursor} t={t} isHovered={isHovered} isCollapsed={true} isProxy={true} connectedInputType={connectedInputType} onInputHandleMouseDown={onInputHandleMouseDown} onInputHandleTouchStart={onInputHandleTouchStart} />
+                <OutputHandles node={node} getHandleColor={getHandleColor} handleCursor={handleCursor} onOutputHandleMouseDown={onOutputHandleMouseDown} onOutputHandleTouchStart={onOutputHandleTouchStart} t={t} isHovered={isHovered} isCollapsed={true} isProxy={true} />
+            </div>
+        );
+    }
+
+    // --- Render Classic Dock Proxy ---
     if (isProxyMode) {
         return (
             <div
@@ -212,9 +268,8 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
                 onWheel={(e) => e.stopPropagation()}
             >
                 <span className="font-bold text-xs truncate max-w-[140px] pointer-events-none">{node.title}</span>
-                <InputHandles node={node} getHandleColor={getHandleColor} handleCursor={handleCursor} t={t} isHovered={isHovered} isCollapsed={true} isProxy={true} connectedInputType={connectedInputType} />
+                <InputHandles node={node} getHandleColor={getHandleColor} handleCursor={handleCursor} t={t} isHovered={isHovered} isCollapsed={true} isProxy={true} connectedInputType={connectedInputType} onInputHandleMouseDown={onInputHandleMouseDown} onInputHandleTouchStart={onInputHandleTouchStart} />
                 <OutputHandles node={node} getHandleColor={getHandleColor} handleCursor={handleCursor} onOutputHandleMouseDown={onOutputHandleMouseDown} onOutputHandleTouchStart={onOutputHandleTouchStart} t={t} isHovered={isHovered} isCollapsed={true} isProxy={true} />
-                {/* Note: We do NOT render NodeContent here in Proxy mode anymore, as the Docked instance handles the logic/playback */}
             </div>
         );
     }
@@ -286,6 +341,8 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
                 handleOpenNodeContextMenu={handleOpenNodeContextMenu}
                 handleRequestDelete={handleRequestDelete}
                 handleDetachNodeFromGroup={onDetachNodeFromGroup}
+                handleDetachNodeToMiniApp={props.handleDetachNodeToMiniApp}
+                handleReattachNodeFromMiniApp={props.handleReattachNodeFromMiniApp}
                 isInstantCloseEnabled={props.isInstantCloseEnabled}
                 onToggleCharacterImages={handleToggleCharacterImages}
                 allImagesCollapsed={allImagesCollapsed}

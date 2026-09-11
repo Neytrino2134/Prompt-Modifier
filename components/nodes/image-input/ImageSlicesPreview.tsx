@@ -6,6 +6,9 @@ import { ActionButton } from '../../ActionButton';
 interface ImageSlicesPreviewProps {
     nodeId: string;
     slices: string[]; // Thumbnails or full data
+    originalImage?: string | null;
+    includeOriginal?: boolean;
+    onChangeIncludeOriginal?: (val: boolean) => void;
     getFullSizeImage?: (nodeId: string, frameNumber: number) => string | undefined;
     onCopyImageToClipboard?: (src: string) => void;
     onDownloadImage?: (nodeId: string) => void;
@@ -17,6 +20,9 @@ interface ImageSlicesPreviewProps {
 export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
     nodeId,
     slices,
+    originalImage,
+    includeOriginal = true,
+    onChangeIncludeOriginal,
     getFullSizeImage,
     onCopyImageToClipboard,
     addToast,
@@ -40,16 +46,37 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
         setIsZipping(true);
         try {
             const zip = new JSZip();
-            const folder = zip.folder(`assets_grid_${cols}x${rows}`) || zip;
+            const folder = zip.folder(`assets_grid_${rows}x${cols}`) || zip;
+            let totalSaved = 0;
 
+            // 1. If includeOriginal is requested, write full uncropped original image
+            if (includeOriginal && originalImage) {
+                const origFull = getFullSizeImage ? getFullSizeImage(nodeId, 0) : null;
+                const origSrc = origFull || originalImage;
+                if (origSrc && origSrc.startsWith('data:')) {
+                    const dataParts = origSrc.split(',');
+                    if (dataParts.length > 1) {
+                        const mimeMatch = origSrc.match(/data:([^;]+);/);
+                        const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+                        const ext = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : mime.includes('webp') ? 'webp' : 'png';
+                        folder.file(`original_image.${ext}`, dataParts[1], { base64: true });
+                        totalSaved += 1;
+                    }
+                }
+            }
+
+            // 2. Add all slices
             for (let i = 0; i < slices.length; i++) {
                 // Get full resolution image if available, fallback to slice
                 const fullRes = getFullSizeImage ? getFullSizeImage(nodeId, i + 1) : null;
                 const src = fullRes || slices[i];
                 if (src && src.startsWith('data:')) {
                     const base64Data = src.split(',')[1];
-                    const filename = `asset_${String(i + 1).padStart(2, '0')}.png`;
+                    const row = Math.floor(i / cols) + 1;
+                    const col = (i % cols) + 1;
+                    const filename = `asset_${String(i + 1).padStart(2, '0')}_r${row}_c${col}.png`;
                     folder.file(filename, base64Data, { base64: true });
+                    totalSaved += 1;
                 }
             }
 
@@ -59,13 +86,13 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
             a.href = url;
 
             const timestamp = getImageTimestampString();
-            a.download = `assets_pack_${cols}x${rows}_${slices.length}_${timestamp}.zip`;
+            a.download = `assets_pack_${rows}x${cols}_${slices.length}_${timestamp}.zip`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            if (addToast) addToast(`Скачано ${slices.length} ассетов в ZIP архиве`, 'success');
+            if (addToast) addToast(`Скачано ${totalSaved} ассетов в ZIP архиве`, 'success');
         } catch (err: any) {
             console.error('Error creating ZIP:', err);
             if (addToast) addToast('Не удалось создать ZIP архив', 'error');
@@ -113,30 +140,54 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
     return (
         <div className="w-full flex flex-col gap-2 pt-2 border-t border-gray-800">
             {/* Header & ZIP download */}
-            <div className="flex items-center justify-between px-1 text-xs">
+            <div className="flex items-center justify-between px-1 text-xs gap-2 flex-wrap">
                 <span className="font-semibold text-gray-300 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-                    <span>Сетка ассетов ({slices.length} шт.)</span>
+                    <span>Сетка ассетов ({slices.length + (includeOriginal ? 1 : 0)} шт.)</span>
                 </span>
 
-                <button
-                    type="button"
-                    onClick={handleDownloadAllZip}
-                    disabled={isZipping || slices.length === 0}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-700 text-white rounded text-[11px] font-medium shadow-sm transition-colors"
-                >
-                    {isZipping ? (
-                        <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
+                <div className="flex items-center gap-2">
+                    {onChangeIncludeOriginal && (
+                        <button
+                            type="button"
+                            onClick={() => onChangeIncludeOriginal(!includeOriginal)}
+                            className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                                includeOriginal
+                                    ? 'bg-cyan-900/60 border border-cyan-500/80 text-cyan-200'
+                                    : 'bg-gray-800/80 border border-gray-700 text-gray-400 hover:text-gray-300'
+                            }`}
+                            title="Добавить в ZIP архив оригинальное неразрезанное изображение"
+                        >
+                            <span className={`w-3.5 h-3.5 flex items-center justify-center rounded border text-[10px] font-bold ${
+                                includeOriginal
+                                    ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300'
+                                    : 'border-gray-600'
+                            }`}>
+                                {includeOriginal ? '✓' : ''}
+                            </span>
+                            <span>Включить оригинал</span>
+                        </button>
                     )}
-                    <span>Скачать все (ZIP)</span>
-                </button>
+
+                    <button
+                        type="button"
+                        onClick={handleDownloadAllZip}
+                        disabled={isZipping || slices.length === 0}
+                        className="flex items-center gap-1 px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-700 text-white rounded text-[11px] font-medium shadow-sm transition-colors"
+                    >
+                        {isZipping ? (
+                            <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                        )}
+                        <span>Скачать все (ZIP)</span>
+                    </button>
+                </div>
             </div>
 
             {/* Slices Carousel / Grid */}

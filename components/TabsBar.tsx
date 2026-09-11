@@ -45,34 +45,48 @@ const TabButton: React.FC<{
                   if (!isActive) onSwitchTab(tab.id);
             }}
             onMouseEnter={measureOverflow}
-            className={`flex items-center justify-between px-4 h-full rounded-md cursor-pointer transition-colors duration-150 group flex-shrink-0 ${
-                isActive ? 'bg-accent text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            } max-w-[200px] overflow-hidden select-none`}
+            className={`flex items-center justify-between gap-1.5 px-2.5 h-6 rounded-md cursor-pointer transition-colors duration-150 group flex-shrink-0 select-none max-w-[170px] outline-none focus:outline-none focus:ring-0 ${
+                isActive 
+                    ? 'bg-accent text-white shadow-sm shadow-accent/20 font-semibold border border-transparent' 
+                    : 'bg-gray-800/70 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700/40 hover:border-gray-600/70 font-medium'
+            }`}
         >
-            <Tooltip content={tab.name} position="bottom" delay={800} className="flex-grow min-w-0">
-                <div ref={containerRef} className="flex-grow min-w-0 overflow-hidden relative mask-fade">
-                        <div 
-                            className={`inline-block whitespace-nowrap ${scrollDist < 0 ? 'group-hover:animate-swing' : ''}`}
-                            style={{ '--scroll-dist': `${scrollDist}px` } as React.CSSProperties}
-                        >
-                            <span ref={textRef} className="text-sm pr-1 block">{tab.name}</span>
-                        </div>
+            {/* Status dot */}
+            <span 
+                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
+                    isActive ? 'bg-white shadow-[0_0_4px_rgba(255,255,255,0.8)]' : 'bg-gray-500/50 group-hover:bg-gray-400'
+                }`} 
+            />
+
+            <Tooltip content={typeof tab.name === 'string' ? tab.name : 'Canvas'} position="bottom" delay={700} className="flex-grow min-w-0">
+                <div ref={containerRef} className="flex-grow min-w-0 overflow-hidden relative">
+                    <div 
+                        className={`inline-block whitespace-nowrap ${scrollDist < 0 ? 'group-hover:animate-swing' : ''}`}
+                        style={{ '--scroll-dist': `${scrollDist}px` } as React.CSSProperties}
+                    >
+                        <span ref={textRef} className="text-xs truncate block leading-none">{typeof tab.name === 'string' ? tab.name : 'Canvas'}</span>
+                    </div>
                 </div>
             </Tooltip>
             
             <Tooltip content={t('node.action.close')} position="bottom">
                 <button
+                    type="button"
+                    tabIndex={-1}
                     onClick={(e) => {
                         e.stopPropagation();
                         onCloseTab(tab.id, e);
                     }}
-                    className={`ml-3 p-0.5 rounded-full transition-opacity focus:outline-none opacity-50 group-hover:opacity-100 ${
-                    isActive 
-                        ? 'text-white hover:bg-accent-hover' 
-                        : 'text-gray-500 hover:bg-gray-600 hover:text-white'
+                    className={`p-0.5 rounded transition-colors focus:outline-none focus:ring-0 outline-none flex-shrink-0 ${
+                        isActive 
+                            ? 'text-white/80 hover:text-white hover:bg-black/25 opacity-75 group-hover:opacity-100' 
+                            : 'text-gray-500 hover:text-gray-200 hover:bg-gray-700 opacity-0 group-hover:opacity-100'
                     }`}
+                    aria-label={t('node.action.close')}
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                 </button>
             </Tooltip>
         </div>
@@ -122,17 +136,17 @@ const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAdd
   return (
     <div 
       onMouseDown={(e) => e.stopPropagation()}
-      className="flex-shrink-0 pointer-events-auto max-w-[calc(100vw-350px)]"
+      className="flex-shrink-0 pointer-events-auto max-w-[calc(100vw-360px)]"
     >
       <div 
         ref={scrollContainerRef}
         onWheel={handleWheel}
-        className="flex items-center h-9 space-x-1 overflow-x-auto overflow-y-hidden hide-scrollbar [&::-webkit-scrollbar]:hidden"
+        className="flex items-center h-7 px-1 bg-gray-950/40 border border-gray-800/80 rounded-lg gap-1 overflow-x-auto overflow-y-hidden hide-scrollbar [&::-webkit-scrollbar]:hidden outline-none"
       >
         {tabs.map(tab => {
           if (editingTabId === tab.id) {
                return (
-                <div key={tab.id} className="flex items-center justify-between px-4 h-full rounded-md bg-gray-700 max-w-[200px]">
+                <div key={tab.id} className="flex items-center px-2 h-6 rounded-md bg-gray-800 border border-accent max-w-[170px]">
                     <input
                       ref={inputRef}
                       type="text"
@@ -140,7 +154,7 @@ const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAdd
                       onChange={(e) => setEditingName(e.target.value)}
                       onBlur={handleFinishEditing}
                       onKeyDown={handleKeyDown}
-                      className="bg-transparent border-b border-accent-text focus:outline-none text-sm w-full text-white"
+                      className="bg-transparent border-none focus:outline-none text-xs w-full text-white font-medium outline-none"
                       onClick={e => e.stopPropagation()}
                     />
                 </div>
@@ -159,12 +173,17 @@ const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAdd
           );
         })}
         
-        <Tooltip content="New Canvas" position="bottom" className="h-full">
+        <Tooltip content="New Canvas" position="bottom">
             <button
-            onClick={onAddTab}
-            className="flex-shrink-0 flex items-center justify-center w-8 h-full rounded-md bg-gray-700 text-gray-300 hover:bg-accent hover:text-white transition-colors focus:outline-none"
+              type="button"
+              tabIndex={-1}
+              onClick={() => onAddTab()}
+              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-md bg-gray-800/70 text-gray-400 hover:text-white hover:bg-accent border border-gray-700/50 hover:border-accent transition-colors focus:outline-none focus:ring-0 outline-none"
+              aria-label="Add new tab"
             >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
             </button>
         </Tooltip>
       </div>

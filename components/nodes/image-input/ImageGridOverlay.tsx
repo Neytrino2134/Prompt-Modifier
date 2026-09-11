@@ -304,9 +304,7 @@ export const ImageGridOverlay: React.FC<ImageGridOverlayProps> = ({
             {/* Grid Box */}
             <div
                 ref={gridBoxRef}
-                className={`absolute border-2 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)] ${
-                    rawBw > 0 ? 'bg-black/40' : 'bg-cyan-500/5'
-                }`}
+                className="absolute border-2 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)] bg-cyan-500/5"
                 style={{
                     left: `${leftPercent}%`,
                     top: `${topPercent}%`,
@@ -328,6 +326,69 @@ export const ImageGridOverlay: React.FC<ImageGridOverlayProps> = ({
                         </span>
                     )}
                 </div>
+
+                {/* Darkened Border Cutout Areas (Only applied to border thickness regions) */}
+                {rawBw > 0 && (
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+                        {/* Outer Borders if borderMode === 'all' */}
+                        {borderMode === 'all' && (
+                            <>
+                                {/* Top Outer Border */}
+                                <div
+                                    className="absolute left-0 right-0 top-0 bg-black/60 border-b border-cyan-500/30"
+                                    style={{ height: `${(rawBw / boundPxH) * 100}%` }}
+                                />
+                                {/* Bottom Outer Border */}
+                                <div
+                                    className="absolute left-0 right-0 bottom-0 bg-black/60 border-t border-cyan-500/30"
+                                    style={{ height: `${(rawBw / boundPxH) * 100}%` }}
+                                />
+                                {/* Left Outer Border */}
+                                <div
+                                    className="absolute left-0 top-0 bottom-0 bg-black/60 border-r border-cyan-500/30"
+                                    style={{ width: `${(rawBw / boundPxW) * 100}%` }}
+                                />
+                                {/* Right Outer Border */}
+                                <div
+                                    className="absolute right-0 top-0 bottom-0 bg-black/60 border-l border-cyan-500/30"
+                                    style={{ width: `${(rawBw / boundPxW) * 100}%` }}
+                                />
+                            </>
+                        )}
+
+                        {/* Column Border Gaps (Between Cells) */}
+                        {cols > 1 && localColDividers.map((divPos, cIdx) => {
+                            const leftPct = ((divPos * boundPxW - rawBw / 2) / boundPxW) * 100;
+                            const widthPct = (rawBw / boundPxW) * 100;
+                            return (
+                                <div
+                                    key={`col-border-${cIdx}`}
+                                    className="absolute top-0 bottom-0 bg-black/60 border-x border-cyan-500/30"
+                                    style={{
+                                        left: `${leftPct}%`,
+                                        width: `${widthPct}%`
+                                    }}
+                                />
+                            );
+                        })}
+
+                        {/* Row Border Gaps (Between Cells) */}
+                        {rows > 1 && localRowDividers.map((divPos, rIdx) => {
+                            const topPct = ((divPos * boundPxH - rawBw / 2) / boundPxH) * 100;
+                            const heightPct = (rawBw / boundPxH) * 100;
+                            return (
+                                <div
+                                    key={`row-border-${rIdx}`}
+                                    className="absolute left-0 right-0 bg-black/60 border-y border-cyan-500/30"
+                                    style={{
+                                        top: `${topPct}%`,
+                                        height: `${heightPct}%`
+                                    }}
+                                />
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Grid Cells Container */}
                 <div className="w-full h-full relative">

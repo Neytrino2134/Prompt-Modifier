@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Node, NodeType, Point } from '../types';
-import { COLLAPSED_NODE_HEIGHT } from './nodeUtils';
+import { COLLAPSED_NODE_HEIGHT, PROXY_NODE_WIDTH, PROXY_NODE_HEIGHT, DETACHED_GHOST_WIDTH, DETACHED_GHOST_HEIGHT } from './nodeUtils';
 
 export const getNodeStyles = (
     node: Node,
@@ -14,7 +14,8 @@ export const getNodeStyles = (
     isFocused?: boolean,
     isGrouped?: boolean,
     isGroupDragging?: boolean,
-    isBringToFrontOnHoverEnabled: boolean = true
+    isBringToFrontOnHoverEnabled: boolean = true,
+    isDetachedGhost?: boolean
 ): React.CSSProperties => {
     
     // Full Screen Focus Override
@@ -64,10 +65,10 @@ export const getNodeStyles = (
         top: 0,
         left: 0,
         transform: `translate(${x}px, ${y}px)`,
-        width: isProxyMode ? 160 : (Number.isFinite(node.width) ? node.width : minSize.minWidth), 
-        height: isProxyMode ? 48 : (node.isCollapsed ? `${COLLAPSED_NODE_HEIGHT}px` : (Number.isFinite(node.height) ? node.height : minSize.minHeight)),
-        minWidth: (isRerouteDot || isProxyMode) ? undefined : `${minSize.minWidth}px`, 
-        minHeight: (node.isCollapsed || isProxyMode) ? undefined : (isRerouteDot ? undefined : `${minSize.minHeight}px`),
+        width: isProxyMode ? PROXY_NODE_WIDTH : isDetachedGhost ? DETACHED_GHOST_WIDTH : (Number.isFinite(node.width) ? node.width : minSize.minWidth), 
+        height: isProxyMode ? PROXY_NODE_HEIGHT : isDetachedGhost ? DETACHED_GHOST_HEIGHT : (node.isCollapsed ? `${COLLAPSED_NODE_HEIGHT}px` : (Number.isFinite(node.height) ? node.height : minSize.minHeight)),
+        minWidth: (isRerouteDot || isProxyMode || isDetachedGhost) ? undefined : `${minSize.minWidth}px`, 
+        minHeight: (node.isCollapsed || isProxyMode || isDetachedGhost) ? undefined : (isRerouteDot ? undefined : `${minSize.minHeight}px`),
         zIndex: zIndex,
         // Remove contain to allow proper rendering scaling
         contain: 'none'
@@ -76,7 +77,9 @@ export const getNodeStyles = (
     // Docking overrides
     if (isDockedWindow && node.dockState) {
         const margin = 56;
+        const marginTop = 130;
         const m = `${margin}px`;
+        const mTop = `${marginTop}px`;
         const width = node.width && Number.isFinite(node.width) ? `${node.width}px` : 'auto';
         const height = node.height && Number.isFinite(node.height) ? `${node.height}px` : 'auto';
         
@@ -97,17 +100,17 @@ export const getNodeStyles = (
         };
 
         switch (node.dockState.mode) {
-            case 'full': return { ...dockedBase, top: m, left: m, right: m, bottom: m, width: 'auto', height: 'auto' };
-            case 'left': return { ...dockedBase, top: m, left: m, width: width, bottom: m, height: 'auto' };
-            case 'right': return { ...dockedBase, top: m, right: m, width: width, bottom: m, height: 'auto' };
-            case 'tl': return { ...dockedBase, top: m, left: m, width: width, height: height };
-            case 'tr': return { ...dockedBase, top: m, right: m, width: width, height: height };
+            case 'full': return { ...dockedBase, top: mTop, left: m, right: m, bottom: m, width: 'auto', height: 'auto' };
+            case 'left': return { ...dockedBase, top: mTop, left: m, width: width, bottom: m, height: 'auto' };
+            case 'right': return { ...dockedBase, top: mTop, right: m, width: width, bottom: m, height: 'auto' };
+            case 'tl': return { ...dockedBase, top: mTop, left: m, width: width, height: height };
+            case 'tr': return { ...dockedBase, top: mTop, right: m, width: width, height: height };
             case 'bl': return { ...dockedBase, bottom: m, left: m, width: width, height: height };
             case 'br': return { ...dockedBase, bottom: m, right: m, width: width, height: height };
-            case 'q1': return { ...dockedBase, top: m, bottom: m, left: m, width: width, height: 'auto' };
-            case 'q2': return { ...dockedBase, top: m, bottom: m, left: `calc(${m} + ${availW} * 0.25)`, width: width, height: 'auto' };
-            case 'q3': return { ...dockedBase, top: m, bottom: m, right: `calc(${m} + ${availW} * 0.25)`, width: width, height: 'auto' };
-            case 'q4': return { ...dockedBase, top: m, bottom: m, right: m, width: width, height: 'auto' };
+            case 'q1': return { ...dockedBase, top: mTop, bottom: m, left: m, width: width, height: 'auto' };
+            case 'q2': return { ...dockedBase, top: mTop, bottom: m, left: `calc(${m} + ${availW} * 0.25)`, width: width, height: 'auto' };
+            case 'q3': return { ...dockedBase, top: mTop, bottom: m, right: `calc(${m} + ${availW} * 0.25)`, width: width, height: 'auto' };
+            case 'q4': return { ...dockedBase, top: mTop, bottom: m, right: m, width: width, height: 'auto' };
         }
     }
 
@@ -150,7 +153,7 @@ export const getNodeClasses = (
     if (isDockedWindow) {
         borderClass = 'border-gray-600 shadow-2xl hover:border-node-hover'; 
     }
-    if (isProxyMode) borderClass = 'border-gray-600 border-dashed opacity-80';
+    if (isProxyMode) borderClass = 'border-gray-600 opacity-80';
 
     let bgClass = isRerouteDot 
         ? 'bg-gray-600'

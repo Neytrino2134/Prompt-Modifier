@@ -139,6 +139,8 @@ export const useBatchManager = ({
 
     const [isPolling, setIsPolling] = useState<boolean>(false);
     const [fetchingJobIds, setFetchingJobIds] = useState<{ [jobId: string]: boolean }>({});
+    const fetchingJobIdsRef = useRef(fetchingJobIds);
+    fetchingJobIdsRef.current = fetchingJobIds;
 
     // Save batch jobs to localStorage whenever changed
     const persistBatchJobs = useCallback((updater: (prev: BatchJobRecord[]) => BatchJobRecord[]) => {
@@ -516,6 +518,12 @@ export const useBatchManager = ({
                     const patch = { status: 'completed' as TaskStatus, completedAt: Date.now() };
                     updateTaskByBatchJob(job.id, patch);
                     if (job.name) updateTaskByBatchJob(job.name, patch);
+                }
+
+                // Automatically download from server when response is received if autoDownload is enabled
+                const shouldAutoFetch = (job.items && job.items.some(it => it.autoDownload)) || (job as any).autoDownload;
+                if (shouldAutoFetch && !fetchingJobIdsRef.current?.[job.id]) {
+                    fetchBatchJobResults(job.id, { forceRestore: true });
                 }
             } else if (mappedState === 'FAILED') {
                 const errMsg = sdkJob.error?.message || 'Batch job failed on server';
@@ -1032,6 +1040,7 @@ export const useBatchManager = ({
         restoreFailedCards,
         setRestoreFailedCards,
         batchJobs,
+        setBatchJobs: persistBatchJobs,
         formingBatchNodeIds,
         isFormingBatch,
         getNodeActiveBatchJob,

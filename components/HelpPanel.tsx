@@ -88,7 +88,12 @@ const GoogleIcon = (
     </svg>
 );
 
-const HelpPanel: React.FC = () => {
+interface HelpPanelProps {
+    buttonClassName?: string;
+    iconClassName?: string;
+}
+
+const HelpPanel: React.FC<HelpPanelProps> = ({ buttonClassName, iconClassName }) => {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false); // For animation
@@ -305,15 +310,15 @@ const HelpPanel: React.FC = () => {
       >
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-accent hover:text-white text-gray-300"
+          className={buttonClassName || "p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 bg-gray-800/70 hover:bg-accent hover:text-white text-gray-300 border border-gray-700/50"}
           aria-label={t('hotkeys.show')}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <svg xmlns="http://www.w3.org/2000/svg" className={iconClassName || "h-4 w-4"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </button>
         <div
-            className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-slate-700 text-slate-200 text-sm whitespace-nowrap rounded-md shadow-xl z-50 transition-opacity duration-200 ease-in-out origin-top ${isTooltipVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-gray-800 border border-gray-700 text-gray-200 text-xs whitespace-nowrap rounded-md shadow-xl z-50 transition-opacity duration-200 ease-in-out origin-top ${isTooltipVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             role="tooltip"
         >
             {t('hotkeys.show')} (F1)

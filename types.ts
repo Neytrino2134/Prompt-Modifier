@@ -9,12 +9,21 @@ declare global {
             showItemInFolder: (path: string) => void;
             onCloseRequested: (callback: () => void) => () => void;
             forceClose: () => void;
+            minimize?: () => void;
+            maximize?: () => void;
+            close?: () => void;
+            bringToFront?: () => void;
+            focus?: () => void;
+            isMaximized?: () => Promise<boolean>;
+            onMaximizedChange?: (callback: (isMax: boolean) => void) => () => void;
         };
     }
 }
 
 export type Resolution = '720p' | '1080p' | '1K' | '2K' | '4K';
 export type Theme = 'cyan' | 'orange' | 'pink' | 'gray' | 'lime' | 'purple' | 'azure' | 'red' | 'emerald';
+export type PanelStyle = 'classic' | 'modern';
+export type PanelAnimation = 'shimmer' | 'pulse' | 'breath' | 'wave' | 'aurora' | 'neon' | 'none';
 
 export enum NodeType {
   TEXT_INPUT = 'TEXT_INPUT',
@@ -130,6 +139,7 @@ export interface Node {
   isCollapsed?: boolean;
   isNewlyCreated?: boolean;
   isPinned?: boolean; // New property
+  isDetachedWindow?: boolean; // Detached into mini-app Electron window
   collapsedHandles?: boolean; // New property to toggle visibility of detailed output handles
   aspectRatio?: string;
   model?: string;
@@ -454,6 +464,8 @@ export interface NodeContentProps {
   onDeleteNode?: (nodeId: string) => void;
   handleDockNode?: (nodeId: string, mode: DockMode) => void;
   handleUndockNode?: (nodeId: string) => void;
+  handleDetachNodeToMiniApp?: (nodeId: string) => void;
+  handleReattachNodeFromMiniApp?: (nodeId: string) => void;
   onCutConnections?: (nodeId: string) => void;
   onToggleNodePin?: (nodeId: string) => void; // New Handler
   

@@ -13,6 +13,7 @@ interface UseNodeGesturesProps {
     connectingInfo?: any;
     isDockedWindow: boolean;
     isProxyMode: boolean;
+    isDetachedGhost?: boolean;
 }
 
 export const useNodeGestures = ({
@@ -25,7 +26,8 @@ export const useNodeGestures = ({
     activeTool,
     connectingInfo,
     isDockedWindow,
-    isProxyMode
+    isProxyMode,
+    isDetachedGhost
 }: UseNodeGesturesProps) => {
 
     const handleDragMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -42,10 +44,10 @@ export const useNodeGestures = ({
     }, [isDockedWindow, onTouchStart, node.id]);
 
     const handleResizeMouseDown = useCallback((e: React.PointerEvent<HTMLDivElement>, direction?: string) => {
-        if (!isProxyMode) {
+        if (!isProxyMode && !isDetachedGhost) {
             onResizeMouseDown(e, node.id, direction);
         }
-    }, [isProxyMode, onResizeMouseDown, node.id]);
+    }, [isProxyMode, isDetachedGhost, onResizeMouseDown, node.id]);
 
     const handleMouseUp = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         // Main body mouse up no longer handles tool actions to avoid conflicts with connection logic

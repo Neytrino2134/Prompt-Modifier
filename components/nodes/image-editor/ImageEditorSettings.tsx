@@ -46,24 +46,24 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
                 }}
                 className={`p-2 rounded-md border cursor-pointer select-none transition-all ${
                     isBatchMode 
-                        ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200' 
+                        ? 'bg-gray-900 border-gray-700 text-gray-200' 
                         : 'bg-gray-800/40 border-gray-700/50 hover:border-gray-600 text-gray-300'
                 } ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs font-medium">
-                        <span className={`w-2 h-2 rounded-full ${isBatchMode ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`}></span>
+                        <span className={`w-2 h-2 rounded-full ${isBatchMode ? 'bg-accent-secondary animate-pulse' : 'bg-gray-500'}`}></span>
                         <span>{t('batch.mode') || 'Batch API Mode'}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700/60 font-mono">
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-accent-secondary border border-gray-700 font-mono font-semibold">
                             -50% Cost
                         </span>
                     </div>
-                    <div className={`w-8 h-4 rounded-full relative transition-colors flex-shrink-0 ${isBatchMode ? 'bg-emerald-500' : 'bg-gray-600'}`}>
+                    <div className={`w-8 h-4 rounded-full relative transition-colors flex-shrink-0 ${isBatchMode ? 'bg-accent-secondary' : 'bg-gray-600'}`}>
                         <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${isBatchMode ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
                     </div>
                 </div>
                 {isBatchMode && (
-                    <div className="mt-1.5 text-[11px] text-emerald-300/90 leading-tight flex items-start gap-1">
+                    <div className="mt-1.5 text-[11px] text-accent-secondary leading-tight flex items-start gap-1">
                         <span>⏳</span>
                         <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
                     </div>
