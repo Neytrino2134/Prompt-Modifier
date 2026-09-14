@@ -381,9 +381,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             fullSizeImageCache: fullSizeImageCache,
         };
 
-        const defaultState = getLocalizedCanvasState(language as LanguageCode);
         const safeName = typeof customName === 'string' && customName.trim() ? customName.trim() : `Canvas ${tabs.length + 1}`;
-        const newTab = createNewTab(safeName, defaultState);
+        const newTab = createNewTab(safeName);
 
         isLoadingStateRef.current = true;
         lastLoadedTabIdRef.current = newTab.id;
@@ -406,8 +405,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         canvasHook.viewTransform,
         nodesHook.nodeIdCounter,
         fullSizeImageCache,
-        getLocalizedCanvasState,
-        language,
         loadCanvasState
     ]);
 
@@ -437,6 +434,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             prevTabs.map(tab => (tab.id === tabId ? { ...tab, name: newName } : tab))
         );
     }, [setTabs]);
+
+    const handleReorderTabs = useCallback((sourceIndex: number, targetIndex: number) => {
+        if (sourceIndex === targetIndex) return;
+        const currentLiveState: CanvasState = {
+            nodes: nodesHook.nodes,
+            connections: connectionsHook.connections,
+            groups: groupsHook.groups,
+            viewTransform: canvasHook.viewTransform,
+            nodeIdCounter: nodesHook.nodeIdCounter.current,
+            fullSizeImageCache: fullSizeImageCache,
+        };
+
+        setTabs(prevTabs => {
+            if (
+                sourceIndex < 0 || sourceIndex >= prevTabs.length ||
+                targetIndex < 0 || targetIndex >= prevTabs.length
+            ) {
+                return prevTabs;
+            }
+            const updated = prevTabs.map(t => t.id === activeTabId ? { ...t, state: currentLiveState } : t);
+            const [moved] = updated.splice(sourceIndex, 1);
+            updated.splice(targetIndex, 0, moved);
+            
+            saveSessionToDB(updated, activeTabId);
+            return updated;
+        });
+    }, [
+        activeTabId,
+        nodesHook.nodes,
+        connectionsHook.connections,
+        groupsHook.groups,
+        canvasHook.viewTransform,
+        nodesHook.nodeIdCounter,
+        fullSizeImageCache,
+        setTabs
+    ]);
 
     const resetTabs = useCallback(async (lang: LanguageCode) => {
         const defaultState = getLocalizedCanvasState(lang);
@@ -1332,8 +1365,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setActiveTabId,
             handleSwitchTab,
             handleAddTab,
-            handleCloseTab,
+            handleCloseTab: dialogsHook.handleCloseTab,
             handleRenameTab,
+            handleReorderTabs,
             resetTabs,
             resetCurrentTab,
             getCurrentCanvasState,
@@ -1422,6 +1456,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setIsPanelAutoHide: globalState.setIsPanelAutoHide,
             panelAnimation: globalState.panelAnimation,
             setPanelAnimation: globalState.setPanelAnimation,
+            isPanelAnimationAdaptive: globalState.isPanelAnimationAdaptive,
+            setIsPanelAnimationAdaptive: globalState.setIsPanelAnimationAdaptive,
 
             onUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
             handleUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
@@ -1481,7 +1517,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiAnalysisHook, geminiConversationHook, geminiChainExecutionHook, geminiGenerationHook, geminiModificationHook,
         positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook, generationHistoryHook, taskQueueHook, batchManagerHook,
         updateNodeInStorage, forceSaveSession,
-        tabs, activeTabId, handleSwitchTab, handleAddTab, handleCloseTab, handleRenameTab, resetTabs, resetCurrentTab, getCurrentCanvasState,
+        tabs, activeTabId, handleSwitchTab, handleAddTab, dialogsHook.handleCloseTab, handleRenameTab, handleReorderTabs, resetTabs, resetCurrentTab, getCurrentCanvasState,
         handleToggleNodeCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,

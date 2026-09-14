@@ -26,8 +26,8 @@ export const ImageGridOverlay: React.FC<ImageGridOverlayProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const gridBoxRef = useRef<HTMLDivElement>(null);
 
-    const cols = Math.max(1, Math.min(50, gridConfig.cols || 4));
-    const rows = Math.max(1, Math.min(50, gridConfig.rows || 5));
+    const cols = Math.max(1, Math.min(50, gridConfig.cols || 2));
+    const rows = Math.max(1, Math.min(50, gridConfig.rows || 1));
 
     const [localBounds, setLocalBounds] = useState<ImageInputCropRect>(
         gridConfig.bounds || { x: 0, y: 0, width: 1, height: 1 }

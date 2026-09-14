@@ -233,19 +233,19 @@ export const useDialogsAndUI = (props: UseDialogsAndUIProps) => {
         const tabToClose = tabs.find(t => t.id === tabId);
         if (!tabToClose) return;
         
-        const stateToCheck: CanvasState = tabId === activeTabId ? getCurrentCanvasState() : tabToClose.state;
-        const isCanvasEmpty = stateToCheck.nodes.length === 0 && stateToCheck.connections.length === 0 && (stateToCheck.groups || []).length === 0;
-        
-        if (isCanvasEmpty || e?.shiftKey) {
+        if (e?.shiftKey) {
             handleCloseTab(tabId);
         } else {
             setConfirmInfo({
                 title: t('dialog.confirmCloseTab.title'),
                 message: t('dialog.confirmCloseTab.message', { tabName: tabToClose.name }),
                 onConfirm: () => handleCloseTab(tabId),
+                confirmLabel: t('node.action.close') || 'Close',
+                cancelLabel: t('dialog.confirmDelete.cancel') || 'Cancel',
+                confirmVariant: 'accent',
             });
         }
-    }, [tabs, activeTabId, handleCloseTab, setConfirmInfo, t, getCurrentCanvasState]);
+    }, [tabs, handleCloseTab, setConfirmInfo, t]);
 
     const handleCopyError = useCallback((error: string | null) => {
         if (error) {

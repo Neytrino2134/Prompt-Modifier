@@ -9,6 +9,8 @@ interface ImageSlicesPreviewProps {
     originalImage?: string | null;
     includeOriginal?: boolean;
     onChangeIncludeOriginal?: (val: boolean) => void;
+    assetName?: string;
+    onChangeAssetName?: (name: string) => void;
     getFullSizeImage?: (nodeId: string, frameNumber: number) => string | undefined;
     onCopyImageToClipboard?: (src: string) => void;
     onDownloadImage?: (nodeId: string) => void;
@@ -23,6 +25,8 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
     originalImage,
     includeOriginal = true,
     onChangeIncludeOriginal,
+    assetName = 'Asset_Name',
+    onChangeAssetName,
     getFullSizeImage,
     onCopyImageToClipboard,
     addToast,
@@ -46,7 +50,8 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
         setIsZipping(true);
         try {
             const zip = new JSZip();
-            const folder = zip.folder(`assets_grid_${rows}x${cols}`) || zip;
+            const cleanAssetName = (assetName || 'Asset_Name').trim().replace(/[^a-zA-Z0-9_\-а-яА-ЯёЁ]/g, '_') || 'Asset_Name';
+            const folder = zip.folder(`assets_${cleanAssetName}_grid_${rows}x${cols}`) || zip;
             let totalSaved = 0;
 
             // 1. If includeOriginal is requested, write full uncropped original image
@@ -59,7 +64,7 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
                         const mimeMatch = origSrc.match(/data:([^;]+);/);
                         const mime = mimeMatch ? mimeMatch[1] : 'image/png';
                         const ext = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : mime.includes('webp') ? 'webp' : 'png';
-                        folder.file(`original_image.${ext}`, dataParts[1], { base64: true });
+                        folder.file(`original_${cleanAssetName}.${ext}`, dataParts[1], { base64: true });
                         totalSaved += 1;
                     }
                 }
@@ -74,7 +79,7 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
                     const base64Data = src.split(',')[1];
                     const row = Math.floor(i / cols) + 1;
                     const col = (i % cols) + 1;
-                    const filename = `asset_${String(i + 1).padStart(2, '0')}_r${row}_c${col}.png`;
+                    const filename = `slice_${String(i + 1).padStart(3, '0')}_${cleanAssetName}_r${row}_c${col}.png`;
                     folder.file(filename, base64Data, { base64: true });
                     totalSaved += 1;
                 }
@@ -86,13 +91,13 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
             a.href = url;
 
             const timestamp = getImageTimestampString();
-            a.download = `assets_pack_${rows}x${cols}_${slices.length}_${timestamp}.zip`;
+            a.download = `Grid_${cols}x${rows}_${cleanAssetName}_${slices.length}_${timestamp}.zip`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            if (addToast) addToast(`Скачано ${totalSaved} ассетов в ZIP архиве`, 'success');
+            if (addToast) addToast(`Скачано ${totalSaved} ассетов (${cleanAssetName}) в ZIP архиве`, 'success');
         } catch (err: any) {
             console.error('Error creating ZIP:', err);
             if (addToast) addToast('Не удалось создать ZIP архив', 'error');
@@ -117,10 +122,13 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
         const fullRes = getFullSizeImage ? getFullSizeImage(nodeId, idx + 1) : null;
         const src = fullRes || slices[idx];
         if (src) {
+            const cleanAssetName = (assetName || 'Asset_Name').trim().replace(/[^a-zA-Z0-9_\-а-яА-ЯёЁ]/g, '_') || 'Asset_Name';
+            const row = Math.floor(idx / cols) + 1;
+            const col = (idx % cols) + 1;
             const timestamp = getImageTimestampString();
             const a = document.createElement('a');
             a.href = src;
-            a.download = `asset_${String(idx + 1).padStart(2, '0')}_${timestamp}.png`;
+            a.download = `slice_${String(idx + 1).padStart(3, '0')}_${cleanAssetName}_r${row}_c${col}_${timestamp}.png`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -131,7 +139,8 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
         const fullRes = getFullSizeImage ? getFullSizeImage(nodeId, idx + 1) : null;
         const src = fullRes || slices[idx];
         if (src) {
-            const filename = `Asset_${idx + 1}_${getImageTimestampString()}.png`;
+            const cleanAssetName = (assetName || 'Asset_Name').trim().replace(/[^a-zA-Z0-9_\-а-яА-ЯёЁ]/g, '_') || 'Asset_Name';
+            const filename = `slice_${String(idx + 1).padStart(3, '0')}_${cleanAssetName}_${getImageTimestampString()}.png`;
             setupImageDragData(e, src, filename);
             e.stopPropagation();
         }
@@ -141,10 +150,26 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
         <div className="w-full flex flex-col gap-2 pt-2 border-t border-gray-800">
             {/* Header & ZIP download */}
             <div className="flex items-center justify-between px-1 text-xs gap-2 flex-wrap">
-                <span className="font-semibold text-gray-300 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-                    <span>Сетка ассетов ({slices.length + (includeOriginal ? 1 : 0)} шт.)</span>
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-300 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                        <span>Сетка ассетов ({slices.length + (includeOriginal ? 1 : 0)} шт.)</span>
+                    </span>
+
+                    {/* Asset Name Field */}
+                    <div className="flex items-center gap-1.5 bg-gray-900/90 border border-cyan-800/60 px-2 py-0.5 rounded text-[11px]">
+                        <span className="text-gray-400 font-medium">Имя ассета:</span>
+                        <input
+                            type="text"
+                            value={assetName}
+                            onChange={(e) => onChangeAssetName && onChangeAssetName(e.target.value)}
+                            disabled={isZipping}
+                            placeholder="Asset_Name"
+                            className="w-28 bg-gray-950 border border-gray-700 focus:border-cyan-400 rounded px-1.5 py-0.5 text-cyan-200 font-mono text-[11px] focus:outline-none"
+                            title="Имя ассета (добавляется к названию архива и всем файлам)"
+                        />
+                    </div>
+                </div>
 
                 <div className="flex items-center gap-2">
                     {onChangeIncludeOriginal && (

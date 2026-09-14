@@ -171,7 +171,7 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
 
     const baseCalculatedSlices = subMode === 'crop'
         ? batchFiles.length
-        : batchFiles.length * (gridConfig.cols || 4) * (gridConfig.rows || 5);
+        : batchFiles.length * (gridConfig.cols || 2) * (gridConfig.rows || 1);
     const totalCalculatedSlices = baseCalculatedSlices + (includeOriginal ? batchFiles.length : 0);
 
     return (

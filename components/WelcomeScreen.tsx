@@ -3,6 +3,8 @@ import { getTranslation, LanguageCode, TranslationKey, languages, useLanguage } 
 import { APP_VERSION } from '../version';
 import { useAppContext } from '../contexts/AppContext';
 import { CustomCheckbox } from './CustomCheckbox';
+import { PromptModifierIcon } from './icons/PromptModifierLogo';
+import { WelcomeBackgroundElements } from './WelcomeBackgroundElements';
 import { 
     isOpenAiEnabled, 
     setOpenAiEnabled, 
@@ -68,7 +70,7 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
     const langMenuRef = useRef<HTMLDivElement>(null);
 
     const hasGeminiKey = Boolean(apiKey && apiKey.trim().length > 0);
-    const hasEnvKey = Boolean(typeof process !== 'undefined' && process.env && process.env.API_KEY);
+    const hasEnvKey = Boolean(typeof process !== 'undefined' && process.env && (process.env.API_KEY || (process.env as any).GEMINI_API_KEY));
     const hasConfiguredKey = hasGeminiKey || hasEnvKey;
 
     useEffect(() => {
@@ -131,31 +133,59 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
                         </button>
                     </div>
 
-                    {/* Massive Display Title */}
-                    <div className="space-y-4 mb-8">
-                        <h2 className="text-base sm:text-xl md:text-2xl font-bold uppercase tracking-[0.25em] text-cyan-400/90 font-mono drop-shadow">
-                            {t('welcome.title')}
+                    {/* Top Glowing Logo */}
+                    <div className="mb-4 relative">
+                        <div className="absolute -inset-4 bg-cyan-500/30 blur-2xl rounded-full pointer-events-none"></div>
+                        <PromptModifierIcon 
+                            className="w-14 h-14 sm:w-16 sm:h-16 relative z-10 drop-shadow-[0_0_25px_rgba(0,210,255,0.7)]" 
+                            withGlow={true} 
+                        />
+                    </div>
+
+                    {/* "WELCOME TO" with symmetrical horizontal accent lines */}
+                    <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3">
+                        <div className="w-12 sm:w-20 h-[1px] bg-gradient-to-r from-transparent to-cyan-400/80"></div>
+                        <span className="text-[11px] sm:text-xs md:text-sm font-bold uppercase tracking-[0.25em] text-[#00d2ff] font-mono select-none drop-shadow-[0_0_10px_rgba(0,210,255,0.4)]">
+                            {t('welcome.welcomeTo') || 'WELCOME TO'}
+                        </span>
+                        <div className="w-12 sm:w-20 h-[1px] bg-gradient-to-l from-transparent to-cyan-400/80"></div>
+                    </div>
+
+                    {/* Display Title: "Prompt" in White, "Modifier" in Neon Cyan */}
+                    <div className={`relative mb-4 ${triggerHeartbeat ? 'animate-heartbeat' : ''}`}>
+                        <h1 
+                            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight leading-none flex items-center justify-center select-none"
+                            style={{ fontFamily: "'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" }}
+                        >
+                            <span className="text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]">
+                                Prompt
+                            </span>
+                            <span className="w-2.5 sm:w-4"></span>
+                            <span 
+                                className="text-[#00d2ff] font-black drop-shadow-[0_0_30px_rgba(0,210,255,0.65)]"
+                                style={{
+                                    textShadow: '0 0 20px rgba(0, 210, 255, 0.6), 0 0 45px rgba(0, 160, 255, 0.35)'
+                                }}
+                            >
+                                Modifier
+                            </span>
+                        </h1>
+                    </div>
+
+                    {/* Slogan: "— IDEAS IN FLOW —" */}
+                    <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3.5">
+                        <div className="w-14 sm:w-24 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/60 to-cyan-400"></div>
+                        <h2 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-[0.3em] text-[#00d2ff] font-mono select-none drop-shadow-[0_0_12px_rgba(0,210,255,0.45)]">
+                            {t('welcome.ideasInFlow') || 'IDEAS IN FLOW'}
                         </h2>
+                        <div className="w-14 sm:w-24 h-[1px] bg-gradient-to-l from-transparent via-cyan-400/60 to-cyan-400"></div>
+                    </div>
 
-                        <div className={`relative inline-block ${triggerHeartbeat ? 'animate-heartbeat' : ''}`}>
-                            {/* Ambient Glow behind title */}
-                            <div className="absolute -inset-6 bg-gradient-to-r from-cyan-500/30 via-sky-400/30 to-blue-600/30 blur-3xl rounded-full opacity-70 pointer-events-none"></div>
-
-                            <h1 className="relative text-5xl sm:text-7xl md:text-8xl font-black tracking-tight leading-none text-white drop-shadow-[0_10px_25px_rgba(0,168,255,0.35)]">
-                                <span className="text-gradient-shimmer select-none">
-                                    {t('app.title')}
-                                </span>
-                            </h1>
-                        </div>
-
-                        <div className="flex items-center justify-center gap-3 pt-2">
-                            <span className="text-xs sm:text-sm text-gray-300 font-light tracking-wide max-w-md">
-                                {t('app.subtitle')}
-                            </span>
-                            <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-cyan-950/80 text-cyan-400 border border-cyan-500/50 shadow-sm">
-                                {APP_VERSION.startsWith('v') ? APP_VERSION : `v${APP_VERSION}`}
-                            </span>
-                        </div>
+                    {/* Tagline: "IMAGINE • CONNECT • ENHANCE • CREATE" */}
+                    <div className="mb-7">
+                        <p className="text-[11px] sm:text-xs md:text-sm font-semibold tracking-[0.25em] text-slate-300/90 select-none uppercase font-sans">
+                            {t('welcome.tagline') || 'IMAGINE • CONNECT • ENHANCE • CREATE'}
+                        </p>
                     </div>
 
                     {/* Status indicator pill if configured */}
@@ -211,15 +241,15 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
                                         className="w-full py-4 px-8 text-lg font-black text-white btn-gradient-animated rounded-2xl shadow-2xl shadow-cyan-500/30 hover:shadow-cyan-400/50 transform hover:-translate-y-1 hover:scale-[1.02] active:translate-y-0 active:scale-95 transition-all duration-300 flex items-center justify-center gap-3 group border border-cyan-300/40"
                                     >
                                         <div className={`flex items-center gap-3 transition-all duration-300 ${exitPhase !== 'idle' ? 'translate-x-12 opacity-0' : 'translate-x-0 opacity-100'}`}>
-                                            <span className="tracking-wide">{isResumable ? t('welcome.resume') : t('welcome.letsGo')}</span>
+                                            <span className="tracking-wide">{t('welcome.resume')}</span>
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 transform group-hover:translate-x-1.5 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                             </svg>
                                         </div>
                                     </button>
 
-                                    {/* Start New Canvas Button (if resumable) */}
-                                    {isResumable && onStartNew && (
+                                    {/* Start New Canvas Button */}
+                                    {onStartNew && (
                                         <button 
                                             type="button"
                                             onClick={onStartNew}
@@ -276,7 +306,7 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
                                 {t('app.title')}
                             </span>
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800">
-                                v{APP_VERSION}
+                                {APP_VERSION.startsWith('v') ? APP_VERSION : `v${APP_VERSION}`}
                             </span>
                         </div>
                     </div>
@@ -674,7 +704,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
   };
 
   const handleStandardStart = () => {
-    triggerExit(!isResumable, false);
+    triggerExit(false, false);
   };
 
   const handleStartNew = () => {
@@ -692,9 +722,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
             }
         }}
     >
-        {/* Ambient Floating Glow Circles */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-cyan-600/15 rounded-full blur-[140px] pointer-events-none"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+        {/* Concept Background: Ambient Glows, Matrix Dot Grid, Floating Node Cards, Circuit Traces */}
+        <WelcomeBackgroundElements />
 
         <div className="min-h-screen w-full flex flex-col items-center justify-center py-12 px-4 relative z-10 pointer-events-auto">
             <style>{`

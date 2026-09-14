@@ -2,8 +2,17 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  selectDownloadFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  getDownloadPath: () => ipcRenderer.invoke('app:getDownloadPath'),
   showItemInFolder: (path) => ipcRenderer.invoke('shell:showItemInFolder', path),
   setDownloadPath: (path) => ipcRenderer.send('app:setDownloadPath', path),
+  // Session Persistence on Disk for Electron
+  saveSession: (sessionData) => ipcRenderer.invoke('session:save', sessionData),
+  loadSession: () => ipcRenderer.invoke('session:load'),
+  openAutosaveFolder: () => ipcRenderer.invoke('session:open-folder'),
+  listSessionBackups: () => ipcRenderer.invoke('session:list-backups'),
+  restoreSessionBackup: (backupPath) => ipcRenderer.invoke('session:restore-backup', backupPath),
+  readSessionBackup: (backupPath) => ipcRenderer.invoke('session:restore-backup', backupPath),
   // Listen for close request from Main
   onCloseRequested: (callback) => {
     const subscription = (event, ...args) => callback(...args);

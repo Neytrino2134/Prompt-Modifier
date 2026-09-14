@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme, PanelStyle, PanelAnimation } from '../types';
+import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme, PanelStyle, PanelAnimation, CursorSkin } from '../types';
 
 export const useGlobalState = (currentNodes: Node[]) => {
     // Toasts
@@ -232,10 +232,47 @@ export const useGlobalState = (currentNodes: Node[]) => {
         localStorage.setItem('settings_panelAnimation', anim);
     }, []);
 
-    // Apply theme on mount/change
+    // Theme Adaptive for Panel Animation
+    const [isPanelAnimationAdaptive, setIsPanelAnimationAdaptiveState] = useState<boolean>(() => {
+        const stored = localStorage.getItem('settings_panelAnimationAdaptive');
+        return stored === null ? true : stored === 'true';
+    });
+
+    const setIsPanelAnimationAdaptive = useCallback((adaptive: boolean) => {
+        setIsPanelAnimationAdaptiveState(adaptive);
+        localStorage.setItem('settings_panelAnimationAdaptive', adaptive ? 'true' : 'false');
+    }, []);
+
+    // Cursor Skin Setting
+    const [cursorSkin, setCursorSkinState] = useState<CursorSkin>(() => {
+        return (localStorage.getItem('settings_cursorSkin') as CursorSkin) || 'default';
+    });
+
+    const setCursorSkin = useCallback((skin: CursorSkin) => {
+        setCursorSkinState(skin);
+        localStorage.setItem('settings_cursorSkin', skin);
+        document.documentElement.setAttribute('data-cursor-skin', skin);
+    }, []);
+
+    // Cursor Click Feedback Effect Setting
+    const [isCursorEffectEnabled, setIsCursorEffectEnabledState] = useState<boolean>(() => {
+        const stored = localStorage.getItem('settings_cursorEffect');
+        return stored === null ? false : stored === 'true';
+    });
+
+    const setIsCursorEffectEnabled = useCallback((enabled: boolean) => {
+        setIsCursorEffectEnabledState(enabled);
+        localStorage.setItem('settings_cursorEffect', enabled ? 'true' : 'false');
+    }, []);
+
+    // Apply theme & cursor on mount/change
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', currentTheme);
     }, [currentTheme]);
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-cursor-skin', cursorSkin);
+    }, [cursorSkin]);
 
     // Capture Console Logs
     useEffect(() => {
@@ -334,6 +371,9 @@ export const useGlobalState = (currentNodes: Node[]) => {
         panelStyle, setPanelStyle,
         isPanelAutoHide, setIsPanelAutoHide,
         panelAnimation, setPanelAnimation,
+        isPanelAnimationAdaptive, setIsPanelAnimationAdaptive,
+        cursorSkin, setCursorSkin,
+        isCursorEffectEnabled, setIsCursorEffectEnabled,
         clearSelectionsSignal,
         globalImageEditor,
         openGlobalImageEditor,

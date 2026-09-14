@@ -173,9 +173,12 @@ export const useInteraction = (props: UseInteractionProps) => {
     const getCanvasCursor = () => {
         if (zoomDragInfo) return 'ew-resize';
         if (nodeDrag.draggingInfo) return 'grabbing';
+        if (isPanning) return 'grabbing';
+        if (effectiveTool === 'cutter') return 'cutter';
         if (effectiveTool === 'selection') return 'crosshair';
+        if (effectiveTool === 'reroute') return 'reroute';
         if (effectiveTool === 'zoom') return 'ew-resize';
-        if (effectiveTool === 'edit' || effectiveTool === 'cutter' || effectiveTool === 'reroute') return isPanning ? 'grabbing' : 'grab';
+        if (effectiveTool === 'edit') return 'grab';
         return 'default';
     };
 

@@ -1,8 +1,9 @@
 {
   "name": "prompt-modifier",
+  "productName": "Prompt Modifier",
   "private": true,
-  "version": "0.2.1",
-  "description": "Visual node-based editor for Gemini AI prompts",
+  "version": "0.2.5",
+  "description": "Prompt Modifier",
   "author": "MeowMaster",
   "type": "module",
   "main": "electron/main.js",
@@ -50,7 +51,19 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "resources/icon.ico"
+      "icon": "resources/icon.ico",
+      "executableName": "Prompt Modifier"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Prompt Modifier",
+      "artifactName": "${productName} Setup ${version}.${ext}"
     },
     "linux": {
       "target": "AppImage",

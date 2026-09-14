@@ -24,34 +24,137 @@ const getSessionDB = (): Promise<IDBDatabase> => {
 };
 
 export const saveSessionToDB = async (tabs: Tab[], activeTabId: string): Promise<void> => {
-    const db = await getSessionDB();
-    return new Promise<void>((resolve, reject) => {
-        const transaction = db.transaction(SESSION_STORE, 'readwrite');
-        const store = transaction.objectStore(SESSION_STORE);
-        // Save everything as one object, passing the key explicitly as the store uses out-of-line keys.
-        store.put({ id: SESSION_KEY, tabs, activeTabId, savedAt: Date.now() }, SESSION_KEY);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error || new Error("Failed to save session to DB"));
-        transaction.onabort = () => reject(transaction.error || new Error("Transaction aborted"));
-    });
+    const sessionObj = { id: SESSION_KEY, tabs, activeTabId, savedAt: Date.now() };
+
+    // 1. Electron File Storage (100% durable & crash-resistant on desktop)
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.saveSession) {
+        try {
+            await (window as any).electronAPI.saveSession(sessionObj);
+        } catch (e) {
+            console.warn("Failed to save session via Electron API:", e);
+        }
+    }
+
+    // 2. IndexedDB
+    try {
+        const db = await getSessionDB();
+        await new Promise<void>((resolve, reject) => {
+            const transaction = db.transaction(SESSION_STORE, 'readwrite');
+            const store = transaction.objectStore(SESSION_STORE);
+            store.put(sessionObj, SESSION_KEY);
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error || new Error("Failed to save session to DB"));
+            transaction.onabort = () => reject(transaction.error || new Error("Transaction aborted"));
+        });
+    } catch (e) {
+        console.warn("Failed to save session to IndexedDB:", e);
+    }
+
+    // 3. LocalStorage Fallback (lightweight without massive binary cache to avoid QuotaExceededError)
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const safeTabs = tabs.map(t => ({
+                ...t,
+                state: {
+                    ...t.state,
+                    fullSizeImageCache: {}
+                }
+            }));
+            localStorage.setItem('prompt_modifier_session_backup', JSON.stringify({
+                tabs: safeTabs,
+                activeTabId,
+                savedAt: sessionObj.savedAt
+            }));
+        }
+    } catch (e) {
+        // Safe to ignore if LocalStorage quota is exceeded
+    }
 };
 
 export const loadSessionFromDB = async (): Promise<{ tabs: Tab[], activeTabId: string } | undefined> => {
-    const db = await getSessionDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(SESSION_STORE, 'readonly');
-        const store = transaction.objectStore(SESSION_STORE);
-        const request = store.get(SESSION_KEY);
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            const result = request.result;
-            if (result && Array.isArray(result.tabs) && result.tabs.length > 0 && result.activeTabId) {
-                resolve({ tabs: result.tabs, activeTabId: result.activeTabId });
-            } else {
-                resolve(undefined);
+    let electronSession: { tabs: Tab[], activeTabId: string, savedAt?: number } | null = null;
+    let idbSession: { tabs: Tab[], activeTabId: string, savedAt?: number } | undefined = undefined;
+    let localBackupSession: { tabs: Tab[], activeTabId: string, savedAt?: number } | undefined = undefined;
+
+    // 1. Check Electron disk session
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.loadSession) {
+        try {
+            const res = await (window as any).electronAPI.loadSession();
+            if (res && Array.isArray(res.tabs) && res.tabs.length > 0 && res.activeTabId) {
+                electronSession = res;
             }
-        };
+        } catch (e) {
+            console.warn("Could not load session from Electron API:", e);
+        }
+    }
+
+    // 2. Check IndexedDB
+    try {
+        const db = await getSessionDB();
+        idbSession = await new Promise((resolve) => {
+            const transaction = db.transaction(SESSION_STORE, 'readonly');
+            const store = transaction.objectStore(SESSION_STORE);
+            const request = store.get(SESSION_KEY);
+            request.onerror = () => resolve(undefined);
+            request.onsuccess = () => {
+                const result = request.result;
+                if (result && Array.isArray(result.tabs) && result.tabs.length > 0 && result.activeTabId) {
+                    resolve({ tabs: result.tabs, activeTabId: result.activeTabId, savedAt: result.savedAt });
+                } else {
+                    resolve(undefined);
+                }
+            };
+        });
+    } catch (e) {
+        console.warn("Could not load session from IndexedDB:", e);
+    }
+
+    // 3. Check LocalStorage backup
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('prompt_modifier_session_backup');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && Array.isArray(parsed.tabs) && parsed.tabs.length > 0 && parsed.activeTabId) {
+                    localBackupSession = parsed;
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("Could not load session from LocalStorage backup:", e);
+    }
+
+    // Helper to evaluate session content substance (avoids picking empty default canvas over actual work)
+    const isSubstantial = (cand: { tabs: Tab[] }) => {
+        if (!cand || !Array.isArray(cand.tabs) || cand.tabs.length === 0) return false;
+        if (cand.tabs.length > 1) return true;
+        const tab = cand.tabs[0];
+        if (tab.name && tab.name !== 'Canvas 1') return true;
+        if (tab.state?.nodes && tab.state.nodes.length > 0) return true;
+        if (tab.state?.connections && tab.state.connections.length > 0) return true;
+        return false;
+    };
+
+    // Compare available sessions and pick the best / latest one
+    const candidates = [electronSession, idbSession, localBackupSession].filter(Boolean) as { tabs: Tab[], activeTabId: string, savedAt?: number }[];
+    if (candidates.length === 0) return undefined;
+
+    // Substantial user sessions take priority over a blank default template; then latest savedAt
+    candidates.sort((a, b) => {
+        const subA = isSubstantial(a) ? 1 : 0;
+        const subB = isSubstantial(b) ? 1 : 0;
+        if (subA !== subB) return subB - subA;
+        return (b.savedAt || 0) - (a.savedAt || 0);
     });
+
+    const chosen = candidates[0];
+
+    // Re-synchronize chosen session across all layers if needed
+    if (chosen && Array.isArray(chosen.tabs) && chosen.tabs.length > 0) {
+        saveSessionToDB(chosen.tabs, chosen.activeTabId).catch(() => {});
+    }
+
+    return { tabs: chosen.tabs, activeTabId: chosen.activeTabId };
 };
 // --- End IndexedDB Logic ---
 
@@ -265,6 +368,22 @@ export const useTabs = () => {
             prevTabs.map(tab => (tab.id === tabId ? { ...tab, name: newName } : tab))
         );
     }, []);
+
+    const handleReorderTabs = useCallback((sourceIndex: number, targetIndex: number) => {
+        if (sourceIndex === targetIndex) return;
+        setTabs(prevTabs => {
+            if (
+                sourceIndex < 0 || sourceIndex >= prevTabs.length ||
+                targetIndex < 0 || targetIndex >= prevTabs.length
+            ) {
+                return prevTabs;
+            }
+            const updated = [...prevTabs];
+            const [moved] = updated.splice(sourceIndex, 1);
+            updated.splice(targetIndex, 0, moved);
+            return updated;
+        });
+    }, []);
     
     // Function to completely reset all tabs with specific language defaults (Factory Reset)
     const resetTabs = useCallback((lang: LanguageCode) => {
@@ -324,6 +443,7 @@ export const useTabs = () => {
         handleAddTab,
         handleCloseTab,
         handleRenameTab,
+        handleReorderTabs,
         loadCanvasState,
         getCurrentCanvasState,
         resetTabs, 

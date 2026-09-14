@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { NodeType, Point } from '../types';
 import { useLanguage } from '../localization';
+import { ThreeDModelIcon } from './icons/AppIcons';
 
 interface NodeOption {
   type: NodeType;
@@ -9,7 +10,7 @@ interface NodeOption {
   englishTitle: string; 
   description: string;
   icon: React.ReactNode;
-  group: 'input' | 'process' | 'output' | 'ai' | 'video' | 'scripts' | 'game' | 'character';
+  group: 'input' | 'process' | 'output' | 'ai' | 'video' | 'scripts' | 'game' | 'character' | 'threed';
 }
 
 interface QuickSearchMenuProps {
@@ -91,6 +92,8 @@ const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onC
     { group: 'output', type: NodeType.IMAGE_EDITOR, title: t('search.node.image_editor.title' as any), englishTitle: 'AI Image Editor', description: t('search.node.image_editor.description' as any), icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg> },
     // Group 7: Game
     { group: 'game', type: NodeType.DATA_PROTECTION, title: t('search.node.data_protection.title' as any), englishTitle: 'Data Protection', description: t('search.node.data_protection.description' as any), icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg> },
+    // Group 8: 3D Models
+    { group: 'threed', type: NodeType.THREE_D_GENERATOR, title: t('search.node.three_d_generator.title' as any) || '3D Generation', englishTitle: '3D Generation (Tripo)', description: t('search.node.three_d_generator.description' as any) || 'Generate 3D mesh models (.glb) from image or multiview images via Tripo AI', icon: <ThreeDModelIcon className="w-6 h-6 text-indigo-400" /> },
   ], [t]);
 
   const groupTitles = useMemo(() => ({
@@ -102,6 +105,7 @@ const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onC
     video: t('search.group.video' as any),
     scripts: t('search.group.scripts' as any),
     game: 'Games',
+    threed: t('search.group.threed' as any) || '3D Models',
   }), [t]);
 
   const groupStyles = {
@@ -113,6 +117,7 @@ const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onC
     video: 'bg-red-800/50 text-red-300',
     scripts: 'bg-lime-800/50 text-lime-300',
     game: 'bg-cyan-800/50 text-cyan-300',
+    threed: 'bg-indigo-800/50 text-indigo-300',
   };
 
   const filteredNodes = useMemo(() => {

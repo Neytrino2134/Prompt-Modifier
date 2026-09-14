@@ -153,7 +153,7 @@ export const processImageEditor = async (
 
         return {
             value: { ...parsed, outputImage: thumbnailUrl },
-            downloadData: parsed.autoDownload ? { url: finalImageUrl, prompt: promptToUse, type: node.type } : undefined
+            downloadData: parsed.autoSaveImages ? { url: finalImageUrl, prompt: promptToUse, type: node.type } : undefined
         };
     }
 
@@ -228,6 +228,6 @@ export const processImageEditor = async (
 
     return {
         value: { ...parsed, outputImage: thumbnailUrl }, // Update outputImage to show result
-        downloadData: parsed.autoDownload ? { url: finalImageUrl, prompt: promptToUse, type: node.type } : undefined
+        downloadData: parsed.autoSaveImages ? { url: finalImageUrl, prompt: promptToUse, type: node.type } : undefined
     };
 };

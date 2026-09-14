@@ -306,6 +306,7 @@ export const useHotkeys = (props: UseHotkeysProps) => {
                 case 'KeyR': nodeTypeToAdd = NodeType.DATA_READER; break;
                 case 'KeyV': nodeTypeToAdd = NodeType.SCRIPT_VIEWER; break;
                 case 'KeyQ': nodeTypeToAdd = NodeType.IMAGE_SEQUENCE_GENERATOR; break;
+                case 'KeyT': nodeTypeToAdd = NodeType.THREE_D_GENERATOR; break;
                 case 'KeyW': e.preventDefault(); if (!e.repeat) setIsSnapToGrid(prev => !prev); return;
                 case 'KeyE': e.preventDefault(); if (!e.repeat) setLineStyle((prev: any) => prev === 'spaghetti' ? 'orthogonal' : 'spaghetti'); return;
                 case 'KeyL': e.preventDefault(); if (!e.repeat) setIsSmartGuidesEnabled(prev => !prev); return;

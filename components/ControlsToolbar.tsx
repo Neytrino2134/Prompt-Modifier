@@ -19,7 +19,7 @@ const ToolButton: React.FC<{
     const activeClass = isActive 
         ? 'bg-accent text-white shadow-md shadow-accent/30' 
         : isModern 
-            ? 'bg-gray-800/60 hover:bg-accent hover:text-white text-gray-300 border border-gray-700/40'
+            ? 'bg-gray-800/60 hover:bg-accent hover:text-white text-gray-300'
             : 'bg-gray-700 hover:bg-accent hover:text-white text-gray-300';
     
     return (
@@ -39,7 +39,7 @@ const ToolButton: React.FC<{
             >
               <span>{title}</span>
               {shortcut && (
-                <span className="px-1 py-0.2 bg-gray-800 text-[10px] text-accent font-mono rounded border border-gray-700">
+                <span className="px-1 py-0.2 bg-gray-800 text-[10px] text-accent font-mono rounded">
                   {shortcut}
                 </span>
               )}
@@ -190,10 +190,10 @@ const ControlsToolbar: React.FC<ControlsToolbarProps> = ({ activeTool, onToolCha
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => setIsPinned(p => !p)}
-                        className={`p-1.5 rounded-lg transition-all text-xs flex items-center justify-center h-8 w-8 focus:outline-none focus:ring-0 outline-none select-none border ${
+                        className={`p-1.5 rounded-lg transition-all text-xs flex items-center justify-center h-8 w-8 focus:outline-none focus:ring-0 outline-none select-none ${
                             isPinned
-                                ? 'bg-accent/20 text-accent border-accent/40 shadow-sm'
-                                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/40 border-transparent'
+                                ? 'bg-accent/20 text-accent shadow-sm'
+                                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/40'
                         }`}
                         title={isPinned ? t('panel.unpin') : t('panel.pin')}
                     >

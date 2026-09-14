@@ -23,7 +23,45 @@ declare global {
 export type Resolution = '720p' | '1080p' | '1K' | '2K' | '4K';
 export type Theme = 'cyan' | 'orange' | 'pink' | 'gray' | 'lime' | 'purple' | 'azure' | 'red' | 'emerald';
 export type PanelStyle = 'classic' | 'modern';
-export type PanelAnimation = 'shimmer' | 'pulse' | 'breath' | 'wave' | 'aurora' | 'neon' | 'none';
+export type PanelAnimation = 
+  | 'shimmer' 
+  | 'pulse' 
+  | 'breath' 
+  | 'wave' 
+  | 'aurora' 
+  | 'neon' 
+  | 'shapes_bubbles'
+  | 'shapes_ocean'
+  | 'shapes_geometry'
+  | 'shapes_techno'
+  | 'shapes_cyber'
+  | 'shapes_nature'
+  | 'shapes_space'
+  | 'none';
+export type CursorSkin = 
+  | 'prompt_modifier' 
+  | 'default' 
+  | 'cyber_neon' 
+  | 'amber_gold' 
+  | 'plasma_purple' 
+  | 'modern_flat' 
+  | 'modern_flat_dark' 
+  | 'modern_flat_dark_cyan' 
+  | 'modern_flat_dark_white'
+  | 'rounded_gradient_cyan'
+  | 'rounded_gradient_adaptive'
+  | 'rounded_gradient_purple'
+  | 'rounded_gradient_violet_orange'
+  | 'rounded_gradient_sunset'
+  | 'rounded_gradient_emerald'
+  | 'rounded_gradient_rose'
+  | 'toy_adaptive'
+  | 'toy_classic_blue'
+  | 'toy_bubblegum'
+  | 'toy_mint'
+  | 'toy_amber'
+  | 'toy_lilac';
+
 
 export enum NodeType {
   TEXT_INPUT = 'TEXT_INPUT',
@@ -52,6 +90,7 @@ export enum NodeType {
   MEDIA_VIEWER = 'MEDIA_VIEWER',
   DATA_PROTECTION = 'DATA_PROTECTION',
   POSE_CREATOR = 'POSE_CREATOR',
+  THREE_D_GENERATOR = 'THREE_D_GENERATOR',
 }
 
 export type LogLevel = 'info' | 'warning' | 'error' | 'success';
@@ -96,7 +135,7 @@ export type Tool = 'edit' | 'cutter' | 'selection' | 'reroute' | 'zoom';
 export type LineStyle = 'spaghetti' | 'orthogonal';
 export type Alignment = 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom' | 'distribute-horizontal' | 'distribute-vertical';
 export type DockMode = 'full' | 'left' | 'right' | 'tl' | 'tr' | 'bl' | 'br' | 'q1' | 'q2' | 'q3' | 'q4';
-export type ToolbarViewMode = 'full' | 'simple' | 'analysis' | 'video' | 'characters';
+export type ToolbarViewMode = 'full' | 'simple' | 'analysis' | 'video' | 'characters' | '3d';
 
 export interface Point {
   x: number;
@@ -144,6 +183,7 @@ export interface Node {
   aspectRatio?: string;
   model?: string;
   autoDownload?: boolean;
+  autoSaveImages?: boolean;
   resolution?: Resolution;
   dockState?: DockState;
   customPrompt?: string; // New property for custom prompts within nodes without inputs
@@ -264,6 +304,7 @@ export interface BatchJobItem {
     images?: { base64ImageData: string; mimeType: string }[];
     autoCrop169?: boolean;
     autoDownload?: boolean;
+    autoSaveImages?: boolean;
     status: TaskStatus;
     resultUrl?: string;
     error?: string;
@@ -283,6 +324,7 @@ export interface BatchJobRecord {
     tabId?: string;
     tabName?: string;
     isSequence: boolean;
+    deviceId?: string;
     items: BatchJobItem[];
     rawJsonl?: string;
     error?: string;

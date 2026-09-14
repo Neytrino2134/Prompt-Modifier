@@ -1,0 +1,471 @@
+{
+  "size": [
+    48,
+    48
+  ],
+  "format": [
+    "svg",
+    "png"
+  ],
+  "cursors": [
+    {
+      "name": "default-select",
+      "label": "Default Select",
+      "hotspot": [
+        6,
+        3
+      ],
+      "fallback": "auto"
+    },
+    {
+      "name": "pointer-link",
+      "label": "Pointer (Link)",
+      "hotspot": [
+        21,
+        5
+      ],
+      "fallback": "pointer"
+    },
+    {
+      "name": "help-select",
+      "label": "Help Select",
+      "hotspot": [
+        6,
+        3
+      ],
+      "fallback": "help"
+    },
+    {
+      "name": "working",
+      "label": "Working (Load)",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "progress"
+    },
+    {
+      "name": "busy",
+      "label": "Busy (Alternative)",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "wait"
+    },
+    {
+      "name": "wait",
+      "label": "Wait",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "wait"
+    },
+    {
+      "name": "crosshair",
+      "label": "Crosshair",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "crosshair"
+    },
+    {
+      "name": "text-select",
+      "label": "Text Select",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "text"
+    },
+    {
+      "name": "pen",
+      "label": "Pen",
+      "hotspot": [
+        8,
+        40
+      ],
+      "fallback": "crosshair"
+    },
+    {
+      "name": "eraser",
+      "label": "Eraser",
+      "hotspot": [
+        10,
+        30
+      ],
+      "fallback": "auto"
+    },
+    {
+      "name": "eyedropper",
+      "label": "Eyedropper",
+      "hotspot": [
+        8,
+        40
+      ],
+      "fallback": "crosshair"
+    },
+    {
+      "name": "zoom-in",
+      "label": "Zoom In",
+      "hotspot": [
+        21,
+        20
+      ],
+      "fallback": "zoom-in"
+    },
+    {
+      "name": "zoom-out",
+      "label": "Zoom Out",
+      "hotspot": [
+        21,
+        20
+      ],
+      "fallback": "zoom-out"
+    },
+    {
+      "name": "move",
+      "label": "Move (All Directions)",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "move"
+    },
+    {
+      "name": "resize-horizontal",
+      "label": "Resize Horizontal",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "ew-resize"
+    },
+    {
+      "name": "resize-vertical",
+      "label": "Resize Vertical",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "ns-resize"
+    },
+    {
+      "name": "resize-diagonal-nwse",
+      "label": "Resize Diagonal 1 (NW-SE)",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "nwse-resize"
+    },
+    {
+      "name": "resize-diagonal-nesw",
+      "label": "Resize Diagonal 2 (NE-SW)",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "nesw-resize"
+    },
+    {
+      "name": "resize-all",
+      "label": "Resize All",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "all-scroll"
+    },
+    {
+      "name": "resize-column",
+      "label": "Resize Column",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "col-resize"
+    },
+    {
+      "name": "resize-row",
+      "label": "Resize Row",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "row-resize"
+    },
+    {
+      "name": "scroll-up",
+      "label": "Scroll Up",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "n-resize"
+    },
+    {
+      "name": "scroll-down",
+      "label": "Scroll Down",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "s-resize"
+    },
+    {
+      "name": "scroll-left",
+      "label": "Scroll Left",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "w-resize"
+    },
+    {
+      "name": "scroll-right",
+      "label": "Scroll Right",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "e-resize"
+    },
+    {
+      "name": "scroll-all",
+      "label": "Scroll All Directions",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "all-scroll"
+    },
+    {
+      "name": "add-create",
+      "label": "Add / Create",
+      "hotspot": [
+        6,
+        3
+      ],
+      "fallback": "copy"
+    },
+    {
+      "name": "remove-delete",
+      "label": "Remove / Delete",
+      "hotspot": [
+        6,
+        3
+      ],
+      "fallback": "no-drop"
+    },
+    {
+      "name": "not-allowed",
+      "label": "Not Allowed",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "not-allowed"
+    },
+    {
+      "name": "unavailable",
+      "label": "Unavailable",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "not-allowed"
+    },
+    {
+      "name": "working-background",
+      "label": "Working in Background",
+      "hotspot": [
+        6,
+        3
+      ],
+      "fallback": "progress"
+    },
+    {
+      "name": "precise-select",
+      "label": "Precise Select",
+      "hotspot": [
+        6,
+        3
+      ],
+      "fallback": "crosshair"
+    },
+    {
+      "name": "grab",
+      "label": "Grab",
+      "hotspot": [
+        21,
+        6
+      ],
+      "fallback": "grab"
+    },
+    {
+      "name": "grabbing",
+      "label": "Grabbing",
+      "hotspot": [
+        21,
+        10
+      ],
+      "fallback": "grabbing"
+    },
+    {
+      "name": "pinch-gesture",
+      "label": "Pinch / Gesture",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "zoom-in"
+    },
+    {
+      "name": "rotate",
+      "label": "Rotate",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "alias"
+    },
+    {
+      "name": "rotate-clockwise",
+      "label": "Rotate Clockwise",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "alias"
+    },
+    {
+      "name": "rotate-counterclockwise",
+      "label": "Rotate Counterclockwise",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "alias"
+    },
+    {
+      "name": "open-in-new",
+      "label": "Open in New",
+      "hotspot": [
+        39,
+        8
+      ],
+      "fallback": "alias"
+    },
+    {
+      "name": "link",
+      "label": "Link",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "alias"
+    },
+    {
+      "name": "broken-link",
+      "label": "Broken Link",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "no-drop"
+    },
+    {
+      "name": "text-resize-horizontal",
+      "label": "Text Resize Horizontal",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "ew-resize"
+    },
+    {
+      "name": "text-resize-vertical",
+      "label": "Text Resize Vertical",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "ns-resize"
+    },
+    {
+      "name": "draw-paint",
+      "label": "Draw / Paint",
+      "hotspot": [
+        9,
+        39
+      ],
+      "fallback": "crosshair"
+    },
+    {
+      "name": "color-pick",
+      "label": "Color Pick",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "crosshair"
+    },
+    {
+      "name": "node-add",
+      "label": "Node Add",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "copy"
+    },
+    {
+      "name": "node-remove",
+      "label": "Node Remove",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "no-drop"
+    },
+    {
+      "name": "box-select",
+      "label": "Box Select",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "crosshair"
+    },
+    {
+      "name": "lasso-select",
+      "label": "Lasso Select",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "crosshair"
+    },
+    {
+      "name": "crop",
+      "label": "Crop",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "crosshair"
+    },
+    {
+      "name": "no-drop",
+      "label": "No Drop",
+      "hotspot": [
+        24,
+        24
+      ],
+      "fallback": "no-drop"
+    }
+  ]
+}

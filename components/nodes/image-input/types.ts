@@ -10,8 +10,8 @@ export type ImageBatchSubMode = 'crop' | 'grid';
 export type ImageGridBorderMode = 'inner' | 'all';
 
 export interface ImageInputGridConfig {
-    cols: number; // default 4 (X)
-    rows: number; // default 5 (Y)
+    cols: number; // default 2 (X)
+    rows: number; // default 1 (Y)
     bounds?: ImageInputCropRect; // optional outer bounds inside image (default full: 0,0, 1,1)
     selectedCells?: number[]; // optional active cell indices (0-based)
     enableBorder?: boolean; // toggle border thickness/cut-off
@@ -21,6 +21,7 @@ export interface ImageInputGridConfig {
     colDividers?: number[]; // normalized split points [x1, x2, ..., x_{cols-1}] in 0..1 range within bounds
     rowDividers?: number[]; // normalized split points [y1, y2, ..., y_{rows-1}] in 0..1 range within bounds
     includeOriginal?: boolean; // include uncropped original image in ZIP (default true)
+    assetName?: string; // default "Asset_Name"
 }
 
 export interface ImageBatchItem {

@@ -2,10 +2,12 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ActionButton } from '../../ActionButton';
+import { ChevronLeft, ChevronRight, Banana, Sparkles, Zap, Image as ImageIcon } from 'lucide-react';
 import CustomSelect from '../../CustomSelect';
 import { ImageEditorState, ImageSlot } from './types';
 import { CopyIcon } from '../../../components/icons/AppIcons';
 import { Tooltip } from '../../Tooltip';
+import { EditorTooltip } from './EditorTooltip';
 import JSZip from 'jszip';
 import { CustomCheckbox } from '../../CustomCheckbox';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
@@ -15,6 +17,23 @@ import { useAppContext } from '../../../contexts/AppContext';
 import { isGptImage2Model, isOpenAiImageModel, resolveImageEditorModel } from '../../../services/modelConfig';
 
 // Helper component for input with stylish spinners
+
+const getModelIcon = (modelValue: string) => {
+    if (modelValue === 'gemini-3-pro-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Sparkles className="w-3 h-3 text-yellow-300 relative -top-1" /></div>;
+    if (modelValue === 'gemini-3.1-flash-image') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Zap className="w-3 h-3 text-blue-400 relative -top-1" /></div>;
+    if (modelValue === 'gemini-3.1-flash-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-gray-400" /><Zap className="w-3 h-3 text-blue-300 relative -top-1" /></div>;
+    if (modelValue === 'gemini-2.5-flash-image') return <Banana className="w-4 h-4 text-yellow-500" />;
+    return <ImageIcon className="w-4 h-4 text-gray-400" />;
+};
+
+const getModelShortName = (modelValue: string, label: string) => {
+    if (modelValue === 'gemini-3-pro-image-preview') return 'Nano Banana Pro 3.0';
+    if (modelValue === 'gemini-3.1-flash-image') return 'Nano Banana 2 (3.1)';
+    if (modelValue === 'gemini-3.1-flash-image-preview') return 'Nano Banana 2 Lite (3.1)';
+    if (modelValue === 'gemini-2.5-flash-image') return 'Nano Banana (2.5)';
+    return label;
+};
+
 const InputWithSpinners: React.FC<{
     value: string;
     placeholder?: string;
@@ -135,7 +154,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     getFullSizeImage, t, upstreamPrompt, upstreamPromptsCount, isTextConnected,
     onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs
 }) => {
-    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
+    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, autoSaveImages, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
     const { isBatchMode, isFormingBatch, getNodeActiveBatchJob, isNodeBatchActive } = useAppContext();
     const isForming = isFormingBatch ? isFormingBatch(nodeId) : false;
     const activeBatchJob = getNodeActiveBatchJob ? getNodeActiveBatchJob(nodeId) : undefined;
@@ -483,57 +502,75 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
                      {/* Right: Actions */}
                      <div className="flex items-center space-x-1">
-                            <ActionButton title={t('image_sequence.select_all')} onClick={onSelectAll} disabled={activeFrameIndices.length === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${activeFrameIndices.length === 0 ? 'text-gray-600' : 'text-green-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            </ActionButton>
-                            <ActionButton title={t('image_sequence.select_none')} onClick={onSelectNone} disabled={activeSelectedCount === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${activeSelectedCount === 0 ? 'text-gray-600' : 'text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            </ActionButton>
-                            <ActionButton title={t('image_sequence.invert_selection')} onClick={onInvertSelection} disabled={activeFrameIndices.length === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${activeFrameIndices.length === 0 ? 'text-gray-600' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                            </ActionButton>
+                            <EditorTooltip title={t('image_sequence.select_all')} description="Выбрать все доступные кадры в последовательности">
+                                <ActionButton title="" onClick={onSelectAll} disabled={activeFrameIndices.length === 0}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${activeFrameIndices.length === 0 ? 'text-gray-600' : 'text-green-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </ActionButton>
+                            </EditorTooltip>
+
+                            <EditorTooltip title={t('image_sequence.select_none')} description="Снять выбор со всех кадров">
+                                <ActionButton title="" onClick={onSelectNone} disabled={activeSelectedCount === 0}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${activeSelectedCount === 0 ? 'text-gray-600' : 'text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </ActionButton>
+                            </EditorTooltip>
+
+                            <EditorTooltip title={t('image_sequence.invert_selection')} description="Инвертировать выбор кадров">
+                                <ActionButton title="" onClick={onInvertSelection} disabled={activeFrameIndices.length === 0}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${activeFrameIndices.length === 0 ? 'text-gray-600' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                </ActionButton>
+                            </EditorTooltip>
 
                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
 
-                            <ActionButton 
-                                title={t('image_sequence.run_selected')} 
-                                onClick={onRunSelected} 
-                                disabled={isEditing || activeSelectedCount === 0 || !hasValidPrompt || (!isSequentialEditingWithPrompts && hasInputImages && !hasCheckedInputImages)}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(isEditing || activeSelectedCount === 0 || !hasValidPrompt || (!isSequentialEditingWithPrompts && hasInputImages && !hasCheckedInputImages)) ? 'text-gray-600' : 'text-emerald-400'}`} viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                </svg>
-                            </ActionButton>
+                            <EditorTooltip title={t('image_sequence.run_selected')} description="Запустить генерацию или обработку для выбранных кадров">
+                                <ActionButton 
+                                    title="" 
+                                    onClick={onRunSelected} 
+                                    disabled={isEditing || activeSelectedCount === 0 || !hasValidPrompt || (!isSequentialEditingWithPrompts && hasInputImages && !hasCheckedInputImages)}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(isEditing || activeSelectedCount === 0 || !hasValidPrompt || (!isSequentialEditingWithPrompts && hasInputImages && !hasCheckedInputImages)) ? 'text-gray-600' : 'text-emerald-400'}`} viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                    </svg>
+                                </ActionButton>
+                            </EditorTooltip>
 
                             {/* Download Selected (individual files) */}
-                            <ActionButton title={`${t('image_sequence.download_selected')} (${activeSelectedCount})`} onClick={onDownloadSelected} disabled={activeSelectedCount === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(activeSelectedCount === 0) ? 'text-gray-600' : 'text-sky-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                            </ActionButton>
+                            <EditorTooltip title={`${t('image_sequence.download_selected')} (${activeSelectedCount})`} description="Скачать выбранные кадры отдельными файлами">
+                                <ActionButton title="" onClick={onDownloadSelected} disabled={activeSelectedCount === 0}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(activeSelectedCount === 0) ? 'text-gray-600' : 'text-sky-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                </ActionButton>
+                            </EditorTooltip>
 
                             {/* Download Selected as ZIP */}
-                            <ActionButton title={`${t('image_sequence.download_selected_zip')} (${activeSelectedCount})`} onClick={onDownloadSelectedZip} disabled={activeSelectedCount === 0}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(activeSelectedCount === 0) ? 'text-gray-600' : 'text-amber-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                </svg>
-                            </ActionButton>
+                            <EditorTooltip title={`${t('image_sequence.download_selected_zip')} (${activeSelectedCount})`} description="Скачать все выбранные кадры единым архивом ZIP">
+                                <ActionButton title="" onClick={onDownloadSelectedZip} disabled={activeSelectedCount === 0}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(activeSelectedCount === 0) ? 'text-gray-600' : 'text-amber-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                    </svg>
+                                </ActionButton>
+                            </EditorTooltip>
 
                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
 
-                            <ActionButton 
-                                title={t('image_sequence.clear_outputs_tooltip') || t('node.action.clear')} 
-                                onClick={() => setShowConfirmClear(true)} 
-                                disabled={isEditing || (sequenceOutputs.length === 0 && doneCount === 0)}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isEditing || (sequenceOutputs.length === 0 && doneCount === 0) ? 'text-gray-600' : 'text-gray-300 hover:text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </ActionButton>
+                            <EditorTooltip title={t('image_sequence.clear_outputs_tooltip') || t('node.action.clear')} description="Очистить сгенерированные результаты и сбросить состояние">
+                                <ActionButton 
+                                    title="" 
+                                    onClick={() => setShowConfirmClear(true)} 
+                                    disabled={isEditing || (sequenceOutputs.length === 0 && doneCount === 0)}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isEditing || (sequenceOutputs.length === 0 && doneCount === 0) ? 'text-gray-600' : 'text-gray-300 hover:text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </ActionButton>
+                            </EditorTooltip>
                             
                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
 
-                            <ActionButton title="Force Refresh" onClick={onManualRefresh}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" /></svg>
-                            </ActionButton>
+                            <EditorTooltip title="Force Refresh" description="Принудительно перезагрузить и синхронизировать изображения">
+                                <ActionButton title="" onClick={onManualRefresh}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" /></svg>
+                                </ActionButton>
+                            </EditorTooltip>
                      </div>
                  </div>
              )}
@@ -701,113 +738,187 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             )}
 
             {/* Bottom Controls Area: Integrated Model Switcher & Single Mode Buttons */}
-            <div className="flex-shrink-0 flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-700/50">
-                {/* Model Switch Dropdown */}
-                <div className="flex-1 min-w-[130px]">
-                     <CustomSelect
-                         value={effectiveModel}
-                         onChange={(value) => onUpdateState({ model: value })}
-                         disabled={isEditing}
-                         options={modelOptions}
-                         id="model-selector"
-                     />
+            <div 
+                className="flex-shrink-0 flex flex-nowrap items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-700/50 min-w-0"
+            >
+                {/* Left Controls Group: Model Switcher & Parameter Selectors & Toggles */}
+                <div className="flex-shrink-0 flex items-center gap-2 min-w-0">
+                    {/* Model Switch Dropdown */}
+                    <div className="flex-shrink-0 flex items-center gap-1">
+                        <button
+                            title="Previous Model"
+                            type="button"
+                            className="h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:hover:bg-gray-700 border border-gray-600 rounded-md text-gray-200 hover:text-white transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const currentIndex = modelOptions.findIndex(m => m.value === effectiveModel);
+                                if (currentIndex > 0) {
+                                    onUpdateState({ model: modelOptions[currentIndex - 1].value });
+                                }
+                            }}
+                            disabled={isEditing || modelOptions.findIndex(m => m.value === effectiveModel) <= 0}
+                        >
+                            <ChevronLeft className="w-4 h-4 text-gray-200 hover:text-white" />
+                        </button>
+
+                        <div className="w-[215px] flex-shrink-0">
+                            <CustomSelect
+                                value={effectiveModel}
+                                onChange={(value) => onUpdateState({ model: value })}
+                                disabled={isEditing}
+                                options={modelOptions.map(opt => ({ ...opt, icon: getModelIcon(opt.value) }))}
+                                id="model-selector"
+                                renderTriggerContent={(selectedOption) => (
+                                    <div className="flex items-center gap-2 font-medium text-xs truncate">
+                                        {selectedOption && getModelIcon(selectedOption.value)}
+                                        <span className="truncate">{selectedOption ? getModelShortName(selectedOption.value, selectedOption.label) : ''}</span>
+                                    </div>
+                                )}
+                            />
+                        </div>
+
+                        <button
+                            title="Next Model"
+                            type="button"
+                            className="h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:hover:bg-gray-700 border border-gray-600 rounded-md text-gray-200 hover:text-white transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const currentIndex = modelOptions.findIndex(m => m.value === effectiveModel);
+                                if (currentIndex !== -1 && currentIndex < modelOptions.length - 1) {
+                                    onUpdateState({ model: modelOptions[currentIndex + 1].value });
+                                }
+                            }}
+                            disabled={isEditing || modelOptions.findIndex(m => m.value === effectiveModel) >= modelOptions.length - 1 || modelOptions.findIndex(m => m.value === effectiveModel) === -1}
+                        >
+                            <ChevronRight className="w-4 h-4 text-gray-200 hover:text-white" />
+                        </button>
+                    </div>
+
+                    {/* Quality Selector for GPT-Image-2 and DALL-E 3 */}
+                    {showQuality && (
+                        <div className="flex-shrink-0 min-w-[80px]">
+                             <CustomSelect
+                                value={quality || (isGpt2 ? 'high' : 'standard')}
+                                onChange={(value) => onUpdateState({ quality: value })}
+                                disabled={isEditing}
+                                options={isGpt2 ? gpt2QualityOptions : dalle3QualityOptions}
+                                id="quality-selector"
+                                title="Quality"
+                            />
+                        </div>
+                    )}
+
+                    {/* Resolution / Size for GPT-Image-2 and DALL-E 2 */}
+                    {showGptSize && (
+                        <div className="flex-shrink-0 min-w-[90px]">
+                             <CustomSelect
+                                value={size || '1024x1024'}
+                                onChange={(value) => onUpdateState({ size: value })}
+                                disabled={isEditing}
+                                options={isGpt2 ? gpt2SizeOptions : dalle2SizeOptions}
+                                id="gpt-size-selector"
+                                title="Resolution / Size"
+                            />
+                        </div>
+                    )}
+
+                    {/* Format for GPT-Image-2 */}
+                    {showOutputFormat && (
+                        <div className="flex-shrink-0 w-20">
+                             <CustomSelect
+                                value={outputFormat || 'png'}
+                                onChange={(value) => onUpdateState({ outputFormat: value })}
+                                disabled={isEditing}
+                                options={gpt2FormatOptions}
+                                id="gpt-format-selector"
+                                title="Output Format"
+                            />
+                        </div>
+                    )}
+
+                    {/* Aspect Ratio Selector */}
+                    {showAspectRatio && (
+                        <div className="flex-shrink-0 w-20">
+                             <CustomSelect
+                                value={aspectRatio || '1:1'}
+                                onChange={(value) => onUpdateState({ aspectRatio: value })}
+                                disabled={isEditing}
+                                options={['1:1', '16:9', '9:16', '4:3', '3:4'].map(r => ({ value: r, label: r }))}
+                                id="aspect-ratio-selector"
+                                title="Aspect Ratio"
+                            />
+                        </div>
+                    )}
+
+                     {/* Resolution Selector (Only for Pro / Flash Preview) */}
+                     {showResolution && (
+                        <div className="flex-shrink-0 w-20">
+                             <CustomSelect
+                                value={resolution || '1K'}
+                                onChange={(value) => onUpdateState({ resolution: value })}
+                                disabled={isEditing}
+                                options={['1K', '2K', '4K'].map(r => ({ value: r, label: r }))}
+                                 id="resolution-selector"
+                                 title="Resolution"
+                            />
+                        </div>
+                    )}
                 </div>
 
-                {/* Quality Selector for GPT-Image-2 and DALL-E 3 */}
-                {showQuality && (
-                    <div className="flex-shrink-0 min-w-[80px]">
-                         <CustomSelect
-                            value={quality || (isGpt2 ? 'high' : 'standard')}
-                            onChange={(value) => onUpdateState({ quality: value })}
-                            disabled={isEditing}
-                            options={isGpt2 ? gpt2QualityOptions : dalle3QualityOptions}
-                            id="quality-selector"
-                            title="Quality"
-                        />
-                    </div>
-                )}
+                {/* Right Actions & Menus Group (Aligned to the right border) */}
+                <div className="flex-shrink-0 flex items-center gap-2 ml-auto">
+                    {/* Auto Crop Toggle */}
+                    <EditorTooltip
+                        title="Crop 16:9"
+                        status={{
+                            enabled: !!autoCrop169,
+                            labelOn: t('common.enabled') || 'Включено',
+                            labelOff: t('common.disabled') || 'Выключено'
+                        }}
+                        description={t('image_sequence.tooltip.autoCrop')}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => onUpdateState({ autoCrop169: !autoCrop169 })}
+                            className={`h-[36px] px-2.5 flex-shrink-0 flex items-center justify-center rounded-md cursor-pointer transition-all border outline-none ${
+                                autoCrop169 
+                                    ? 'bg-indigo-950/60 border-indigo-500/60 shadow-[0_0_10px_rgba(99,102,241,0.25)]' 
+                                    : 'bg-gray-800 border-gray-700 hover:border-gray-600 hover:bg-gray-750'
+                            }`}
+                            aria-label={`Crop 16:9: ${autoCrop169 ? 'ON' : 'OFF'}`}
+                        >
+                            <div className={`w-8 h-4 rounded-full relative transition-colors ${autoCrop169 ? 'bg-indigo-500' : 'bg-gray-600'}`}>
+                                <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${autoCrop169 ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
+                            </div>
+                        </button>
+                    </EditorTooltip>
 
-                {/* Resolution / Size for GPT-Image-2 and DALL-E 2 */}
-                {showGptSize && (
-                    <div className="flex-shrink-0 min-w-[90px]">
-                         <CustomSelect
-                            value={size || '1024x1024'}
-                            onChange={(value) => onUpdateState({ size: value })}
-                            disabled={isEditing}
-                            options={isGpt2 ? gpt2SizeOptions : dalle2SizeOptions}
-                            id="gpt-size-selector"
-                            title="Resolution / Size"
-                        />
-                    </div>
-                )}
+                    {/* Auto Download Toggle */}
+                    <EditorTooltip
+                        title="Autosave images"
+                        status={{
+                            enabled: !!autoSaveImages,
+                            labelOn: t('common.enabled') || 'Включено',
+                            labelOff: t('common.disabled') || 'Выключено'
+                        }}
+                        description={t('image_sequence.tooltip.autoSave') || "Save images to disk automatically"}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => onUpdateState({ autoSaveImages: !autoSaveImages })}
+                            className={`h-[36px] px-2.5 flex-shrink-0 flex items-center justify-center rounded-md cursor-pointer transition-all border outline-none ${
+                                autoSaveImages 
+                                    ? 'bg-indigo-950/60 border-indigo-500/60 shadow-[0_0_10px_rgba(99,102,241,0.25)]' 
+                                    : 'bg-gray-800 border-gray-700 hover:border-gray-600 hover:bg-gray-750'
+                            }`}
+                            aria-label={`Autosave images: ${autoSaveImages ? 'ON' : 'OFF'}`}
+                        >
+                            <div className={`w-8 h-4 rounded-full relative transition-colors ${autoSaveImages ? 'bg-indigo-500' : 'bg-gray-600'}`}>
+                                <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${autoSaveImages ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
+                            </div>
+                        </button>
+                    </EditorTooltip>
 
-                {/* Format for GPT-Image-2 */}
-                {showOutputFormat && (
-                    <div className="flex-shrink-0 w-20">
-                         <CustomSelect
-                            value={outputFormat || 'png'}
-                            onChange={(value) => onUpdateState({ outputFormat: value })}
-                            disabled={isEditing}
-                            options={gpt2FormatOptions}
-                            id="gpt-format-selector"
-                            title="Output Format"
-                        />
-                    </div>
-                )}
-
-                {/* Aspect Ratio Selector */}
-                {showAspectRatio && (
-                    <div className="flex-shrink-0 w-20">
-                         <CustomSelect
-                            value={aspectRatio || '1:1'}
-                            onChange={(value) => onUpdateState({ aspectRatio: value })}
-                            disabled={isEditing}
-                            options={['1:1', '16:9', '9:16', '4:3', '3:4'].map(r => ({ value: r, label: r }))}
-                            id="aspect-ratio-selector"
-                            title="Aspect Ratio"
-                        />
-                    </div>
-                )}
-
-                 {/* Resolution Selector (Only for Pro / Flash Preview) */}
-                 {showResolution && (
-                    <div className="flex-shrink-0 w-20">
-                         <CustomSelect
-                            value={resolution || '1K'}
-                            onChange={(value) => onUpdateState({ resolution: value })}
-                            disabled={isEditing}
-                            options={['1K', '2K', '4K'].map(r => ({ value: r, label: r }))}
-                             id="resolution-selector"
-                             title="Resolution"
-                        />
-                    </div>
-                )}
-
-                {/* Auto Crop Toggle */}
-                <div 
-                    onClick={() => onUpdateState({ autoCrop169: !autoCrop169 })}
-                    className={`h-[36px] flex-shrink-0 flex items-center gap-2 px-2 rounded-md cursor-pointer transition-colors border ${autoCrop169 ? 'bg-indigo-900/40 border-indigo-500/50' : 'bg-gray-800 border-gray-700 hover:border-gray-600'}`}
-                    title={t('image_sequence.tooltip.autoCrop')}
-                >
-                     <span className={`text-[10px] font-bold uppercase whitespace-nowrap ${autoCrop169 ? 'text-indigo-300' : 'text-gray-400'}`}>Crop 16:9</span>
-                     <div className={`w-8 h-4 rounded-full relative transition-colors ${autoCrop169 ? 'bg-indigo-500' : 'bg-gray-600'}`}>
-                         <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${autoCrop169 ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
-                     </div>
-                </div>
-
-                {/* Auto Download Toggle */}
-                <div 
-                    onClick={() => onUpdateState({ autoDownload: !autoDownload })}
-                    className={`h-[36px] flex-shrink-0 flex items-center gap-2 px-2 rounded-md cursor-pointer transition-colors border ${autoDownload ? 'bg-indigo-900/40 border-indigo-500/50' : 'bg-gray-800 border-gray-700 hover:border-gray-600'}`}
-                    title={t('image_sequence.tooltip.autoDownload')}
-                >
-                     <span className={`text-[10px] font-bold uppercase whitespace-nowrap ${autoDownload ? 'text-indigo-300' : 'text-gray-400'}`}>{t('node.content.autoDownload')}</span>
-                     <div className={`w-8 h-4 rounded-full relative transition-colors ${autoDownload ? 'bg-indigo-500' : 'bg-gray-600'}`}>
-                         <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${autoDownload ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
-                     </div>
-                </div>
-
-                <div className="flex-shrink-0 flex space-x-2">
                     {/* Main Action Button */}
                     {isEditing && isSequenceMode ? (
                         <button onClick={onStop} className="flex-shrink-0 min-w-max px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors">{isStopping ? t('node.action.stopping') : t('node.action.stop')}</button>
@@ -848,16 +959,22 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                     
                     {/* Single Mode: Edit in Canvas Button */}
                     {!isSequenceMode && (
-                         <Tooltip content="Edit in Canvas">
+                         <EditorTooltip 
+                            title="Edit in Canvas"
+                            description={t('node.action.editInCanvas.desc') || "Открыть полноэкранный холст для рисования и редактирования"}
+                         >
                              <button onClick={onOpenEditor} disabled={!outputImage && !imageForEditor} className="h-[36px] px-3 font-bold text-white bg-teal-600 rounded-md hover:bg-teal-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                             </button>
-                        </Tooltip>
+                        </EditorTooltip>
                     )}
                     
                     {/* Sequence Mode: Download Selected ZIP Button */}
                     {isSequenceMode && (
-                        <Tooltip content={`${t('image_sequence.download_selected_zip')} (${checkedSequenceOutputIndices.length})`}>
+                        <EditorTooltip 
+                            title={`${t('image_sequence.download_selected_zip')} (${checkedSequenceOutputIndices.length})`}
+                            description="Скачать выбранные кадры единым ZIP-архивом"
+                        >
                             <button 
                                 onClick={onDownloadSelectedZip} 
                                 disabled={checkedSequenceOutputIndices.length === 0} 
@@ -867,12 +984,21 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                                 </svg>
                             </button>
-                        </Tooltip>
+                        </EditorTooltip>
+                    )}
+
+                    {/* Single Mode: Output to Input */}
+                    {!isSequenceMode && outputImage && (
+                        <EditorTooltip
+                            title={t('node.action.outputToInput')}
+                            description="Перенести сгенерированное изображение во входной слот для повторной обработки"
+                        >
+                            <ActionButton title="" onClick={onSetOutputToInput} className="flex-shrink-0 h-[36px]">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg>
+                            </ActionButton>
+                        </EditorTooltip>
                     )}
                 </div>
-                
-                {/* Single Mode: Output to Input */}
-                {!isSequenceMode && outputImage && <ActionButton title={t('node.action.outputToInput')} onClick={onSetOutputToInput} className="flex-shrink-0 h-[36px]"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg></ActionButton>}
             </div>
             
              {/* Confirmation Dialog for Clearing Generated Images and State */}

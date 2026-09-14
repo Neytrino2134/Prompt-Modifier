@@ -2,6 +2,7 @@
 import { GoogleGenAI, GenerateContentResponse, Modality, Type } from "@google/genai";
 import { convertToPNG } from '../utils/imageUtils';
 import { addMetadataToPNG } from '../utils/pngMetadata';
+import { getDeviceId, formatWithDeviceTag, extractDeviceId } from '../utils/deviceId';
 import { getModelForMode, getConfiguredTranscribeModel, getConfiguredVideoModel, isOmniModel } from './modelConfig';
 import { 
     generateOpenAiImage, 
@@ -14,7 +15,7 @@ import {
 
 export const getApiKey = () => {
   const userKey = localStorage.getItem('settings_userApiKey');
-  return (userKey && userKey.trim()) ? userKey.trim() : process.env.API_KEY;
+  return (userKey && userKey.trim()) ? userKey.trim() : (process.env.API_KEY || (process.env as any).GEMINI_API_KEY || '');
 };
 
 const createAIClient = () => {
@@ -1067,9 +1068,12 @@ export const createBatchImageJob = async (
     model: string = 'gemini-3-pro-image-preview',
     displayName?: string
 ): Promise<{ name: string; state: string; rawJsonl?: string }> => {
+    const currentDeviceId = getDeviceId();
+    const taggedDisplayName = formatWithDeviceTag(displayName || `Gemini Batch`, currentDeviceId);
+
     const isOpenAi = model.startsWith('dall-e') || model.startsWith('openai') || model.startsWith('gpt-image') || model.includes('gpt-image');
     if (isOpenAi) {
-        return await createOpenAiBatchImageJob(items, model, displayName);
+        return await createOpenAiBatchImageJob(items, model, taggedDisplayName);
     }
 
     return callWithRetry(async () => {
@@ -1139,7 +1143,7 @@ export const createBatchImageJob = async (
         const batchJob = await ai.batches.create({
             model: targetModel,
             src: inlinedRequests,
-            config: displayName ? { displayName } : undefined
+            config: taggedDisplayName ? { displayName: taggedDisplayName } : undefined
         });
 
         return {
@@ -1275,7 +1279,13 @@ export const listAllRemoteBatchJobs = async (): Promise<any[]> => {
     try {
         const geminiJobs = await listBatchJobsService();
         if (Array.isArray(geminiJobs)) {
-            results.push(...geminiJobs);
+            geminiJobs.forEach((gJob: any) => {
+                const devId = extractDeviceId(gJob.displayName) || extractDeviceId(gJob.name);
+                results.push({
+                    ...gJob,
+                    deviceId: devId
+                });
+            });
         }
     } catch (e) {
         console.warn("Failed to list Gemini batch jobs:", e);
@@ -1285,12 +1295,14 @@ export const listAllRemoteBatchJobs = async (): Promise<any[]> => {
         const openAiBatches = await listOpenAiBatchJobs();
         if (Array.isArray(openAiBatches)) {
             openAiBatches.forEach(b => {
+                const devId = (b as any).deviceId || extractDeviceId(b.displayName) || extractDeviceId(b.id);
                 results.push({
                     name: b.id,
                     displayName: b.displayName,
                     model: b.model,
                     state: b.state === 'SUCCEEDED' ? 'JOB_STATE_SUCCEEDED' : (b.state === 'FAILED' ? 'JOB_STATE_FAILED' : (b.state === 'CANCELLED' ? 'JOB_STATE_CANCELLED' : 'JOB_STATE_RUNNING')),
                     createTime: new Date(b.createdAt).toISOString(),
+                    deviceId: devId,
                     batch: b
                 });
             });

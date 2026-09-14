@@ -65,8 +65,8 @@ export const getNodeStyles = (
         top: 0,
         left: 0,
         transform: `translate(${x}px, ${y}px)`,
-        width: isProxyMode ? PROXY_NODE_WIDTH : isDetachedGhost ? DETACHED_GHOST_WIDTH : (Number.isFinite(node.width) ? node.width : minSize.minWidth), 
-        height: isProxyMode ? PROXY_NODE_HEIGHT : isDetachedGhost ? DETACHED_GHOST_HEIGHT : (node.isCollapsed ? `${COLLAPSED_NODE_HEIGHT}px` : (Number.isFinite(node.height) ? node.height : minSize.minHeight)),
+        width: isProxyMode ? PROXY_NODE_WIDTH : isDetachedGhost ? DETACHED_GHOST_WIDTH : (Number.isFinite(node.width) ? Math.max(node.width, minSize.minWidth) : minSize.minWidth), 
+        height: isProxyMode ? PROXY_NODE_HEIGHT : isDetachedGhost ? DETACHED_GHOST_HEIGHT : (node.isCollapsed ? `${COLLAPSED_NODE_HEIGHT}px` : (Number.isFinite(node.height) ? Math.max(node.height, minSize.minHeight) : minSize.minHeight)),
         minWidth: (isRerouteDot || isProxyMode || isDetachedGhost) ? undefined : `${minSize.minWidth}px`, 
         minHeight: (node.isCollapsed || isProxyMode || isDetachedGhost) ? undefined : (isRerouteDot ? undefined : `${minSize.minHeight}px`),
         zIndex: zIndex,
@@ -80,8 +80,8 @@ export const getNodeStyles = (
         const marginTop = 130;
         const m = `${margin}px`;
         const mTop = `${marginTop}px`;
-        const width = node.width && Number.isFinite(node.width) ? `${node.width}px` : 'auto';
-        const height = node.height && Number.isFinite(node.height) ? `${node.height}px` : 'auto';
+        const width = node.width && Number.isFinite(node.width) ? `${Math.max(node.width, minSize.minWidth)}px` : 'auto';
+        const height = node.height && Number.isFinite(node.height) ? `${Math.max(node.height, minSize.minHeight)}px` : 'auto';
         
         // Calculate available width for quarters: 100vw - (margin * 2)
         const availW = `(100vw - ${margin * 2}px)`;

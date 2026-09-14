@@ -52,6 +52,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             [NodeType.MEDIA_VIEWER]: t('node.title.media_viewer'),
             [NodeType.DATA_PROTECTION]: t('node.title.data_protection'),
             [NodeType.POSE_CREATOR]: t('node.title.pose_creator'),
+            [NodeType.THREE_D_GENERATOR]: t('node.title.three_d_generator' as any) || '3D Generation',
         };
 
         const newNode: Node = {
@@ -62,7 +63,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         newNode.value = options.initialValue !== undefined ? options.initialValue : getEmptyValueForNodeType(newNode);
 
         switch (type) {
-            case NodeType.IMAGE_EDITOR: newNode.width = 1200; newNode.height = 920; break;
+            case NodeType.IMAGE_EDITOR: newNode.width = 1420; newNode.height = 920; break;
             case NodeType.PROMPT_ANALYZER: newNode.width = 460; newNode.height = 1000; break;
             case NodeType.IMAGE_INPUT: newNode.width = 520; newNode.height = 920; break;
             case NodeType.IMAGE_ANALYZER: case NodeType.VIDEO_OUTPUT: newNode.width = 460; newNode.height = 680; break;
@@ -95,6 +96,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             case NodeType.DATA_PROTECTION: newNode.width = 800; newNode.height = 600; break;
             case NodeType.VIDEO_EDITOR: newNode.width = 920; newNode.height = 640; break;
             case NodeType.POSE_CREATOR: newNode.width = 600; newNode.height = 800; break;
+            case NodeType.THREE_D_GENERATOR: newNode.width = 780; newNode.height = 560; break;
             default: newNode.width = 460; newNode.height = 280;
         }
 

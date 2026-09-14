@@ -18,6 +18,7 @@ import { useLanguage } from '../localization';
 import { NodeType, ToolbarViewMode } from '../types';
 import { Tooltip } from './Tooltip';
 import { COLLAPSED_NODE_HEIGHT, PROXY_NODE_WIDTH, PROXY_NODE_HEIGHT, DETACHED_GHOST_WIDTH, DETACHED_GHOST_HEIGHT } from '../utils/nodeUtils';
+import { getActiveCursorDefinition } from './cursors/cursorDefinitions';
 
 // Helper wrapper for tooltips
 const TopTooltipWrapper: React.FC<{ title: string; children: React.ReactNode; align?: 'center' | 'left' | 'right' }> = ({ title, children, align = 'center' }) => {
@@ -131,7 +132,8 @@ const CanvasLayer: React.FC = () => {
         onAddNode, handleOpenQuickSearch, handleToggleCatalog, handleSaveCanvas, handleLoadCanvas, handleSaveProject,
         getTransformedPoint, setSpawnLine,
         tutorialStep, advanceTutorial,
-        panelStyle, isPanelAutoHide
+        panelStyle, isPanelAutoHide,
+        isConnectionQuickAddOpen, connectionQuickAddInfo
     } = context;
 
     const isModern = panelStyle === 'modern';
@@ -421,9 +423,25 @@ const CanvasLayer: React.FC = () => {
         }
     };
 
+    const cursorSkin = context.cursorSkin || 'default';
+    const currentTheme = context.currentTheme || 'cyan';
+    const activeCanvasCursor = getCanvasCursor();
+    const resolvedCanvasCursor = useMemo(() => {
+        const set = getActiveCursorDefinition(cursorSkin, currentTheme);
+        if (activeCanvasCursor === 'cutter') return set.cursors.cutter;
+        if (activeCanvasCursor === 'reroute') return set.cursors.reroute;
+        if (activeCanvasCursor === 'crosshair') return set.cursors.crosshair;
+        if (activeCanvasCursor === 'grab') return set.cursors.grab;
+        if (activeCanvasCursor === 'grabbing') return set.cursors.grabbing;
+        if (activeCanvasCursor === 'ew-resize') return set.cursors.ewResize;
+        return set.cursors.default;
+    }, [cursorSkin, currentTheme, activeCanvasCursor]);
+
     return (
         <div 
             id="app-container" 
+            data-tool={effectiveTool}
+            data-canvas-cursor={activeCanvasCursor}
             className={`relative w-full h-full overflow-hidden select-none ${focusedNodeId ? 'bg-gray-700' : ''}`}
             onMouseDown={handleCanvasMouseDown}
             onContextMenu={handleCanvasContextMenu}
@@ -437,7 +455,7 @@ const CanvasLayer: React.FC = () => {
             onDragOver={handleDragOver}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
-            style={{ cursor: getCanvasCursor() }}
+            style={{ cursor: resolvedCanvasCursor }}
         >
             {!focusedNodeId && <ControlsToolbar activeTool={effectiveTool} onToolChange={setActiveTool} />}
             
@@ -599,6 +617,48 @@ const CanvasLayer: React.FC = () => {
                                 <path 
                                     d={`M ${connectingInfo.fromPoint.x} ${connectingInfo.fromPoint.y} C ${connectingInfo.fromPoint.x + 80} ${connectingInfo.fromPoint.y}, ${targetX - 80} ${targetY}, ${targetX} ${targetY}`} 
                                     stroke={getDragLineColor(connectingInfo.fromType)} 
+                                    strokeWidth="3" 
+                                    fill="none" 
+                                    style={{ strokeDasharray: '8 4', pointerEvents: 'none' }} 
+                                />
+                            );
+                        })()}
+                        
+                        {!connectingInfo && isConnectionQuickAddOpen && connectionQuickAddInfo && (() => {
+                            const cInfo = connectionQuickAddInfo.connectingInfo;
+                            if (!cInfo) return null;
+                            const sourceNode = nodes.find((n: any) => n.id === cInfo.fromNodeId);
+                            let startX = cInfo.fromPoint ? cInfo.fromPoint.x : 0;
+                            let startY = cInfo.fromPoint ? cInfo.fromPoint.y : 0;
+                            if (sourceNode) {
+                                const points = getConnectionPoints(sourceNode, sourceNode, {
+                                    id: '',
+                                    fromNodeId: cInfo.fromNodeId,
+                                    fromHandleId: cInfo.fromHandleId,
+                                    toNodeId: cInfo.fromNodeId,
+                                    toHandleId: ''
+                                });
+                                if (points?.start) {
+                                    startX = points.start.x;
+                                    startY = points.start.y;
+                                }
+                            }
+                            const screenPos = connectionQuickAddInfo.position;
+                            let menuTargetScreenX = screenPos.x + 10;
+                            let menuTargetScreenY = screenPos.y + 24;
+                            if (menuTargetScreenX + 180 > window.innerWidth) {
+                                menuTargetScreenX = screenPos.x - 10;
+                            }
+                            if (menuTargetScreenY + 200 > window.innerHeight) {
+                                menuTargetScreenY = Math.max(10, screenPos.y - 10);
+                            }
+                            const targetWorld = getTransformedPoint({ x: menuTargetScreenX, y: menuTargetScreenY });
+                            const targetX = targetWorld.x;
+                            const targetY = targetWorld.y;
+                            return (
+                                <path 
+                                    d={`M ${startX} ${startY} C ${startX + 80} ${startY}, ${targetX - 80} ${targetY}, ${targetX} ${targetY}`} 
+                                    stroke={getDragLineColor(cInfo.fromType)} 
                                     strokeWidth="3" 
                                     fill="none" 
                                     style={{ strokeDasharray: '8 4', pointerEvents: 'none' }} 

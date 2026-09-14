@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppContext } from '../contexts/AppContext';
-import { ExpandIcon, CollapseIcon, HomeIcon, ClearCacheIcon, SettingsIcon, ResetCanvasIcon, FullScreenIcon, ExitFullScreenIcon, ExitIcon, PaletteIcon, ReloadIcon } from './icons/AppIcons';
+import { ExpandIcon, CollapseIcon, HomeIcon, ClearCacheIcon, SettingsIcon, ResetCanvasIcon, FullScreenIcon, ExitFullScreenIcon, ExitIcon, PaletteIcon, ReloadIcon, PromptModifierIcon } from './icons/AppIcons';
 import HelpPanel from './HelpPanel';
 import LanguageSelector from './LanguageSelector';
 import TabsBar from './TabsBar';
@@ -8,6 +8,7 @@ import WelcomeScreen from './WelcomeScreen';
 import { Tooltip } from './Tooltip';
 import { APP_VERSION } from '../version';
 import { Theme, TaskStatus, BatchJobRecord, ActiveOperation } from '../types';
+import { PanelAnimationBackground } from './settings/appearance/PanelAnimationBackground';
 
 const useFps = () => {
   const [fps, setFps] = useState(0);
@@ -114,6 +115,7 @@ const AppHeader: React.FC = () => {
         handleAddTab, 
         handleCloseTab, 
         handleRenameTab,
+        handleReorderTabs,
         showWelcome,    
         setShowWelcome, 
         nodes,
@@ -143,6 +145,7 @@ const AppHeader: React.FC = () => {
         nextAutoSaveTime,
         isAutoSaving,
         panelAnimation = 'shimmer',
+        isPanelAnimationAdaptive = true,
     } = context;
 
     const operations: ActiveOperation[] = Array.from(activeOperations.values());
@@ -360,45 +363,35 @@ const AppHeader: React.FC = () => {
     };
 
     const handleExitApp = () => {
+        const api = (window as any).electronAPI;
+        if (api?.close) {
+            api.close();
+            return;
+        }
+
         setConfirmInfo({
             title: t('dialog.exitApp.title'),
             message: t('dialog.exitApp.message'),
             confirmLabel: t('dialog.exitApp.saveAndClose'),
             confirmVariant: 'accent',
-            onConfirm: () => {
-                if (context?.handleSaveProject) {
-                    context.handleSaveProject();
+            onConfirm: async () => {
+                if (context?.forceSaveSession) {
+                    await context.forceSaveSession();
                 }
-                const api = (window as any).electronAPI;
                 if (api?.forceClose) {
-                    api.forceClose();
+                    setTimeout(() => {
+                        api.forceClose();
+                    }, 200);
                 } else {
-                    loadCanvasState({
-                        nodes: [],
-                        connections: [],
-                        groups: [],
-                        viewTransform: { scale: 1, translate: { x: 0, y: 0 } },
-                        nodeIdCounter: 1,
-                        fullSizeImageCache: {}
-                    });
                     setShowWelcome(true);
                 }
             },
             secondaryAction: {
                 label: t('dialog.exitApp.dontSave'),
                 onAction: () => {
-                    const api = (window as any).electronAPI;
                     if (api?.forceClose) {
                         api.forceClose();
                     } else {
-                        loadCanvasState({
-                            nodes: [],
-                            connections: [],
-                            groups: [],
-                            viewTransform: { scale: 1, translate: { x: 0, y: 0 } },
-                            nodeIdCounter: 1,
-                            fullSizeImageCache: {}
-                        });
                         setShowWelcome(true);
                     }
                 },
@@ -471,17 +464,12 @@ const AppHeader: React.FC = () => {
             {showWelcome && <WelcomeScreen onClose={() => setShowWelcome(false)} isResumable={canResume} />}
             
             <header ref={headerRef} id="app-header" className={`fixed top-0 left-0 w-full z-40 select-none flex flex-col top-panel-unified top-panel-anim-${panelAnimation} border-b border-white/20 shadow-[0_14px_36px_rgba(0,0,0,0.75),0_6px_16px_rgba(0,0,0,0.55)] backdrop-blur-md transition-all duration-200`}>
-                {/* Shimmer effect: glare sweep rendered ONLY when shimmer is selected */}
-                {panelAnimation === 'shimmer' && (
-                    <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
-                        <div className="top-panel-glare" />
-                    </div>
-                )}
-                
-                {/* High-tech Neon laser streak along bottom border: rendered ONLY when neon is selected */}
-                {panelAnimation === 'neon' && (
-                    <div className="top-panel-neon-streak" />
-                )}
+                {/* Dynamic Panel Animation Background with Theme Adaptive support */}
+                <PanelAnimationBackground
+                    animation={panelAnimation}
+                    theme={currentTheme}
+                    isAdaptive={isPanelAnimationAdaptive}
+                />
                 
                 {/* ========================================================================= */}
                 {/* ROW 1: Main Application Header & Window Title Bar                        */}
@@ -492,25 +480,33 @@ const AppHeader: React.FC = () => {
                     <div className="flex items-center gap-2 flex-shrink-0 app-region-drag">
                         {/* Title & Logo: Native window drag region, click does not invoke welcome screen */}
                         <div 
-                            className="flex items-center gap-2 px-1.5 py-0.5 rounded-md select-none app-region-drag"
-                            title={t('app.title')}
+                            className="flex items-center gap-2 px-1.5 py-0.5 rounded-md select-none app-region-drag group"
+                            title="Prompt Modifier"
                         >
-                            <div className="relative flex items-center justify-center text-accent-text">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                    <path d="M21 15l-5-5L5 21"></path>
-                                </svg>
+                            <div className="relative flex items-center justify-center">
+                                <PromptModifierIcon className="w-4 h-4" withGlow={false} />
                                 {hasAnyActiveWork && (
                                     <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
                                     </span>
                                 )}
                             </div>
-                            <span className="text-xs font-bold text-gray-200 tracking-tight whitespace-nowrap">
-                                {t('app.title')}
-                            </span>
+                            <div className="flex items-baseline tracking-tight font-sans text-xs whitespace-nowrap">
+                                <span 
+                                    className="font-extrabold text-white tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
+                                    style={{ fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif" }}
+                                >
+                                    Prompt
+                                </span>
+                                <span className="w-1"></span>
+                                <span 
+                                    className="font-extrabold text-[#00d2ff] tracking-tight drop-shadow-[0_0_8px_rgba(0,210,255,0.4)]"
+                                    style={{ fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif" }}
+                                >
+                                    Modifier
+                                </span>
+                            </div>
                             <span className="text-[10px] font-mono px-1.5 py-0.2 bg-gray-800 text-gray-400 rounded border border-gray-700/80">
                                 {APP_VERSION}
                             </span>
@@ -553,47 +549,56 @@ const AppHeader: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Center Section: Drag Region & Dual-Mode Switcher */}
+                    {/* Center Section: Drag Region & Unified Single Mode Switcher */}
                     <div className="flex-1 flex items-center justify-center min-w-[30px] px-2 h-full app-region-drag">
-                        <div className="app-region-no-drag flex items-center bg-gray-950/80 p-0.5 rounded-full border border-gray-700/70 shadow-inner">
-                            <button
-                                onClick={() => setIsBatchMode(false)}
-                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all flex items-center gap-1.5 ${
-                                    !isBatchMode 
-                                        ? 'bg-accent text-white shadow-sm font-semibold' 
-                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
-                                }`}
-                                title={t('titlebar.modeSwitchTooltip')}
-                            >
-                                <span className="text-xs">⚡</span>
-                                <span>{t('stats.normalMode') || 'Realtime'}</span>
-                                {queueStats.running > 0 && (
-                                    <span className="px-1.5 py-0.1 text-[9px] bg-white/20 text-white rounded-full font-bold">
-                                        {queueStats.running}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setIsBatchMode(true)}
-                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all flex items-center gap-1.5 ${
-                                    isBatchMode 
-                                        ? 'bg-accent-secondary text-white shadow-sm font-semibold' 
-                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
-                                }`}
-                                title={t('titlebar.modeSwitchTooltip')}
-                            >
-                                <span className="text-xs">📦</span>
-                                <span>Batch API</span>
-                                <span className="text-[9px] px-1 py-0.1 bg-black/20 text-white/90 rounded border border-white/20">
-                                    -50%
+                        <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => setIsBatchMode(!isBatchMode)}
+                            className={`app-region-no-drag px-3 py-1 rounded-full text-[11px] font-medium transition-all duration-200 flex items-center gap-2.5 shadow-inner select-none cursor-pointer focus:outline-none focus:ring-0 outline-none ${
+                                isBatchMode 
+                                    ? 'bg-gray-950/90 text-white shadow-accent-secondary/10 hover:bg-gray-900' 
+                                    : 'bg-gray-950/80 text-gray-300 hover:bg-gray-900 hover:text-white'
+                            }`}
+                            title={isBatchMode 
+                                ? (t('titlebar.switchToNormalTooltip') || 'Переключить в Обычный режим (Прямая генерация)')
+                                : (t('titlebar.switchToBatchTooltip') || 'Переключить в Режим Batch API (Скидка -50%, отложенная обработка)')
+                            }
+                        >
+                            {/* Mode Icon & Name */}
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs">{isBatchMode ? '📦' : '⚡'}</span>
+                                <span className={`font-semibold tracking-wide ${isBatchMode ? 'text-accent-secondary' : 'text-gray-200'}`}>
+                                    {isBatchMode ? 'Batch API' : (t('stats.normalMode') || 'Realtime')}
                                 </span>
-                                {batchStats.activeJobs > 0 && (
-                                    <span className="px-1.5 py-0.1 text-[9px] bg-white text-gray-900 rounded-full font-bold animate-pulse">
-                                        {batchStats.activeJobs}
+                                {isBatchMode ? (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent-secondary/20 text-accent-secondary font-mono font-bold">
+                                        -50%
+                                    </span>
+                                ) : (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-mono">
+                                        Direct
                                     </span>
                                 )}
-                            </button>
-                        </div>
+                            </div>
+
+                            {/* Switch Pill Toggle Track */}
+                            <div className={`w-7 h-3.5 rounded-full relative transition-colors duration-200 flex-shrink-0 ${isBatchMode ? 'bg-accent-secondary' : 'bg-gray-700'}`}>
+                                <div className={`absolute top-0.5 bottom-0.5 w-2.5 h-2.5 bg-white rounded-full shadow-sm transition-transform duration-200 ${isBatchMode ? 'translate-x-[14px]' : 'translate-x-[2px]'}`} />
+                            </div>
+
+                            {/* Badges for active tasks/jobs */}
+                            {isBatchMode && batchStats.activeJobs > 0 && (
+                                <span className="px-1.5 py-0.1 text-[9px] bg-white text-gray-900 rounded-full font-bold animate-pulse">
+                                    {batchStats.activeJobs}
+                                </span>
+                            )}
+                            {!isBatchMode && queueStats.running > 0 && (
+                                <span className="px-1.5 py-0.1 text-[9px] bg-accent text-white rounded-full font-bold">
+                                    {queueStats.running}
+                                </span>
+                            )}
+                        </button>
                     </div>
 
                     {/* Right Section: Toolbar Controls, Status Toggle & Windows Window Controls */}
@@ -620,6 +625,23 @@ const AppHeader: React.FC = () => {
                                 )}
                             </button>
                         </Tooltip>
+                        {/* Generation History & Stats Button */}
+                        <Tooltip content={t('toolbar.historyStats') || 'История и Статистика'} position="bottom">
+                            <button
+                                onClick={() => context.setIsHistoryPanelOpen?.(prev => !prev)}
+                                className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border ${
+                                    context.isHistoryPanelOpen 
+                                        ? 'bg-accent text-white border-accent' 
+                                        : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white border-gray-700/50'
+                                }`}
+                                aria-label={t('toolbar.historyStats')}
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </button>
+                        </Tooltip>
+
                         {/* Task Queue Drawer Button */}
                         <Tooltip content={`${t('queue.title') || 'Task Queue'} (Ctrl + T)`} position="bottom">
                             <button
@@ -640,23 +662,6 @@ const AppHeader: React.FC = () => {
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
                                     </span>
                                 )}
-                            </button>
-                        </Tooltip>
-
-                        {/* Generation History & Stats Button */}
-                        <Tooltip content={t('toolbar.historyStats') || 'История и Статистика'} position="bottom">
-                            <button
-                                onClick={() => context.setIsHistoryPanelOpen?.(prev => !prev)}
-                                className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border ${
-                                    context.isHistoryPanelOpen 
-                                        ? 'bg-accent text-white border-accent' 
-                                        : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white border-gray-700/50'
-                                }`}
-                                aria-label={t('toolbar.historyStats')}
-                            >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
                             </button>
                         </Tooltip>
 
@@ -1023,6 +1028,7 @@ const AppHeader: React.FC = () => {
                                     onAddTab={handleAddTab} 
                                     onCloseTab={handleCloseTab} 
                                     onRenameTab={handleRenameTab}
+                                    onReorderTabs={handleReorderTabs}
                                 />
                             </>
                         )}

@@ -1,11 +1,13 @@
 
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { NodeType, Point, Connection } from '../types';
 import { getEmptyValueForNodeType, RATIO_INDICES, getOutputHandleType } from '../utils/nodeUtils';
 import { generateThumbnail } from '../utils/imageUtils';
 import { readPromptFromPNG } from '../utils/pngMetadata';
 import { CARD_NODE_WIDTH_STEP, CARD_NODE_BASE_WIDTH_OFFSET } from './useEntityActions';
 import { ImageBatchItem } from '../components/nodes/image-input/types';
+import { DEFAULT_EDITOR_STATE, ImageEditorState } from '../components/nodes/image-editor/types';
+import { ImageDropMenuInfo, DroppedImageItem, ImageDropTarget } from '../components/ImageDropMenu';
 
 export const useCanvasEvents = (props: any) => {
     const {
@@ -28,6 +30,167 @@ export const useCanvasEvents = (props: any) => {
     } = props;
 
     const dragCounter = useRef(0);
+    const [imageDropMenuInfo, setImageDropMenuInfo] = useState<ImageDropMenuInfo | null>(null);
+    const handleCloseImageDropMenu = useCallback(() => setImageDropMenuInfo(null), []);
+
+    const handleSelectImageDropTarget = useCallback(async (target: ImageDropTarget, info: ImageDropMenuInfo) => {
+        setImageDropMenuInfo(null);
+        const { dropWorldPosition: pos, images } = info;
+        if (!images || images.length === 0) return;
+
+        if (target === 'image_input') {
+            if (images.length === 1) {
+                const { dataUrl, prompt } = images[0];
+                const newNodeId = onAddNode(NodeType.IMAGE_INPUT, pos);
+                if (newNodeId) {
+                    setFullSizeImage(newNodeId, 0, dataUrl);
+                    const finalPrompt = prompt || await readPromptFromPNG(dataUrl).catch(() => '');
+                    const thumb = await generateThumbnail(dataUrl, 256, 256).catch(() => dataUrl);
+                    handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: finalPrompt || '' }));
+                }
+            } else {
+                const batchFiles: ImageBatchItem[] = await Promise.all(images.map(async (v, idx) => {
+                    let thumbnailUrl: string | undefined;
+                    try {
+                        thumbnailUrl = await generateThumbnail(v.dataUrl, 128, 128);
+                    } catch {
+                        thumbnailUrl = v.dataUrl;
+                    }
+                    return {
+                        id: `batch-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+                        name: v.name,
+                        dataUrl: v.dataUrl,
+                        thumbnailUrl,
+                        size: v.size
+                    };
+                }));
+
+                const firstItem = batchFiles[0];
+                const masterThumb = await generateThumbnail(firstItem.dataUrl, 256, 256).catch(() => firstItem.dataUrl);
+                const prompt = images[0].prompt || await readPromptFromPNG(firstItem.dataUrl).catch(() => '');
+
+                const initialValue = JSON.stringify({
+                    image: masterThumb,
+                    prompt: prompt || '',
+                    mode: 'batch',
+                    batchFiles: batchFiles,
+                    batchConfig: {
+                        subMode: 'grid',
+                        includeOriginal: false
+                    },
+                    grid: {
+                        cols: 2,
+                        rows: 2,
+                        bounds: { x: 0, y: 0, width: 1, height: 1 }
+                    }
+                });
+
+                const newNodeId = onAddNode(
+                    NodeType.IMAGE_INPUT,
+                    pos,
+                    `Batch Input (${batchFiles.length})`,
+                    { initialValue }
+                );
+
+                if (newNodeId) {
+                    handleValueChange(newNodeId, initialValue);
+                    batchFiles.forEach((bf, idx) => {
+                        setFullSizeImage(newNodeId, idx, bf.dataUrl);
+                    });
+                    if (addToast) {
+                        addToast(
+                            (t ? t('batch.sendToImageInputToast') : null)
+                                ? t('batch.sendToImageInputToast').replace('{count}', String(batchFiles.length))
+                                : `Batch Input (${batchFiles.length}) created`,
+                            'success'
+                        );
+                    }
+                }
+            }
+        } else if (target === 'image_editor') {
+            const thumbnails: string[] = [];
+            for (let i = 0; i < images.length; i++) {
+                const thumb = await generateThumbnail(images[i].dataUrl, 256, 256).catch(() => images[i].dataUrl);
+                thumbnails.push(thumb);
+            }
+
+            const checkedInputIndices = thumbnails.map((_, i) => i);
+            const firstPrompt = images.find(img => img.prompt)?.prompt || '';
+
+            const editorState: ImageEditorState = {
+                ...DEFAULT_EDITOR_STATE,
+                inputImages: thumbnails,
+                checkedInputIndices,
+                prompt: firstPrompt
+            };
+
+            const initialValue = JSON.stringify(editorState);
+            const newNodeId = onAddNode(
+                NodeType.IMAGE_EDITOR,
+                pos,
+                undefined,
+                { initialValue }
+            );
+
+            if (newNodeId) {
+                handleValueChange(newNodeId, initialValue);
+                images.forEach((img, idx) => {
+                    setFullSizeImage(newNodeId, idx + 1, img.dataUrl);
+                });
+                if (addToast) {
+                    addToast(
+                        `AI Image Editor: ${images.length} ${images.length === 1 ? 'image' : 'images'} added to Input`,
+                        'success'
+                    );
+                }
+            }
+        } else if (target === 'note') {
+            const newRefs = [];
+            for (let i = 0; i < images.length; i++) {
+                const thumb = await generateThumbnail(images[i].dataUrl, 256, 256).catch(() => images[i].dataUrl);
+                newRefs.push({
+                    id: `ref-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
+                    image: thumb,
+                    caption: images[i].prompt || ''
+                });
+            }
+
+            const noteData = {
+                text: '',
+                references: newRefs,
+                activeTab: 'reference',
+                isMinimal: false,
+                style: {
+                    fontSize: 14,
+                    color: '#ffffff',
+                    isBold: false,
+                    isItalic: false,
+                    textAlign: 'left'
+                }
+            };
+
+            const initialValue = JSON.stringify(noteData);
+            const newNodeId = onAddNode(
+                NodeType.NOTE,
+                pos,
+                undefined,
+                { initialValue }
+            );
+
+            if (newNodeId) {
+                handleValueChange(newNodeId, initialValue);
+                images.forEach((img, idx) => {
+                    setFullSizeImage(newNodeId, idx, img.dataUrl);
+                });
+                if (addToast) {
+                    addToast(
+                        `Note: ${images.length} ${images.length === 1 ? 'image' : 'images'} added to References`,
+                        'success'
+                    );
+                }
+            }
+        }
+    }, [onAddNode, setFullSizeImage, handleValueChange, addToast, t]);
 
     const toggleHighlight = (active: boolean) => {
         const el = document.getElementById('app-container');
@@ -117,10 +280,15 @@ export const useCanvasEvents = (props: any) => {
         if (dragInfoData) {
              try {
                  const { src, prompt } = JSON.parse(dragInfoData);
-                 const newNodeId = onAddNode(NodeType.IMAGE_INPUT, dropPosition);
-                 setFullSizeImage(newNodeId, 0, src);
-                 generateThumbnail(src, 256, 256).then((thumb: string) => {
-                     handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: prompt || '' }));
+                 setImageDropMenuInfo({
+                     position: { x: e.clientX, y: e.clientY },
+                     dropWorldPosition: dropPosition,
+                     images: [{
+                         name: 'image.png',
+                         dataUrl: src,
+                         size: Math.round(src.length * 0.75),
+                         prompt: prompt || ''
+                     }]
                  });
                  return;
              } catch (e) {
@@ -130,11 +298,16 @@ export const useCanvasEvents = (props: any) => {
 
         const dragImageData = e.dataTransfer.getData('application/prompt-modifier-drag-image');
         if (dragImageData) {
-             const newNodeId = onAddNode(NodeType.IMAGE_INPUT, dropPosition);
-             setFullSizeImage(newNodeId, 0, dragImageData);
              readPromptFromPNG(dragImageData).then(prompt => {
-                 generateThumbnail(dragImageData, 256, 256).then((thumb: string) => {
-                     handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: prompt || '' }));
+                 setImageDropMenuInfo({
+                     position: { x: e.clientX, y: e.clientY },
+                     dropWorldPosition: dropPosition,
+                     images: [{
+                         name: 'image.png',
+                         dataUrl: dragImageData,
+                         size: Math.round(dragImageData.length * 0.75),
+                         prompt: prompt || ''
+                     }]
                  });
              });
              return;
@@ -295,19 +468,25 @@ export const useCanvasEvents = (props: any) => {
              const imageFiles = files.filter(f => f.type.startsWith('image/'));
              const otherFiles = files.filter(f => !f.type.startsWith('image/'));
 
-             // Handle multiple image files dropped simultaneously -> Add to a single Image Input node in Batch mode
-             if (imageFiles.length > 1) {
-                 const pos = { x: dropPosition.x + offsetX, y: dropPosition.y + offsetY };
-                 offsetX += 30; offsetY += 30;
-
+             // When image files are dropped, open the selection menu
+             if (imageFiles.length > 0) {
                  (async () => {
-                     const readImage = (file: File): Promise<{ file: File; dataUrl: string } | null> => {
+                     const readImage = (file: File): Promise<DroppedImageItem | null> => {
                          return new Promise((resolve) => {
                              const reader = new FileReader();
-                             reader.onload = (event) => {
+                             reader.onload = async (event) => {
                                  const dataUrl = event.target?.result as string;
-                                 if (dataUrl) resolve({ file, dataUrl });
-                                 else resolve(null);
+                                 if (dataUrl) {
+                                     const prompt = await readPromptFromPNG(dataUrl).catch(() => '');
+                                     resolve({
+                                         name: file.name,
+                                         dataUrl,
+                                         size: file.size,
+                                         prompt: prompt || ''
+                                     });
+                                 } else {
+                                     resolve(null);
+                                 }
                              };
                              reader.onerror = () => resolve(null);
                              reader.readAsDataURL(file);
@@ -315,94 +494,15 @@ export const useCanvasEvents = (props: any) => {
                      };
 
                      const results = await Promise.all(imageFiles.map(readImage));
-                     const valid = results.filter((r): r is { file: File; dataUrl: string } => r !== null && !!r.dataUrl);
+                     const valid = results.filter((r): r is DroppedImageItem => r !== null && !!r.dataUrl);
                      if (valid.length === 0) return;
 
-                     if (valid.length === 1) {
-                         const { dataUrl } = valid[0];
-                         const newNodeId = onAddNode(NodeType.IMAGE_INPUT, pos);
-                         setFullSizeImage(newNodeId, 0, dataUrl);
-                         const prompt = await readPromptFromPNG(dataUrl);
-                         const thumb = await generateThumbnail(dataUrl, 256, 256).catch(() => dataUrl);
-                         handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: prompt || '' }));
-                         return;
-                     }
-
-                     const batchFiles: ImageBatchItem[] = await Promise.all(valid.map(async (v, idx) => {
-                         let thumbnailUrl: string | undefined;
-                         try {
-                             thumbnailUrl = await generateThumbnail(v.dataUrl, 128, 128);
-                         } catch {
-                             thumbnailUrl = v.dataUrl;
-                         }
-                         return {
-                             id: `batch-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
-                             name: v.file.name,
-                             dataUrl: v.dataUrl,
-                             thumbnailUrl,
-                             size: v.file.size
-                         };
-                     }));
-
-                     const firstItem = batchFiles[0];
-                     const masterThumb = await generateThumbnail(firstItem.dataUrl, 256, 256).catch(() => firstItem.dataUrl);
-                     const prompt = await readPromptFromPNG(firstItem.dataUrl).catch(() => '');
-
-                     const initialValue = JSON.stringify({
-                         image: masterThumb,
-                         prompt: prompt || '',
-                         mode: 'batch',
-                         batchFiles: batchFiles,
-                         batchConfig: {
-                             subMode: 'grid',
-                             includeOriginal: false
-                         },
-                         grid: {
-                             cols: 2,
-                             rows: 2,
-                             bounds: { x: 0, y: 0, width: 1, height: 1 }
-                         }
+                     setImageDropMenuInfo({
+                         position: { x: e.clientX, y: e.clientY },
+                         dropWorldPosition: dropPosition,
+                         images: valid
                      });
-
-                     const newNodeId = onAddNode(
-                         NodeType.IMAGE_INPUT,
-                         pos,
-                         `Batch Input (${batchFiles.length})`,
-                         { initialValue }
-                     );
-
-                     if (newNodeId) {
-                         handleValueChange(newNodeId, initialValue);
-                         batchFiles.forEach((bf, idx) => {
-                             setFullSizeImage(newNodeId, idx, bf.dataUrl);
-                         });
-                         if (addToast) {
-                             addToast(
-                                 (t ? t('batch.sendToImageInputToast') : null)
-                                     ? t('batch.sendToImageInputToast').replace('{count}', String(batchFiles.length))
-                                     : `Создан узел Image Input с ${batchFiles.length} изображениями (Batch)`,
-                                 'success'
-                             );
-                         }
-                     }
                  })();
-             } else if (imageFiles.length === 1) {
-                 const file = imageFiles[0];
-                 const pos = { x: dropPosition.x + offsetX, y: dropPosition.y + offsetY };
-                 const reader = new FileReader();
-                 reader.onload = async (event) => {
-                     const dataUrl = event.target?.result as string;
-                     if (dataUrl) {
-                         const newNodeId = onAddNode(NodeType.IMAGE_INPUT, pos);
-                         setFullSizeImage(newNodeId, 0, dataUrl);
-                         const prompt = await readPromptFromPNG(dataUrl);
-                         generateThumbnail(dataUrl, 256, 256).then((thumb: string) => {
-                             handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: prompt || '' }));
-                         });
-                     }
-                 };
-                 reader.readAsDataURL(file);
-                 offsetX += 30; offsetY += 30;
              }
 
              // Handle non-image files (JSON, Project, Character, Script)
@@ -601,5 +701,13 @@ export const useCanvasEvents = (props: any) => {
         }
     }, [onAddNode, handleValueChange, handleRenameNode, setFullSizeImage, getTransformedPoint, handleLoadCanvasIntoCurrentTab, setError, pasteGroup, t, handleAddGroupFromCatalog, libraryItems, setNodes, setConfirmInfo, activeTabId, handleRenameTab]);
     
-    return { handleDrop, handleDragOver, handleDragLeave, handleDragEnter };
+    return {
+        handleDrop,
+        handleDragOver,
+        handleDragLeave,
+        handleDragEnter,
+        imageDropMenuInfo,
+        handleCloseImageDropMenu,
+        handleSelectImageDropTarget
+    };
 };

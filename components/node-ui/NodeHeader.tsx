@@ -3,6 +3,7 @@ import React from 'react';
 import { Node, NodeType, ToastType, DockMode } from '../../types';
 import { ActionButton } from '../ActionButton';
 import { Tooltip } from '../Tooltip';
+import { EditorTooltip } from '../nodes/image-editor/EditorTooltip';
 import { useLanguage } from '../../localization';
 import { HEADER_HEIGHT, isRestrictedDockingNode } from '../../utils/nodeUtils';
 import { CopyIcon, DetachIcon, PinLeftIcon, PinRightIcon, FullScreenIcon, ExitFullScreenIcon, PinIcon, EyeIcon, EyeOffIcon, PhotoIcon } from '../icons/AppIcons';
@@ -245,7 +246,85 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
         [NodeType.MEDIA_VIEWER]: t('node.help.media_viewer'),
         [NodeType.DATA_PROTECTION]: t('node.help.data_protection'),
         [NodeType.POSE_CREATOR]: t('node.help.pose_creator'),
+        [NodeType.THREE_D_GENERATOR]: t('node.help.three_d_generator' as any) || 'Generate 3D models using Tripo AI (Single Image or Multiview)',
     }), [t]);
+
+    const nodeTypeTitleMap: Record<NodeType, string> = React.useMemo(() => ({
+        [NodeType.TEXT_INPUT]: 'node.title.text_input',
+        [NodeType.IMAGE_INPUT]: 'node.title.image_input',
+        [NodeType.PROMPT_PROCESSOR]: 'node.title.prompt_processor',
+        [NodeType.PROMPT_SANITIZER]: 'node.title.prompt_sanitizer',
+        [NodeType.VIDEO_PROMPT_PROCESSOR]: 'node.title.video_prompt_processor',
+        [NodeType.IMAGE_OUTPUT]: 'node.title.image_output',
+        [NodeType.VIDEO_OUTPUT]: 'node.title.video_output',
+        [NodeType.PROMPT_ANALYZER]: 'node.title.prompt_analyzer',
+        [NodeType.CHARACTER_ANALYZER]: 'node.title.character_analyzer',
+        [NodeType.CHARACTER_GENERATOR]: 'node.title.character_generator',
+        [NodeType.CHARACTER_CARD]: 'node.title.character_card',
+        [NodeType.IMAGE_ANALYZER]: 'node.title.image_analyzer',
+        [NodeType.IMAGE_EDITOR]: 'node.title.image_editor',
+        [NodeType.IMAGE_SEQUENCE_GENERATOR]: 'node.title.image_sequence_generator',
+        [NodeType.PROMPT_SEQUENCE_EDITOR]: 'node.title.prompt_sequence_editor',
+        [NodeType.GEMINI_CHAT]: 'node.title.gemini_chat',
+        [NodeType.TRANSLATOR]: 'node.title.translator',
+        [NodeType.SCRIPT_GENERATOR]: 'node.title.script_generator',
+        [NodeType.SCRIPT_VIEWER]: 'node.title.script_viewer',
+        [NodeType.NOTE]: 'node.title.note',
+        [NodeType.REROUTE_DOT]: 'node.title.reroute_dot',
+        [NodeType.DATA_READER]: 'node.title.data_reader',
+        [NodeType.VIDEO_EDITOR]: 'node.title.video_editor',
+        [NodeType.MEDIA_VIEWER]: 'node.title.media_viewer',
+        [NodeType.DATA_PROTECTION]: 'node.title.data_protection',
+        [NodeType.POSE_CREATOR]: 'node.title.pose_creator',
+        [NodeType.THREE_D_GENERATOR]: 'node.title.three_d_generator',
+    }), []);
+
+    const displayTitle = React.useMemo(() => {
+        if (!node.title) {
+            const key = nodeTypeTitleMap[node.type];
+            return key ? (t(key as any) || node.type) : node.type;
+        }
+        if (node.title.startsWith('node.title.') || node.title.startsWith('search.node.')) {
+            return t(node.title as any) || node.title;
+        }
+        const defaultTitles: Record<NodeType, string[]> = {
+            [NodeType.TEXT_INPUT]: ['Text Input', 'Текстовый узел', 'Ввод текста'],
+            [NodeType.IMAGE_INPUT]: ['Image Input', 'Узел изображения', 'Ввод изображения'],
+            [NodeType.PROMPT_PROCESSOR]: ['Prompt Processor', 'Обработчик промпта', 'Обработчик запроса'],
+            [NodeType.PROMPT_SANITIZER]: ['Prompt Sanitizer', 'Очиститель промпта'],
+            [NodeType.VIDEO_PROMPT_PROCESSOR]: ['Video Prompt Proc.', 'Обработчик видео промпта', 'Видео Промпт Проц.', 'Video Prompt Processor'],
+            [NodeType.IMAGE_OUTPUT]: ['Image Output', 'Вывод изображения'],
+            [NodeType.VIDEO_OUTPUT]: ['Video Output', 'Вывод видео'],
+            [NodeType.PROMPT_ANALYZER]: ['Prompt Analyzer', 'Анализатор промпта'],
+            [NodeType.CHARACTER_ANALYZER]: ['Character Analyzer', 'Анализатор персонажа'],
+            [NodeType.CHARACTER_GENERATOR]: ['Character Generator', 'Генератор персонажей', 'Генератор персонажа'],
+            [NodeType.CHARACTER_CARD]: ['Character Card', 'Карточка персонажа'],
+            [NodeType.IMAGE_ANALYZER]: ['Image Analyzer', 'Анализатор изображений', 'Анализ изображения'],
+            [NodeType.IMAGE_EDITOR]: ['AI Image Editor', 'Редактор изображений ИИ', 'AI Редактор изображений', 'Редактор изображений'],
+            [NodeType.IMAGE_SEQUENCE_GENERATOR]: ['Image Sequence Gen.', 'Генератор последовательности изображений', 'Генератор послед. изобр.', 'Image Sequence Generator'],
+            [NodeType.PROMPT_SEQUENCE_EDITOR]: ['Prompt Sequence Editor', 'Редактор последовательности промптов'],
+            [NodeType.GEMINI_CHAT]: ['Gemini Chat', 'Чат с Gemini', 'Чат Gemini'],
+            [NodeType.TRANSLATOR]: ['Translator', 'Переводчик'],
+            [NodeType.SCRIPT_GENERATOR]: ['Script Generator', 'Генератор сценария'],
+            [NodeType.SCRIPT_VIEWER]: ['Script Viewer', 'Просмотрщик сценария'],
+            [NodeType.NOTE]: ['Note', 'Заметка'],
+            [NodeType.REROUTE_DOT]: ['Reroute Dot', 'Точка маршрутизации'],
+            [NodeType.DATA_READER]: ['Data Reader', 'Считыватель данных', 'Читатель данных'],
+            [NodeType.VIDEO_EDITOR]: ['Video Editor Alpha', 'Видео редактор Альфа версия', 'Видеоредактор Alpha', 'Video Editor', 'Видеоредактор'],
+            [NodeType.MEDIA_VIEWER]: ['Media Viewer', 'Просмотр медиа данных', 'Медиаплеер', 'Медиа плеер'],
+            [NodeType.DATA_PROTECTION]: ['Data Protection', 'Защита данных'],
+            [NodeType.POSE_CREATOR]: ['Pose Creator', 'Создание поз', 'Конструктор поз'],
+            [NodeType.THREE_D_GENERATOR]: ['3D Generation', '3D Генерация', '3D Generation (Tripo)', '3D Моделирование', '3D Генератор'],
+        };
+        const defaults = defaultTitles[node.type];
+        if (defaults && defaults.includes(node.title.trim())) {
+            const key = nodeTypeTitleMap[node.type];
+            if (key) {
+                return t(key as any) || node.title;
+            }
+        }
+        return node.title;
+    }, [node.title, node.type, nodeTypeTitleMap, t]);
 
     const handleClearContent = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -378,7 +457,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                                         <PinIcon className="h-4 w-4" />
                                     </ActionButton>
                                 )}
-                                <span className="truncate pr-2">{node.title}</span>
+                                <span className="truncate pr-2">{displayTitle}</span>
                             </>
                         )}
                     </div>
@@ -394,7 +473,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                         {/* Note Minimal Toggle (Eye) */}
                         {isNote && (
                             <ActionButton
-                                title={isNoteMinimal ? "Show Controls" : "Hide Controls"}
+                                title={isNoteMinimal ? (t('node.action.expand') || "Show Controls") : (t('node.action.collapse') || "Hide Controls")}
                                 onClick={handleToggleNoteMinimal}
                                 className={`p-1 rounded hover:bg-gray-600 transition-colors ${isNoteMinimal ? 'text-gray-500' : 'text-gray-400 hover:text-white'}`}
                             >
@@ -452,22 +531,32 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
 
                         {/* Batch Auto-Download Option (when Batch mode is active for AI Image Editor and Image Output) */}
                         {isBatchAutoDownloadEligible && isBatchActive && (
-                            <button
-                                type="button"
-                                onClick={handleToggleBatchAutoDownload}
-                                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all select-none border cursor-pointer ${
-                                    isAutoDownloadEnabled
-                                        ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/60 shadow-sm'
-                                        : 'bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-gray-200 border-gray-600/60'
-                                }`}
-                                title={t('batch.autoDownloadTooltip') || 'Авто-скачка с сервера при получении ответа (Batch API)'}
+                            <EditorTooltip
+                                title={t('batch.autoDownloadLabel') || 'Авто-скачка'}
+                                status={{
+                                    enabled: isAutoDownloadEnabled,
+                                    labelOn: t('common.enabled') || 'Включено',
+                                    labelOff: t('common.disabled') || 'Выключено'
+                                }}
+                                description={t('batch.autoDownloadTooltip') || 'Авто-скачка с сервера при получении ответа (Batch API)'}
+                                position="bottom"
                             >
-                                <svg className={`w-3.5 h-3.5 shrink-0 ${isAutoDownloadEnabled ? 'text-emerald-400' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                <span className="truncate">{t('batch.autoDownloadLabel') || 'Авто-скачка'}</span>
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isAutoDownloadEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={handleToggleBatchAutoDownload}
+                                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all select-none border cursor-pointer ${
+                                        isAutoDownloadEnabled
+                                            ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/60 shadow-sm'
+                                            : 'bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-gray-200 border-gray-600/60'
+                                    }`}
+                                >
+                                    <svg className={`w-3.5 h-3.5 shrink-0 ${isAutoDownloadEnabled ? 'text-emerald-400' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    <span className="truncate">{t('batch.autoDownloadLabel') || 'Авто-скачка'}</span>
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isAutoDownloadEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                                </button>
+                            </EditorTooltip>
                         )}
 
                         {/* Batch Waiting Status Badge */}
@@ -731,7 +820,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                                     <>
                                         {/* Move Dock Left (Horizontal Cycle) */}
                                         {!isRestricted && (
-                                            <Tooltip content="Cycle Horizontal Left">
+                                            <Tooltip content={t('toolbar.dock.cycleHorizontalLeft') || "Cycle Horizontal Left"}>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleDockCycle(-1); }}
                                                     className="text-gray-400 hover:text-white transition-colors p-1"
@@ -743,7 +832,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
 
                                         {/* NEW: Vertical Left Cycle */}
                                         {!isRestricted && (
-                                            <Tooltip content="Cycle Vertical Left (TL/BL)">
+                                            <Tooltip content={t('toolbar.dock.cycleVerticalLeft') || "Cycle Vertical Left (TL/BL)"}>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleVerticalDockCycle('left'); }}
                                                     className="text-gray-400 hover:text-white transition-colors p-1"
@@ -778,7 +867,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
 
                                         {/* NEW: Vertical Right Cycle */}
                                         {!isRestricted && (
-                                            <Tooltip content="Cycle Vertical Right (TR/BR)">
+                                            <Tooltip content={t('toolbar.dock.cycleVerticalRight') || "Cycle Vertical Right (TR/BR)"}>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleVerticalDockCycle('right'); }}
                                                     className="text-gray-400 hover:text-white transition-colors p-1"
@@ -793,7 +882,7 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
 
                                         {/* Move Dock Right (Horizontal Cycle) */}
                                         {!isRestricted && (
-                                            <Tooltip content="Cycle Horizontal Right">
+                                            <Tooltip content={t('toolbar.dock.cycleHorizontalRight') || "Cycle Horizontal Right"}>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleDockCycle(1); }}
                                                     className="text-gray-400 hover:text-white transition-colors p-1"

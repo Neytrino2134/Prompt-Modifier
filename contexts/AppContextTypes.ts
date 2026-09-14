@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, PanelStyle, PanelAnimation, LogEntry, LogLevel, BatchJobRecord } from '../types';
+import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, PanelStyle, PanelAnimation, CursorSkin, LogEntry, LogLevel, BatchJobRecord } from '../types';
 import { NodeType } from '../types';
 import { LanguageCode, TranslationKey } from '../localization';
 import {
@@ -89,6 +89,7 @@ export type AppContextType =
   handleSaveGroupToDisk: (groupId: string) => void;
   handleAddGroupFromCatalog: (itemId: string, position?: Point) => void;
   handleCloseTab: (tabId: string, e?: React.MouseEvent) => void;
+  handleReorderTabs: (sourceIndex: number, targetIndex: number) => void;
   handleClearCanvas: (e?: React.MouseEvent) => void;
   handleResetCanvas: (e?: React.MouseEvent) => void;
   resetCanvasToDefault: (lang: LanguageCode) => void; 
@@ -259,6 +260,15 @@ export type AppContextType =
   setIsPanelAutoHide: (autoHide: boolean) => void;
   panelAnimation: PanelAnimation;
   setPanelAnimation: (anim: PanelAnimation) => void;
+  isPanelAnimationAdaptive: boolean;
+  setIsPanelAnimationAdaptive: (adaptive: boolean) => void;
+
+  // Cursor Skin & Effects
+  cursorSkin: CursorSkin;
+  setCursorSkin: (skin: CursorSkin) => void;
+  isCursorEffectEnabled: boolean;
+  setIsCursorEffectEnabled: (enabled: boolean) => void;
+
 
   // New handler
   handleUpdateCharacterPromptFromImage: (nodeId: string, cardIndex: number) => void;
@@ -304,6 +314,15 @@ export type AppContextType =
   clearAllBatchJobs: () => void;
   getBatchJobJsonl?: (jobId: string) => string | undefined;
   downloadBatchJsonl?: (jobId: string) => void;
+  deviceId?: string;
+  deviceName?: string;
+  setDeviceId?: (id: string) => void;
+  setDeviceName?: (name: string) => void;
+  regenerateDeviceId?: () => string;
+  deviceIsolationEnabled?: boolean;
+  setDeviceIsolationEnabled?: (enabled: boolean) => void;
+  deviceFilterMode?: string;
+  setDeviceFilterMode?: (mode: string) => void;
   updateNodeInStorage: (tabId: string, nodeId: string, updater: (nodeVal: any) => any, cacheData?: { frame: number; url: string }) => void;
 
   // Session Persistence

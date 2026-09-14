@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import type { Tab } from '../types';
 import { useLanguage } from '../localization';
 import { Tooltip } from './Tooltip';
@@ -11,16 +10,45 @@ interface TabsBarProps {
   onAddTab: () => void;
   onCloseTab: (tabId: string, e: React.MouseEvent) => void;
   onRenameTab: (tabId: string, newName: string) => void;
+  onReorderTabs?: (sourceIndex: number, targetIndex: number) => void;
+}
+
+interface DropTargetState {
+  index: number;
+  position: 'left' | 'right';
 }
 
 const TabButton: React.FC<{
     tab: Tab;
+    index: number;
     isActive: boolean;
+    isDragging: boolean;
+    dropTarget: DropTargetState | null;
     onSwitchTab: (id: string) => void;
     onStartEditing: (tab: Tab) => void;
     onCloseTab: (id: string, e: React.MouseEvent) => void;
+    onDragStartTab: (index: number, tabId: string, e: React.DragEvent) => void;
+    onDragOverTab: (index: number, e: React.DragEvent) => void;
+    onDragLeaveTab: (index: number, e: React.DragEvent) => void;
+    onDropTab: (index: number, e: React.DragEvent) => void;
+    onDragEndTab: () => void;
     t: (key: string) => string;
-}> = ({ tab, isActive, onSwitchTab, onStartEditing, onCloseTab, t }) => {
+}> = ({
+    tab,
+    index,
+    isActive,
+    isDragging,
+    dropTarget,
+    onSwitchTab,
+    onStartEditing,
+    onCloseTab,
+    onDragStartTab,
+    onDragOverTab,
+    onDragLeaveTab,
+    onDropTab,
+    onDragEndTab,
+    t,
+}) => {
     const textRef = useRef<HTMLSpanElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [scrollDist, setScrollDist] = useState(0);
@@ -36,21 +64,42 @@ const TabButton: React.FC<{
         measureOverflow();
     }, [tab.name]);
 
+    const isDropLeft = dropTarget?.index === index && dropTarget?.position === 'left';
+    const isDropRight = dropTarget?.index === index && dropTarget?.position === 'right';
+
     return (
         <div
+            draggable
+            onDragStart={(e) => onDragStartTab(index, tab.id, e)}
+            onDragOver={(e) => onDragOverTab(index, e)}
+            onDragLeave={(e) => onDragLeaveTab(index, e)}
+            onDrop={(e) => onDropTab(index, e)}
+            onDragEnd={onDragEndTab}
             onClick={() => onSwitchTab(tab.id)}
             onDoubleClick={() => onStartEditing(tab)}
-            onDragOver={(e) => {
-                  e.preventDefault();
-                  if (!isActive) onSwitchTab(tab.id);
-            }}
             onMouseEnter={measureOverflow}
-            className={`flex items-center justify-between gap-1.5 px-2.5 h-6 rounded-md cursor-pointer transition-colors duration-150 group flex-shrink-0 select-none max-w-[170px] outline-none focus:outline-none focus:ring-0 ${
+            className={`relative flex items-center justify-between gap-1.5 px-2.5 h-6 rounded-md cursor-pointer transition-all duration-150 group flex-shrink-0 select-none max-w-[170px] outline-none focus:outline-none focus:ring-0 ${
+                isDragging ? 'opacity-40 scale-95' : 'opacity-100'
+            } ${
                 isActive 
                     ? 'bg-accent text-white shadow-sm shadow-accent/20 font-semibold border border-transparent' 
                     : 'bg-gray-800/70 text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700/40 hover:border-gray-600/70 font-medium'
             }`}
         >
+            {/* Insertion drop indicator line on left */}
+            {isDropLeft && (
+                <div 
+                    className="absolute -left-[3px] top-0 bottom-0 w-[3px] bg-accent shadow-[0_0_8px_rgba(59,130,246,1)] rounded-full z-30 pointer-events-none animate-pulse" 
+                />
+            )}
+
+            {/* Insertion drop indicator line on right */}
+            {isDropRight && (
+                <div 
+                    className="absolute -right-[3px] top-0 bottom-0 w-[3px] bg-accent shadow-[0_0_8px_rgba(59,130,246,1)] rounded-full z-30 pointer-events-none animate-pulse" 
+                />
+            )}
+
             {/* Status dot */}
             <span 
                 className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
@@ -73,6 +122,11 @@ const TabButton: React.FC<{
                 <button
                     type="button"
                     tabIndex={-1}
+                    draggable={false}
+                    onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }}
                     onClick={(e) => {
                         e.stopPropagation();
                         onCloseTab(tab.id, e);
@@ -93,10 +147,13 @@ const TabButton: React.FC<{
     );
 };
 
-const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAddTab, onCloseTab, onRenameTab }) => {
+const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAddTab, onCloseTab, onRenameTab, onReorderTabs }) => {
   const { t } = useLanguage();
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTargetState | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +190,96 @@ const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAdd
     }
   };
 
+  // Drag-and-Drop Handlers
+  const handleDragStartTab = useCallback((index: number, tabId: string, e: React.DragEvent) => {
+    setDraggedIndex(index);
+    e.dataTransfer.setData('text/tab-id', tabId);
+    e.dataTransfer.setData('text/tab-index', index.toString());
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOverTab = useCallback((index: number, e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedIndex !== null) {
+      e.dataTransfer.dropEffect = 'move';
+      const rect = e.currentTarget.getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      const position: 'left' | 'right' = e.clientX < midX ? 'left' : 'right';
+      
+      // Avoid showing indicator on the same spot as dragged item
+      if (draggedIndex === index && ((position === 'left' && index === 0) || (position === 'right' && index === tabs.length - 1))) {
+        setDropTarget(null);
+        return;
+      }
+      setDropTarget({ index, position });
+    } else {
+      // External drag (nodes / files) over tab: switch tab to allow dropping inside it
+      const targetTab = tabs[index];
+      if (targetTab && targetTab.id !== activeTabId) {
+        onSwitchTab(targetTab.id);
+      }
+    }
+  }, [draggedIndex, tabs, activeTabId, onSwitchTab]);
+
+  const handleDragLeaveTab = useCallback((index: number, e: React.DragEvent) => {
+    const currentTarget = e.currentTarget as HTMLElement;
+    if (!currentTarget.contains(e.relatedTarget as Node)) {
+      setDropTarget(prev => (prev?.index === index ? null : prev));
+    }
+  }, []);
+
+  const handleDropTab = useCallback((targetIndex: number, e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (draggedIndex !== null && onReorderTabs) {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      const position: 'left' | 'right' = dropTarget?.position || (e.clientX < midX ? 'left' : 'right');
+
+      let destinationIndex = position === 'left' ? targetIndex : targetIndex + 1;
+      if (draggedIndex < destinationIndex) {
+        destinationIndex -= 1;
+      }
+
+      if (destinationIndex >= 0 && destinationIndex < tabs.length && destinationIndex !== draggedIndex) {
+        onReorderTabs(draggedIndex, destinationIndex);
+      }
+    }
+
+    setDraggedIndex(null);
+    setDropTarget(null);
+  }, [draggedIndex, dropTarget, onReorderTabs, tabs.length]);
+
+  const handleDragEndTab = useCallback(() => {
+    setDraggedIndex(null);
+    setDropTarget(null);
+  }, []);
+
+  const handleContainerDragOver = useCallback((e: React.DragEvent) => {
+    if (draggedIndex !== null) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  }, [draggedIndex]);
+
+  const handleContainerDrop = useCallback((e: React.DragEvent) => {
+    if (draggedIndex !== null && onReorderTabs) {
+      e.preventDefault();
+      if (dropTarget) {
+        handleDropTab(dropTarget.index, e);
+      } else {
+        // Dropped at the far right end of the container
+        const destinationIndex = tabs.length - 1;
+        if (destinationIndex !== draggedIndex) {
+          onReorderTabs(draggedIndex, destinationIndex);
+        }
+      }
+    }
+    setDraggedIndex(null);
+    setDropTarget(null);
+  }, [draggedIndex, dropTarget, handleDropTab, onReorderTabs, tabs.length]);
+
   return (
     <div 
       onMouseDown={(e) => e.stopPropagation()}
@@ -141,9 +288,11 @@ const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAdd
       <div 
         ref={scrollContainerRef}
         onWheel={handleWheel}
+        onDragOver={handleContainerDragOver}
+        onDrop={handleContainerDrop}
         className="flex items-center h-7 px-1 bg-gray-950/40 border border-gray-800/80 rounded-lg gap-1 overflow-x-auto overflow-y-hidden hide-scrollbar [&::-webkit-scrollbar]:hidden outline-none"
       >
-        {tabs.map(tab => {
+        {tabs.map((tab, idx) => {
           if (editingTabId === tab.id) {
                return (
                 <div key={tab.id} className="flex items-center px-2 h-6 rounded-md bg-gray-800 border border-accent max-w-[170px]">
@@ -156,6 +305,11 @@ const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAdd
                       onKeyDown={handleKeyDown}
                       className="bg-transparent border-none focus:outline-none text-xs w-full text-white font-medium outline-none"
                       onClick={e => e.stopPropagation()}
+                      draggable={false}
+                      onDragStart={e => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
                     />
                 </div>
                );
@@ -164,10 +318,18 @@ const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAdd
             <TabButton 
                 key={tab.id}
                 tab={tab}
+                index={idx}
                 isActive={tab.id === activeTabId}
+                isDragging={draggedIndex === idx}
+                dropTarget={dropTarget}
                 onSwitchTab={onSwitchTab}
                 onStartEditing={handleStartEditing}
                 onCloseTab={onCloseTab}
+                onDragStartTab={handleDragStartTab}
+                onDragOverTab={handleDragOverTab}
+                onDragLeaveTab={handleDragLeaveTab}
+                onDropTab={handleDropTab}
+                onDragEndTab={handleDragEndTab}
                 t={t}
             />
           );

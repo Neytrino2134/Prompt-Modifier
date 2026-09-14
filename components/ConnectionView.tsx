@@ -4,6 +4,7 @@ import type { Point, Connection, Tool, Node, LineStyle } from '../types';
 import { NodeType } from '../types';
 import { getOutputHandleType, COLLAPSED_NODE_HEIGHT } from '../utils/nodeUtils';
 import { useAppContext } from '../contexts/AppContext';
+import { getActiveCursorDefinition } from './cursors/cursorDefinitions';
 
 interface ConnectionViewProps {
   connection: Connection;
@@ -30,7 +31,8 @@ const ConnectionView: React.FC<ConnectionViewProps> = ({
     onSplit,
     lineStyle,
 }) => {
-  const { isConnectionAnimationEnabled, connectionOpacity } = useAppContext() || { isConnectionAnimationEnabled: true, connectionOpacity: 0.4 };
+  const context = useAppContext();
+  const { isConnectionAnimationEnabled, connectionOpacity, cursorSkin, currentTheme } = context || { isConnectionAnimationEnabled: true, connectionOpacity: 0.4, cursorSkin: 'default', currentTheme: 'cyan' };
   const [isLineHovered, setIsLineHovered] = useState(false);
 
   // Helper to get effective dimensions (collapsed vs full)
@@ -219,26 +221,31 @@ const ConnectionView: React.FC<ConnectionViewProps> = ({
 
   const isCutterActive = activeTool === 'cutter';
   const isRerouteActive = activeTool === 'reroute';
+  const isSelectionActive = activeTool === 'selection';
   const isHighlighted = (isCutterActive || isRerouteActive) && (isLineHovered || isNodeHovered);
 
-  // If highlighted, use the highlight color. Otherwise use the type-based color.
-  const strokeColor = isCutterActive && isHighlighted ? '#ef4444' : (isRerouteActive && isHighlighted ? '#06b6d4' : lineColor);
+  // If highlighted or selected, use corresponding color
+  const strokeColor = isCutterActive && isHighlighted 
+    ? '#ef4444' 
+    : (isRerouteActive && isHighlighted 
+        ? '#06b6d4' 
+        : (isSelectionActive && isLineHovered ? 'var(--color-accent, #6366f1)' : lineColor));
   
-  // Dim the base line if it's a normal connection so the dashed flow is visible on top.
-  // If highlighted, keep full opacity.
-  const baseOpacity = isHighlighted ? 1 : connectionOpacity;
+  // Opacity & stroke width
+  const baseOpacity = (isHighlighted || (isSelectionActive && isLineHovered)) ? 1 : connectionOpacity;
+  const strokeWidth = (isHighlighted || (isSelectionActive && isLineHovered)) ? 5 : 3;
   
-  const strokeWidth = isHighlighted ? 5 : 3;
-  
+  const currentCursorSet = getActiveCursorDefinition(cursorSkin || 'default', currentTheme || 'cyan');
   let cursorStyle = 'default';
-  if (isCutterActive && (isLineHovered || isNodeHovered)) {
-    cursorStyle = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="%23ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>') 12 12, auto`;
-  } else if (isRerouteActive && isLineHovered) {
-    cursorStyle = 'crosshair';
-  } else if (isCutterActive || isRerouteActive) {
-    cursorStyle = 'pointer';
+  if (isCutterActive) {
+    cursorStyle = currentCursorSet.cursors.cutter;
+  } else if (isRerouteActive) {
+    cursorStyle = currentCursorSet.cursors.reroute;
+  } else if (isSelectionActive) {
+    cursorStyle = currentCursorSet.cursors.crosshair;
+  } else {
+    cursorStyle = isLineHovered ? currentCursorSet.cursors.pointer : currentCursorSet.cursors.default;
   }
-
 
   const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation(); // Prevent canvas mousedown from firing
@@ -246,12 +253,18 @@ const ConnectionView: React.FC<ConnectionViewProps> = ({
       onDelete(connection.id);
     } else if (isRerouteActive) {
       onSplit(connection.id);
+    } else if (isSelectionActive && context?.setSelectedNodeIds) {
+      context.setSelectedNodeIds([fromNode.id, toNode.id]);
     }
   };
 
+  const toolClass = isCutterActive ? 'tool-cutter-active' : (isRerouteActive ? 'tool-reroute-active' : '');
+
   return (
     <g 
-      className="connection-view"
+      className={`connection-view ${toolClass}`}
+      data-tool={activeTool}
+      data-highlighted={isHighlighted ? "true" : undefined}
       onMouseEnter={() => setIsLineHovered(true)}
       onMouseLeave={() => setIsLineHovered(false)}
       onMouseDown={handleClick}

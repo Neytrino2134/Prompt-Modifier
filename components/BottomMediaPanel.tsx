@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../contexts/AppContext';
+import { useLanguage } from '../localization';
 
 const formatTime = (time: number) => {
     if (isNaN(time)) return "0:00";
@@ -11,12 +12,21 @@ const formatTime = (time: number) => {
 
 export const BottomMediaPanel: React.FC = () => {
     const context = useAppContext();
+    const { t } = useLanguage();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     if (!context || !context.globalMedia) return null;
 
     const { globalMedia, setGlobalMedia, selectNode } = context;
     const { name, isPlaying, currentTime, duration, nodeId } = globalMedia;
+
+    const displayName = useMemo(() => {
+        if (!name) return '';
+        if (name.startsWith('node.title.') || name.startsWith('search.node.') || name.startsWith('toolbar.')) {
+            return t(name as any) || name;
+        }
+        return t(name as any) || name;
+    }, [name, t]);
 
     const handlePlayPause = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -90,13 +100,13 @@ export const BottomMediaPanel: React.FC = () => {
                 <div 
                     className="bg-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-2xl p-2 flex flex-col items-center space-y-2 cursor-pointer hover:bg-gray-800/90 transition-colors"
                     onClick={handleFocus}
-                    title={name}
+                    title={displayName}
                 >
                     {/* Expand Button */}
                     <button 
                         onClick={toggleCollapse}
                         className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
-                        title="Expand"
+                        title={t('node.action.expand') || "Expand"}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
@@ -153,7 +163,7 @@ export const BottomMediaPanel: React.FC = () => {
                 <button 
                     onClick={toggleCollapse}
                     className="p-1 text-gray-500 hover:text-white hover:bg-gray-700 rounded transition-colors flex-shrink-0"
-                    title="Collapse"
+                    title={t('node.action.collapse') || "Collapse"}
                     onMouseDown={(e) => e.stopPropagation()}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -176,8 +186,8 @@ export const BottomMediaPanel: React.FC = () => {
 
                 <div className="flex-grow min-w-0 flex flex-col justify-center">
                     <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-bold text-gray-200 truncate pr-2" title={name}>{name}</span>
-                        <button onClick={handleClose} className="text-gray-500 hover:text-white p-0.5 rounded">
+                        <span className="text-xs font-bold text-gray-200 truncate pr-2" title={displayName}>{displayName}</span>
+                        <button onClick={handleClose} className="text-gray-500 hover:text-white p-0.5 rounded" title={t('node.action.close') || "Close"}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                             </svg>

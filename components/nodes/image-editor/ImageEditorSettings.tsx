@@ -62,26 +62,41 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
                         <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${isBatchMode ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
                     </div>
                 </div>
-                {isBatchMode && (
-                    <div className="mt-1.5 text-[11px] text-accent-secondary leading-tight flex items-start gap-1">
-                        <span>⏳</span>
-                        <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
-                    </div>
-                )}
+                <div className={`mt-1.5 text-[11px] leading-tight flex items-start gap-1 transition-colors ${
+                    isBatchMode ? 'text-accent-secondary font-medium' : 'text-gray-400'
+                }`}>
+                    <span className={isBatchMode ? '' : 'opacity-70'}>⏳</span>
+                    <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
+                </div>
             </div>
 
             <div className="flex flex-col space-y-2">
-                <CustomCheckbox
-                    id={`sequence-mode-toggle-${nodeId}`}
-                    checked={isSequenceMode}
-                    onChange={(checked) => {
+                <div 
+                    onClick={() => {
+                        if (isEditing) return;
+                        const checked = !isSequenceMode;
                         if (!checked) onCleanupInputB(); 
                         onUpdateState({ isSequenceMode: checked }); 
                     }}
-                    disabled={isEditing}
-                    label={t('imageEditor.sequenceMode')}
-                    title={t('imageEditor.sequenceModeHelp')}
-                />
+                    className={`p-2.5 rounded-md border cursor-pointer select-none transition-all ${
+                        isSequenceMode 
+                            ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-100 shadow-[0_0_10px_rgba(99,102,241,0.15)]' 
+                            : 'bg-gray-800/40 border-gray-700/50 hover:border-gray-600 hover:bg-gray-800 text-gray-300'
+                    } ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-medium">
+                            <span className={`w-2 h-2 rounded-full ${isSequenceMode ? 'bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)]' : 'bg-gray-500'}`}></span>
+                            <span>{t('imageEditor.sequenceMode')}</span>
+                        </div>
+                        <div className={`w-8 h-4 rounded-full relative transition-colors flex-shrink-0 ${isSequenceMode ? 'bg-indigo-500' : 'bg-gray-600'}`}>
+                            <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${isSequenceMode ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
+                        </div>
+                    </div>
+                    <div className={`mt-2 text-[10.5px] leading-snug ${isSequenceMode ? 'text-indigo-200/90' : 'text-gray-400'}`}>
+                        {t('imageEditor.sequenceModeHelp')}
+                    </div>
+                </div>
                 
                 {isSequenceMode && (
                     <div className="ml-6 flex flex-col space-y-1.5">
@@ -133,26 +148,6 @@ export const ImageEditorSettings: React.FC<ImageEditorSettingsProps> = ({
                     </div>
                 )}
             </div>
-
-            <div className="flex flex-col gap-2">
-                <CustomCheckbox
-                    id={`aspect-ratio-toggle-${nodeId}`}
-                    checked={enableAspectRatio}
-                    onChange={(checked) => { 
-                        onUpdateState({ enableAspectRatio: checked, aspectRatio: aspectRatio || '1:1', enableOutpainting: checked ? enableOutpainting : false }); 
-                    }}
-                    label={t('node.content.enableAspectRatioFormatting')}
-                />
-            </div>
-            
-            {enableAspectRatio && (
-                <>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.aspectRatio')}</label>
-                        <CustomSelect value={aspectRatio || '1:1'} onChange={(v) => onUpdateState({ aspectRatio: v })} disabled={isEditing} options={aspectRatioOptionsWithIcons} />
-                    </div>
-                </>
-            )}
         </div>
     );
 };

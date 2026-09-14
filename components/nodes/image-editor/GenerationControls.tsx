@@ -5,6 +5,7 @@ import React, { useMemo } from 'react';
 import CustomSelect from '../../CustomSelect';
 import { CustomCheckbox } from '../../CustomCheckbox';
 import { useOpenAiEnabled, getImageEditorModelOptions, isGptImage2Model, isOpenAiImageModel } from '../../../services/modelConfig';
+import { ChevronLeft, ChevronRight, Banana, Sparkles, Zap, Image as ImageIcon } from 'lucide-react';
 
 interface GenerationControlsProps {
     model: string;
@@ -14,7 +15,7 @@ interface GenerationControlsProps {
     aspectRatio?: string;
     resolution?: string;
     autoCrop169: boolean;
-    autoDownload: boolean;
+    autoSaveImages: boolean;
     createZip: boolean;
     isGeneratingSequence: boolean;
     isAnyFrameGenerating: boolean;
@@ -28,6 +29,22 @@ interface GenerationControlsProps {
     t: (key: string) => string;
 }
 
+const getModelIcon = (modelValue: string) => {
+    if (modelValue === 'gemini-3-pro-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Sparkles className="w-3 h-3 text-yellow-300 relative -top-1" /></div>;
+    if (modelValue === 'gemini-3.1-flash-image') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Zap className="w-3 h-3 text-blue-400 relative -top-1" /></div>;
+    if (modelValue === 'gemini-3.1-flash-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-gray-400" /><Zap className="w-3 h-3 text-blue-300 relative -top-1" /></div>;
+    if (modelValue === 'gemini-2.5-flash-image') return <Banana className="w-4 h-4 text-yellow-500" />;
+    return <ImageIcon className="w-4 h-4 text-gray-400" />;
+};
+
+const getModelShortName = (modelValue: string, label: string) => {
+    if (modelValue === 'gemini-3-pro-image-preview') return 'Nano Banana Pro 3.0';
+    if (modelValue === 'gemini-3.1-flash-image') return 'Nano Banana 2 (3.1)';
+    if (modelValue === 'gemini-3.1-flash-image-preview') return 'Nano Banana 2 Lite (3.1)';
+    if (modelValue === 'gemini-2.5-flash-image') return 'Nano Banana (2.5)';
+    return label.replace(/\s*\(.*?\)\s*/g, '');
+};
+
 export const GenerationControls: React.FC<GenerationControlsProps> = ({
     model,
     quality,
@@ -36,7 +53,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
     aspectRatio,
     resolution,
     autoCrop169,
-    autoDownload,
+    autoSaveImages,
     createZip,
     isGeneratingSequence,
     isAnyFrameGenerating,
@@ -85,16 +102,58 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
         { value: 'webp', label: 'WebP' },
     ];
 
+    const handlePrevModel = () => {
+        const currentIndex = modelOptions.findIndex(m => m.value === model);
+        if (currentIndex > 0) {
+            onUpdateState({ model: modelOptions[currentIndex - 1].value });
+        }
+    };
+
+    const handleNextModel = () => {
+        const currentIndex = modelOptions.findIndex(m => m.value === model);
+        if (currentIndex !== -1 && currentIndex < modelOptions.length - 1) {
+            onUpdateState({ model: modelOptions[currentIndex + 1].value });
+        }
+    };
+
     return (
         <div className="flex-shrink-0 space-y-2 mt-2">
             <div className="mb-2">
                 <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.generationMode')}</label>
-                <CustomSelect
-                    value={model}
-                    onChange={(value) => onUpdateState({ model: value })}
-                    disabled={isGeneratingSequence}
-                    options={modelOptions}
-                />
+                <div className="flex items-center gap-1">
+                    <button
+                        title="Previous Model"
+                        type="button"
+                        onClick={handlePrevModel}
+                        disabled={isGeneratingSequence || modelOptions.findIndex(m => m.value === model) <= 0}
+                        className="flex items-center justify-center h-[38px] w-[38px] bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 border border-gray-600 rounded-md text-gray-200 hover:text-white transition-colors shrink-0"
+                    >
+                        <ChevronLeft className="w-4 h-4 text-gray-200 hover:text-white" />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                        <CustomSelect
+                            value={model}
+                            onChange={(value) => onUpdateState({ model: value })}
+                            disabled={isGeneratingSequence}
+                            options={modelOptions.map(opt => ({ ...opt, icon: getModelIcon(opt.value) }))}
+                            renderTriggerContent={(selectedOption, selectedLabel) => (
+                                <div className="flex items-center gap-2 font-medium text-xs truncate">
+                                    {selectedOption && getModelIcon(selectedOption.value)}
+                                    <span className="truncate">{selectedOption ? getModelShortName(selectedOption.value, selectedOption.label) : selectedLabel}</span>
+                                </div>
+                            )}
+                        />
+                    </div>
+                    <button
+                        title="Next Model"
+                        type="button"
+                        onClick={handleNextModel}
+                        disabled={isGeneratingSequence || modelOptions.findIndex(m => m.value === model) >= modelOptions.length - 1 || modelOptions.findIndex(m => m.value === model) === -1}
+                        className="flex items-center justify-center h-[38px] w-[38px] bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:hover:bg-gray-700 border border-gray-600 rounded-md text-gray-200 hover:text-white transition-colors shrink-0"
+                    >
+                        <ChevronRight className="w-4 h-4 text-gray-200 hover:text-white" />
+                    </button>
+                </div>
             </div>
 
             {/* Quality selection for GPT-Image-2 and DALL-E 3 */}
@@ -167,11 +226,11 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
                 </div>
                  <div className="flex items-center space-x-2">
                      <CustomCheckbox
-                        id={`auto-download`}
-                        checked={autoDownload}
-                        onChange={(checked) => onUpdateState({ autoDownload: checked })}
-                        label={t('node.content.autoDownload')}
-                        title={t('image_sequence.tooltip.autoDownload')}
+                        id={`auto-save-images`}
+                        checked={autoSaveImages}
+                        onChange={(checked) => onUpdateState({ autoSaveImages: checked })}
+                        label="Autosave images"
+                        title={t('image_sequence.tooltip.autoSave') || "Save images to disk automatically"}
                         className="text-sm text-gray-300"
                     />
                 </div>

@@ -42,6 +42,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     const deleteNode = onDeleteNode || context?.deleteNodeAndConnections;
     const setSelectedNodeIds = context?.setSelectedNodeIds;
 
+    const { isBatchMode, setIsBatchMode } = context || {};
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const batchFileInputRef = useRef<HTMLInputElement>(null);
     const [metadataPrompt, setMetadataPrompt] = useState<string | null>(null);
@@ -88,7 +90,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         mode = 'full', 
         cropRect = null, 
         croppedImage = null, 
-        grid = { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } }, 
+        grid = { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } }, 
         batchConfig,
         batchFiles: initialBatchFiles = [],
         extractedImages = [],
@@ -129,6 +131,10 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         return batchConfig?.assetName || 'Asset_Name';
     });
 
+    const [gridAssetName, setGridAssetName] = useState<string>(() => {
+        return grid?.assetName || 'Asset_Name';
+    });
+
     const [individualGridSettings, setIndividualGridSettings] = useState<boolean>(() => {
         return batchConfig?.individualGridSettings ?? false;
     });
@@ -141,6 +147,12 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         const externalVal = grid?.borderWidth ?? 24;
         setLocalBorderWidth(String(externalVal));
     }, [grid?.borderWidth]);
+
+    useEffect(() => {
+        if (grid?.assetName !== undefined && grid.assetName !== gridAssetName) {
+            setGridAssetName(grid.assetName);
+        }
+    }, [grid?.assetName]);
 
     // Synchronize batchSubMode, includeOriginal, assetName, individualGridSettings if external node value changed
     useEffect(() => {
@@ -201,8 +213,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
     // Active configurations for the current preview image (taking individual settings into account)
     const activeGridConfig: ImageInputGridConfig = useMemo(() => {
-        const globalCols = grid?.cols || 4;
-        const globalRows = grid?.rows || 5;
+        const globalCols = grid?.cols || 2;
+        const globalRows = grid?.rows || 1;
         if (mode === 'batch' && individualGridSettings && batchFiles[selectedRefIndex]?.gridConfig) {
             const itemGrid = batchFiles[selectedRefIndex].gridConfig!;
             return {
@@ -297,8 +309,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         setIsSlicing(true);
         try {
             // cols and rows are global across all images
-            const cols = Math.max(1, gridConfig.cols || grid?.cols || 4);
-            const rows = Math.max(1, gridConfig.rows || grid?.rows || 5);
+            const cols = Math.max(1, gridConfig.cols || grid?.cols || 2);
+            const rows = Math.max(1, gridConfig.rows || grid?.rows || 1);
             const bounds = gridConfig.bounds || { x: 0, y: 0, width: 1, height: 1 };
             const borderConfig = {
                 enableBorder: gridConfig.enableBorder,
@@ -313,7 +325,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 ...gridConfig,
                 cols,
                 rows,
-                bounds
+                bounds,
+                assetName: gridConfig.assetName || grid?.assetName || gridAssetName || 'Asset_Name'
             };
 
             const { slices, thumbs } = await sliceImageGrid(masterSrc, cols, rows, bounds, borderConfig);
@@ -381,7 +394,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
                 updateSingleCropSlice(activeCrop, undefined, masterSrc);
             } else if (mode === 'grid') {
-                const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+                const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, undefined, masterSrc);
             }
         } else if (isFirstLoad) {
@@ -389,7 +402,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
                 updateSingleCropSlice(activeCrop, undefined, masterSrc);
             } else if (mode === 'grid' && (!extractedImages || extractedImages.length === 0)) {
-                const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+                const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, undefined, masterSrc);
             }
         }
@@ -413,7 +426,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const cropThumb = await generateThumbnail(highResCrop, 256, 256);
             handleValueUpdate({ image: thumbnail, croppedImage: cropThumb });
         } else if (mode === 'grid') {
-            const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+            const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
             const { slices, thumbs } = await sliceImageGrid(
                 dataUrl, 
                 activeGrid.cols, 
@@ -489,7 +502,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
                 updateSingleCropSlice(activeCrop, 'batch', firstItem.dataUrl);
             } else {
-                const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+                const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, 'batch', firstItem.dataUrl);
             }
             handleValueUpdate({ image: thumb, mode: 'batch', batchFiles: updatedFiles });
@@ -552,8 +565,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         setFullSizeImage(node.id, 0, item.dataUrl);
         const thumb = await generateThumbnail(item.dataUrl, 256, 256);
 
-        const globalCols = grid?.cols || 4;
-        const globalRows = grid?.rows || 5;
+        const globalCols = grid?.cols || 2;
+        const globalRows = grid?.rows || 1;
 
         if (batchSubMode === 'crop') {
             const activeCrop = (individualGridSettings && item.cropRect) ? item.cropRect : (cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
@@ -632,7 +645,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const activeCrop = parsedValueRef.current.cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
             updateSingleCropSlice(activeCrop, 'batch', firstItem.dataUrl);
         } else {
-            const activeGrid = parsedValueRef.current.grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+            const activeGrid = parsedValueRef.current.grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
             updateGridSlices(activeGrid, 'batch', firstItem.dataUrl);
         }
         handleValueUpdate({ image: thumb, mode: 'batch', batchFiles: newItems });
@@ -679,7 +692,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 const activeCrop = parsedValueRef.current.cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
                 updateSingleCropSlice(activeCrop, 'batch', currentMaster);
             } else {
-                const activeGrid = parsedValueRef.current.grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+                const activeGrid = parsedValueRef.current.grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, 'batch', currentMaster);
             }
         }
@@ -709,6 +722,18 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         };
         handleValueUpdate({
             batchConfig: updatedBatchConfig
+        });
+    };
+
+    const handleGridAssetNameChange = (newAssetName: string) => {
+        setGridAssetName(newAssetName);
+        const currentGrid = parsedValueRef.current.grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+        const updatedGrid: ImageInputGridConfig = {
+            ...currentGrid,
+            assetName: newAssetName
+        };
+        handleValueUpdate({
+            grid: updatedGrid
         });
     };
 
@@ -750,10 +775,10 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     };
 
     const handleResetGridForAll = () => {
-        const cols = grid?.cols || 4;
-        const rows = grid?.rows || 5;
+        const cols = grid?.cols || 2;
+        const rows = grid?.rows || 1;
         const uniformGrid: ImageInputGridConfig = {
-            ...(grid || { cols: 4, rows: 5 }),
+            ...(grid || { cols: 2, rows: 1 }),
             cols,
             rows,
             bounds: { x: 0, y: 0, width: 1, height: 1 },
@@ -781,10 +806,10 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     };
 
     const handleResetGridForCurrent = () => {
-        const cols = grid?.cols || 4;
-        const rows = grid?.rows || 5;
+        const cols = grid?.cols || 2;
+        const rows = grid?.rows || 1;
         const uniformGrid: ImageInputGridConfig = {
-            ...(grid || { cols: 4, rows: 5 }),
+            ...(grid || { cols: 2, rows: 1 }),
             cols,
             rows,
             bounds: { x: 0, y: 0, width: 1, height: 1 },
@@ -871,8 +896,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     folder.file(`crop_${cleanBaseName}_${cleanAssetName}.png`, base64Data, { base64: true });
                     totalSlicesCount += 1;
                 } else {
-                    const globalCols = grid?.cols || 4;
-                    const globalRows = grid?.rows || 5;
+                    const globalCols = grid?.cols || 2;
+                    const globalRows = grid?.rows || 1;
                     const activeGrid = (individualGridSettings && item.gridConfig)
                         ? {
                             ...item.gridConfig,
@@ -919,7 +944,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 compression: 'STORE'
             });
 
-            const zipFilename = `Batch_${batchSubMode === 'crop' ? 'Crop' : `Grid_${grid?.cols || 4}x${grid?.rows || 5}`}_${cleanAssetName}_${batchFiles.length}_images_${timestamp}.zip`;
+            const zipFilename = `Batch_${batchSubMode === 'crop' ? 'Crop' : `Grid_${grid?.cols || 2}x${grid?.rows || 1}`}_${cleanAssetName}_${batchFiles.length}_images_${timestamp}.zip`;
 
             const result = {
                 zipBlob,
@@ -1138,8 +1163,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         } else if (targetType === NodeType.IMAGE_EDITOR) {
             if (mode === 'grid' && extractedImages && extractedImages.length > 0) {
                 // Populate all grid items into Image Editor!
-                const cols = grid?.cols || 4;
-                const rows = grid?.rows || 5;
+                const cols = grid?.cols || 2;
+                const rows = grid?.rows || 1;
                 const total = cols * rows;
                 const activeCells = grid?.selectedCells || Array.from({ length: total }, (_, i) => i);
                 
@@ -1237,8 +1262,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
             updateSingleCropSlice(activeCrop, 'single');
         } else if (newMode === 'grid') {
-            const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
-            const expectedTotal = (activeGrid.cols || 4) * (activeGrid.rows || 5);
+            const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+            const expectedTotal = (activeGrid.cols || 2) * (activeGrid.rows || 1);
             if (!extractedImages || extractedImages.length !== expectedTotal) {
                 updateGridSlices(activeGrid, 'grid');
             }
@@ -1249,7 +1274,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
                     updateSingleCropSlice(activeCrop, 'batch', masterSrc);
                 } else {
-                    const activeGrid = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+                    const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                     updateGridSlices(activeGrid, 'batch', masterSrc);
                 }
             }
@@ -1326,7 +1351,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     };
 
     const updateGridBorderConfig = (borderUpdates: Partial<ImageInputGridConfig>) => {
-        const currentGrid: ImageInputGridConfig = grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+        const currentGrid: ImageInputGridConfig = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
         const newGrid: ImageInputGridConfig = {
             ...currentGrid,
             ...borderUpdates,
@@ -1469,7 +1494,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 <div className="text-[10px] text-gray-400 font-mono pr-1 truncate max-w-[140px]">
                     {mode === 'full' && 'Full image'}
                     {mode === 'single' && 'Active selection -> output'}
-                    {mode === 'grid' && `${(grid?.cols || 4) * (grid?.rows || 5)} assets pack`}
+                    {mode === 'grid' && `${(grid?.cols || 2) * (grid?.rows || 1)} assets pack`}
                     {mode === 'batch' && (batchFiles.length > 0 ? `${batchFiles.length} files (${batchSubMode})` : 'Batch mode')}
                 </div>
             </div>
@@ -1505,7 +1530,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     : 'bg-gray-800/90 text-gray-300 hover:bg-gray-700 hover:text-white'
                             }`}
                         >
-                            <span>▦ Сетка ({grid?.cols || 4}×{grid?.rows || 5})</span>
+                            <span>▦ Сетка ({grid?.cols || 2}×{grid?.rows || 1})</span>
                         </button>
                     </div>
 
@@ -1543,17 +1568,17 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
                                     <button
                                         type="button"
-                                        onClick={() => updateGridDims(grid?.cols || 4, (grid?.rows || 5) - 1)}
+                                        onClick={() => updateGridDims(grid?.cols || 2, (grid?.rows || 1) - 1)}
                                         className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
                                     >
                                         -
                                     </button>
                                     <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
-                                        {grid?.rows || 5}
+                                        {grid?.rows || 1}
                                     </span>
                                     <button
                                         type="button"
-                                        onClick={() => updateGridDims(grid?.cols || 4, (grid?.rows || 5) + 1)}
+                                        onClick={() => updateGridDims(grid?.cols || 2, (grid?.rows || 1) + 1)}
                                         className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
                                     >
                                         +
@@ -1567,17 +1592,17 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
                                     <button
                                         type="button"
-                                        onClick={() => updateGridDims((grid?.cols || 4) - 1, grid?.rows || 5)}
+                                        onClick={() => updateGridDims((grid?.cols || 2) - 1, grid?.rows || 1)}
                                         className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
                                     >
                                         -
                                     </button>
                                     <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
-                                        {grid?.cols || 4}
+                                        {grid?.cols || 2}
                                     </span>
                                     <button
                                         type="button"
-                                        onClick={() => updateGridDims((grid?.cols || 4) + 1, grid?.rows || 5)}
+                                        onClick={() => updateGridDims((grid?.cols || 2) + 1, grid?.rows || 1)}
                                         className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
                                     >
                                         +
@@ -1590,6 +1615,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                         <div className="flex items-center gap-1 text-[11px] flex-wrap">
                             {[
                                 { rows: 1, cols: 2, label: '1×2' },
+                                { rows: 1, cols: 3, label: '1×3' },
                                 { rows: 2, cols: 1, label: '2×1' },
                                 { rows: 2, cols: 2, label: '2×2' },
                                 { rows: 3, cols: 3, label: '3×3' },
@@ -1600,7 +1626,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 { rows: 5, cols: 4, label: '5×4' },
                                 { rows: 5, cols: 5, label: '5×5' },
                             ].map((preset) => {
-                                const isActive = (grid?.rows || 5) === preset.rows && (grid?.cols || 4) === preset.cols;
+                                const isActive = (grid?.rows || 1) === preset.rows && (grid?.cols || 2) === preset.cols;
                                 return (
                                     <button
                                         key={preset.label}
@@ -1617,7 +1643,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 );
                             })}
                             <button 
-                                onClick={() => updateGridSlices({ ...(grid || { cols: 4, rows: 5 }), bounds: { x: 0, y: 0, width: 1, height: 1 } })} 
+                                onClick={() => updateGridSlices({ ...(grid || { cols: 2, rows: 1 }), bounds: { x: 0, y: 0, width: 1, height: 1 } })} 
                                 className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]"
                                 title="Сбросить внешние границы сетки"
                             >
@@ -1760,7 +1786,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 onClick={() => {
                                     const nextCustom = !grid?.customDividers;
                                     updateGridSlices({
-                                        ...(grid || { cols: 4, rows: 5 }),
+                                        ...(grid || { cols: 2, rows: 1 }),
                                         customDividers: nextCustom
                                     });
                                 }}
@@ -1782,7 +1808,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     type="button"
                                     onClick={() => {
                                         updateGridSlices({
-                                            ...(grid || { cols: 4, rows: 5 }),
+                                            ...(grid || { cols: 2, rows: 1 }),
                                             colDividers: undefined,
                                             rowDividers: undefined
                                         });
@@ -1793,29 +1819,6 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     ⟲ Выровнять ячейки
                                 </button>
                             )}
-
-                            {/* Include Original Image in Multiple Grid */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const nextInclude = !(grid?.includeOriginal ?? true);
-                                    updateGridSlices({
-                                        ...(grid || { cols: 4, rows: 5 }),
-                                        includeOriginal: nextInclude
-                                    });
-                                }}
-                                className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-medium transition-colors ${
-                                    (grid?.includeOriginal ?? true)
-                                        ? 'bg-cyan-500 text-black font-semibold shadow-sm'
-                                        : 'bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-700'
-                                }`}
-                                title="Добавить в ZIP архив оригинальное неразрезанное изображение"
-                            >
-                                <span className="w-3.5 h-3.5 flex items-center justify-center rounded border border-current text-[10px] font-bold">
-                                    {(grid?.includeOriginal ?? true) ? '✓' : ''}
-                                </span>
-                                <span>Включить оригинал</span>
-                            </button>
                         </div>
 
                         <div className="text-[10px] text-gray-400 font-mono">
@@ -2032,16 +2035,18 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     includeOriginal={grid?.includeOriginal ?? true}
                     onChangeIncludeOriginal={(val) => {
                         updateGridSlices({
-                            ...(grid || { cols: 4, rows: 5 }),
+                            ...(grid || { cols: 2, rows: 1 }),
                             includeOriginal: val
                         });
                     }}
+                    assetName={gridAssetName}
+                    onChangeAssetName={handleGridAssetNameChange}
                     getFullSizeImage={getFullSizeImage}
                     onCopyImageToClipboard={onCopyImageToClipboard}
                     onDownloadImage={onDownloadImage}
                     addToast={addToast}
-                    cols={grid?.cols || 4}
-                    rows={grid?.rows || 5}
+                    cols={grid?.cols || 2}
+                    rows={grid?.rows || 1}
                 />
             )}
 
@@ -2085,10 +2090,42 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             <div 
                 className={`flex-shrink-0 flex flex-col space-y-2 overflow-hidden transition-all duration-300 ease-in-out ${
                     showControls 
-                        ? 'h-[220px] opacity-100 translate-y-0' 
-                        : 'h-0 opacity-0 translate-y-8 pointer-events-none'
+                        ? 'max-h-[300px] opacity-100 translate-y-0' 
+                        : 'max-h-0 opacity-0 translate-y-8 pointer-events-none'
                 }`}
             >
+                {/* Batch API Synchronized Mode Toggle & Status Indicator */}
+                <div 
+                    onClick={() => {
+                        if (setIsBatchMode) {
+                            setIsBatchMode(!isBatchMode);
+                        }
+                    }}
+                    className={`p-2 rounded-md border cursor-pointer select-none transition-all ${
+                        isBatchMode 
+                            ? 'bg-gray-900 border-gray-700 text-gray-200' 
+                            : 'bg-gray-800/40 border-gray-700/50 hover:border-gray-600 text-gray-300'
+                    }`}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-medium">
+                            <span className={`w-2 h-2 rounded-full ${isBatchMode ? 'bg-accent-secondary animate-pulse' : 'bg-gray-500'}`}></span>
+                            <span>{t('batch.mode') || 'Batch API Mode'}</span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-accent-secondary border border-gray-700 font-mono font-semibold">
+                                -50% Cost
+                            </span>
+                        </div>
+                        <div className={`w-8 h-4 rounded-full relative transition-colors flex-shrink-0 ${isBatchMode ? 'bg-accent-secondary' : 'bg-gray-600'}`}>
+                            <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${isBatchMode ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
+                        </div>
+                    </div>
+                    <div className={`mt-1.5 text-[11px] leading-tight flex items-start gap-1 transition-colors ${
+                        isBatchMode ? 'text-accent-secondary font-medium' : 'text-gray-400'
+                    }`}>
+                        <span className={isBatchMode ? '' : 'opacity-70'}>⏳</span>
+                        <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
+                    </div>
+                </div>
                 
                 {/* Top Controls Grid */}
                 <div className="flex gap-2 shrink-0 h-[80px]">

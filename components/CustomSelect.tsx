@@ -16,9 +16,10 @@ interface CustomSelectProps {
   title?: string;
   className?: string;
   buttonClassName?: string;
+  renderTriggerContent?: (selectedOption?: CustomSelectOption, selectedLabel?: string) => React.ReactNode;
 }
 
-const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, disabled, id, title, className, buttonClassName }) => {
+const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, disabled, id, title, className, buttonClassName, renderTriggerContent }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -105,8 +106,12 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange, d
         className={`w-full ${buttonClassName || 'h-[38px] px-3 py-1.5'} bg-gray-700 border border-gray-600 rounded-md text-white text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed flex justify-between items-center text-left group`}
       >
         <span className="truncate flex items-center gap-2">
-            {selectedOption?.icon && <span className="text-gray-400">{selectedOption.icon}</span>}
-            {selectedLabel}
+            {renderTriggerContent ? renderTriggerContent(selectedOption, selectedLabel) : (
+                <>
+                    {selectedOption?.icon && <span className="text-gray-400">{selectedOption.icon}</span>}
+                    {selectedLabel}
+                </>
+            )}
         </span>
         <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-gray-400 group-hover:text-gray-200 transition-transform duration-200 flex-shrink-0 ml-1.5 ${isOpen ? 'transform rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />

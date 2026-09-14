@@ -11,6 +11,7 @@ import { DockingMenu } from './components/DockingMenu';
 import { SideDockingPanels } from './components/SideDockingPanels';
 import { BottomMediaPanel } from './components/BottomMediaPanel';
 import { DetachedNodeMiniApp } from './components/DetachedNodeMiniApp';
+import { CursorEffects } from './components/cursors/CursorEffects';
 
 const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // secondaryLanguage is the user's preferred "native" language (e.g., RU, ES)
@@ -79,13 +80,12 @@ const Editor: React.FC = () => {
 
       // 1. Browser Native Handler (beforeunload)
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-          // Trigger immediate session save on browser unload
+          // Always trigger immediate session save on unload (including Electron) to guarantee data persistence
           if (contextRef.current?.forceSaveSession) {
               contextRef.current.forceSaveSession();
           }
 
-          // If in Electron, we rely on the IPC message 'app:close-request' instead of this native event
-          // to show our custom UI.
+          // If in Electron, prevent browser default dialog as we rely on the IPC message 'app:close-request'
           if (isElectron) return;
 
           if (hasContentRef.current) {
@@ -121,7 +121,7 @@ const Editor: React.FC = () => {
                           } finally {
                               setTimeout(() => {
                                   (window as any).electronAPI.forceClose();
-                              }, 150);
+                              }, 200);
                           }
                       },
                       secondaryAction: {
@@ -269,6 +269,9 @@ const Editor: React.FC = () => {
 
         {/* 4. Global Modals & Dialogs */}
         <DialogLayer />
+        
+        {/* Dynamic Tactile Cursor Reaction Effects */}
+        <CursorEffects />
         
         {/* 5. Image Viewer Overlay */}
         {imageViewer && (

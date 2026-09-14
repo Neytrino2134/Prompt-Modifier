@@ -18,6 +18,20 @@ import {
 import { generateThumbnail, cropImageTo169 } from '../utils/imageUtils';
 import { recordGenerationEvent } from '../utils/generationStats';
 import { addMetadataToPNG } from '../utils/pngMetadata';
+import { 
+    getDeviceId, 
+    setDeviceId, 
+    regenerateDeviceId, 
+    getDeviceName, 
+    setDeviceName, 
+    isDeviceIsolationEnabled, 
+    setDeviceIsolationEnabled, 
+    getDeviceFilterMode, 
+    setDeviceFilterMode, 
+    formatWithDeviceTag, 
+    extractDeviceId, 
+    DEVICE_CONFIG_CHANGED_EVENT 
+} from '../utils/deviceId';
 
 const STORAGE_KEY_BATCH_JOBS = 'gemini_batch_jobs_v1';
 const STORAGE_KEY_BATCH_MODE = 'settings_isBatchMode';
@@ -118,6 +132,51 @@ export const useBatchManager = ({
         });
     }, []);
 
+    // Device ID and Isolation states
+    const [deviceId, setDeviceIdState] = useState<string>(() => getDeviceId());
+    const [deviceName, setDeviceNameState] = useState<string>(() => getDeviceName());
+    const [deviceIsolationEnabled, setDeviceIsolationEnabledState] = useState<boolean>(() => isDeviceIsolationEnabled());
+    const [deviceFilterMode, setDeviceFilterModeState] = useState<string>(() => getDeviceFilterMode());
+
+    useEffect(() => {
+        const handleConfigChange = (e: any) => {
+            if (e.detail) {
+                if (e.detail.deviceId !== undefined) setDeviceIdState(e.detail.deviceId);
+                if (e.detail.deviceName !== undefined) setDeviceNameState(e.detail.deviceName);
+                if (e.detail.isolationEnabled !== undefined) setDeviceIsolationEnabledState(e.detail.isolationEnabled);
+                if (e.detail.filterMode !== undefined) setDeviceFilterModeState(e.detail.filterMode);
+            }
+        };
+        window.addEventListener(DEVICE_CONFIG_CHANGED_EVENT, handleConfigChange);
+        return () => window.removeEventListener(DEVICE_CONFIG_CHANGED_EVENT, handleConfigChange);
+    }, []);
+
+    const updateDeviceId = useCallback((newId: string) => {
+        setDeviceId(newId);
+        setDeviceIdState(newId);
+    }, []);
+
+    const updateDeviceName = useCallback((name: string) => {
+        setDeviceName(name);
+        setDeviceNameState(name);
+    }, []);
+
+    const regenDeviceId = useCallback(() => {
+        const newId = regenerateDeviceId();
+        setDeviceIdState(newId);
+        return newId;
+    }, []);
+
+    const updateDeviceIsolationEnabled = useCallback((enabled: boolean) => {
+        setDeviceIsolationEnabled(enabled);
+        setDeviceIsolationEnabledState(enabled);
+    }, []);
+
+    const updateDeviceFilterMode = useCallback((mode: string) => {
+        setDeviceFilterMode(mode);
+        setDeviceFilterModeState(mode);
+    }, []);
+
     // 2. Persistent Batch Jobs State with strict filtering to prevent corrupt objects
     const [batchJobs, setBatchJobs] = useState<BatchJobRecord[]>(() => {
         try {
@@ -205,7 +264,7 @@ export const useBatchManager = ({
 
         const shouldRestore = options?.forceRestore !== undefined
             ? options.forceRestore
-            : (restoreFinishedCardsRef.current || true);
+            : (restoreFinishedCardsRef.current ?? true);
 
         try {
             // Check if job items already have resultUrl populated
@@ -358,8 +417,12 @@ export const useBatchManager = ({
                         }
                     }
 
-                    // Auto-download if enabled on the batch item
-                    if (prevItem?.autoDownload) {
+                    // Auto-save to disk if enabled on the batch item
+                    const isImageOutputNode = job.nodeTitle === 'Image Output';
+                    const shouldAutoSave = isImageOutputNode
+                        ? !!prevItem?.autoDownload
+                        : !!prevItem?.autoSaveImages;
+                    if (shouldAutoSave) {
                         try {
                             let assetUrl = finalUrl;
                             if (finalUrl.startsWith('data:image/png')) {
@@ -523,7 +586,7 @@ export const useBatchManager = ({
                 // Automatically download from server when response is received if autoDownload is enabled
                 const shouldAutoFetch = (job.items && job.items.some(it => it.autoDownload)) || (job as any).autoDownload;
                 if (shouldAutoFetch && !fetchingJobIdsRef.current?.[job.id]) {
-                    fetchBatchJobResults(job.id, { forceRestore: true });
+                    fetchBatchJobResults(job.id);
                 }
             } else if (mappedState === 'FAILED') {
                 const errMsg = sdkJob.error?.message || 'Batch job failed on server';
@@ -607,6 +670,9 @@ export const useBatchManager = ({
     const pollActiveBatchJobs = useCallback(async () => {
         setIsPolling(true);
         try {
+            const currentDevId = getDeviceId();
+            const isolationActive = isDeviceIsolationEnabled();
+
             // Step 1: Discover remote batch jobs from server
             const remoteJobs = await listAllRemoteBatchJobs();
             const currentJobs = batchJobsRef.current;
@@ -616,6 +682,13 @@ export const useBatchManager = ({
                 for (const rJob of remoteJobs) {
                     const rName = rJob.name || rJob.id;
                     if (!rName) continue;
+
+                    const rDeviceId = rJob.deviceId || extractDeviceId(rJob.displayName) || extractDeviceId(rName);
+
+                    // If device isolation is active and this batch belongs to another device, skip it!
+                    if (isolationActive && rDeviceId && rDeviceId !== currentDevId) {
+                        continue;
+                    }
 
                     const exists = currentJobs.some(j => 
                         j.name === rName || 
@@ -687,6 +760,7 @@ export const useBatchManager = ({
                             nodeId: '',
                             nodeTitle: rJob.displayName || 'Batch Job',
                             isSequence: items.length > 1,
+                            deviceId: rDeviceId || currentDevId,
                             items
                         };
 
@@ -705,7 +779,11 @@ export const useBatchManager = ({
             }
 
             // Step 2: Poll active jobs (RUNNING or PENDING) to update status
-            const allActiveJobs = batchJobsRef.current.filter(j => j.state === 'PENDING' || j.state === 'RUNNING');
+            const allActiveJobs = batchJobsRef.current.filter(j => {
+                if (j.state !== 'PENDING' && j.state !== 'RUNNING') return false;
+                if (isolationActive && j.deviceId && j.deviceId !== currentDevId) return false;
+                return true;
+            });
             for (const job of allActiveJobs) {
                 await checkBatchJob(job.id);
             }
@@ -736,6 +814,7 @@ export const useBatchManager = ({
             images?: { base64ImageData: string; mimeType: string }[];
             autoCrop169?: boolean;
             autoDownload?: boolean;
+            autoSaveImages?: boolean;
         }[];
     }): Promise<BatchJobRecord> => {
         const { nodeId, nodeTitle, tabId, tabName, model, isSequence, items } = params;
@@ -754,7 +833,11 @@ export const useBatchManager = ({
                 images: item.images
             }));
 
-            const displayName = `${nodeTitle || 'Image Editor'} Batch - ${new Date().toLocaleTimeString()}`;
+            const currentDevId = getDeviceId();
+            const displayName = formatWithDeviceTag(
+                `${nodeTitle || 'Image Editor'} Batch - ${new Date().toLocaleTimeString()}`,
+                currentDevId
+            );
 
             // 2. Call Batch API (Gemini or OpenAI based on model)
             const createdSdkJob = await createBatchImageJob(batchInputs, model, displayName);
@@ -774,6 +857,7 @@ export const useBatchManager = ({
                 tabId,
                 tabName,
                 isSequence,
+                deviceId: currentDevId,
                 items: items.map(item => ({
                     id: item.id,
                     frameIndex: item.frameIndex,
@@ -786,6 +870,7 @@ export const useBatchManager = ({
                     images: item.images,
                     autoCrop169: item.autoCrop169,
                     autoDownload: item.autoDownload,
+                    autoSaveImages: item.autoSaveImages,
                     status: 'queued' as TaskStatus
                 }))
             };
@@ -945,7 +1030,8 @@ export const useBatchManager = ({
                     size: item.size,
                     images: item.images,
                     autoCrop169: item.autoCrop169,
-                    autoDownload: item.autoDownload
+                    autoDownload: item.autoDownload,
+                    autoSaveImages: item.autoSaveImages
                 }))
             });
 
@@ -1058,6 +1144,15 @@ export const useBatchManager = ({
         clearFinishedBatchJobs,
         clearAllBatchJobs,
         getBatchJobJsonl,
-        downloadBatchJsonl
+        downloadBatchJsonl,
+        deviceId,
+        deviceName,
+        setDeviceId: updateDeviceId,
+        setDeviceName: updateDeviceName,
+        regenerateDeviceId: regenDeviceId,
+        deviceIsolationEnabled,
+        setDeviceIsolationEnabled: updateDeviceIsolationEnabled,
+        deviceFilterMode,
+        setDeviceFilterMode: updateDeviceFilterMode
     };
 };

@@ -10,6 +10,7 @@ interface TooltipProps {
     className?: string;
     delay?: number;
     usePortal?: boolean;
+    tooltipClassName?: string;
 }
 
 export const Tooltip: React.FC<TooltipProps> = ({ 
@@ -19,7 +20,8 @@ export const Tooltip: React.FC<TooltipProps> = ({
     align = 'center',
     className = "",
     delay = 0,
-    usePortal = true
+    usePortal = true,
+    tooltipClassName
 }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [coords, setCoords] = useState<{ x: number, y: number } | null>(null);
@@ -166,8 +168,8 @@ export const Tooltip: React.FC<TooltipProps> = ({
                 {children}
 
                 {!usePortal && isVisible && (
-                     <div
-                        className={`absolute z-50 px-3 py-1.5 bg-slate-700 text-slate-200 text-xs font-medium whitespace-nowrap rounded-md shadow-xl pointer-events-none ${posClasses}`}
+                     <div 
+                        className={`absolute z-50 rounded-md shadow-xl pointer-events-none ${posClasses} ${tooltipClassName || 'px-3 py-1.5 bg-slate-700 text-slate-200 text-xs font-medium whitespace-nowrap'}`}
                         style={{
                             transform: transform,
                             animation: 'fade-in-tooltip 0.15s ease-out'
@@ -180,7 +182,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
             
             {usePortal && isVisible && coords && createPortal(
                 <div
-                    className="fixed z-[9999] px-3 py-1.5 bg-gray-900/95 text-gray-200 text-xs font-medium whitespace-nowrap rounded-md shadow-2xl border border-gray-700/80 backdrop-blur-sm pointer-events-none"
+                    className={`fixed z-[9999] rounded-md shadow-2xl pointer-events-none ${tooltipClassName || 'px-3 py-1.5 bg-gray-900/95 text-gray-200 text-xs font-medium whitespace-nowrap border border-gray-700/80 backdrop-blur-sm'}`}
                     style={{
                         top: coords.y,
                         left: coords.x,

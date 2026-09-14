@@ -7,6 +7,7 @@ import RadialMenu from './RadialMenu';
 import { ContextMenu } from './ContextMenu';
 import NodeAlignContextMenu from './NodeAlignContextMenu';
 import ConnectionQuickAddMenu from './ConnectionQuickAddMenu';
+import ImageDropMenu from './ImageDropMenu';
 import RenameDialog from './RenameDialog';
 import PermissionDialog from './PermissionDialog';
 import ConfirmDialog from './ConfirmDialog';
@@ -50,7 +51,7 @@ const DialogLayer: React.FC = () => {
             const userKey = localStorage.getItem('settings_userApiKey');
             
             // If no user API key and no env API key present, open settings.
-            if (!process.env.API_KEY && !userKey) {
+            if (!process.env.API_KEY && !(process.env as any).GEMINI_API_KEY && !userKey) {
                 setIsSettingsOpen(true);
             }
         };
@@ -67,6 +68,7 @@ const DialogLayer: React.FC = () => {
         contextMenu, handleCloseContextMenu, quickSlots, updateQuickSlot, setAllQuickSlots, isContextMenuPinned, toggleContextMenuPin, viewTransform, handleZoomChange, scaleToSliderValue, sliderValueToScale,
         nodeContextMenu, handleCloseNodeContextMenu, handleAlignNodes, selectedNodeIds,
         isConnectionQuickAddOpen, connectionQuickAddInfo, handleCloseConnectionQuickAdd, handleAddNodeAndConnect,
+        imageDropMenuInfo, handleCloseImageDropMenu, handleSelectImageDropTarget,
         nodeDeleteConfirm, deleteNodeAndConnections, setIsInstantCloseEnabled, cancelDeleteNodes,
         renameInfo, confirmRename, setRenameInfo, deselectAllNodes, t,
         showDialog, requestPermission, declinePermission, // PermissionDialog
@@ -171,6 +173,13 @@ const DialogLayer: React.FC = () => {
                 info={connectionQuickAddInfo}
                 onClose={handleCloseConnectionQuickAdd}
                 onSelect={handleAddNodeAndConnect}
+            />
+
+            <ImageDropMenu
+                isOpen={!!imageDropMenuInfo}
+                info={imageDropMenuInfo}
+                onClose={handleCloseImageDropMenu}
+                onSelect={handleSelectImageDropTarget}
             />
 
             {nodeDeleteConfirm && (

@@ -29,6 +29,7 @@ import { DataProtectionNode } from '../nodes/DataProtectionNode';
 import { PoseCreatorNode } from '../nodes/PoseCreatorNode';
 import { ImageSequenceGeneratorNode } from '../nodes/ImageSequenceGeneratorNode';
 import { PromptSequenceEditorNode } from '../nodes/PromptSequenceEditorNode';
+import { ThreeDGenerationNode } from '../nodes/ThreeDGenerationNode';
 
 interface NodeContentWrapperProps {
     node: Node;
@@ -63,6 +64,7 @@ export const NodeContent: React.FC<NodeContentWrapperProps> = React.memo(({ node
         case NodeType.MEDIA_VIEWER: return <MediaViewerNode {...contentProps} />;
         case NodeType.DATA_PROTECTION: return <DataProtectionNode {...contentProps} />;
         case NodeType.POSE_CREATOR: return <PoseCreatorNode {...contentProps} />;
+        case NodeType.THREE_D_GENERATOR: return <ThreeDGenerationNode {...contentProps} />;
         default: return null;
     }
 });

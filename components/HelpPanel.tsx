@@ -282,6 +282,7 @@ const HelpPanel: React.FC<HelpPanelProps> = ({ buttonClassName, iconClassName })
       { key: 'Shift+R', description: t('node.title.data_reader') },
       { key: 'Shift+V', description: t('node.title.script_viewer') },
       { key: 'Shift+Q', description: t('node.title.image_sequence_generator') },
+      { key: 'Shift+T', description: t('node.title.three_d_generator') },
       { key: 'Ctrl+Shift+C', description: t('node.title.character_card') },
       { key: 'Ctrl+Shift+A', description: t('node.title.character_analyzer') },
     ],
@@ -328,7 +329,7 @@ const HelpPanel: React.FC<HelpPanelProps> = ({ buttonClassName, iconClassName })
       {isVisible && (
         <div 
           ref={windowRef}
-          className={`fixed bg-gray-800 rounded-lg shadow-2xl w-[600px] h-[720px] z-[100] flex flex-col overflow-hidden border border-gray-700 transition-opacity duration-200 ease-in-out ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          className={`fixed bg-gray-800 rounded-lg shadow-2xl w-[600px] h-[720px] z-[100] flex flex-col overflow-hidden border border-gray-700 transition-opacity duration-200 ease-in-out app-region-no-drag ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           style={{ 
              left: position.x, 
              top: position.y

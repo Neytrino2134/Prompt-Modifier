@@ -277,7 +277,7 @@ export const useAppOrchestration = (
                                 mode: json.mode || (restoredBatchFiles.length > 0 ? 'batch' : (json.grid ? 'grid' : (json.cropRect ? 'single' : 'full'))),
                                 cropRect: json.cropRect || null,
                                 croppedImage: json.croppedImage || null,
-                                grid: json.grid || { cols: 4, rows: 5, bounds: { x: 0, y: 0, width: 1, height: 1 } },
+                                grid: json.grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } },
                                 batchConfig: json.batchConfig || { subMode: 'crop', includeOriginal: true, assetName: 'Asset_Name' },
                                 batchFiles: restoredBatchFiles,
                                 extractedImages: json.extractedImages || [],
@@ -547,14 +547,20 @@ export const useAppOrchestration = (
         if (connectingInfo.fromType === 'image') {
             if (nodeType === NodeType.IMAGE_INPUT) targetHandleId = 'image';
             if (nodeType === NodeType.IMAGE_EDITOR) targetHandleId = 'image';
+            if (nodeType === NodeType.THREE_D_GENERATOR) targetHandleId = 'image';
             if (nodeType === NodeType.IMAGE_ANALYZER) targetHandleId = 'image';
+            if (nodeType === NodeType.IMAGE_OUTPUT) targetHandleId = undefined;
             if (nodeType === NodeType.VIDEO_EDITOR) targetHandleId = 'image';
         } else if (connectingInfo.fromType === 'text') {
             if (nodeType === NodeType.IMAGE_INPUT) targetHandleId = 'text';
             if (nodeType === NodeType.IMAGE_EDITOR) targetHandleId = 'text';
+            if (nodeType === NodeType.THREE_D_GENERATOR) targetHandleId = 'text';
             if (nodeType === NodeType.GEMINI_CHAT) targetHandleId = undefined; // Chat accepts text on main
             if (nodeType === NodeType.PROMPT_PROCESSOR) targetHandleId = undefined;
             if (nodeType === NodeType.PROMPT_ANALYZER) targetHandleId = undefined;
+            if (nodeType === NodeType.VIDEO_PROMPT_PROCESSOR) targetHandleId = undefined;
+            if (nodeType === NodeType.TRANSLATOR) targetHandleId = undefined;
+            if (nodeType === NodeType.IMAGE_OUTPUT) targetHandleId = undefined;
             if (nodeType === NodeType.IMAGE_SEQUENCE_GENERATOR) targetHandleId = 'prompt_input';
             if (nodeType === NodeType.PROMPT_SEQUENCE_EDITOR) targetHandleId = 'prompts_sequence';
             if (nodeType === NodeType.NOTE) targetHandleId = 'prompt_data';
@@ -582,7 +588,7 @@ export const useAppOrchestration = (
         });
 
         onClose();
-    }, [entityActionsHook, connectionsHook, nodes]);
+    }, [entityActionsHook, connectionsHook, nodes, canvasHook.viewTransform, nodesHook]);
 
     const onSaveMediaToDisk = useCallback((nodeId: string) => {
         const node = nodes.find(n => n.id === nodeId);

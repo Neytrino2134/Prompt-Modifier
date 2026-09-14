@@ -130,7 +130,7 @@ export const useVideoNode = ({
         setError(null);
 
         // Check if user has API Key
-        if (!process.env.API_KEY && !localStorage.getItem('settings_userApiKey')) {
+        if (!process.env.API_KEY && !(process.env as any).GEMINI_API_KEY && !localStorage.getItem('settings_userApiKey')) {
             if (showApiKeyDialog) {
                 showApiKeyDialog({
                     onSelect: () => { /* Implicit refresh via localStorage */ },

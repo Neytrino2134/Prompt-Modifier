@@ -1,5 +1,6 @@
 import { addMetadataToPNG } from '../utils/pngMetadata';
 import { convertToPNG } from '../utils/imageUtils';
+import { getDeviceId, formatWithDeviceTag, extractDeviceId } from '../utils/deviceId';
 
 export const STORAGE_KEY_OPENAI_ENABLED = 'settings_openai_enabled';
 export const STORAGE_KEY_OPENAI_API_KEY = 'settings_openai_api_key';
@@ -385,6 +386,7 @@ export const resolveOpenAiBatchModel = (modelName?: string): string => {
 
 interface StoredOpenAiBatch {
     id: string;
+    deviceId?: string;
     model: string;
     displayName: string;
     state: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
@@ -690,7 +692,8 @@ export const createOpenAiBatchImageJob = async (
         throw new Error("OpenAI API Key is missing. Please enter your OpenAI API key in Settings.");
     }
 
-    const batchInternalId = `openai_batch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const currentDeviceId = getDeviceId();
+    const batchInternalId = `openai_batch_${currentDeviceId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const targetModel = resolveOpenAiBatchModel(model);
     const hasInputImages = items.some(it => it.images && it.images.length > 0 && !!it.images[0]?.base64ImageData);
     const chosenEndpoint = hasInputImages ? OPENAI_BATCH_IMAGE_EDITS_ENDPOINT : OPENAI_BATCH_IMAGE_GEN_ENDPOINT;
@@ -778,7 +781,11 @@ export const createOpenAiBatchImageJob = async (
                     body: JSON.stringify({
                         input_file_id: fileData.id,
                         endpoint: chosenEndpoint,
-                        completion_window: '24h'
+                        completion_window: '24h',
+                        metadata: {
+                            device_id: currentDeviceId,
+                            deviceId: currentDeviceId
+                        }
                     })
                 });
 
@@ -808,8 +815,9 @@ export const createOpenAiBatchImageJob = async (
 
     const newBatch: StoredOpenAiBatch = {
         id: batchInternalId,
+        deviceId: currentDeviceId,
         model: targetModel,
-        displayName: displayName || `OpenAI Batch (${targetModel})`,
+        displayName: formatWithDeviceTag(displayName || `OpenAI Batch (${targetModel})`, currentDeviceId),
         state: nativeBatchId ? 'PENDING' : 'RUNNING',
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -998,6 +1006,7 @@ export const getOpenAiBatchJobStatus = async (jobName: string): Promise<any> => 
                     return {
                         state: batch.state === 'SUCCEEDED' ? 'JOB_STATE_SUCCEEDED' : 'JOB_STATE_FAILED',
                         error: !anySuccess ? { message: detailedErrorMessage } : undefined,
+                        deviceId: batch.deviceId || extractDeviceId(batch.displayName) || extractDeviceId(batch.id),
                         batch
                     };
                 } else if (status === 'failed' || status === 'expired') {
@@ -1248,10 +1257,13 @@ export const listOpenAiBatchJobs = async (): Promise<StoredOpenAiBatch[]> => {
                 const existing = localBatches.find(b => b.nativeBatchId === rb.id || b.id === rb.id);
                 if (!existing) {
                     const mappedStatus = rb.status === 'completed' ? 'SUCCEEDED' : (rb.status === 'failed' || rb.status === 'expired' ? 'FAILED' : (rb.status === 'cancelled' ? 'CANCELLED' : 'RUNNING'));
+                    const rMeta = rb.metadata || {};
+                    const extractedDev = rMeta.device_id || rMeta.deviceId || extractDeviceId(rb.id) || extractDeviceId(rb.description);
                     localBatches.push({
                         id: `openai_batch_${rb.id}`,
+                        deviceId: extractedDev,
                         model: 'gpt-image-2',
-                        displayName: `OpenAI Batch (${rb.id})`,
+                        displayName: extractedDev ? `[${extractedDev}] OpenAI Batch (${rb.id})` : `OpenAI Batch (${rb.id})`,
                         state: mappedStatus,
                         createdAt: rb.created_at ? rb.created_at * 1000 : Date.now(),
                         updatedAt: Date.now(),

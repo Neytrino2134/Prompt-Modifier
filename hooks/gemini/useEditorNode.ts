@@ -193,6 +193,7 @@ export const useEditorNode = ({
                     size?: string;
                     autoCrop169?: boolean;
                     autoDownload?: boolean;
+                    autoSaveImages?: boolean;
                     frameIndex: number;
                 }> = [];
 
@@ -263,6 +264,7 @@ export const useEditorNode = ({
                         size: parsed.size,
                         autoCrop169: parsed.autoCrop169,
                         autoDownload: parsed.autoDownload !== undefined ? !!parsed.autoDownload : !!node.autoDownload,
+                        autoSaveImages: !!parsed.autoSaveImages,
                         frameIndex: i
                     });
                 }
@@ -330,6 +332,7 @@ export const useEditorNode = ({
                         size: parsed.size,
                         autoCrop169: parsed.autoCrop169,
                         autoDownload: parsed.autoDownload !== undefined ? !!parsed.autoDownload : !!node.autoDownload,
+                        autoSaveImages: !!parsed.autoSaveImages,
                         frameIndex: 0
                     }]
                 });
@@ -436,7 +439,8 @@ export const useEditorNode = ({
                         return { ...prev, sequenceOutputs: nextOutputs };
                     }, { frame: 1000 + i, url: finalImageUrl });
 
-                    if (parsed.autoDownload) {
+                    const shouldAutoSave = !!parsed.autoSaveImages;
+                    if (shouldAutoSave) {
                          triggerDownload(finalImageUrl, promptToUse, i + 1);
                     }
                 };
@@ -532,7 +536,8 @@ export const useEditorNode = ({
                 
                 updateNodeInStorage(currentTabId, nodeId, (prev) => ({ ...prev, outputImage: thumb }), { frame: 0, url: finalImageUrl });
 
-                if (parsed.autoDownload) {
+                const shouldAutoSave = !!parsed.autoSaveImages;
+                if (shouldAutoSave) {
                      triggerDownload(finalImageUrl, promptToUse);
                 }
             };

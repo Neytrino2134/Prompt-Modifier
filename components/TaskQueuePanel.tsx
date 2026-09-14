@@ -5,6 +5,19 @@ import { TaskStatus, BatchJobRecord, BatchJobState, NodeType } from '../types';
 import { ImageBatchItem } from './nodes/image-input/types';
 import { generateThumbnail } from '../utils/imageUtils';
 import { CustomCheckbox } from './CustomCheckbox';
+import { Tooltip } from './Tooltip';
+import { 
+    matchesDeviceFilter, 
+    getDeviceId, 
+    getDeviceName, 
+    setDeviceId as fallbackSetDeviceId, 
+    setDeviceName as fallbackSetDeviceName, 
+    regenerateDeviceId as fallbackRegenerateDeviceId, 
+    isDeviceIsolationEnabled, 
+    setDeviceIsolationEnabled as fallbackSetDeviceIsolationEnabled, 
+    getDeviceFilterMode, 
+    setDeviceFilterMode as fallbackSetDeviceFilterMode 
+} from '../utils/deviceId';
 
 export const TaskQueuePanel: React.FC = () => {
     const context = useAppContext();
@@ -46,6 +59,15 @@ export const TaskQueuePanel: React.FC = () => {
         onAddNode,
         viewTransform,
         addToast,
+        deviceId,
+        deviceName,
+        setDeviceId: contextSetDeviceId,
+        setDeviceName: contextSetDeviceName,
+        regenerateDeviceId: contextRegenerateDeviceId,
+        deviceIsolationEnabled,
+        setDeviceIsolationEnabled: contextSetDeviceIsolationEnabled,
+        deviceFilterMode,
+        setDeviceFilterMode: contextSetDeviceFilterMode,
         t
     } = context;
 
@@ -58,6 +80,58 @@ export const TaskQueuePanel: React.FC = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [viewingJsonl, setViewingJsonl] = useState<{ id: string; content: string; name: string } | null>(null);
     const [copiedJsonl, setCopiedJsonl] = useState(false);
+
+    const effectiveDeviceId = deviceId || getDeviceId();
+    const effectiveDeviceName = deviceName ?? getDeviceName();
+    const effectiveIsolationEnabled = deviceIsolationEnabled ?? isDeviceIsolationEnabled();
+    const effectiveFilterMode = deviceFilterMode || getDeviceFilterMode();
+
+    const handleToggleIsolation = (val: boolean) => {
+        if (contextSetDeviceIsolationEnabled) {
+            contextSetDeviceIsolationEnabled(val);
+        } else {
+            fallbackSetDeviceIsolationEnabled(val);
+        }
+    };
+
+    const handleDeviceNameChange = (val: string) => {
+        if (contextSetDeviceName) {
+            contextSetDeviceName(val);
+        } else {
+            fallbackSetDeviceName(val);
+        }
+    };
+
+    const handleRegenerateId = () => {
+        let newId: string;
+        if (contextRegenerateDeviceId) {
+            newId = contextRegenerateDeviceId();
+        } else {
+            newId = fallbackRegenerateDeviceId();
+        }
+        if (addToast) {
+            addToast(`Новый Device ID: ${newId}`, 'success');
+        }
+    };
+
+    const handleDeviceFilterChange = (mode: string) => {
+        if (contextSetDeviceFilterMode) {
+            contextSetDeviceFilterMode(mode);
+        } else {
+            fallbackSetDeviceFilterMode(mode);
+        }
+    };
+
+    const availableDeviceIds = useMemo(() => {
+        if (!Array.isArray(batchJobs)) return [];
+        const set = new Set<string>();
+        batchJobs.forEach(j => {
+            if (j && j.deviceId && typeof j.deviceId === 'string') {
+                set.add(j.deviceId);
+            }
+        });
+        return Array.from(set);
+    }, [batchJobs]);
 
     // Listen for custom open-task-queue event to select the specific tab (queue or batch)
     React.useEffect(() => {
@@ -72,10 +146,12 @@ export const TaskQueuePanel: React.FC = () => {
 
     // Sort batch jobs: In-progress (RUNNING or PENDING) are strictly PINNED on top.
     // Within groups, sorted by createdAt / updatedAt according to batchSortOrder ('desc' = newest first).
+    // Filtered by device filter (current device vs all devices vs specific device ID).
     const sortedBatchJobs = useMemo(() => {
         if (!Array.isArray(batchJobs)) return [];
         const safeJobs = batchJobs
             .filter(j => j && typeof j === 'object' && (j.id || j.name))
+            .filter(j => matchesDeviceFilter(j.deviceId, effectiveDeviceId, effectiveFilterMode))
             .map(j => ({
                 ...j,
                 id: j.id || j.name,
@@ -479,6 +555,58 @@ export const TaskQueuePanel: React.FC = () => {
                         </label>
                     </div>
 
+                    {/* Device & Batch Isolation Settings */}
+                    <div className="flex flex-col gap-2.5 p-2.5 rounded-lg bg-gray-950/70 border border-gray-800/80">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-gray-200 flex items-center gap-1.5">
+                                <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                <span>{t('queue.deviceIsolation') || 'Устройство и изоляция батчей'}</span>
+                            </span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-800/60 text-cyan-300">
+                                {effectiveDeviceId}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            <div className="flex-1 flex flex-col">
+                                <label className="text-[10px] text-gray-400 mb-0.5">{t('queue.deviceNameLabel') || 'Имя устройства'}</label>
+                                <input
+                                    type="text"
+                                    value={effectiveDeviceName || ''}
+                                    onChange={(e) => handleDeviceNameChange(e.target.value)}
+                                    placeholder="например: Домашний ПК, Mac"
+                                    className="px-2 py-1 text-xs bg-gray-900 border border-gray-700 rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                                />
+                            </div>
+                            <div className="flex flex-col justify-end pt-3.5">
+                                <button
+                                    onClick={handleRegenerateId}
+                                    className="px-2 py-1 text-[11px] bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition-colors"
+                                    title={t('queue.regenerateDeviceId') || 'Сгенерировать новый универсальный ID устройства'}
+                                >
+                                    {t('queue.newId') || 'Новый ID'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <label className="flex items-start gap-2.5 cursor-pointer select-none group pt-0.5">
+                            <CustomCheckbox
+                                checked={effectiveIsolationEnabled}
+                                onChange={(val) => handleToggleIsolation(val)}
+                            />
+                            <div className="flex flex-col">
+                                <span className="text-xs font-medium text-gray-200 group-hover:text-white transition-colors">
+                                    {t('queue.enableDeviceIsolation') || 'Изоляция батчей по ID устройства'}
+                                </span>
+                                <span className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                                    {t('queue.enableDeviceIsolationDesc') || 'Не синхронизировать и не импортировать чужие батчи при общем API ключе'}
+                                </span>
+                            </div>
+                        </label>
+                    </div>
+
                     <div className="flex flex-col gap-2">
                         {/* Clear all Batch jobs button */}
                         <button
@@ -793,29 +921,67 @@ export const TaskQueuePanel: React.FC = () => {
                     </div>
 
                     {batchJobs.length > 0 && (
-                        <div className="flex items-center justify-between gap-2 px-1 text-xs">
-                            <button
-                                onClick={() => setBatchSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 hover:text-white text-[11px] transition-colors"
-                                title={batchSortOrder === 'desc' ? (t('batch.sortNewestDesc') || 'Сортировка: Самые новые вверху (В процессе закреплены)') : (t('batch.sortOldestDesc') || 'Сортировка: Сначала старые (В процессе закреплены)')}
-                            >
-                                <svg className="w-3.5 h-3.5 text-accent-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-                                </svg>
-                                <span>{t('batch.sortByDate') || 'Сортировка по дате'}:</span>
-                                <span className="font-semibold text-accent-secondary">
-                                    {batchSortOrder === 'desc' ? (t('batch.sortNewest') || 'Новые вверху') : (t('batch.sortOldest') || 'Старые вверху')}
-                                </span>
-                            </button>
+                        <div className="flex flex-col gap-2 p-1 text-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                {/* Device filter selector */}
+                                <div className="flex items-center gap-1.5 bg-gray-900 border border-gray-800 rounded px-2 py-1">
+                                    <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                                        <svg className="w-3 h-3 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                        </svg>
+                                        <span>{t('batch.deviceFilter') || 'Устройство'}:</span>
+                                    </span>
+                                    <select
+                                        value={effectiveFilterMode}
+                                        onChange={(e) => handleDeviceFilterChange(e.target.value)}
+                                        className="bg-gray-950 border border-gray-700 text-gray-200 text-[11px] rounded px-1.5 py-0.5 focus:outline-none focus:border-cyan-500"
+                                    >
+                                        <option value="current">
+                                            {t('batch.currentDevice') || 'Это устройство'} ({effectiveDeviceName ? `${effectiveDeviceName} / ` : ''}{effectiveDeviceId})
+                                        </option>
+                                        <option value="all">
+                                            {t('batch.allDevices') || 'Все устройства'} ({batchJobs.length})
+                                        </option>
+                                        {availableDeviceIds
+                                            .filter(id => id !== effectiveDeviceId)
+                                            .map(id => (
+                                                <option key={id} value={id}>
+                                                    Устройство: {id}
+                                                </option>
+                                            ))}
+                                    </select>
+                                </div>
 
-                            {batchJobs.some(j => j.state === 'SUCCEEDED' || j.state === 'FAILED' || j.state === 'CANCELLED') && (
-                                <button
-                                    onClick={clearFinishedBatchJobs}
-                                    className="text-[11px] text-gray-400 hover:text-gray-200 hover:underline transition-colors"
-                                >
-                                    {t('batch.clearFinished') || 'Очистить завершенные'}
-                                </button>
-                            )}
+                                <div className="flex items-center gap-2">
+                                    <Tooltip
+                                        content={batchSortOrder === 'desc' ? (t('batch.sortNewestDesc') || 'Сортировка: Самые новые вверху (В процессе закреплены)') : (t('batch.sortOldestDesc') || 'Сортировка: Сначала старые (В процессе закреплены)')}
+                                        position="bottom"
+                                        align="start"
+                                    >
+                                        <button
+                                            onClick={() => setBatchSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                                            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-300 hover:text-white text-[11px] transition-colors"
+                                            title={batchSortOrder === 'desc' ? (t('batch.sortNewestDesc') || 'Сортировка: Самые новые вверху (В процессе закреплены)') : (t('batch.sortOldestDesc') || 'Сортировка: Сначала старые (В процессе закреплены)')}
+                                        >
+                                            <svg className="w-3.5 h-3.5 text-accent-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                                            </svg>
+                                            <span className="font-semibold text-accent-secondary">
+                                                {batchSortOrder === 'desc' ? (t('batch.sortNewest') || 'Новые') : (t('batch.sortOldest') || 'Старые')}
+                                            </span>
+                                        </button>
+                                    </Tooltip>
+
+                                    {batchJobs.some(j => j.state === 'SUCCEEDED' || j.state === 'FAILED' || j.state === 'CANCELLED') && (
+                                        <button
+                                            onClick={clearFinishedBatchJobs}
+                                            className="text-[11px] text-gray-400 hover:text-gray-200 hover:underline transition-colors whitespace-nowrap"
+                                        >
+                                            {t('batch.clearFinished') || 'Очистить'}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -871,9 +1037,28 @@ export const TaskQueuePanel: React.FC = () => {
                                                     <span className="truncate">{job.displayName || job.nodeTitle || 'Batch Job'}</span>
                                                 </button>
                                             </div>
-                                            <span className="text-[10px] text-gray-500 font-mono truncate">
-                                                ID: {job.name || jobId.slice(0, 16)}
-                                            </span>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-[10px] text-gray-400 font-mono truncate">
+                                                    ID: {job.name || jobId.slice(0, 16)}
+                                                </span>
+                                                {job.deviceId && (
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono border ${
+                                                            job.deviceId === effectiveDeviceId
+                                                                ? 'bg-emerald-950/70 border-emerald-800/60 text-emerald-400'
+                                                                : 'bg-gray-800 border-gray-700 text-gray-400'
+                                                        }`}
+                                                        title={`Устройство: ${job.deviceId}`}
+                                                    >
+                                                        <span>📱</span>
+                                                        <span>
+                                                            {job.deviceId === effectiveDeviceId
+                                                                ? (effectiveDeviceName ? `${effectiveDeviceName} (Этот ПК)` : `${job.deviceId} (Этот ПК)`)
+                                                                : job.deviceId}
+                                                        </span>
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div>{getBatchStatusBadge(job.state)}</div>
                                     </div>

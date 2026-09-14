@@ -492,12 +492,12 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                         <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${isBatchMode ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
                     </div>
                 </div>
-                {isBatchMode && (
-                    <div className="mt-1.5 text-[11px] text-accent-secondary leading-tight flex items-start gap-1">
-                        <span>⏳</span>
-                        <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
-                    </div>
-                )}
+                <div className={`mt-1.5 text-[11px] leading-tight flex items-start gap-1 transition-colors ${
+                    isBatchMode ? 'text-accent-secondary font-medium' : 'text-gray-400'
+                }`}>
+                    <span className={isBatchMode ? '' : 'opacity-70'}>⏳</span>
+                    <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
+                </div>
             </div>
             
             <div className="flex space-x-2 h-10">

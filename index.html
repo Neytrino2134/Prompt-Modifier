@@ -5,13 +5,20 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prompt Modifier</title>
+    <meta name="description" content="A node-based application to visually construct, refine, and generate images and 3D models using AI models and Tripo AI. Connect nodes to build prompts and generate rich assets." />
+    <meta property="og:title" content="Prompt Modifier" />
+    <meta property="og:description" content="A node-based application to visually construct, refine, and generate images and 3D models using AI models and Tripo AI. Connect nodes to build prompts and generate rich assets." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
     <style>
       /* --- Theme Variables --- */
       /* Default Theme (Cyan) */
-      :root {
+      :root, [data-theme='cyan'] {
         --color-bg-canvas: #111827; /* gray-900 */
         --color-bg-node: #1f2937;   /* gray-800 */
         --color-bg-panel: #111827;  /* gray-900 */
@@ -25,8 +32,9 @@
         --color-text-accent: #22d3ee;   /* cyan-400 */
         --color-selection: rgba(34, 211, 238, 0.3); /* Selection Color */
 
-        --color-accent-secondary: #0d9488;       /* teal-600 */
+        --color-accent-secondary: #0d9488;       /* teal-600 (Original button background color) */
         --color-accent-secondary-hover: #0f766e; /* teal-700 */
+        --color-text-accent-secondary: #2dd4bf;  /* teal-400 (Brighter text for secondary accent) */
         
         --color-connection-text: #22d3ee; /* cyan-400 */
         --color-connection-image: #1cead8; /* Bright Turquoise */
@@ -56,6 +64,7 @@
 
         --color-accent-secondary: #d77505;       /* Swapped from Red */
         --color-accent-secondary-hover: #be123c; /* Swapped from Red */
+        --color-text-accent-secondary: #fb923c;
         
         --color-connection-text: #fb923c; /* orange-400 */
         --color-connection-image: #fbbf24; /* amber-400 */
@@ -82,6 +91,7 @@
 
         --color-accent-secondary: #b7327c;       /* Custom Secondary */
         --color-accent-secondary-hover: #922863; /* Darker version of secondary */
+        --color-text-accent-secondary: #f472b6;
         
         --color-connection-text: #f472b6; /* pink-400 (Matches selected border) */
         --color-connection-image: #e879f9; /* fuchsia-400 */
@@ -109,6 +119,7 @@
 
         --color-accent-secondary: #71717a;       /* zinc-500 */
         --color-accent-secondary-hover: #a1a1aa; /* zinc-400 */
+        --color-text-accent-secondary: #e4e4e7;
         
         --color-connection-text: #a1a1aa; /* Zinc-400 */
         --color-connection-image: #a1a1aa; /* Zinc-400 */
@@ -134,6 +145,7 @@
         
         --color-accent-secondary: #16a34a;       /* green-600 */
         --color-accent-secondary-hover: #15803d; /* green-700 */
+        --color-text-accent-secondary: #4ade80;
 
         --color-connection-text: #a3e635; /* lime-400 */
         --color-connection-image: #4ade80; /* green-400 */
@@ -159,6 +171,7 @@
 
         --color-accent-secondary: #d946ef;       /* fuchsia-500 */
         --color-accent-secondary-hover: #c026d3; /* fuchsia-600 */
+        --color-text-accent-secondary: #e879f9;
 
         --color-connection-text: #c084fc; /* purple-400 */
         --color-connection-image: #e879f9; /* fuchsia-400 */
@@ -184,6 +197,7 @@
 
         --color-accent-secondary: #3b82f6;       /* blue-500 */
         --color-accent-secondary-hover: #2563eb; /* blue-600 */
+        --color-text-accent-secondary: #60a5fa;
 
         --color-connection-text: #38bdf8; /* sky-400 */
         --color-connection-image: #60a5fa; /* blue-400 */
@@ -209,6 +223,7 @@
 
         --color-accent-secondary: #f8325d;       /* Custom New Secondary */
         --color-accent-secondary-hover: #d01842; /* Darker version */
+        --color-text-accent-secondary: #fb7185;
 
         --color-connection-text: #f87171; /* red-400 */
         --color-connection-image: #fb7185; /* rose-400 */
@@ -234,6 +249,7 @@
 
         --color-accent-secondary: #0d9488;       /* teal-600 */
         --color-accent-secondary-hover: #0f766e; /* teal-700 */
+        --color-text-accent-secondary: #2dd4bf;
 
         --color-connection-text: #34d399; /* emerald-400 */
         --color-connection-image: #2dd4bf; /* teal-400 */
@@ -361,6 +377,8 @@
       *::before,
       *::after {
         -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        border-color: rgba(55, 65, 81, 0.5);
       }
 
       *:focus,
@@ -370,6 +388,7 @@
         outline-width: 0 !important;
         outline-style: none !important;
         outline-color: transparent !important;
+        box-shadow: none !important;
       }
 
       button,
@@ -611,46 +630,84 @@
         position: relative;
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.22);
-        box-shadow: 0 14px 36px -2px rgba(0, 0, 0, 0.70), 0 6px 16px -2px rgba(0, 0, 0, 0.50), inset 0 -1px 0 0 rgba(255, 255, 255, 0.12);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.20);
+        box-shadow: 0 14px 36px -2px rgba(0, 0, 0, 0.70), 0 6px 16px -2px rgba(0, 0, 0, 0.50), inset 0 -1px 0 0 rgba(255, 255, 255, 0.10);
       }
 
-      @keyframes panel-pulse-glow {
+      /* Base Panel Backgrounds */
+      .top-panel-anim-shimmer,
+      .top-panel-anim-pulse,
+      .top-panel-anim-breath,
+      .top-panel-anim-wave,
+      .top-panel-anim-aurora,
+      .top-panel-anim-neon,
+      .top-panel-anim-shapes_bubbles,
+      .top-panel-anim-shapes_ocean,
+      .top-panel-anim-shapes_geometry,
+      .top-panel-anim-shapes_techno,
+      .top-panel-anim-shapes_cyber,
+      .top-panel-anim-shapes_nature,
+      .top-panel-anim-shapes_space {
+        background: rgba(13, 18, 32, 0.85);
+      }
+
+      .top-panel-anim-none {
+        background: rgba(14, 19, 32, 0.88);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+        box-shadow: 0 14px 36px -2px rgba(0, 0, 0, 0.70), 0 6px 16px -2px rgba(0, 0, 0, 0.50);
+      }
+
+      /* 1. Pulse Keyframes */
+      @keyframes anim-panel-pulse-glow {
         0%, 100% {
-          background-color: rgba(12, 17, 30, 0.76);
-          border-bottom-color: rgba(255, 255, 255, 0.18);
-          box-shadow: 0 14px 36px -2px rgba(0, 0, 0, 0.70), 0 0 0 rgba(56, 189, 248, 0), inset 0 -1px 0 0 rgba(255, 255, 255, 0.12);
+          opacity: 0.15;
+          box-shadow: inset 0 0 12px var(--pulse-dim-color, rgba(34, 211, 238, 0.1));
         }
         50% {
-          background-color: rgba(16, 26, 48, 0.86);
-          border-bottom-color: rgba(56, 189, 248, 0.55);
-          box-shadow: 0 16px 40px -2px rgba(0, 0, 0, 0.80), 0 4px 22px rgba(56, 189, 248, 0.35), inset 0 -1px 8px rgba(56, 189, 248, 0.25);
+          opacity: 0.65;
+          box-shadow: inset 0 0 28px var(--pulse-glow-color, rgba(34, 211, 238, 0.35));
         }
       }
+      .anim-panel-pulse-glow {
+        animation: anim-panel-pulse-glow 4s ease-in-out infinite;
+      }
 
-      @keyframes panel-breath-glow {
+      /* 2. Breathing Keyframes (Sinusoidal smooth inner glow, no step, strictly inside) */
+      @keyframes anim-panel-breath-glow {
         0%, 100% {
-          background-color: rgba(11, 15, 25, 0.72);
-          border-bottom-color: rgba(255, 255, 255, 0.14);
-          box-shadow: 0 10px 28px -2px rgba(0, 0, 0, 0.65), inset 0 -1px 0 0 rgba(255, 255, 255, 0.08);
+          opacity: 0.20;
+          box-shadow: inset 0 0 16px var(--breath-subtle-color, rgba(56, 189, 248, 0.15));
         }
         50% {
-          background-color: rgba(24, 32, 54, 0.85);
-          border-bottom-color: rgba(255, 255, 255, 0.35);
-          box-shadow: 0 18px 44px -2px rgba(0, 0, 0, 0.80), 0 0 24px rgba(255, 255, 255, 0.08), inset 0 -1px 4px rgba(255, 255, 255, 0.2);
+          opacity: 0.80;
+          box-shadow: inset 0 0 36px var(--breath-glow-color, rgba(56, 189, 248, 0.38));
         }
       }
+      .anim-panel-breath-glow {
+        animation: anim-panel-breath-glow 7s ease-in-out infinite;
+      }
 
-      @keyframes panel-wave-motion {
+      /* 3. Fluid Wave Keyframes (Slow, ambient, wide breathing luminescence) */
+      @keyframes anim-panel-fluid-wave {
         0% {
-          background-position: 200% 0%;
+          background-position: 0% 50%;
+          opacity: 0.75;
+        }
+        50% {
+          background-position: 100% 50%;
+          opacity: 0.95;
         }
         100% {
-          background-position: -200% 0%;
+          background-position: 200% 50%;
+          opacity: 0.75;
         }
       }
+      .anim-panel-fluid-wave {
+        animation: anim-panel-fluid-wave 24s ease-in-out infinite;
+      }
 
-      @keyframes panel-aurora-motion {
+      /* 4. Aurora Borealis Keyframes */
+      @keyframes anim-panel-aurora {
         0% {
           background-position: 0% 50%;
         }
@@ -661,10 +718,139 @@
           background-position: 0% 50%;
         }
       }
+      .anim-panel-aurora {
+        animation: anim-panel-aurora 20s ease-in-out infinite;
+      }
 
-      @keyframes panel-neon-streak {
+      /* 5. Neon Flow Keyframes (Continuous smooth flowing laser seam) */
+      @keyframes anim-panel-neon-flow {
         0% {
-          transform: translateX(-100%);
+          background-position: 0% 50%;
+        }
+        100% {
+          background-position: 200% 50%;
+        }
+      }
+      .anim-panel-neon-flow {
+        animation: anim-panel-neon-flow 12s linear infinite;
+      }
+
+      /* 6. Vector Shapes: Bubbles Keyframes (Continuous infinite upward flight) */
+      @keyframes bubble-rise-infinite {
+        0% {
+          transform: translateY(65px) translateX(0px);
+          opacity: 0;
+        }
+        15% {
+          opacity: 0.38;
+        }
+        80% {
+          opacity: 0.38;
+        }
+        100% {
+          transform: translateY(-135px) translateX(10px);
+          opacity: 0;
+        }
+      }
+
+      /* 7. Vector Shapes: Ocean Waves Keyframes (Smooth movement to the RIGHT) */
+      @keyframes ocean-wave-right-1 {
+        0% {
+          transform: translateX(-480px);
+        }
+        100% {
+          transform: translateX(0px);
+        }
+      }
+      @keyframes ocean-wave-right-2 {
+        0% {
+          transform: translateX(-480px);
+        }
+        100% {
+          transform: translateX(0px);
+        }
+      }
+      @keyframes ocean-wave-right-3 {
+        0% {
+          transform: translateX(-480px);
+        }
+        100% {
+          transform: translateX(0px);
+        }
+      }
+      .anim-ocean-layer-1 {
+        animation: ocean-wave-right-1 16s linear infinite;
+      }
+      .anim-ocean-layer-2 {
+        animation: ocean-wave-right-2 22s linear infinite;
+      }
+      .anim-ocean-layer-3 {
+        animation: ocean-wave-right-3 12s linear infinite;
+      }
+
+      /* 8. Vector Shapes: Isometric Geometry Keyframes (Smooth floating sway without distortion) */
+      @keyframes geom-sway-1 {
+        0%, 100% {
+          transform: translateY(0px) rotate(0deg);
+        }
+        50% {
+          transform: translateY(-5px) rotate(8deg);
+        }
+      }
+      @keyframes geom-sway-2 {
+        0%, 100% {
+          transform: translateY(0px) rotate(0deg);
+        }
+        50% {
+          transform: translateY(5px) rotate(-8deg);
+        }
+      }
+      @keyframes geom-sway-3 {
+        0%, 100% {
+          transform: translateY(0px) rotate(0deg) scale(1);
+        }
+        50% {
+          transform: translateY(-4px) rotate(6deg) scale(1.04);
+        }
+      }
+      .anim-geom-sway-1 {
+        animation: geom-sway-1 9s ease-in-out infinite;
+      }
+      .anim-geom-sway-2 {
+        animation: geom-sway-2 11s ease-in-out infinite 1.5s;
+      }
+      .anim-geom-sway-3 {
+        animation: geom-sway-3 8s ease-in-out infinite 0.7s;
+      }
+
+      /* 9. Vector Shapes: Techno PCB Keyframes */
+      @keyframes techno-pulse-h {
+        0% {
+          stroke-dashoffset: 480;
+        }
+        100% {
+          stroke-dashoffset: 0;
+        }
+      }
+      @keyframes node-digital-glow {
+        0%, 100% {
+          opacity: 0.45;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      .anim-techno-pulse {
+        animation: techno-pulse-h 8s linear infinite;
+      }
+      .anim-node-digital-glow {
+        animation: node-digital-glow 2.8s ease-in-out infinite;
+      }
+
+      /* 10. Vector Shapes: Cyber Grid (Top-down view, tracers with glowing tails) */
+      @keyframes cyber-tracer-h1 {
+        0% {
+          transform: translateX(-150px);
           opacity: 0;
         }
         10% {
@@ -674,96 +860,164 @@
           opacity: 1;
         }
         100% {
-          transform: translateX(100vw);
+          transform: translateX(1400px);
           opacity: 0;
         }
       }
-
-      .top-panel-anim-shimmer {
-        background: rgba(13, 18, 32, 0.85);
+      @keyframes cyber-tracer-h2 {
+        0% {
+          transform: translateX(-200px);
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(1500px);
+          opacity: 0;
+        }
+      }
+      @keyframes cyber-tracer-v {
+        0% {
+          transform: translateY(-20px);
+          opacity: 0;
+        }
+        25% {
+          opacity: 0.9;
+        }
+        85% {
+          opacity: 0.9;
+        }
+        100% {
+          transform: translateY(65px);
+          opacity: 0;
+        }
+      }
+      .anim-cyber-tracer-1 {
+        animation: cyber-tracer-h1 6.5s linear infinite;
+      }
+      .anim-cyber-tracer-2 {
+        animation: cyber-tracer-h2 8.5s linear infinite 2.5s;
+      }
+      .anim-cyber-tracer-3 {
+        animation: cyber-tracer-h1 7.2s linear infinite 4.2s;
+      }
+      .anim-cyber-tracer-v1 {
+        animation: cyber-tracer-v 3.8s ease-in-out infinite 0.8s;
+      }
+      .anim-cyber-tracer-v2 {
+        animation: cyber-tracer-v 4.2s ease-in-out infinite 2.2s;
       }
 
-      .top-panel-anim-pulse {
-        background: rgba(12, 17, 30, 0.78);
-        animation: panel-pulse-glow 3.6s ease-in-out infinite;
+      /* 11. Vector Shapes: Nature Leaf Drift & Fireflies */
+      @keyframes leaf-drift-1 {
+        0%, 100% {
+          transform: rotate(0deg) translate(0px, 0px);
+        }
+        50% {
+          transform: rotate(10deg) translate(5px, -3px);
+        }
+      }
+      @keyframes leaf-drift-2 {
+        0%, 100% {
+          transform: rotate(0deg) translate(0px, 0px);
+        }
+        50% {
+          transform: rotate(-12deg) translate(-4px, -2px);
+        }
+      }
+      @keyframes firefly-pulse-1 {
+        0%, 100% {
+          opacity: 0.2;
+          transform: scale(0.85);
+        }
+        50% {
+          opacity: 0.95;
+          transform: scale(1.2);
+        }
+      }
+      @keyframes firefly-pulse-2 {
+        0%, 100% {
+          opacity: 0.25;
+          transform: scale(0.85);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.3);
+        }
+      }
+      .anim-leaf-drift-1 {
+        animation: leaf-drift-1 10s ease-in-out infinite;
+      }
+      .anim-leaf-drift-2 {
+        animation: leaf-drift-2 12s ease-in-out infinite;
+      }
+      .anim-firefly-1 {
+        animation: firefly-pulse-1 3.5s ease-in-out infinite;
+      }
+      .anim-firefly-2 {
+        animation: firefly-pulse-2 4.2s ease-in-out infinite 1.5s;
       }
 
-      .top-panel-anim-breath {
-        background: rgba(11, 15, 25, 0.75);
-        animation: panel-breath-glow 6.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      /* 12. Vector Shapes: Space Starlight Twinkle & Comets */
+      @keyframes star-twinkle-1 {
+        0%, 100% {
+          opacity: 0.25;
+          transform: scale(0.85);
+        }
+        50% {
+          opacity: 0.95;
+          transform: scale(1.25);
+        }
+      }
+      @keyframes star-twinkle-2 {
+        0%, 100% {
+          opacity: 0.2;
+          transform: scale(0.8);
+        }
+        50% {
+          opacity: 0.85;
+          transform: scale(1.2);
+        }
+      }
+      @keyframes space-comet-streak {
+        0% {
+          transform: translateX(-100px) translateY(-10px);
+          opacity: 0;
+        }
+        5% {
+          opacity: 0.8;
+        }
+        30% {
+          transform: translateX(1200px) translateY(40px);
+          opacity: 0;
+        }
+        100% {
+          transform: translateX(1200px) translateY(40px);
+          opacity: 0;
+        }
+      }
+      .anim-star-twinkle-1 {
+        animation: star-twinkle-1 3.2s ease-in-out infinite;
+      }
+      .anim-star-twinkle-2 {
+        animation: star-twinkle-2 4.1s ease-in-out infinite 1.8s;
+      }
+      .anim-space-comet {
+        animation: space-comet-streak 14s ease-out infinite 3s;
       }
 
-      .top-panel-anim-wave {
-        background: linear-gradient(
-          90deg,
-          rgba(11, 15, 25, 0.78) 0%,
-          rgba(17, 24, 39, 0.76) 20%,
-          rgba(25, 45, 78, 0.85) 45%,
-          rgba(45, 85, 140, 0.65) 50%,
-          rgba(25, 45, 78, 0.85) 55%,
-          rgba(17, 24, 39, 0.76) 80%,
-          rgba(11, 15, 25, 0.78) 100%
-        );
-        background-size: 200% 100%;
-        animation: panel-wave-motion 7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-      }
-
-      .top-panel-anim-aurora {
-        background: linear-gradient(
-          120deg,
-          rgba(10, 16, 30, 0.82) 0%,
-          rgba(13, 38, 48, 0.80) 22%,
-          rgba(12, 48, 38, 0.80) 42%,
-          rgba(35, 20, 58, 0.82) 65%,
-          rgba(18, 32, 54, 0.80) 85%,
-          rgba(10, 16, 30, 0.82) 100%
-        );
-        background-size: 280% 280%;
-        animation: panel-aurora-motion 14s ease-in-out infinite;
-      }
-
-      .top-panel-anim-neon {
-        background: rgba(12, 17, 30, 0.85);
-        border-bottom-color: rgba(56, 189, 248, 0.28);
-      }
-
-      .top-panel-anim-none {
-        background: rgba(14, 19, 32, 0.85);
-        animation: none !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-        box-shadow: 0 14px 36px -2px rgba(0, 0, 0, 0.70), 0 6px 16px -2px rgba(0, 0, 0, 0.50);
-      }
-
-      .top-panel-neon-streak {
-        position: absolute;
-        bottom: -1px;
-        left: 0;
-        width: 180px;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #38bdf8, #a855f7, #ec4899, transparent);
-        box-shadow: 0 0 12px 2px rgba(56, 189, 248, 0.8), 0 0 20px 4px rgba(168, 85, 247, 0.6);
-        pointer-events: none;
-        animation: panel-neon-streak 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        z-index: 10;
-      }
-
+      /* Shimmer Glare Sweep */
       .top-panel-glare {
         position: absolute;
         top: 0;
         left: 0;
-        width: 32%;
+        width: 35%;
         height: 100%;
-        background: linear-gradient(
-          90deg,
-          transparent 0%,
-          rgba(255, 255, 255, 0.01) 15%,
-          rgba(255, 255, 255, 0.05) 35%,
-          rgba(255, 255, 255, 0.14) 50%,
-          rgba(255, 255, 255, 0.05) 65%,
-          rgba(255, 255, 255, 0.01) 85%,
-          transparent 100%
-        );
-        filter: blur(3px);
+        filter: blur(4px);
         pointer-events: none;
         animation: panel-glare-sweep 8.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }

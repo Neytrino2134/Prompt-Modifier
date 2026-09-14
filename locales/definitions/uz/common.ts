@@ -22,6 +22,7 @@ export const common = {
     'welcome.getKeyLink': 'API Kalitini Olish',
     'welcome.iAmDeveloper': 'Men Dasturchiman',
     'welcome.letsGo': 'Boshladik',
+    'welcome.resume': 'Davom etish',
     'welcome.freeModeActive': 'Bepul Rejim Faol',
     'welcome.selectLanguage': 'Asosiy tilingizni tanlang',
     'welcome.navHint': 'Tilni o\'zgartirish uchun klaviatura tugmalari ⬅️ va ➡️ dan foydalaning',

@@ -25,6 +25,7 @@ export interface ImageEditorState {
     sequenceOutputs: Array<{ status: string; thumbnail: string | null }>;
     checkedSequenceOutputIndices: number[];
     autoDownload: boolean;
+    autoSaveImages: boolean;
     createZip: boolean; // New property
     checkedInputIndices: number[];
     selectedSourceFrameIndex?: number | null; // Added for selection tracking
@@ -43,7 +44,7 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     quality: 'high',
     outputFormat: 'png',
     size: '1024x1024',
-    autoCrop169: true, // Default enabled
+    autoCrop169: false, // Default disabled
     leftPaneWidth: 400,
     topPaneHeight: 330,
     resolution: '1K',
@@ -55,6 +56,7 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     sequenceOutputs: [],
     checkedSequenceOutputIndices: [],
     autoDownload: true, // Default enabled
+    autoSaveImages: false,
     createZip: false, // Default false
     checkedInputIndices: [],
     selectedSourceFrameIndex: null

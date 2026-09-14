@@ -13,11 +13,13 @@
   scrollbar-width: none !important;
 }
 
-/* Eliminate default intrusive white focus outlines on buttons and clickable items */
+/* Eliminate default intrusive white focus outlines and white fallback borders */
 *,
 *::before,
 *::after {
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  border-color: rgba(55, 65, 81, 0.5); /* Prevents currentColor/white fallback borders */
 }
 
 *:focus,
@@ -27,6 +29,7 @@
   outline-width: 0 !important;
   outline-style: none !important;
   outline-color: transparent !important;
+  box-shadow: none !important;
 }
 
 button,
@@ -36,7 +39,9 @@ button:active,
 [role="button"],
 [role="button"]:focus,
 [role="button"]:focus-visible,
-[role="button"]:active {
+[role="button"]:active,
+div:focus,
+div:focus-visible {
   outline: none !important;
   outline-width: 0 !important;
   outline-style: none !important;
@@ -237,3 +242,88 @@ button:active,
   pointer-events: none;
   animation: panel-glare-sweep 8.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
+
+/* Secondary accent text color mapping (keeps secondary button backgrounds dark while text stays bright) */
+.text-accent-secondary {
+  color: var(--color-text-accent-secondary, var(--color-accent-secondary)) !important;
+}
+
+/* Cursor Action Reaction Animations */
+@keyframes text-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.text-gradient-shimmer {
+  background: linear-gradient(
+    90deg,
+    #00c6ff 0%,
+    #0072ff 25%,
+    #38bdf8 50%,
+    #00f0ff 75%,
+    #00c6ff 100%
+  );
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  animation: text-shimmer 4s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes cursor-spark {
+  0% {
+    transform: scale(0.4);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes cursor-ring {
+  0% {
+    transform: scale(0.2) rotate(0deg);
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.2) rotate(45deg);
+    opacity: 0;
+  }
+}
+
+@keyframes cursor-cross {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+.animate-cursor-spark {
+  animation: cursor-spark 0.35s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+.animate-cursor-ring {
+  animation: cursor-ring 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
+.animate-cursor-cross {
+  animation: cursor-cross 0.4s ease-out forwards;
+}
+

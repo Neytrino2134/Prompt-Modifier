@@ -43,7 +43,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     const parsedValueRef = useRef(parsedValue);
     parsedValueRef.current = parsedValue;
 
-    const { inputImages, inputImagesB, prompt, outputImage, model, aspectRatio, enableAspectRatio, leftPaneWidth, topPaneHeight, resolution, isSequenceMode, isSequentialCombinationMode, isSequentialEditingWithPrompts, framePrompts, sequenceOutputs, checkedSequenceOutputIndices, checkedInputIndices, enableOutpainting, outpaintingPrompt, autoDownload, autoCrop169, isSequentialPromptMode, createZip, selectedSourceFrameIndex } = parsedValue;
+    const { inputImages, inputImagesB, prompt, outputImage, model, aspectRatio, enableAspectRatio, leftPaneWidth, topPaneHeight, resolution, isSequenceMode, isSequentialCombinationMode, isSequentialEditingWithPrompts, framePrompts, sequenceOutputs, checkedSequenceOutputIndices, checkedInputIndices, enableOutpainting, outpaintingPrompt, autoDownload, autoSaveImages, autoCrop169, isSequentialPromptMode, createZip, selectedSourceFrameIndex } = parsedValue;
 
     const isOpenAiActive = useOpenAiEnabled();
     const modelOptions = useMemo(() => getImageEditorModelOptions(), [isOpenAiActive]);
@@ -75,15 +75,16 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         }
     }, [clearImagesForNodeFromCache, node.id, handleValueUpdate, addToast, t]);
 
-    // Resizing Constraint Logic
+    // Resizing Constraint Logic (Fixed min width: 1420px)
     useEffect(() => {
-        if (!node.width || !node.height) return;
+        const effectiveWidth = Math.max(node.width || 1420, 1420);
+        const effectiveHeight = Math.max(node.height || 920, 920);
 
         const containerChromeH = HEADER_HEIGHT + (CONTENT_PADDING * 2); // Header + Padding
         
         // 1. Horizontal Constraint (Left Pane Width)
         // Ensure Right Pane maintains minimum width
-        const maxLeftWidth = node.width - MIN_RIGHT_PANE_WIDTH - 8; // -8 for splitter/gap safety
+        const maxLeftWidth = effectiveWidth - MIN_RIGHT_PANE_WIDTH - 8; // -8 for splitter/gap safety
         
         let newLeftPaneWidth = leftPaneWidth;
         if (leftPaneWidth > maxLeftWidth) {
@@ -94,7 +95,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         
         // 2. Vertical Constraint (Top Pane Height)
         // Ensure Bottom Pane maintains minimum height
-        const availableHeight = node.height - containerChromeH;
+        const availableHeight = effectiveHeight - containerChromeH;
         const minBottom = enableAspectRatio ? MIN_BOTTOM_PANE_HEIGHT_WITH_PREVIEW : MIN_BOTTOM_PANE_HEIGHT;
         const maxTopHeight = availableHeight - minBottom - 8; // -8 for splitter/gap
         

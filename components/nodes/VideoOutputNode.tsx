@@ -296,6 +296,12 @@ export const VideoOutputNode: React.FC<NodeContentProps> = ({
                                 <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${node.useBatch ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
                             </div>
                         </div>
+                        <div className={`mt-1.5 text-[11px] leading-tight flex items-start gap-1 transition-colors ${
+                            node.useBatch ? 'text-accent-secondary font-medium' : 'text-gray-400'
+                        }`}>
+                            <span className={node.useBatch ? '' : 'opacity-70'}>⏳</span>
+                            <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
+                        </div>
                     </div>
                 )}
 

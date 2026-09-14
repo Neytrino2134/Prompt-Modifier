@@ -7,6 +7,17 @@ import {
     OPENAI_CONFIG_CHANGE_EVENT, 
     notifyOpenAiConfigChanged 
 } from './openaiService';
+import {
+    isTripoEnabled,
+    setTripoEnabled,
+    getTripoApiKey,
+    setTripoApiKey,
+    getTripoModelVersion,
+    setTripoModelVersion,
+    TRIPO_CONFIG_CHANGE_EVENT,
+    notifyTripoConfigChanged,
+    useTripoEnabled
+} from './tripoService';
 
 export { 
     isOpenAiEnabled, 
@@ -14,7 +25,16 @@ export {
     getOpenAiApiKey, 
     setOpenAiApiKey, 
     OPENAI_CONFIG_CHANGE_EVENT, 
-    notifyOpenAiConfigChanged 
+    notifyOpenAiConfigChanged,
+    isTripoEnabled,
+    setTripoEnabled,
+    getTripoApiKey,
+    setTripoApiKey,
+    getTripoModelVersion,
+    setTripoModelVersion,
+    TRIPO_CONFIG_CHANGE_EVENT,
+    notifyTripoConfigChanged,
+    useTripoEnabled
 };
 
 export type LLMMode = 'flash' | 'pro';

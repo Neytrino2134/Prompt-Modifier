@@ -515,7 +515,7 @@ export const MicrophoneSettingsTab: React.FC<MicrophoneSettingsTabProps> = ({ cl
                 <div className="rounded-lg overflow-hidden border border-gray-800 bg-slate-950">
                     <canvas
                         ref={canvasRef}
-                        width={420}
+                        width={560}
                         height={46}
                         className="w-full h-[46px] block"
                     />
