@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, PanelStyle, PanelAnimation, CursorSkin, LogEntry, LogLevel, BatchJobRecord } from '../types';
+import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, CanvasColorMode, InputColorMode, PanelStyle, PanelAnimation, CursorSkin, LogEntry, LogLevel, BatchJobRecord } from '../types';
 import { NodeType } from '../types';
 import { LanguageCode, TranslationKey } from '../localization';
 import {
@@ -129,6 +129,7 @@ export type AppContextType =
   onRenameSequence: (itemId: string, newName: string) => void;
   toasts: Toast[];
   addToast: (message: string, type?: ToastType, action?: { label: string, onClick: () => void }) => void;
+  removeToast: (id: number) => void;
   getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
   setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void;
   imageViewer: { sources: { src: string; frameNumber: number; prompt?: string; model?: string; aspectRatio?: string; resolution?: string; }[], initialIndex: number } | null;
@@ -254,6 +255,10 @@ export type AppContextType =
   // Theme props
   currentTheme: Theme;
   setTheme: (theme: Theme) => void;
+  canvasColorMode: CanvasColorMode;
+  setCanvasColorMode: (mode: CanvasColorMode) => void;
+  inputColorMode: InputColorMode;
+  setInputColorMode: (mode: InputColorMode) => void;
   panelStyle: PanelStyle;
   setPanelStyle: (style: PanelStyle) => void;
   isPanelAutoHide: boolean;

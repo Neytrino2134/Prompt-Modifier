@@ -1,14 +1,25 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppContext } from '../contexts/AppContext';
-import { ExpandIcon, CollapseIcon, HomeIcon, ClearCacheIcon, SettingsIcon, ResetCanvasIcon, FullScreenIcon, ExitFullScreenIcon, ExitIcon, PaletteIcon, ReloadIcon, PromptModifierIcon } from './icons/AppIcons';
+import { ExpandIcon, CollapseIcon, HomeIcon, ClearCacheIcon, SettingsIcon, ResetCanvasIcon, FullScreenIcon, ExitFullScreenIcon, ExitIcon, PaletteIcon, ReloadIcon, PromptModifierIcon, PanelBackgroundIcon, CursorSkinIcon } from './icons/AppIcons';
 import HelpPanel from './HelpPanel';
 import LanguageSelector from './LanguageSelector';
 import TabsBar from './TabsBar';
 import WelcomeScreen from './WelcomeScreen';
+import { HeaderNotificationBar } from './HeaderNotificationBar';
 import { Tooltip } from './Tooltip';
 import { APP_VERSION } from '../version';
-import { Theme, TaskStatus, BatchJobRecord, ActiveOperation } from '../types';
+import { Theme, TaskStatus, BatchJobRecord, ActiveOperation, PanelAnimation, CursorSkin } from '../types';
 import { PanelAnimationBackground } from './settings/appearance/PanelAnimationBackground';
+import { PANEL_ANIMATION_GROUPS } from './settings/appearance/panelAnimationDefinitions';
+import { THEME_GROUPS } from './settings/appearance/ThemeAndAutoSaveSettings';
+import { CURSOR_SKIN_GROUPS } from './settings/appearance/CursorSkinSettings';
+import { getActiveCursorDefinition } from './cursors/cursorDefinitions';
+import { 
+    matchesDeviceFilter, 
+    getDeviceId, 
+    isDeviceIsolationEnabled, 
+    getDeviceFilterMode 
+} from '../utils/deviceId';
 
 const useFps = () => {
   const [fps, setFps] = useState(0);
@@ -50,6 +61,8 @@ const AppHeader: React.FC = () => {
     const [isMaximized, setIsMaximized] = useState(false);
     const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
     const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+    const [isPanelBgMenuOpen, setIsPanelBgMenuOpen] = useState(false);
+    const [isCursorSkinMenuOpen, setIsCursorSkinMenuOpen] = useState(false);
     const headerRef = useRef<HTMLElement>(null);
 
     // Timer State
@@ -74,7 +87,7 @@ const AppHeader: React.FC = () => {
         return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
     }, []);
 
-    // Sync Electron window maximize state
+    // Sync Electron window maximize and alwaysOnTop (PIN) states
     useEffect(() => {
         if (!isElectron) return;
         const api = (window as any).electronAPI;
@@ -84,23 +97,39 @@ const AppHeader: React.FC = () => {
         if (api?.isAlwaysOnTop) {
             api.isAlwaysOnTop().then((top: boolean) => setIsAlwaysOnTop(Boolean(top))).catch(() => {});
         }
+        let unsubMax: (() => void) | undefined;
+        let unsubTop: (() => void) | undefined;
         if (api?.onMaximizedChange) {
-            const unsubscribe = api.onMaximizedChange((max: boolean) => {
+            unsubMax = api.onMaximizedChange((max: boolean) => {
                 setIsMaximized(max);
             });
-            return () => {
-                if (typeof unsubscribe === 'function') unsubscribe();
-            };
         }
+        if (api?.onAlwaysOnTopChange) {
+            unsubTop = api.onAlwaysOnTopChange((top: boolean) => {
+                setIsAlwaysOnTop(Boolean(top));
+            });
+        }
+        return () => {
+            if (typeof unsubMax === 'function') unsubMax();
+            if (typeof unsubTop === 'function') unsubTop();
+        };
     }, [isElectron]);
     
-    // Close theme menu on outside click
+    // Close dropdown menus on outside click/mousedown
     useEffect(() => {
-        if (!isThemeMenuOpen) return;
-        const handleClickOutside = () => setIsThemeMenuOpen(false);
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, [isThemeMenuOpen]);
+        if (!isThemeMenuOpen && !isPanelBgMenuOpen && !isCursorSkinMenuOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (target && target.closest('.header-dropdown-menu-container')) {
+                return;
+            }
+            setIsThemeMenuOpen(false);
+            setIsPanelBgMenuOpen(false);
+            setIsCursorSkinMenuOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isThemeMenuOpen, isPanelBgMenuOpen, isCursorSkinMenuOpen]);
 
     if (!context) return null;
     
@@ -142,11 +171,22 @@ const AppHeader: React.FC = () => {
         batchJobs = [],
         pollActiveBatchJobs,
         isBatchPolling,
+        deviceId,
+        deviceIsolationEnabled,
+        deviceFilterMode,
         nextAutoSaveTime,
         isAutoSaving,
         panelAnimation = 'shimmer',
+        setPanelAnimation,
         isPanelAnimationAdaptive = true,
+        setIsPanelAnimationAdaptive,
+        cursorSkin = 'default',
+        setCursorSkin,
     } = context;
+
+    const effectiveDeviceId = deviceId || getDeviceId();
+    const effectiveIsolationEnabled = deviceIsolationEnabled ?? isDeviceIsolationEnabled();
+    const effectiveFilterMode = deviceFilterMode || getDeviceFilterMode();
 
     const operations: ActiveOperation[] = Array.from(activeOperations.values());
     const currentOp = operations.length > 0 ? operations[operations.length - 1] : null;
@@ -245,7 +285,7 @@ const AppHeader: React.FC = () => {
         };
     }, [tasks]);
 
-    // Calculate Batch API Stats
+    // Calculate Batch API Stats (respecting device isolation & current device ID filter)
     const batchStats = useMemo(() => {
         let pending = 0;
         let running = 0;
@@ -253,9 +293,22 @@ const AppHeader: React.FC = () => {
         let failed = 0;
         let totalItems = 0;
         let readyToDownload = 0;
+        let totalFilteredJobs = 0;
 
         for (const job of (batchJobs as BatchJobRecord[])) {
             if (!job) continue;
+
+            // Check Device ID & Isolate Batches filter
+            if (effectiveIsolationEnabled) {
+                // If device isolation is enabled, strictly filter out batches with different deviceId
+                if (job.deviceId && job.deviceId !== effectiveDeviceId) {
+                    continue;
+                }
+            } else if (!matchesDeviceFilter(job.deviceId, effectiveDeviceId, effectiveFilterMode)) {
+                continue;
+            }
+
+            totalFilteredJobs++;
             const itemCount = Array.isArray(job.items) ? job.items.length : 0;
             if (job.state === 'PENDING') {
                 pending++;
@@ -282,9 +335,9 @@ const AppHeader: React.FC = () => {
             failed,
             totalItems,
             readyToDownload,
-            totalJobs: batchJobs.length,
+            totalJobs: totalFilteredJobs,
         };
-    }, [batchJobs]);
+    }, [batchJobs, effectiveDeviceId, effectiveIsolationEnabled, effectiveFilterMode]);
 
     const toggleFullScreen = () => {
         if (!document.fullscreenElement) {
@@ -328,6 +381,15 @@ const AppHeader: React.FC = () => {
             );
             return next;
         });
+    };
+
+    const handleTitleBarDoubleClick = (e: React.MouseEvent) => {
+        if (!isElectron) return;
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, select, textarea, a, [role="button"], [draggable="true"], .header-dropdown-menu-container, [data-interactive="true"], .tab-item, .custom-scrollbar, .app-region-no-drag')) {
+            return;
+        }
+        handleWindowMaximize();
     };
 
     const handleWindowMinimize = () => {
@@ -426,18 +488,6 @@ const AppHeader: React.FC = () => {
 
     const canResume = nodes && nodes.length > 0 && localStorage.getItem('hasVisited') === 'true';
 
-    const themes: { id: Theme; color: string; label: string }[] = [
-      { id: 'cyan', color: '#06b6d4', label: 'Cyan' },
-      { id: 'azure', color: '#0ea5e9', label: 'Azure' },
-      { id: 'purple', color: '#9333ea', label: 'Purple' },
-      { id: 'pink', color: '#ec4899', label: 'Pink' },
-      { id: 'red', color: '#dc2626', label: 'Red' },
-      { id: 'orange', color: '#f97316', label: 'Orange' },
-      { id: 'lime', color: '#84cc16', label: 'Lime' },
-      { id: 'emerald', color: '#10b981', label: 'Emerald' },
-      { id: 'gray', color: '#71717a', label: 'Gray' },
-    ];
-
     const hasAnyActiveWork = queueStats.running > 0 || queueStats.queued > 0 || batchStats.activeJobs > 0 || batchStats.readyToDownload > 0;
     
     // Dynamically measure AppHeader height and export to CSS variable and context
@@ -463,7 +513,12 @@ const AppHeader: React.FC = () => {
         <>
             {showWelcome && <WelcomeScreen onClose={() => setShowWelcome(false)} isResumable={canResume} />}
             
-            <header ref={headerRef} id="app-header" className={`fixed top-0 left-0 w-full z-40 select-none flex flex-col top-panel-unified top-panel-anim-${panelAnimation} border-b border-white/20 shadow-[0_14px_36px_rgba(0,0,0,0.75),0_6px_16px_rgba(0,0,0,0.55)] backdrop-blur-md transition-all duration-200`}>
+            <header 
+                ref={headerRef} 
+                id="app-header" 
+                onDoubleClick={handleTitleBarDoubleClick}
+                className={`fixed top-0 left-0 w-full z-40 select-none flex flex-col top-panel-unified top-panel-anim-${panelAnimation} border-b border-white/20 shadow-[0_14px_36px_rgba(0,0,0,0.75),0_6px_16px_rgba(0,0,0,0.55)] backdrop-blur-md transition-all duration-200 app-region-drag`}
+            >
                 {/* Dynamic Panel Animation Background with Theme Adaptive support */}
                 <PanelAnimationBackground
                     animation={panelAnimation}
@@ -474,11 +529,14 @@ const AppHeader: React.FC = () => {
                 {/* ========================================================================= */}
                 {/* ROW 1: Main Application Header & Window Title Bar                        */}
                 {/* ========================================================================= */}
-                <div className="relative z-30 w-full flex items-center justify-between px-2.5 h-9 bg-transparent gap-2 app-region-drag">
+                <div 
+                    onDoubleClick={handleTitleBarDoubleClick}
+                    className="relative z-30 w-full flex items-center justify-between px-2.5 h-9 bg-transparent gap-2 app-region-drag select-none"
+                >
                     
-                    {/* Left Section: App Logo, Title (Draggable window region) & Header Quick Actions (Help, Settings, Clear Cache) */}
+                    {/* Left Section: App Logo, Title & Header Quick Actions (Help, Settings, Clear Cache) */}
                     <div className="flex items-center gap-2 flex-shrink-0 app-region-drag">
-                        {/* Title & Logo: Native window drag region, click does not invoke welcome screen */}
+                        {/* Title & Logo: Drag and interaction area */}
                         <div 
                             className="flex items-center gap-2 px-1.5 py-0.5 rounded-md select-none app-region-drag group"
                             title="Prompt Modifier"
@@ -514,7 +572,7 @@ const AppHeader: React.FC = () => {
 
                         <div className="w-px h-4 bg-gray-700/60 mx-0.5"></div>
 
-                        {/* Language Selector, Help, Clear Cache & Settings beside app title in top panel (interactive: app-region-no-drag) */}
+                        {/* Language Selector, Help, Clear Cache & Settings beside app title in top panel */}
                         <div className="flex items-center gap-1 app-region-no-drag">
                             {/* Language Selector */}
                             <LanguageSelector />
@@ -666,36 +724,247 @@ const AppHeader: React.FC = () => {
                         </Tooltip>
 
                         {/* Theme Palette Picker */}
-                        <div className="relative">
+                        <div className="relative header-dropdown-menu-container">
                             <Tooltip content={t('settings.themeLabel')} position="bottom">
                                 <button 
-                                    onClick={(e) => { e.stopPropagation(); setIsThemeMenuOpen(!isThemeMenuOpen); }}
-                                    className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border ${
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setIsThemeMenuOpen(!isThemeMenuOpen); 
+                                        setIsPanelBgMenuOpen(false);
+                                        setIsCursorSkinMenuOpen(false);
+                                    }}
+                                    className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border cursor-pointer app-region-no-drag ${
                                         isThemeMenuOpen 
                                             ? 'bg-accent text-white border-accent' 
                                             : 'bg-gray-800/70 text-gray-300 hover:bg-accent hover:text-white border-gray-700/50'
                                     }`}
+                                    aria-label={t('settings.themeLabel')}
                                 >
                                     <PaletteIcon />
                                 </button>
                             </Tooltip>
                             {isThemeMenuOpen && (
-                                <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-gray-750 border-gray-700 rounded-lg shadow-2xl p-2 z-[100] flex flex-col gap-1 min-w-[130px] animate-fade-in-drop origin-top-right">
-                                    {themes.map(theme => (
+                                <div 
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ top: 'calc(var(--app-header-height, 74px) - 4px + 6px)' }}
+                                    className="absolute right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-2.5 z-[120] flex flex-col gap-2 min-w-[240px] max-w-[280px] animate-fade-in-drop origin-top-right app-region-no-drag pointer-events-auto select-none"
+                                >
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-gray-800 px-0.5">
+                                        <span className="text-xs font-semibold text-gray-200">
+                                            {t('settings.themeLabel') || 'Тема оформления'}
+                                        </span>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-[360px] space-y-2.5 pr-1 custom-scrollbar">
+                                        {THEME_GROUPS.map(group => (
+                                            <div key={group.id} className="space-y-1">
+                                                <div className="text-[10px] font-semibold text-gray-400 px-1 uppercase tracking-wider flex items-center gap-1.5">
+                                                    {group.icon}
+                                                    <span>{t(group.titleKey as any)}</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-1">
+                                                    {group.themes.map(theme => {
+                                                        const isSelected = currentTheme === theme.id;
+                                                        const localized = t(theme.labelKey as any);
+                                                        const labelText = localized && localized !== theme.labelKey ? localized : theme.fallbackLabel;
+
+                                                        return (
+                                                            <button
+                                                                key={theme.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setTheme(theme.id);
+                                                                    setIsThemeMenuOpen(false);
+                                                                }}
+                                                                className={`app-region-no-drag flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-all border cursor-pointer ${
+                                                                    isSelected
+                                                                        ? 'bg-cyan-950/50 border-cyan-500/60 text-cyan-200 font-medium shadow-sm'
+                                                                        : 'bg-gray-800/40 border-gray-700/50 text-gray-300 hover:bg-gray-750 hover:text-white hover:border-gray-600'
+                                                                }`}
+                                                            >
+                                                                <div 
+                                                                    className="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-sm border border-white/20"
+                                                                    style={{ backgroundColor: theme.color }}
+                                                                />
+                                                                <span className={`text-xs truncate flex-1 ${isSelected ? 'text-cyan-300 font-semibold' : 'text-gray-300'}`}>
+                                                                    {labelText}
+                                                                </span>
+                                                                {isSelected && (
+                                                                    <span 
+                                                                        className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse"
+                                                                        style={{ backgroundColor: theme.color }}
+                                                                    />
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Panel Background & Animation Picker */}
+                        <div className="relative header-dropdown-menu-container">
+                            <Tooltip content={t('settings.panelAnimationLabel') || 'Фон и анимация панели'} position="bottom">
+                                <button 
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setIsPanelBgMenuOpen(!isPanelBgMenuOpen); 
+                                        setIsThemeMenuOpen(false);
+                                        setIsCursorSkinMenuOpen(false);
+                                    }}
+                                    className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border cursor-pointer app-region-no-drag ${
+                                        isPanelBgMenuOpen 
+                                            ? 'bg-accent text-white border-accent' 
+                                            : 'bg-gray-800/70 text-gray-300 hover:bg-accent hover:text-white border-gray-700/50'
+                                    }`}
+                                    aria-label={t('settings.panelAnimationLabel') || 'Фон панели'}
+                                >
+                                    <PanelBackgroundIcon className="h-4 w-4" />
+                                </button>
+                            </Tooltip>
+                            {isPanelBgMenuOpen && (
+                                <div 
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ top: 'calc(var(--app-header-height, 74px) - 4px + 6px)' }}
+                                    className="absolute right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-2.5 z-[120] flex flex-col gap-2 min-w-[240px] max-w-[280px] animate-fade-in-drop origin-top-right app-region-no-drag pointer-events-auto select-none"
+                                >
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-gray-800 px-0.5">
+                                        <span className="text-xs font-semibold text-gray-200">
+                                            {t('settings.panelAnimationLabel') || 'Фон панели'}
+                                        </span>
                                         <button
-                                            key={theme.id}
-                                            onClick={() => setTheme(theme.id)}
-                                            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-gray-800 w-full text-left transition-colors ${currentTheme === theme.id ? 'bg-gray-800 border border-gray-600/50' : ''}`}
+                                            type="button"
+                                            onClick={() => setIsPanelAnimationAdaptive(!isPanelAnimationAdaptive)}
+                                            className={`app-region-no-drag text-[10px] px-2 py-0.5 rounded-md font-medium transition-colors border cursor-pointer ${
+                                                isPanelAnimationAdaptive 
+                                                    ? 'bg-accent/20 text-accent border-accent/40' 
+                                                    : 'bg-gray-800 text-gray-400 border-gray-700 hover:text-gray-200'
+                                            }`}
+                                            title={t('settings.panelAnimationAdaptiveDesc')}
                                         >
-                                            <div 
-                                                className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
-                                                style={{ backgroundColor: theme.color }}
-                                            />
-                                            <span className={`text-xs ${currentTheme === theme.id ? 'text-white font-bold' : 'text-gray-300'}`}>
-                                                {theme.label}
-                                            </span>
+                                            {isPanelAnimationAdaptive 
+                                                ? (t('settings.panelAnimationAdaptiveLabel') || 'Адаптивный')
+                                                : (t('common.disabled') || 'Стандарт')
+                                            }
                                         </button>
-                                    ))}
+                                    </div>
+                                    <div className="overflow-y-auto max-h-[340px] space-y-2 pr-1 custom-scrollbar">
+                                        {PANEL_ANIMATION_GROUPS.map(group => (
+                                            <div key={group.id} className="space-y-1">
+                                                <div className="text-[10px] font-semibold text-gray-400 px-1 uppercase tracking-wider">
+                                                    {t(group.titleKey as any)}
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-1">
+                                                    {group.items.map(opt => {
+                                                        const isSelected = panelAnimation === opt.id;
+                                                        return (
+                                                            <button
+                                                                key={opt.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setPanelAnimation(opt.id);
+                                                                    setIsPanelBgMenuOpen(false);
+                                                                }}
+                                                                className={`app-region-no-drag relative overflow-hidden flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-all border cursor-pointer ${
+                                                                    isSelected
+                                                                        ? 'bg-gray-800 border-accent text-white font-medium shadow-sm'
+                                                                        : 'bg-gray-800/40 border-gray-700/50 text-gray-300 hover:bg-gray-750 hover:text-white hover:border-gray-600'
+                                                                }`}
+                                                            >
+                                                                <span className={`text-xs ${isSelected ? 'text-accent font-semibold' : 'text-gray-300'}`}>
+                                                                    {t(opt.labelKey as any)}
+                                                                </span>
+                                                                {isSelected && (
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0 animate-pulse" />
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Cursor Skin Picker */}
+                        <div className="relative header-dropdown-menu-container">
+                            <Tooltip content={t('settings.cursorSkinLabel') || 'Скины курсора'} position="bottom">
+                                <button 
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setIsCursorSkinMenuOpen(!isCursorSkinMenuOpen); 
+                                        setIsThemeMenuOpen(false);
+                                        setIsPanelBgMenuOpen(false);
+                                    }}
+                                    className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border cursor-pointer app-region-no-drag ${
+                                        isCursorSkinMenuOpen 
+                                            ? 'bg-accent text-white border-accent' 
+                                            : 'bg-gray-800/70 text-gray-300 hover:bg-accent hover:text-white border-gray-700/50'
+                                    }`}
+                                    aria-label={t('settings.cursorSkinLabel') || 'Скины курсора'}
+                                >
+                                    <CursorSkinIcon className="h-4 w-4" />
+                                </button>
+                            </Tooltip>
+                            {isCursorSkinMenuOpen && (
+                                <div 
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ top: 'calc(var(--app-header-height, 74px) - 4px + 6px)' }}
+                                    className="absolute right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-2.5 z-[120] flex flex-col gap-2 min-w-[260px] max-w-[300px] animate-fade-in-drop origin-top-right app-region-no-drag pointer-events-auto select-none"
+                                >
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-gray-800 px-0.5">
+                                        <span className="text-xs font-semibold text-gray-200">
+                                            {t('settings.cursorSkinLabel') || 'Скин курсора'}
+                                        </span>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-[350px] space-y-2 pr-1 custom-scrollbar">
+                                        {CURSOR_SKIN_GROUPS.map(group => (
+                                            <div key={group.id} className="space-y-1">
+                                                <div className="text-[10px] font-semibold text-gray-400 px-1 uppercase tracking-wider">
+                                                    {t(group.titleKey as any)}
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-1">
+                                                    {group.skins.map(({ key: skinKey }) => {
+                                                        const skinDef = getActiveCursorDefinition(skinKey, currentTheme);
+                                                        const isSelected = cursorSkin === skinKey;
+                                                        return (
+                                                            <button
+                                                                key={skinKey}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setCursorSkin(skinKey);
+                                                                    setIsCursorSkinMenuOpen(false);
+                                                                }}
+                                                                className={`app-region-no-drag flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left transition-all border cursor-pointer ${
+                                                                    isSelected
+                                                                        ? 'bg-cyan-950/50 border-cyan-500/60 text-cyan-200 font-medium shadow-sm'
+                                                                        : 'bg-gray-800/40 border-gray-700/50 text-gray-300 hover:bg-gray-750 hover:text-white hover:border-gray-600'
+                                                                }`}
+                                                            >
+                                                                <div
+                                                                    className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 overflow-hidden ${
+                                                                        isSelected ? 'bg-cyan-900/60 text-cyan-300' : 'bg-gray-950 text-gray-400'
+                                                                    }`}
+                                                                    dangerouslySetInnerHTML={{ __html: skinDef.rawSvgs.default }}
+                                                                />
+                                                                <span className={`text-xs truncate flex-1 ${isSelected ? 'text-cyan-300 font-semibold' : 'text-gray-300'}`}>
+                                                                    {t(skinDef.nameKey as any)}
+                                                                </span>
+                                                                {isSelected && (
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0 animate-pulse" />
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -704,7 +973,7 @@ const AppHeader: React.FC = () => {
                         <Tooltip content={isFullscreen ? t('toolbar.exitFullScreen') : t('toolbar.enterFullScreen')} position="bottom">
                             <button
                                 onClick={toggleFullScreen}
-                                className="p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 bg-gray-800/70 hover:bg-accent hover:text-white text-gray-300 border border-gray-700/50"
+                                className="p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 bg-gray-800/70 hover:bg-accent hover:text-white text-gray-300 border border-gray-700/50 cursor-pointer app-region-no-drag"
                                 aria-label={isFullscreen ? t('toolbar.exitFullScreen') : t('toolbar.enterFullScreen')}
                             >
                                 {isFullscreen ? <ExitFullScreenIcon /> : <FullScreenIcon />}
@@ -715,7 +984,7 @@ const AppHeader: React.FC = () => {
                         <Tooltip content={t('dialog.settings.reload')} position="bottom">
                             <button
                                 onClick={handleReloadApp}
-                                className="p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 bg-gray-800/70 text-gray-300 hover:bg-red-600 hover:text-white border border-gray-700/50"
+                                className="p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 bg-gray-800/70 text-gray-300 hover:bg-red-600 hover:text-white border border-gray-700/50 cursor-pointer app-region-no-drag"
                                 aria-label={t('dialog.settings.reload')}
                             >
                                 <ReloadIcon />
@@ -725,11 +994,11 @@ const AppHeader: React.FC = () => {
                         <div className="w-px h-4 bg-gray-700/60 mx-1"></div>
 
                         {/* Electron Frameless Window Controls */}
-                        <div className="flex items-center">
+                        <div className="flex items-center app-region-no-drag">
                             {/* PIN (Always on Top) Button */}
                             <button
                                 onClick={handleToggleAlwaysOnTop}
-                                className={`h-7 w-8 flex items-center justify-center transition-all rounded-sm focus:outline-none ${
+                                className={`h-7 w-8 flex items-center justify-center transition-all rounded-sm focus:outline-none cursor-pointer app-region-no-drag ${
                                     isAlwaysOnTop
                                         ? 'text-cyan-400 bg-cyan-950/70 border border-cyan-500/60 shadow-[0_0_8px_rgba(6,182,212,0.35)]'
                                         : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -749,7 +1018,7 @@ const AppHeader: React.FC = () => {
                             {/* Minimize Button */}
                             <button
                                 onClick={handleWindowMinimize}
-                                className="h-7 w-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 transition-colors rounded-sm focus:outline-none"
+                                className="h-7 w-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 transition-colors rounded-sm focus:outline-none cursor-pointer app-region-no-drag"
                                 title={t('titlebar.minimize')}
                                 aria-label={t('titlebar.minimize')}
                             >
@@ -761,7 +1030,7 @@ const AppHeader: React.FC = () => {
                             {/* Maximize / Restore Button */}
                             <button
                                 onClick={handleWindowMaximize}
-                                className="h-7 w-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 transition-colors rounded-sm focus:outline-none"
+                                className="h-7 w-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 transition-colors rounded-sm focus:outline-none cursor-pointer app-region-no-drag"
                                 title={isMaximized ? t('titlebar.restore') : t('titlebar.maximize')}
                                 aria-label={isMaximized ? t('titlebar.restore') : t('titlebar.maximize')}
                             >
@@ -780,7 +1049,7 @@ const AppHeader: React.FC = () => {
                             {/* Close Button */}
                             <button
                                 onClick={handleExitApp}
-                                className="h-7 w-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-rose-600 transition-colors rounded-sm focus:outline-none"
+                                className="h-7 w-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-rose-600 transition-colors rounded-sm focus:outline-none cursor-pointer app-region-no-drag"
                                 title={t('titlebar.close')}
                                 aria-label={t('titlebar.close')}
                             >
@@ -797,10 +1066,15 @@ const AppHeader: React.FC = () => {
                 {/* Unified seamless panel row, dynamically toggled                           */}
                 {/* ========================================================================= */}
                 {isStatusBarOpen && (
-                    <div className="relative z-20 w-full bg-transparent px-3 py-1 flex items-center justify-between text-xs gap-3 overflow-x-auto hide-scrollbar app-region-drag">
+                    <div 
+                        onDoubleClick={handleTitleBarDoubleClick}
+                        className="relative z-20 w-full bg-transparent px-3 py-1 flex items-center justify-between text-xs gap-3 overflow-x-auto hide-scrollbar app-region-drag select-none"
+                    >
                         
                         {/* Mode 1: Real-time Generation Queue Section */}
                         <div 
+                            role="button"
+                            tabIndex={0}
                             onClick={() => openTaskQueueTab('queue')}
                             className={`flex items-center gap-2.5 px-2.5 py-1 rounded-md cursor-pointer transition-all border app-region-no-drag ${
                                 queueStats.running > 0 
@@ -875,6 +1149,8 @@ const AppHeader: React.FC = () => {
 
                         {/* Mode 2: Deferred Batch API Section */}
                         <div 
+                            role="button"
+                            tabIndex={0}
                             onClick={() => openTaskQueueTab('batch')}
                             className={`flex items-center gap-2.5 px-2.5 py-1 rounded-md cursor-pointer transition-all border app-region-no-drag ${
                                 batchStats.activeJobs > 0 || batchStats.readyToDownload > 0
@@ -954,7 +1230,7 @@ const AppHeader: React.FC = () => {
                                     <>
                                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
                                         <span className="text-[10px] font-mono text-gray-400">
-                                            {secondsToSave !== null ? `Auto-save: ${secondsToSave}s` : 'Saved'}
+                                             {secondsToSave !== null ? `Auto-save: ${secondsToSave}s` : 'Saved'}
                                         </span>
                                     </>
                                 )}
@@ -966,7 +1242,10 @@ const AppHeader: React.FC = () => {
                 {/* ========================================================================= */}
                 {/* ROW 3: Navigation Toolbar, Project Tabs & Live System Status              */}
                 {/* ========================================================================= */}
-                <div className="relative z-10 w-full flex items-center justify-between px-2.5 py-1 min-h-[38px] bg-transparent gap-2 overflow-x-auto hide-scrollbar app-region-drag">
+                <div 
+                    onDoubleClick={handleTitleBarDoubleClick}
+                    className="relative z-10 w-full flex items-center justify-between px-2.5 py-1 min-h-[38px] bg-transparent gap-2 overflow-x-auto hide-scrollbar app-region-drag select-none"
+                >
                     
                     {/* Left Section: Toolbar buttons, Home & Project Tabs */}
                     <div className="flex items-center gap-1.5 flex-shrink-0 app-region-no-drag">
@@ -1034,11 +1313,16 @@ const AppHeader: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Middle Draggable Area */}
-                    <div className="flex-1 min-w-[20px] h-full app-region-drag"></div>
+                    {/* Middle Spacer Area */}
+                    <div className="flex-1 min-w-[12px] h-full app-region-drag"></div>
+
+                    {/* Sliding Header Notification Bar (to the left of System Status) */}
+                    <div className="relative z-10 flex items-center overflow-visible app-region-no-drag">
+                        <HeaderNotificationBar />
+                    </div>
 
                     {/* Right Section: Migrated System Ready, Timer, FPS, and Debug Console */}
-                    <div className="flex items-center gap-2 flex-shrink-0 app-region-no-drag">
+                    <div className="flex items-center gap-2 flex-shrink-0 app-region-no-drag relative z-20">
                         
                         {/* System Status / Processing / Saving indicator */}
                         <div className="flex items-center space-x-2 px-2.5 py-1 rounded-md bg-gray-800/70 border border-gray-700/60 min-w-[130px]">

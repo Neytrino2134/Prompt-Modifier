@@ -13,10 +13,25 @@ export const TOY_THEME_PALETTES: Record<Theme, { outerColor: string; innerColor:
         innerColor: '#688fae', // Slate-400
         accent: '#38bdf8'
     },
+    amber: {
+        outerColor: '#d97706', // Amber-600
+        innerColor: '#fbbf24', // Amber-400
+        accent: '#fbbf24'
+    },
+    teal: {
+        outerColor: '#0f766e', // Teal-700
+        innerColor: '#2dd4bf', // Teal-400
+        accent: '#2dd4bf'
+    },
+    rose: {
+        outerColor: '#be123c', // Rose-700
+        innerColor: '#fb7185', // Rose-400
+        accent: '#fb7185'
+    },
     purple: {
-        outerColor: '#9333ea', // Purple-600
-        innerColor: '#c084fc', // Purple-400
-        accent: '#c084fc'
+        outerColor: '#7c3aed', // Violet-600
+        innerColor: '#a78bfa', // Violet-400
+        accent: '#a78bfa'
     },
     pink: {
         outerColor: '#db2777', // Pink-600
@@ -47,6 +62,46 @@ export const TOY_THEME_PALETTES: Record<Theme, { outerColor: string; innerColor:
         outerColor: '#52525b', // Zinc-600
         innerColor: '#a1a1aa', // Zinc-400
         accent: '#e4e4e7'
+    },
+    pastel_mint: {
+        outerColor: '#0f766e',
+        innerColor: '#5eead4',
+        accent: '#5eead4'
+    },
+    pastel_lavender: {
+        outerColor: '#5b4b70',
+        innerColor: '#c4b5db',
+        accent: '#c4b5db'
+    },
+    pastel_peach: {
+        outerColor: '#7d4e38',
+        innerColor: '#ebba9e',
+        accent: '#ebba9e'
+    },
+    pastel_rose: {
+        outerColor: '#704859',
+        innerColor: '#e2afc3',
+        accent: '#e2afc3'
+    },
+    pastel_sky: {
+        outerColor: '#3d5a73',
+        innerColor: '#a5c6de',
+        accent: '#a5c6de'
+    },
+    pastel_vanilla: {
+        outerColor: '#6d5a37',
+        innerColor: '#e8d49d',
+        accent: '#e8d49d'
+    },
+    pastel_sage: {
+        outerColor: '#405d4b',
+        innerColor: '#a8cbb3',
+        accent: '#a8cbb3'
+    },
+    pastel_sand: {
+        outerColor: '#78583c',
+        innerColor: '#e6ccb2',
+        accent: '#e6ccb2'
     }
 };
 

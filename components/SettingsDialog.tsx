@@ -104,12 +104,17 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
     if (isOpen) {
       setIsVisible(true);
 
+      const minTop = 135;
+
       const saved = localStorage.getItem(LOCAL_STORAGE_POS_KEY);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
           if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-            setPosition(parsed);
+            setPosition({
+              x: parsed.x,
+              y: Math.max(minTop, parsed.y)
+            });
             return;
           }
         } catch (e) {
@@ -126,14 +131,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
         if (x + width > window.innerWidth) x = window.innerWidth - width - 20;
         if (y + height > window.innerHeight) y = window.innerHeight - height - 20;
         if (x < 20) x = 20;
-        if (y < 20) y = 20;
+        if (y < minTop) y = minTop;
 
         setPosition({ x, y });
       } else {
         const dialogWidth = Math.min(620, window.innerWidth - 32);
         setPosition({
           x: Math.max(16, Math.round(window.innerWidth / 2 - dialogWidth / 2)),
-          y: Math.max(16, Math.round(window.innerHeight / 2 - 250)),
+          y: Math.max(minTop, Math.round(window.innerHeight / 2 - 250)),
         });
       }
     } else {
@@ -252,9 +257,12 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
     if (!isDragging.current) return;
     e.preventDefault();
     e.stopPropagation();
+    
+    const minTop = 135;
+    
     setPosition({
       x: e.clientX - dragStart.current.x,
-      y: e.clientY - dragStart.current.y,
+      y: Math.max(minTop, e.clientY - dragStart.current.y),
     });
   };
 

@@ -283,7 +283,7 @@ const TabsBar: React.FC<TabsBarProps> = ({ tabs, activeTabId, onSwitchTab, onAdd
   return (
     <div 
       onMouseDown={(e) => e.stopPropagation()}
-      className="flex-shrink-0 pointer-events-auto max-w-[calc(100vw-360px)]"
+      className="flex-shrink-0 pointer-events-auto max-w-[calc(100vw-360px)] app-region-no-drag"
     >
       <div 
         ref={scrollContainerRef}

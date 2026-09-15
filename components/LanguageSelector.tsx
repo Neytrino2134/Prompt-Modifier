@@ -85,12 +85,15 @@ const LanguageSelector: React.FC = () => {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-1 z-[100] min-w-[150px] max-h-60 overflow-y-auto custom-scrollbar animate-fade-in-drop origin-top-left">
+        <div 
+          style={{ top: 'calc(var(--app-header-height, 74px) - 4px + 6px)' }}
+          className="absolute left-0 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-1 z-[100] min-w-[150px] max-h-60 overflow-y-auto custom-scrollbar animate-fade-in-drop origin-top-left app-region-no-drag"
+        >
           {Object.entries(languages).filter(([code]) => code !== 'en').map(([code, info]) => (
             <button
               key={code}
               onClick={() => handleSelectSecondary(code as LanguageCode)}
-              className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
+              className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors app-region-no-drag cursor-pointer ${
                 secondaryLanguage === code 
                   ? 'bg-gray-800 text-white font-bold border border-gray-700/60' 
                   : 'text-gray-300 hover:bg-gray-800 hover:text-white'

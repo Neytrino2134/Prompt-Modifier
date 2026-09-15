@@ -2,6 +2,7 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { NodeType, ConnectingInfo, Point } from '../types';
 import { useLanguage } from '../localization';
+import { useAppContext } from '../contexts/AppContext';
 import { ThreeDModelIcon } from './icons/AppIcons';
 
 interface ConnectionQuickAddMenuProps {
@@ -29,6 +30,7 @@ const NODE_HOTKEY_MAP: Partial<Record<NodeType, string>> = {
 
 const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen, info, onClose, onSelect }) => {
   const { t } = useLanguage();
+  const context = useAppContext();
   const menuRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({ opacity: 0, pointerEvents: 'none' });
 
@@ -185,6 +187,7 @@ const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen,
       }
 
       const menuRect = menuRef.current.getBoundingClientRect();
+      const minTop = context?.isStatusBarOpen ? 135 : 84;
       let left = position.x + 10;
       let top = position.y + 10;
       if (left + menuRect.width > window.innerWidth) {
@@ -195,7 +198,7 @@ const ConnectionQuickAddMenu: React.FC<ConnectionQuickAddMenuProps> = ({ isOpen,
       }
       setStyle({ 
         left: Math.max(0, left), 
-        top: Math.max(0, top),
+        top: Math.max(minTop, top),
         position: 'fixed',
         opacity: 1,
         transition: 'opacity 150ms ease-in-out',

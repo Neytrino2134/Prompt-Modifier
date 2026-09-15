@@ -698,7 +698,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           // Clamping bounds so the window never gets lost off-screen
           const minX = -300;
           const maxX = window.innerWidth - 100;
-          const minY = 0;
+          const minY = context?.isStatusBarOpen ? 135 : 84;
           const maxY = window.innerHeight - 60;
 
           setPosition({
@@ -742,7 +742,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           return {
               position: 'fixed',
               left: '54px',
-              top: '56px',
+              top: context?.isStatusBarOpen ? '120px' : '84px',
               bottom: '54px',
               width: 'min(760px, calc(50vw - 40px))',
               minWidth: '360px',
@@ -765,7 +765,7 @@ export const CatalogView: React.FC<CatalogViewProps> = (props) => {
           return {
               position: 'fixed',
               right: rightOffset,
-              top: '56px',
+              top: context?.isStatusBarOpen ? '120px' : '84px',
               bottom: '54px',
               width: 'min(760px, calc(50vw - 24px))',
               minWidth: '360px',

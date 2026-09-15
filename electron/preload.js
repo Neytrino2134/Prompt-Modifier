@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Return unsubscribe function
     return () => ipcRenderer.removeListener('app:close-request', subscription);
   },
+  // Listen for save and exit request from Main / Tray
+  onSaveAndExitRequested: (callback) => {
+    const subscription = (event, ...args) => callback(...args);
+    ipcRenderer.on('app:save-and-exit', subscription);
+    return () => ipcRenderer.removeListener('app:save-and-exit', subscription);
+  },
   // Listen for download completion
   onDownloadComplete: (callback) => {
     const subscription = (event, ...args) => callback(...args);
@@ -47,6 +53,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isAlwaysOnTop: () => ipcRenderer.invoke('window:is-always-on-top'),
   toggleAlwaysOnTop: () => ipcRenderer.invoke('window:toggle-always-on-top'),
   setAlwaysOnTop: (flag) => ipcRenderer.send('window:set-always-on-top', flag),
+  onAlwaysOnTopChange: (callback) => {
+    const subscription = (event, isTop) => callback(isTop);
+    ipcRenderer.on('window:always-on-top-changed', subscription);
+    return () => ipcRenderer.removeListener('window:always-on-top-changed', subscription);
+  },
+
+  // Batch API Status Sync
+  syncBatchStatus: (status) => ipcRenderer.send('batch:sync-status', status),
+
+  // System Tray methods
+  minimizeToTray: () => ipcRenderer.send('tray:minimize-to-tray'),
+  showWindow: () => ipcRenderer.send('tray:show-window'),
+  getTraySettings: () => ipcRenderer.invoke('tray:get-settings'),
+  setTraySettings: (settings) => ipcRenderer.invoke('tray:set-settings', settings),
+  onTraySettingsUpdated: (callback) => {
+    const subscription = (event, settings) => callback(settings);
+    ipcRenderer.on('tray:settings-updated', subscription);
+    return () => ipcRenderer.removeListener('tray:settings-updated', subscription);
+  },
+  onTrayAction: (callback) => {
+    const subscription = (event, data) => callback(data);
+    ipcRenderer.on('app:tray-action', subscription);
+    return () => ipcRenderer.removeListener('app:tray-action', subscription);
+  },
 
   // Detached Node Mini-App methods
   openNodeMiniApp: (options) => ipcRenderer.invoke('window:open-node-mini-app', options),

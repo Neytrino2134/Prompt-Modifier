@@ -12,6 +12,12 @@ import { SideDockingPanels } from './components/SideDockingPanels';
 import { BottomMediaPanel } from './components/BottomMediaPanel';
 import { DetachedNodeMiniApp } from './components/DetachedNodeMiniApp';
 import { CursorEffects } from './components/cursors/CursorEffects';
+import { 
+  matchesDeviceFilter, 
+  getDeviceId, 
+  isDeviceIsolationEnabled, 
+  getDeviceFilterMode 
+} from './utils/deviceId';
 
 const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // secondaryLanguage is the user's preferred "native" language (e.g., RU, ES)
@@ -96,53 +102,74 @@ const Editor: React.FC = () => {
 
       window.addEventListener('beforeunload', handleBeforeUnload);
 
-      // 2. Electron Handler (Custom Dialog)
+      // 2. Electron Handler (Custom Dialog for window close & Direct Save and Exit for Tray)
       let removeElectronListener: (() => void) | undefined;
+      let removeSaveAndExitListener: (() => void) | undefined;
 
-      if (isElectron && setConfirmInfo && t) {
-          removeElectronListener = (window as any).electronAPI.onCloseRequested(() => {
-              if (hasContentRef.current) {
-                  // Ensure Electron window is brought to front, un-minimized and focused
-                  (window as any).electronAPI?.bringToFront?.();
+      if (isElectron) {
+          // Listen for Save and Exit requested directly from the system tray
+          if ((window as any).electronAPI.onSaveAndExitRequested) {
+              removeSaveAndExitListener = (window as any).electronAPI.onSaveAndExitRequested(async () => {
+                  try {
+                      if (contextRef.current?.forceSaveSession) {
+                          await contextRef.current.forceSaveSession();
+                      }
+                  } catch (err) {
+                      console.error("Failed to save session before exit:", err);
+                  } finally {
+                      setTimeout(() => {
+                          (window as any).electronAPI.forceClose();
+                      }, 150);
+                  }
+              });
+          }
 
-                  // Show in-app custom dialog with Save & Close, Close without Saving, and Cancel
-                  setConfirmInfo({
-                      title: t('dialog.exitApp.title'),
-                      message: t('dialog.exitApp.message'),
-                      confirmLabel: t('dialog.exitApp.saveAndClose'),
-                      confirmVariant: 'accent',
-                      onConfirm: async () => {
-                          try {
-                              if (contextRef.current?.forceSaveSession) {
-                                  await contextRef.current.forceSaveSession();
+          if (setConfirmInfo && t && (window as any).electronAPI.onCloseRequested) {
+              removeElectronListener = (window as any).electronAPI.onCloseRequested(() => {
+                  if (hasContentRef.current) {
+                      // Ensure Electron window is brought to front, un-minimized and focused
+                      (window as any).electronAPI?.bringToFront?.();
+
+                      // Show in-app custom dialog with Save & Close, Close without Saving, and Cancel
+                      setConfirmInfo({
+                          title: t('dialog.exitApp.title'),
+                          message: t('dialog.exitApp.message'),
+                          confirmLabel: t('dialog.exitApp.saveAndClose'),
+                          confirmVariant: 'accent',
+                          onConfirm: async () => {
+                              try {
+                                  if (contextRef.current?.forceSaveSession) {
+                                      await contextRef.current.forceSaveSession();
+                                  }
+                              } catch (err) {
+                                  console.error("Failed to save session before exit:", err);
+                              } finally {
+                                  setTimeout(() => {
+                                      (window as any).electronAPI.forceClose();
+                                  }, 200);
                               }
-                          } catch (err) {
-                              console.error("Failed to save session before exit:", err);
-                          } finally {
-                              setTimeout(() => {
-                                  (window as any).electronAPI.forceClose();
-                              }, 200);
-                          }
-                      },
-                      secondaryAction: {
-                          label: t('dialog.exitApp.dontSave'),
-                          onAction: () => {
-                              (window as any).electronAPI.forceClose();
                           },
-                          className: 'whitespace-nowrap px-4 py-2 text-sm font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 hover:text-white rounded-lg transition-colors border border-gray-600'
-                      },
-                      cancelLabel: t('dialog.confirmDelete.cancel')
-                  });
-              } else {
-                  // No content, close immediately
-                  (window as any).electronAPI.forceClose();
-              }
-          });
+                          secondaryAction: {
+                              label: t('dialog.exitApp.dontSave'),
+                              onAction: () => {
+                                  (window as any).electronAPI.forceClose();
+                              },
+                              className: 'whitespace-nowrap px-4 py-2 text-sm font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 hover:text-white rounded-lg transition-colors border border-gray-600'
+                          },
+                          cancelLabel: t('dialog.confirmDelete.cancel')
+                      });
+                  } else {
+                      // No content, close immediately
+                      (window as any).electronAPI.forceClose();
+                  }
+              });
+          }
       }
 
       return () => {
           window.removeEventListener('beforeunload', handleBeforeUnload);
           if (removeElectronListener) removeElectronListener();
+          if (removeSaveAndExitListener) removeSaveAndExitListener();
       };
   }, [setConfirmInfo, t]);
 
@@ -183,6 +210,105 @@ const Editor: React.FC = () => {
         return () => removeListener();
     }
   }, [addToast, t]);
+
+  // Listen for Tray actions from Electron
+  useEffect(() => {
+    if ((window as any).electronAPI && (window as any).electronAPI.onTrayAction) {
+        const removeListener = (window as any).electronAPI.onTrayAction(({ action }: { action: string }) => {
+            if (action === 'new-tab') {
+                contextRef.current?.handleAddTab?.();
+            } else if (action === 'open-settings') {
+                window.dispatchEvent(new CustomEvent('open-settings'));
+            } else if (action === 'poll-batch') {
+                contextRef.current?.pollActiveBatchJobs?.();
+            } else if (action === 'toggle-batch-mode') {
+                if (contextRef.current?.setIsBatchMode) {
+                    contextRef.current.setIsBatchMode(!contextRef.current.isBatchMode);
+                }
+            } else if (action === 'save-and-exit') {
+                if (contextRef.current?.forceSaveSession) {
+                    contextRef.current.forceSaveSession().finally(() => {
+                        setTimeout(() => {
+                            (window as any).electronAPI?.forceClose?.();
+                        }, 150);
+                    });
+                } else {
+                    (window as any).electronAPI?.forceClose?.();
+                }
+            }
+        });
+        return () => removeListener();
+    }
+  }, []);
+
+  // Sync Batch API Status to Electron Tray in real time
+  useEffect(() => {
+    if (!(window as any).electronAPI?.syncBatchStatus || !context) return;
+
+    const effectiveDeviceId = context.deviceId || getDeviceId();
+    const effectiveIsolationEnabled = context.deviceIsolationEnabled ?? isDeviceIsolationEnabled();
+    const effectiveFilterMode = context.deviceFilterMode || getDeviceFilterMode();
+
+    const jobs = Array.isArray(context.batchJobs) ? context.batchJobs : [];
+    let pending = 0;
+    let running = 0;
+    let succeeded = 0;
+    let failed = 0;
+    let totalItems = 0;
+    let readyToDownload = 0;
+    let totalFilteredJobs = 0;
+
+    for (const job of jobs) {
+      if (!job) continue;
+
+      // Check Device ID & Isolate Batches filter
+      if (effectiveIsolationEnabled) {
+        if (job.deviceId && job.deviceId !== effectiveDeviceId) {
+          continue;
+        }
+      } else if (!matchesDeviceFilter(job.deviceId, effectiveDeviceId, effectiveFilterMode)) {
+        continue;
+      }
+
+      totalFilteredJobs++;
+      const itemCount = Array.isArray(job.items) ? job.items.length : 0;
+      if (job.state === 'PENDING') {
+        pending++;
+        totalItems += itemCount;
+      } else if (job.state === 'RUNNING') {
+        running++;
+        totalItems += itemCount;
+      } else if (job.state === 'SUCCEEDED') {
+        succeeded++;
+        const hasPendingDownloads = Array.isArray(job.items) && job.items.some((it: any) => !it.resultUrl);
+        if (hasPendingDownloads) {
+          readyToDownload++;
+        }
+      } else if (job.state === 'FAILED') {
+        failed++;
+      }
+    }
+
+    (window as any).electronAPI.syncBatchStatus({
+      isBatchMode: Boolean(context.isBatchMode),
+      isPolling: Boolean(context.isBatchPolling),
+      pending,
+      running,
+      activeJobs: pending + running,
+      succeeded,
+      failed,
+      totalItems,
+      readyToDownload,
+      totalJobs: totalFilteredJobs,
+    });
+  }, [
+    context?.batchJobs, 
+    context?.isBatchMode, 
+    context?.isBatchPolling,
+    context?.deviceId,
+    context?.deviceIsolationEnabled,
+    context?.deviceFilterMode
+  ]);
 
   // Deferred loading effect for Canvas
   useEffect(() => {
@@ -286,42 +412,7 @@ const Editor: React.FC = () => {
           />
         )}
 
-        {/* 6. Toast Notifications */}
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[101] flex flex-col items-center space-y-2 pointer-events-none">
-          {toasts.map(toast => {
-            let classes = "font-bold px-6 py-3 rounded-xl shadow-xl animate-fade-in-out text-sm flex items-center justify-center text-center border pointer-events-auto";
-            
-            if (toast.type === 'success') {
-                // Success uses the theme accent color (Opaque)
-                classes += " bg-accent text-white border-accent-hover";
-            } else if (toast.type === 'error') {
-                // Error (Opaque)
-                classes += " bg-red-600 text-white border-red-500";
-            } else {
-                // Info (Copied, Pasted etc) uses Secondary Accent (Opaque)
-                classes += " bg-accent-secondary text-white border-accent-secondary-hover";
-            }
-
-            return (
-              <div key={toast.id} className={classes}>
-                <span>{toast.message}</span>
-                {toast.action && (
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            toast.action?.onClick();
-                        }}
-                        className="ml-3 px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs font-bold uppercase tracking-wider transition-colors"
-                    >
-                        {toast.action.label}
-                    </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 7. Hidden Inputs for File Operations */}
+        {/* 6. Hidden Inputs for File Operations */}
         <input type="file" ref={fileInputRef} className="hidden" accept=".json,.PMC,.PMP" onChange={handleFileChange} />
         <input type="file" ref={catalogFileInputRef} className="hidden" accept=".json" onChange={handleCatalogFileChange} />
         <input type="file" ref={libraryFileInputRef} className="hidden" accept=".json,.txt" onChange={handleLibraryFileChange} />

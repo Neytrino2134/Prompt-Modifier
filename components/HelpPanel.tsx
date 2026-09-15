@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../localization';
+import { useAppContext } from '../contexts/AppContext';
 import { CopyIcon } from './icons/AppIcons';
 import { Tooltip } from './Tooltip';
 
@@ -119,12 +120,16 @@ const HelpPanel: React.FC<HelpPanelProps> = ({ buttonClassName, iconClassName })
     if (isOpen) {
         setIsVisible(true);
         const saved = localStorage.getItem(LOCAL_STORAGE_POS_KEY);
+        const minTop = 135;
         
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
                 if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-                    setPosition(parsed);
+                    setPosition({
+                        x: parsed.x,
+                        y: Math.max(minTop, parsed.y)
+                    });
                 } else {
                     throw new Error("Invalid pos");
                 }
@@ -132,7 +137,7 @@ const HelpPanel: React.FC<HelpPanelProps> = ({ buttonClassName, iconClassName })
                 // Fallback center if corrupt
                 setPosition({ 
                     x: Math.max(0, window.innerWidth / 2 - 300), 
-                    y: Math.max(0, window.innerHeight / 2 - 360) 
+                    y: Math.max(minTop, window.innerHeight / 2 - 360) 
                 });
             }
         } else {
@@ -153,13 +158,15 @@ const HelpPanel: React.FC<HelpPanelProps> = ({ buttonClassName, iconClassName })
 
                 let y = rect.bottom + 10;
                 // If it goes off-screen bottom, push it up
-                if (y + panelH > windowH) y = Math.max(20, windowH - panelH - 20);
+                if (y + panelH > windowH) y = Math.max(minTop, windowH - panelH - 20);
+                
+                y = Math.max(minTop, y);
 
                 setPosition({ x, y });
             } else {
                  setPosition({ 
                     x: Math.max(0, window.innerWidth / 2 - 300), 
-                    y: Math.max(0, window.innerHeight / 2 - 360) 
+                    y: Math.max(minTop, window.innerHeight / 2 - 360) 
                 });
             }
         }
@@ -213,13 +220,15 @@ const HelpPanel: React.FC<HelpPanelProps> = ({ buttonClassName, iconClassName })
       e.currentTarget.setPointerCapture(e.pointerId);
   };
 
+  const minTop = 135;
+
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
       if (!isDragging.current) return;
       e.preventDefault();
       e.stopPropagation();
       setPosition({
           x: e.clientX - dragStart.current.x,
-          y: e.clientY - dragStart.current.y
+          y: Math.max(minTop, e.clientY - dragStart.current.y)
       });
   };
 

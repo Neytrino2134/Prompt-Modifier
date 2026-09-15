@@ -3,6 +3,7 @@ import { useLanguage } from '../../../localization';
 import { useAppContext } from '../../../contexts/AppContext';
 import { CustomCheckbox } from '../../CustomCheckbox';
 import { CURSOR_SETS, getActiveCursorDefinition } from '../../cursors/cursorDefinitions';
+import { triggerCursorImpulse } from '../../cursors/CursorEffects';
 import { CursorSkin } from '../../../types';
 
 interface CursorSkinSettingsProps {
@@ -10,7 +11,7 @@ interface CursorSkinSettingsProps {
   onToggle: () => void;
 }
 
-interface CursorSkinGroup {
+export interface CursorSkinGroup {
   id: string;
   titleKey: string;
   icon: React.ReactNode;
@@ -20,7 +21,7 @@ interface CursorSkinGroup {
   }[];
 }
 
-const CURSOR_SKIN_GROUPS: CursorSkinGroup[] = [
+export const CURSOR_SKIN_GROUPS: CursorSkinGroup[] = [
   {
     id: 'standard',
     titleKey: 'settings.cursorSkinGroup.standard',
@@ -244,6 +245,7 @@ export const CursorSkinSettings: React.FC<CursorSkinSettingsProps> = ({
               </div>
               <button
                 type="button"
+                onClick={(e) => triggerCursorImpulse(e.clientX, e.clientY)}
                 className="p-1.5 rounded bg-cyan-950/40 border border-cyan-700/50 text-[10px] text-cyan-300 hover:bg-cyan-900/40 hover:border-cyan-500/60 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none active:outline-none transition-colors"
               >
                 {t('settings.cursorTest.pointer' as any)}

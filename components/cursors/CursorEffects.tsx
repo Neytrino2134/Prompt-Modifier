@@ -11,6 +11,23 @@ interface ClickRipple {
     isRightClick: boolean;
 }
 
+export interface CursorImpulseEventDetail {
+    x: number;
+    y: number;
+    isRightClick?: boolean;
+    color?: string;
+    glowColor?: string;
+}
+
+export const triggerCursorImpulse = (x: number, y: number, isRightClick: boolean = false, color?: string, glowColor?: string) => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(
+        new CustomEvent<CursorImpulseEventDetail>('cursor-impulse', {
+            detail: { x, y, isRightClick, color, glowColor }
+        })
+    );
+};
+
 export const CursorEffects: React.FC = () => {
     const context = useAppContext();
     const cursorSkin = context?.cursorSkin || 'default';
@@ -41,21 +58,23 @@ export const CursorEffects: React.FC = () => {
         };
     }, [cursorSkin, currentTheme]);
 
-    // Handle tactile click reactions
-    const handleMouseDown = useCallback((e: MouseEvent) => {
+    // Handle targeted impulse reactions (only on node output point click or connection snap/release)
+    const handleCustomImpulse = useCallback((e: Event) => {
         if (!isCursorEffectEnabled || cursorSkin === 'default') return;
+        const customEvent = e as CustomEvent<CursorImpulseEventDetail>;
+        if (!customEvent.detail) return;
 
+        const { x, y, isRightClick = false, color: customColor, glowColor: customGlowColor } = customEvent.detail;
         const activeSet = getActiveCursorDefinition(cursorSkin, currentTheme);
-        const isRight = e.button === 2;
         const id = nextIdRef.current++;
 
         const newRipple: ClickRipple = {
             id,
-            x: e.clientX,
-            y: e.clientY,
-            color: isRight ? '#f43f5e' : activeSet.accentColor,
-            glowColor: isRight ? 'rgba(244, 63, 94, 0.8)' : activeSet.glowColor,
-            isRightClick: isRight
+            x,
+            y,
+            color: customColor || (isRightClick ? '#f43f5e' : activeSet.accentColor),
+            glowColor: customGlowColor || (isRightClick ? 'rgba(244, 63, 94, 0.8)' : activeSet.glowColor),
+            isRightClick
         };
 
         setRipples((prev) => [...prev.slice(-4), newRipple]);
@@ -71,11 +90,11 @@ export const CursorEffects: React.FC = () => {
             return;
         }
 
-        window.addEventListener('mousedown', handleMouseDown, { capture: true, passive: true });
+        window.addEventListener('cursor-impulse', handleCustomImpulse);
         return () => {
-            window.removeEventListener('mousedown', handleMouseDown, { capture: true });
+            window.removeEventListener('cursor-impulse', handleCustomImpulse);
         };
-    }, [handleMouseDown, isCursorEffectEnabled, cursorSkin]);
+    }, [handleCustomImpulse, isCursorEffectEnabled, cursorSkin]);
 
     if (!isCursorEffectEnabled || cursorSkin === 'default' || ripples.length === 0) {
         return null;

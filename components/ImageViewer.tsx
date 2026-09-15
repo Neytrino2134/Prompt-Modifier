@@ -45,18 +45,17 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
   const [isMaximized, setIsMaximized] = useState(false);
 
   const [position, setPosition] = useState(() => {
+      const minTop = 135;
       try {
           const saved = localStorage.getItem(LOCAL_STORAGE_POS_KEY);
           if (saved) {
               const parsed = JSON.parse(saved);
-              // Basic bounds check to ensure it's somewhat visible
               if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-                   // Allow off-screen restoration but ensure it's not completely lost
-                   return parsed;
+                   return { x: parsed.x, y: Math.max(minTop, parsed.y) };
               }
           }
       } catch (e) { console.error("Failed to load ImageViewer position", e); }
-      return initialPosition;
+      return { ...initialPosition, y: Math.max(minTop, initialPosition.y) };
   });
 
   const [size, setSize] = useState<{ width: string | number; height: string | number }>(() => {
@@ -161,10 +160,11 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
                 desiredW = Math.max(desiredW, 800);
                 desiredH = Math.max(desiredH, 456);
                 
+                const minTop = 135;
                 setSize({ width: desiredW, height: desiredH });
                 setPosition({
                     x: (viewportW - desiredW) / 2,
-                    y: (viewportH - desiredH) / 2
+                    y: Math.max(minTop, (viewportH - desiredH) / 2)
                 });
           }
 
@@ -262,8 +262,9 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ sources, initialIndex, initia
 
   const handleHeaderPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragInfo.current) return;
+    const minTop = 135;
     const newX = e.clientX - dragInfo.current.offset.x;
-    const newY = e.clientY - dragInfo.current.offset.y;
+    const newY = Math.max(minTop, e.clientY - dragInfo.current.offset.y);
     setPosition({ x: newX, y: newY });
   };
 

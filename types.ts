@@ -5,10 +5,14 @@ declare global {
         aistudio?: any;
         electronAPI?: {
             setDownloadPath: (path: string) => void;
+            getDownloadPath?: () => Promise<string>;
+            selectFolder?: () => Promise<string | null>;
+            selectDownloadFolder?: () => Promise<string | null>;
             onDownloadComplete: (callback: (event: any, data: { state: string, path: string }) => void) => () => void;
             showItemInFolder: (path: string) => void;
             onCloseRequested: (callback: () => void) => () => void;
             forceClose: () => void;
+            moveBy?: (deltaX: number, deltaY: number) => void;
             minimize?: () => void;
             maximize?: () => void;
             close?: () => void;
@@ -16,12 +20,56 @@ declare global {
             focus?: () => void;
             isMaximized?: () => Promise<boolean>;
             onMaximizedChange?: (callback: (isMax: boolean) => void) => () => void;
+            isAlwaysOnTop?: () => Promise<boolean>;
+            toggleAlwaysOnTop?: () => Promise<boolean>;
+            setAlwaysOnTop?: (flag: boolean) => void;
+            onAlwaysOnTopChange?: (callback: (isAlwaysOnTop: boolean) => void) => () => void;
+            syncBatchStatus?: (status: any) => void;
+            minimizeToTray?: () => void;
+            showWindow?: () => void;
+            getTraySettings?: () => Promise<{ minimizeToTrayOnClose: boolean; minimizeToTrayOnMinimize: boolean }>;
+            setTraySettings?: (settings: { minimizeToTrayOnClose?: boolean; minimizeToTrayOnMinimize?: boolean }) => Promise<{ success: boolean; settings: { minimizeToTrayOnClose: boolean; minimizeToTrayOnMinimize: boolean } }>;
+            onTraySettingsUpdated?: (callback: (settings: { minimizeToTrayOnClose: boolean; minimizeToTrayOnMinimize: boolean }) => void) => () => void;
+            onTrayAction?: (callback: (data: { action: string }) => void) => () => void;
+            saveSession?: (sessionData: any) => Promise<any>;
+            loadSession?: () => Promise<any>;
+            openAutosaveFolder?: () => Promise<any>;
+            listSessionBackups?: () => Promise<any[]>;
+            restoreSessionBackup?: (backupPath: string) => Promise<any>;
+            readSessionBackup?: (backupPath: string) => Promise<any>;
+            openNodeMiniApp?: (options: any) => Promise<boolean>;
+            closeNodeMiniApp?: (nodeId: string) => Promise<boolean>;
+            onMiniAppClosed?: (callback: (data: any) => void) => () => void;
+            syncNodeAction?: (payload: any) => void;
+            onNodeSyncAction?: (callback: (payload: any) => void) => () => void;
         };
     }
 }
 
 export type Resolution = '720p' | '1080p' | '1K' | '2K' | '4K';
-export type Theme = 'cyan' | 'orange' | 'pink' | 'gray' | 'lime' | 'purple' | 'azure' | 'red' | 'emerald';
+export type CanvasColorMode = 'static' | 'dynamic';
+export type InputColorMode = 'static' | 'dynamic';
+export type Theme = 
+  | 'cyan' 
+  | 'azure'
+  | 'amber'
+  | 'teal'
+  | 'rose'
+  | 'purple' 
+  | 'pink' 
+  | 'red' 
+  | 'orange' 
+  | 'lime' 
+  | 'emerald'
+  | 'gray' 
+  | 'pastel_mint'
+  | 'pastel_lavender'
+  | 'pastel_peach'
+  | 'pastel_rose'
+  | 'pastel_sky'
+  | 'pastel_vanilla'
+  | 'pastel_sage'
+  | 'pastel_sand';
 export type PanelStyle = 'classic' | 'modern';
 export type PanelAnimation = 
   | 'shimmer' 
@@ -276,7 +324,7 @@ export interface Tab {
 }
 
 // Toast types
-export type ToastType = 'success' | 'info' | 'error';
+export type ToastType = 'success' | 'info' | 'error' | 'warning';
 export interface Toast {
     id: number;
     message: string;

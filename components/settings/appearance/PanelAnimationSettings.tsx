@@ -186,7 +186,7 @@ export const PanelAnimationSettings: React.FC<PanelAnimationSettingsProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] px-2.5 py-0.5 rounded-md font-medium flex-shrink-0 bg-accent/20 text-accent border border-accent/30">
+          <span className="text-[11px] px-2.5 py-0.5 rounded-md font-medium flex-shrink-0 bg-accent/20 text-accent">
             {t(`settings.panelAnimation.${panelAnimation}` as any)}
           </span>
           <svg
@@ -223,8 +223,8 @@ export const PanelAnimationSettings: React.FC<PanelAnimationSettingsProps> = ({
               <span
                 className={`text-[10px] px-2 py-0.5 rounded font-medium ${
                   isPanelAnimationAdaptive
-                    ? 'bg-accent/20 text-accent border border-accent/40'
-                    : 'bg-gray-800 text-gray-400 border border-gray-700'
+                    ? 'bg-accent/20 text-accent'
+                    : 'bg-gray-800 text-gray-400'
                 }`}
               >
                 {isPanelAnimationAdaptive ? t('common.enabled') : t('common.disabled')}

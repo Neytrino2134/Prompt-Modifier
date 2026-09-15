@@ -1,19 +1,60 @@
-import { app, BrowserWindow, shell, session, ipcMain, dialog, screen } from 'electron';
+import { app, BrowserWindow, shell, session, ipcMain, dialog, screen, Tray, Menu, nativeImage, nativeTheme } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { TRAY_ICON_DATA_URL } from './tray_icon_base64.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Check if running in development mode
+const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
 
 // Explicitly lock app identity and userData path across all dev and packaged builds
 const APP_TITLE = 'Prompt Modifier';
 app.name = APP_TITLE;
+
+// Chromium & Electron anti-flicker & dark theme background configuration
+// Prevents white flash when creating, minimizing, restoring, or resizing windows
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('force-color-profile', 'srgb');
+app.commandLine.appendSwitch('background-color', '0c111e');
+app.commandLine.appendSwitch('default-background-color', '0c111e');
+
+// Enforce dark theme internally for native surfaces, devtools, and web views
+try {
+  nativeTheme.themeSource = 'dark';
+} catch (e) {
+  console.warn('Could not set nativeTheme.themeSource:', e);
+}
 
 try {
   const unifiedUserData = path.join(app.getPath('appData'), APP_TITLE);
   app.setPath('userData', unifiedUserData);
 } catch (e) {
   console.warn('Could not set custom userData path:', e);
+}
+
+// Single instance lock - prevent duplicate instances and bring existing instance from tray
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // If user tries to open app again, restore window from tray/minimized and focus it
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (!mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      bringWindowToFront(mainWindow);
+      mainWindow.focus();
+      updateTrayContextMenu();
+    }
+  });
 }
 
 // SPOOFING: Use a standard Chrome User Agent to bypass Google's "secure browser" check.
@@ -32,6 +73,398 @@ let isQuitting = false;
 // Store reference to the main window and any detached mini-app windows
 let mainWindow = null;
 const miniAppWindows = new Map(); // nodeId -> BrowserWindow
+
+// System Tray Instance & Settings
+let tray = null;
+const getTraySettingsFilePath = () => path.join(app.getPath('userData'), 'tray_settings.json');
+
+let traySettings = {
+  minimizeToTrayOnClose: false,
+  minimizeToTrayOnMinimize: false,
+};
+
+// Real-time Batch API Status cache for Tray display
+let currentBatchStatus = {
+  isBatchMode: false,
+  isPolling: false,
+  pending: 0,
+  running: 0,
+  activeJobs: 0,
+  succeeded: 0,
+  failed: 0,
+  totalItems: 0,
+  readyToDownload: 0,
+  totalJobs: 0,
+};
+
+ipcMain.on('batch:sync-status', (event, status) => {
+  if (status && typeof status === 'object') {
+    currentBatchStatus = { ...currentBatchStatus, ...status };
+    updateTrayContextMenu();
+  }
+});
+
+function loadSavedTraySettings() {
+  try {
+    const filePath = getTraySettingsFilePath();
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (parsed && typeof parsed === 'object') {
+        traySettings = {
+          minimizeToTrayOnClose: Boolean(parsed.minimizeToTrayOnClose),
+          minimizeToTrayOnMinimize: Boolean(parsed.minimizeToTrayOnMinimize),
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load tray settings from disk:', err);
+  }
+}
+
+function saveTraySettingsSync() {
+  try {
+    fs.writeFileSync(getTraySettingsFilePath(), JSON.stringify(traySettings, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Failed to save tray settings to disk:', err);
+  }
+}
+
+function getAppIcon() {
+  const candidatePaths = [
+    path.join(__dirname, '../resources/icon.png'),
+    path.join(__dirname, '../resources/icon.ico'),
+    path.join(__dirname, '../public/icon.png'),
+    path.join(__dirname, '../dist/icon.png'),
+    path.join(__dirname, '../public/favicon.png'),
+    path.join(__dirname, '../dist/favicon.png'),
+  ];
+
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const img = nativeImage.createFromPath(p);
+        if (!img.isEmpty()) {
+          return img;
+        }
+      } catch (e) {
+        console.warn('Failed to load app icon candidate:', p, e);
+      }
+    }
+  }
+
+  try {
+    const dataUrlImg = nativeImage.createFromDataURL(TRAY_ICON_DATA_URL);
+    if (!dataUrlImg.isEmpty()) {
+      return dataUrlImg;
+    }
+  } catch (e) {
+    console.warn('Failed to create app icon from Data URL:', e);
+  }
+
+  return nativeImage.createEmpty();
+}
+
+function getTrayIcon() {
+  const candidatePaths = [
+    path.join(__dirname, '../resources/tray-icon.png'),
+    path.join(__dirname, '../public/tray-icon.png'),
+    path.join(__dirname, '../dist/tray-icon.png'),
+    path.join(__dirname, '../resources/tray-icon-16.png'),
+    path.join(__dirname, '../public/tray-icon-16.png'),
+    path.join(__dirname, '../dist/tray-icon-16.png'),
+    path.join(__dirname, '../resources/icon.png'),
+    path.join(__dirname, '../public/icon.png'),
+    path.join(__dirname, '../public/favicon.png'),
+    path.join(__dirname, '../dist/favicon.png'),
+  ];
+
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const img = nativeImage.createFromPath(p);
+        if (!img.isEmpty()) {
+          return img;
+        }
+      } catch (e) {
+        console.warn('Failed to load tray icon candidate:', p, e);
+      }
+    }
+  }
+
+  try {
+    const dataUrlImg = nativeImage.createFromDataURL(TRAY_ICON_DATA_URL);
+    if (!dataUrlImg.isEmpty()) {
+      return dataUrlImg;
+    }
+  } catch (e) {
+    console.warn('Failed to create tray icon from Data URL:', e);
+  }
+
+  return nativeImage.createEmpty();
+}
+
+function updateTrayContextMenu() {
+  if (!tray || tray.isDestroyed()) return;
+
+  const isVisible = Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible());
+  const isMinimized = Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMinimized());
+  const isPinned = Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isAlwaysOnTop());
+
+  // --- Format Batch API status ---
+  const activeBatchCount = (currentBatchStatus.pending || 0) + (currentBatchStatus.running || 0);
+  const readyBatchCount = currentBatchStatus.readyToDownload || 0;
+  const totalBatchCount = currentBatchStatus.totalJobs || 0;
+
+  let batchMainLabel = '📦 Batch API: Неактивен (Realtime)';
+  if (activeBatchCount > 0) {
+    const itemsStr = currentBatchStatus.totalItems ? ` (${currentBatchStatus.totalItems} эл.)` : '';
+    batchMainLabel = `⏳ Batch API: Ожидается ответов: ${activeBatchCount}${itemsStr}`;
+  } else if (readyBatchCount > 0) {
+    batchMainLabel = `📥 Batch API: Готово к скачиванию: ${readyBatchCount}`;
+  } else if (currentBatchStatus.isBatchMode) {
+    batchMainLabel = `📦 Batch API: Режим включен (нет активных задач)`;
+  } else {
+    batchMainLabel = `⚡ Режим генерации: Прямой (Realtime)`;
+  }
+
+  const batchSubmenu = [
+    {
+      label: `Статус: ${activeBatchCount > 0 ? `⏳ Ожидание ${activeBatchCount} ответов` : readyBatchCount > 0 ? `📥 Готово к скачиванию: ${readyBatchCount}` : currentBatchStatus.isBatchMode ? '📦 Режим активен' : '⚡ Прямой режим (Realtime)'}`,
+      enabled: false,
+    },
+    {
+      label: `Режим по умолчанию: ${currentBatchStatus.isBatchMode ? '📦 Batch API (-50% скидка)' : '⚡ Realtime (прямой)'}`,
+      enabled: false,
+    },
+    {
+      label: `В обработке на сервере: ${currentBatchStatus.running || 0} задач`,
+      enabled: false,
+    },
+    {
+      label: `В очереди ожидания: ${currentBatchStatus.pending || 0} задач`,
+      enabled: false,
+    },
+    {
+      label: `Готово к загрузке на холст: ${readyBatchCount} задач`,
+      enabled: false,
+    },
+    {
+      label: `Всего задач в сессии: ${totalBatchCount}`,
+      enabled: false,
+    },
+    { type: 'separator' },
+    {
+      label: currentBatchStatus.isPolling ? '⏳ Опрос статуса...' : '🔄 Проверить статус Batch API сейчас',
+      enabled: Boolean(mainWindow && !mainWindow.isDestroyed() && !currentBatchStatus.isPolling),
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('app:tray-action', { action: 'poll-batch' });
+        }
+      }
+    },
+    {
+      label: currentBatchStatus.isBatchMode ? '⚡ Переключить в режим Realtime' : '📦 Включить режим Batch API (-50%)',
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('app:tray-action', { action: 'toggle-batch-mode' });
+        }
+      }
+    }
+  ];
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Prompt Modifier',
+      enabled: false,
+    },
+    { type: 'separator' },
+    {
+      label: (isVisible && !isMinimized) ? 'Скрыть в трей' : 'Показать Prompt Modifier',
+      click: () => {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          createWindow();
+          return;
+        }
+        if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+          mainWindow.hide();
+        } else {
+          bringWindowToFront(mainWindow);
+        }
+        updateTrayContextMenu();
+      }
+    },
+    {
+      label: 'Развернуть на весь экран',
+      enabled: Boolean(mainWindow && !mainWindow.isDestroyed()),
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          bringWindowToFront(mainWindow);
+          mainWindow.maximize();
+          updateTrayContextMenu();
+        }
+      }
+    },
+    {
+      label: 'Поверх всех окон (PIN)',
+      type: 'checkbox',
+      checked: isPinned,
+      enabled: Boolean(mainWindow && !mainWindow.isDestroyed()),
+      click: (menuItem) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.setAlwaysOnTop(menuItem.checked, 'floating');
+          updateTrayContextMenu();
+          mainWindow.webContents.send('window:always-on-top-changed', menuItem.checked);
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: batchMainLabel,
+      submenu: batchSubmenu,
+    },
+    { type: 'separator' },
+    {
+      label: 'Быстрые действия',
+      submenu: [
+        {
+          label: '➕ Новый холст',
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              bringWindowToFront(mainWindow);
+              mainWindow.webContents.send('app:tray-action', { action: 'new-tab' });
+            }
+          }
+        },
+        {
+          label: '⚙️ Настройки приложения',
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              bringWindowToFront(mainWindow);
+              mainWindow.webContents.send('app:tray-action', { action: 'open-settings' });
+            }
+          }
+        },
+        {
+          label: '📁 Открыть папку автосохранений',
+          click: async () => {
+            const docsDir = getDocumentsAutosaveDir();
+            if (docsDir && fs.existsSync(docsDir)) {
+              await shell.openPath(docsDir);
+            } else {
+              await shell.openPath(app.getPath('userData'));
+            }
+          }
+        },
+        {
+          label: '🔄 Перезагрузить холст',
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.reload();
+            }
+          }
+        }
+      ]
+    },
+    {
+      label: 'Поведение трея',
+      submenu: [
+        {
+          label: 'Сворачивать в трей при закрытии (крестик)',
+          type: 'checkbox',
+          checked: Boolean(traySettings.minimizeToTrayOnClose),
+          click: (menuItem) => {
+            traySettings.minimizeToTrayOnClose = menuItem.checked;
+            saveTraySettingsSync();
+            updateTrayContextMenu();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('tray:settings-updated', traySettings);
+            }
+          }
+        },
+        {
+          label: 'Сворачивать в трей при сворачивании окна',
+          type: 'checkbox',
+          checked: Boolean(traySettings.minimizeToTrayOnMinimize),
+          click: (menuItem) => {
+            traySettings.minimizeToTrayOnMinimize = menuItem.checked;
+            saveTraySettingsSync();
+            updateTrayContextMenu();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('tray:settings-updated', traySettings);
+            }
+          }
+        }
+      ]
+    },
+    { type: 'separator' },
+    {
+      label: 'Сохранить и выйти',
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          // Send save-and-exit signal to renderer to save all tabs immediately and close
+          mainWindow.webContents.send('app:save-and-exit');
+          // Safety fallback timeout to ensure exit if renderer is unresponsive
+          setTimeout(() => {
+            if (!isQuitting) {
+              isQuitting = true;
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                saveWindowStateSync(mainWindow);
+              }
+              app.quit();
+            }
+          }, 3000);
+        } else {
+          isQuitting = true;
+          app.quit();
+        }
+      }
+    }
+  ]);
+
+  tray.setContextMenu(contextMenu);
+
+  let tooltip = 'Prompt Modifier — Нейросетевой редактор промптов';
+  if (activeBatchCount > 0) {
+    tooltip += `\n📦 Batch API: Ожидается ответов: ${activeBatchCount}`;
+  } else if (readyBatchCount > 0) {
+    tooltip += `\n📥 Batch API: Готово к скачиванию: ${readyBatchCount}`;
+  }
+  tray.setToolTip(tooltip);
+}
+
+function createTray() {
+  if (tray) return;
+
+  try {
+    const icon = getTrayIcon();
+    tray = new Tray(icon);
+    
+    updateTrayContextMenu();
+
+    tray.on('click', () => {
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        createWindow();
+        return;
+      }
+      if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+        mainWindow.hide();
+      } else {
+        bringWindowToFront(mainWindow);
+      }
+      updateTrayContextMenu();
+    });
+
+    tray.on('double-click', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        bringWindowToFront(mainWindow);
+        updateTrayContextMenu();
+      }
+    });
+  } catch (err) {
+    console.error('Failed to initialize tray icon:', err);
+  }
+}
 
 // --- Window State Persistence (Multi-monitor support) ---
 const getWindowStateFilePath = () => path.join(app.getPath('userData'), 'window_state.json');
@@ -167,32 +600,25 @@ function bringWindowToFront(targetWin) {
 
   const wasAlwaysOnTop = targetWin.isAlwaysOnTop();
 
-  // Force window to front on Windows/Mac/Linux
-  targetWin.setAlwaysOnTop(true, 'screen-saver');
-  targetWin.show();
-  targetWin.focus();
-  targetWin.moveTop();
-
-  // Revert temporary always-on-top state after bringing to front (unless it was already pinned)
-  setTimeout(() => {
-    if (!targetWin.isDestroyed()) {
-      targetWin.setAlwaysOnTop(wasAlwaysOnTop, 'floating');
-      targetWin.focus();
-    }
-  }, 150);
-
-  targetWin.flashFrame(true);
+  if (!wasAlwaysOnTop) {
+    // Bring window smoothly to front without OS frame flashing
+    targetWin.setAlwaysOnTop(true, 'screen-saver');
+    targetWin.show();
+    targetWin.focus();
+    setTimeout(() => {
+      if (!targetWin.isDestroyed() && !targetWin.isAlwaysOnTop()) {
+        targetWin.setAlwaysOnTop(false);
+        targetWin.focus();
+      }
+    }, 120);
+  } else {
+    targetWin.show();
+    targetWin.focus();
+  }
 }
 
 function createWindow() {
-  const isDev = !app.isPackaged;
-  
-  // Determine correct icon path based on environment
-  // In dev, it's in public/. In prod, it's copied to dist/.
-  // Note: For Windows, .ico is preferred over .svg for the window icon.
-  const iconPath = isDev 
-    ? path.join(__dirname, '../public/favicon.svg') 
-    : path.join(__dirname, '../dist/favicon.svg');
+  const appIcon = getAppIcon();
 
   const savedState = loadSavedWindowState();
   const initialBounds = getValidInitialBounds(savedState);
@@ -203,12 +629,15 @@ function createWindow() {
     minWidth: initialBounds.minWidth,
     minHeight: initialBounds.minHeight,
     title: 'Prompt Modifier',
-    icon: iconPath,
+    icon: appIcon,
     frame: false, // Frameless window for custom stylish titlebar
     titleBarStyle: 'hidden',
+    backgroundColor: '#0c111e', // Dark navy background prevents white flash
+    paintWhenInitiallyHidden: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false, // Prevents compositor freezing/flashing when restored from minimized
       preload: path.join(__dirname, 'preload.js'), // Load preload script
     },
   };
@@ -260,10 +689,36 @@ function createWindow() {
 
   mainWindow = win;
 
-  // --- Close Handler for Custom Dialog ---
+  // Track window visibility & state for Tray menu updates
+  win.on('show', updateTrayContextMenu);
+  win.on('hide', updateTrayContextMenu);
+  win.on('minimize', (e) => {
+    if (traySettings.minimizeToTrayOnMinimize) {
+      e.preventDefault();
+      win.hide();
+    }
+    updateTrayContextMenu();
+  });
+  win.on('restore', updateTrayContextMenu);
+  win.on('focus', updateTrayContextMenu);
+  win.on('blur', updateTrayContextMenu);
+  win.on('always-on-top-changed', (event, isAlwaysOnTop) => {
+    updateTrayContextMenu();
+    if (!win.isDestroyed()) {
+      win.webContents.send('window:always-on-top-changed', isAlwaysOnTop);
+    }
+  });
+
+  // --- Close Handler with Tray Support & Custom Dialog ---
   win.on('close', (e) => {
     saveWindowStateSync(win);
     if (!isQuitting) {
+      if (traySettings.minimizeToTrayOnClose) {
+        e.preventDefault();
+        win.hide();
+        updateTrayContextMenu();
+        return;
+      }
       e.preventDefault();
       // Ensure the window is brought to front, un-minimized and focused so the Close Project dialog is immediately visible
       bringWindowToFront(win);
@@ -277,6 +732,10 @@ function createWindow() {
         }
       });
       miniAppWindows.clear();
+      if (tray && !tray.isDestroyed()) {
+        tray.destroy();
+        tray = null;
+      }
     }
   });
 
@@ -332,13 +791,44 @@ function createWindow() {
     });
   });
 
+  // Error handling for webContents
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error(`Window failed to load: [${errorCode}] ${errorDescription} (${validatedURL})`);
+    // If dev server failed to load, attempt fallback to built files
+    if (isDev && validatedURL.startsWith('http://localhost')) {
+      const fallbackPath = path.join(__dirname, '../dist/index.html');
+      if (fs.existsSync(fallbackPath)) {
+        console.log('Falling back to built index.html...');
+        win.loadFile(fallbackPath);
+      }
+    }
+  });
+
+  win.webContents.on('render-process-gone', (event, details) => {
+    console.error('Renderer process gone:', details);
+  });
+
   // Load the app
   if (isDev) {
-    win.loadURL(`http://localhost:${DEV_PORT}`);
-    // win.webContents.openDevTools(); // Uncomment to debug
+    win.loadURL(`http://localhost:${DEV_PORT}`).catch((err) => {
+      console.warn(`Dev server unreachable at http://localhost:${DEV_PORT}, loading built index.html:`, err);
+      const fallbackPath = path.join(__dirname, '../dist/index.html');
+      if (fs.existsSync(fallbackPath)) {
+        win.loadFile(fallbackPath);
+      }
+    });
   } else {
-    // In production, load the built index.html
-    win.loadFile(path.join(__dirname, '../dist/index.html'));
+    // In production, load the built index.html from app package
+    const primaryPath = path.join(__dirname, '../dist/index.html');
+    const fallbackPath = path.join(app.getAppPath(), 'dist/index.html');
+    
+    if (fs.existsSync(primaryPath)) {
+      win.loadFile(primaryPath);
+    } else if (fs.existsSync(fallbackPath)) {
+      win.loadFile(fallbackPath);
+    } else {
+      win.loadFile(path.join(__dirname, '../dist/index.html'));
+    }
   }
 }
 
@@ -720,6 +1210,12 @@ ipcMain.handle('window:toggle-always-on-top', (event) => {
   if (win) {
     const nextState = !win.isAlwaysOnTop();
     win.setAlwaysOnTop(nextState, 'floating');
+    updateTrayContextMenu();
+    BrowserWindow.getAllWindows().forEach((w) => {
+      if (!w.isDestroyed()) {
+        w.webContents.send('window:always-on-top-changed', nextState);
+      }
+    });
     return nextState;
   }
   return false;
@@ -728,7 +1224,14 @@ ipcMain.handle('window:toggle-always-on-top', (event) => {
 ipcMain.on('window:set-always-on-top', (event, flag) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
-    win.setAlwaysOnTop(Boolean(flag), 'floating');
+    const nextState = Boolean(flag);
+    win.setAlwaysOnTop(nextState, 'floating');
+    updateTrayContextMenu();
+    BrowserWindow.getAllWindows().forEach((w) => {
+      if (!w.isDestroyed()) {
+        w.webContents.send('window:always-on-top-changed', nextState);
+      }
+    });
   }
 });
 
@@ -762,9 +1265,12 @@ ipcMain.handle('window:open-node-mini-app', async (event, { nodeId, title, width
     frame: false, // Frameless window for custom stylish titlebar
     titleBarStyle: 'hidden',
     alwaysOnTop: Boolean(alwaysOnTop),
+    backgroundColor: '#0c111e',
+    paintWhenInitiallyHidden: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false,
       preload: path.join(__dirname, 'preload.js'),
     },
   });
@@ -837,17 +1343,68 @@ ipcMain.on('app:force-close', () => {
   }
 });
 
+// Tray IPC Handlers
+ipcMain.on('tray:minimize-to-tray', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (win) {
+    win.hide();
+    updateTrayContextMenu();
+  }
+});
+
+ipcMain.on('tray:show-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (win) {
+    bringWindowToFront(win);
+    updateTrayContextMenu();
+  }
+});
+
+ipcMain.handle('tray:get-settings', () => {
+  return { ...traySettings };
+});
+
+ipcMain.handle('tray:set-settings', (event, newSettings) => {
+  if (newSettings && typeof newSettings === 'object') {
+    if (typeof newSettings.minimizeToTrayOnClose === 'boolean') {
+      traySettings.minimizeToTrayOnClose = newSettings.minimizeToTrayOnClose;
+    }
+    if (typeof newSettings.minimizeToTrayOnMinimize === 'boolean') {
+      traySettings.minimizeToTrayOnMinimize = newSettings.minimizeToTrayOnMinimize;
+    }
+    saveTraySettingsSync();
+    updateTrayContextMenu();
+
+    // Broadcast update to all windows
+    BrowserWindow.getAllWindows().forEach((w) => {
+      if (!w.isDestroyed()) {
+        w.webContents.send('tray:settings-updated', traySettings);
+      }
+    });
+    return { success: true, settings: traySettings };
+  }
+  return { success: false, settings: traySettings };
+});
+
 app.whenReady().then(() => {
+  loadSavedTraySettings();
   createWindow();
+  createTray();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+    } else if (mainWindow && !mainWindow.isDestroyed()) {
+      bringWindowToFront(mainWindow);
     }
+    updateTrayContextMenu();
   });
 });
 
 app.on('window-all-closed', () => {
+  if (traySettings.minimizeToTrayOnClose && !isQuitting) {
+    return;
+  }
   if (process.platform !== 'darwin') {
     app.quit();
   }

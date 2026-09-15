@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { NodeType, Point } from '../types';
 import { useLanguage } from '../localization';
+import { useAppContext } from '../contexts/AppContext';
 import { ThreeDModelIcon } from './icons/AppIcons';
 
 interface NodeOption {
@@ -24,6 +25,7 @@ const RECENT_NODES_KEY = 'prompt_modifier_recent_nodes';
 
 const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onClose, onAddNode }) => {
   const { t } = useLanguage();
+  const context = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [recentTypes, setRecentTypes] = useState<NodeType[]>([]);
@@ -156,10 +158,11 @@ const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onC
           let top = position.y + 10;
 
           // Viewport clamping logic
+          const minTop = context?.isStatusBarOpen ? 135 : 84;
           if (left + menuRect.width > window.innerWidth - 10) left = window.innerWidth - menuRect.width - 10;
           if (left < 10) left = 10;
           if (top + 400 > window.innerHeight - 10) top = position.y - 400 - 10;
-          if (top < 10) top = 10;
+          if (top < minTop) top = minTop;
           
           setMenuPos({ x: left, y: top });
           initialPosRef.current = { x: left, y: top }; // Store initial position for dragging calc
@@ -209,9 +212,10 @@ const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onC
         const deltaY = e.clientY - dragStartRef.current.y;
         
         // Commit new position to state
+        const minTop = context?.isStatusBarOpen ? 135 : 84;
         setMenuPos(prev => ({
             x: prev.x + deltaX,
-            y: prev.y + deltaY
+            y: Math.max(minTop, prev.y + deltaY)
         }));
         
         // Reset transform since we updated position (left/top)

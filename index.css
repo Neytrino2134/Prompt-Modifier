@@ -1,4 +1,12 @@
 /* Global styles */
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  background-color: #0c111e !important;
+  color-scheme: dark;
+}
 
 /* Scrollbar helpers */
 .no-scrollbar::-webkit-scrollbar,
@@ -264,11 +272,11 @@ div:focus-visible {
 .text-gradient-shimmer {
   background: linear-gradient(
     90deg,
-    #00c6ff 0%,
-    #0072ff 25%,
+    #00f0ff 0%,
+    #00a8ff 25%,
     #38bdf8 50%,
-    #00f0ff 75%,
-    #00c6ff 100%
+    #00d2ff 75%,
+    #00f0ff 100%
   );
   background-size: 250% auto;
   -webkit-background-clip: text;
@@ -326,4 +334,144 @@ div:focus-visible {
 .animate-cursor-cross {
   animation: cursor-cross 0.4s ease-out forwards;
 }
+
+/* Deep Space Constellation Starlight Twinkling & Glowing Animations */
+@keyframes star-twinkle-1 {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.15);
+  }
+}
+@keyframes star-twinkle-2 {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.1);
+  }
+}
+@keyframes star-twinkle-3 {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.22);
+  }
+}
+@keyframes star-twinkle-4 {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.88);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.15);
+  }
+}
+@keyframes star-glow-pulse-1 {
+  0%, 100% {
+    opacity: 0.18;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.25);
+  }
+}
+@keyframes star-glow-pulse-2 {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.2);
+  }
+}
+.anim-star-twinkle-1,
+.anim-star-twinkle-2,
+.anim-star-twinkle-3,
+.anim-star-twinkle-4,
+.anim-star-glow-1,
+.anim-star-glow-2 {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.anim-star-twinkle-1 {
+  animation: star-twinkle-1 3.6s ease-in-out infinite;
+}
+.anim-star-twinkle-2 {
+  animation: star-twinkle-2 4.6s ease-in-out infinite 1.2s;
+}
+.anim-star-twinkle-3 {
+  animation: star-twinkle-3 5.4s ease-in-out infinite 2.4s;
+}
+.anim-star-twinkle-4 {
+  animation: star-twinkle-4 6.2s ease-in-out infinite 0.7s;
+}
+.anim-star-glow-1 {
+  animation: star-glow-pulse-1 4.5s ease-in-out infinite;
+}
+.anim-star-glow-2 {
+  animation: star-glow-pulse-2 5.8s ease-in-out infinite 2.2s;
+}
+
+/* Header Notification Animations - Slide out from under System panel (Right to Left) and slide back into System panel (Left to Right) */
+@keyframes header-toast-slide-in-right {
+  0% {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0) scale(0.95);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes header-toast-slide-out-right {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  40% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0) scale(0.95);
+  }
+}
+
+@keyframes header-toast-progress {
+  0% {
+    width: 100%;
+  }
+  100% {
+    width: 0%;
+  }
+}
+
+.animate-header-toast-in {
+  animation: header-toast-slide-in-right 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-header-toast-out {
+  animation: header-toast-slide-out-right 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+
 

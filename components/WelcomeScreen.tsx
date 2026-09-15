@@ -133,13 +133,19 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
                         </button>
                     </div>
 
-                    {/* Top Glowing Logo */}
-                    <div className="mb-4 relative">
-                        <div className="absolute -inset-4 bg-cyan-500/30 blur-2xl rounded-full pointer-events-none"></div>
+                    {/* Top Glowing Logo with Exponent Version Badge */}
+                    <div className="mb-4 relative inline-flex items-center justify-center">
+                        <div className="absolute -inset-6 bg-cyan-500/30 blur-2xl rounded-full pointer-events-none"></div>
                         <PromptModifierIcon 
-                            className="w-14 h-14 sm:w-16 sm:h-16 relative z-10 drop-shadow-[0_0_25px_rgba(0,210,255,0.7)]" 
+                            className="w-20 h-20 sm:w-24 sm:h-24 relative z-10 drop-shadow-[0_0_30px_rgba(0,210,255,0.75)]" 
                             withGlow={true} 
                         />
+                        {/* Version Exponent Badge in Frame */}
+                        <div className="absolute top-0 -right-12 sm:-right-14 z-20 flex items-center">
+                            <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-mono font-bold tracking-wider text-cyan-300 bg-cyan-950/85 border border-cyan-500/80 rounded shadow-[0_0_12px_rgba(0,210,255,0.45)] backdrop-blur-md select-none">
+                                {APP_VERSION.startsWith('v') ? APP_VERSION : `v${APP_VERSION}`}
+                            </span>
+                        </div>
                     </div>
 
                     {/* "WELCOME TO" with symmetrical horizontal accent lines */}
@@ -151,7 +157,7 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
                         <div className="w-12 sm:w-20 h-[1px] bg-gradient-to-l from-transparent to-cyan-400/80"></div>
                     </div>
 
-                    {/* Display Title: "Prompt" in White, "Modifier" in Neon Cyan */}
+                    {/* Display Title: "Prompt" in White, "Modifier" in Animated Bluish-Cyan Gradient */}
                     <div className={`relative mb-4 ${triggerHeartbeat ? 'animate-heartbeat' : ''}`}>
                         <h1 
                             className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight leading-none flex items-center justify-center select-none"
@@ -162,9 +168,9 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
                             </span>
                             <span className="w-2.5 sm:w-4"></span>
                             <span 
-                                className="text-[#00d2ff] font-black drop-shadow-[0_0_30px_rgba(0,210,255,0.65)]"
+                                className="text-gradient-shimmer font-black drop-shadow-[0_0_30px_rgba(0,210,255,0.75)] pb-1"
                                 style={{
-                                    textShadow: '0 0 20px rgba(0, 210, 255, 0.6), 0 0 45px rgba(0, 160, 255, 0.35)'
+                                    filter: 'drop-shadow(0 0 20px rgba(0, 210, 255, 0.6)) drop-shadow(0 0 45px rgba(0, 160, 255, 0.35))'
                                 }}
                             >
                                 Modifier
@@ -601,6 +607,35 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
   // Active visual language
   const [visualLang, setVisualLang] = useState<LanguageCode>(globalLanguage);
 
+  const isDraggingRef = useRef(false);
+  const lastMousePosRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+      const handleMouseMove = (e: MouseEvent) => {
+          if (isDraggingRef.current) {
+              const deltaX = e.screenX - lastMousePosRef.current.x;
+              const deltaY = e.screenY - lastMousePosRef.current.y;
+              lastMousePosRef.current = { x: e.screenX, y: e.screenY };
+              
+              if (window.electronAPI?.moveBy) {
+                  window.electronAPI.moveBy(deltaX, deltaY);
+              }
+          }
+      };
+
+      const handleMouseUp = () => {
+          isDraggingRef.current = false;
+      };
+
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+
+      return () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+      };
+  }, []);
+
   // Sync state if it changes externally
   useEffect(() => {
      setVisualLang(globalLanguage);
@@ -713,12 +748,21 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
 
   return (
     <div 
-        className={`fixed inset-0 bg-[#0b0f19]/95 backdrop-blur-xl z-[200] overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-500 select-none app-region-drag ${
+        className={`fixed inset-0 bg-[#0b0f19]/95 backdrop-blur-xl z-[200] overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-500 select-none ${
             exitPhase === 'window-exit' ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
         }`}
         onMouseDown={(e) => {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+            if ((e.target as HTMLElement).closest('button, input, a, select, textarea, [role="button"], .app-region-no-drag')) {
                 return;
+            }
+            if (e.button === 0 || e.button === 2) {
+                isDraggingRef.current = true;
+                lastMousePosRef.current = { x: e.screenX, y: e.screenY };
+            }
+        }}
+        onContextMenu={(e) => {
+            if (!(e.target as HTMLElement).closest('button, input, a, select, textarea, [role="button"], .app-region-no-drag')) {
+                e.preventDefault();
             }
         }}
     >

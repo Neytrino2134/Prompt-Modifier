@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../localization';
+import { useAppContext } from '../contexts/AppContext';
 
 interface PromptEditDialogProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const PromptEditDialog: React.FC<PromptEditDialogProps> = ({
   deselectAllNodes,
 }) => {
   const { t } = useLanguage();
+  const context = useAppContext();
   const [name, setName] = useState(initialName);
   const [content, setContent] = useState(initialContent);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -85,9 +87,10 @@ const PromptEditDialog: React.FC<PromptEditDialogProps> = ({
       if (!isDraggingRef.current || !dragStartRef.current) return;
       e.preventDefault();
       e.stopPropagation();
+      const minTop = context?.isStatusBarOpen ? 135 : 84;
       setPosition({
           x: e.clientX - dragStartRef.current.x,
-          y: e.clientY - dragStartRef.current.y
+          y: Math.max(minTop, e.clientY - dragStartRef.current.y)
       });
   };
 

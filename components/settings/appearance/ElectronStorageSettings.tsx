@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../../localization';
-import { FolderIcon, DeleteIcon, SaveIcon, ReloadIcon } from '../../icons/AppIcons';
+import { FolderIcon, DeleteIcon, SaveIcon, ReloadIcon, MonitorIcon } from '../../icons/AppIcons';
+import { CustomCheckbox } from '../../CustomCheckbox';
 
 interface ElectronStorageSettingsProps {
   downloadPath: string;
@@ -27,8 +28,100 @@ export const ElectronStorageSettings: React.FC<ElectronStorageSettingsProps> = (
 }) => {
   const { t } = useLanguage();
 
+  const [traySettings, setTraySettings] = useState<{
+    minimizeToTrayOnClose: boolean;
+    minimizeToTrayOnMinimize: boolean;
+  }>({
+    minimizeToTrayOnClose: false,
+    minimizeToTrayOnMinimize: false,
+  });
+
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    if (api && api.getTraySettings) {
+      api.getTraySettings().then((settings: any) => {
+        if (settings) {
+          setTraySettings({
+            minimizeToTrayOnClose: Boolean(settings.minimizeToTrayOnClose),
+            minimizeToTrayOnMinimize: Boolean(settings.minimizeToTrayOnMinimize),
+          });
+        }
+      });
+    }
+
+    if (api && api.onTraySettingsUpdated) {
+      const remove = api.onTraySettingsUpdated((settings: any) => {
+        if (settings) {
+          setTraySettings({
+            minimizeToTrayOnClose: Boolean(settings.minimizeToTrayOnClose),
+            minimizeToTrayOnMinimize: Boolean(settings.minimizeToTrayOnMinimize),
+          });
+        }
+      });
+      return () => remove();
+    }
+  }, []);
+
+  const handleUpdateTraySetting = (key: 'minimizeToTrayOnClose' | 'minimizeToTrayOnMinimize', value: boolean) => {
+    const nextSettings = { ...traySettings, [key]: value };
+    setTraySettings(nextSettings);
+    const api = (window as any).electronAPI;
+    if (api && api.setTraySettings) {
+      api.setTraySettings(nextSettings);
+    }
+  };
+
+  const handleMinimizeToTrayNow = () => {
+    const api = (window as any).electronAPI;
+    if (api && api.minimizeToTray) {
+      api.minimizeToTray();
+    }
+  };
+
   return (
     <>
+      {/* System Tray Behavior (Electron Only) */}
+      <div className="space-y-2 pt-2 border-t border-gray-700/50">
+        <div>
+          <label className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
+            <MonitorIcon className="w-3.5 h-3.5 text-cyan-400" />
+            {t('settings.traySectionLabel')}
+          </label>
+          <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+            {t('settings.traySectionDesc')}
+          </p>
+        </div>
+
+        <div className="space-y-1.5 bg-gray-900/60 p-2.5 rounded-lg border border-gray-800">
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 hover:text-white transition-colors">
+            <CustomCheckbox
+              checked={traySettings.minimizeToTrayOnClose}
+              onChange={(checked) => handleUpdateTraySetting('minimizeToTrayOnClose', checked)}
+            />
+            <span>{t('settings.trayMinimizeToTrayOnClose')}</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 hover:text-white transition-colors">
+            <CustomCheckbox
+              checked={traySettings.minimizeToTrayOnMinimize}
+              onChange={(checked) => handleUpdateTraySetting('minimizeToTrayOnMinimize', checked)}
+            />
+            <span>{t('settings.trayMinimizeToTrayOnMinimize')}</span>
+          </label>
+
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={handleMinimizeToTrayNow}
+              className="px-2.5 py-1 bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-300 hover:text-cyan-200 text-xs font-medium rounded border border-cyan-700/50 flex items-center gap-1.5 transition-colors"
+            >
+              <MonitorIcon className="w-3 h-3 text-cyan-400" />
+              {t('settings.trayMinimizeNowBtn')}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Download Path (Electron Only) */}
       <div className="space-y-1.5 pt-2 border-t border-gray-700/50">
         <label className="block text-xs font-medium text-gray-400">

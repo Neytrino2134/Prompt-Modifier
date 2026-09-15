@@ -78,7 +78,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Global State Atoms
     const globalState = useGlobalState(activeTab.state.nodes);
     const {
-        toasts, addToast, fullSizeImageCache, setFullSizeImageCache, setFullSizeImage, getFullSizeImage,
+        toasts, addToast, removeToast, fullSizeImageCache, setFullSizeImageCache, setFullSizeImage, getFullSizeImage,
         clearImagesForNodeFromCache, clearUnusedFullSizeImages, registerOperation, unregisterOperation, activeOperations,
         selectedNodeIds, setSelectedNodeIds, draggingInfo, setDraggingInfo,
         showWelcome, setShowWelcome

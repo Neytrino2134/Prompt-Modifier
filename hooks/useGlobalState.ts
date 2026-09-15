@@ -1,19 +1,65 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme, PanelStyle, PanelAnimation, CursorSkin } from '../types';
+import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme, CanvasColorMode, InputColorMode, PanelStyle, PanelAnimation, CursorSkin } from '../types';
 
 export const useGlobalState = (currentNodes: Node[]) => {
-    // Toasts
+    // Logs & Debug Console
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const logBuffer = useRef<LogEntry[]>([]);
+    const [isDebugConsoleOpen, setIsDebugConsoleOpen] = useState(false);
+
+    const addLog = useCallback((level: LogLevel, message: string, details?: any) => {
+        const newLog = {
+            id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            timestamp: Date.now(),
+            level,
+            message,
+            details
+        };
+        logBuffer.current = [...logBuffer.current, newLog].slice(-200);
+        // Instant update to state so UI receives it immediately
+        setLogs(prev => [...prev, newLog].slice(-200));
+    }, []);
+
+    // Sync buffer to state periodically as a safety fallback
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (logBuffer.current.length > 0) {
+                setLogs(prev => {
+                    if (prev.length > 0 && logBuffer.current.length > 0) {
+                        if (prev[prev.length - 1].id === logBuffer.current[logBuffer.current.length - 1].id) {
+                            return prev;
+                        }
+                    }
+                    return [...logBuffer.current];
+                });
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const clearLogs = useCallback(() => {
+        logBuffer.current = [];
+        setLogs([]);
+    }, []);
+
+    // Toasts (Header Notifications)
     const [toasts, setToasts] = useState<Toast[]>([]);
     const toastIdCounter = useRef(0);
 
+    const removeToast = useCallback((id: number) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+    }, []);
+
     const addToast = useCallback((message: string, type: ToastType = 'info', action?: { label: string, onClick: () => void }) => {
         const id = toastIdCounter.current++;
-        setToasts(prev => [...prev, { id, message, type, action }]);
-        setTimeout(() => {
-            setToasts(prev => prev.filter(t => t.id !== id));
-        }, action ? 6000 : 3000);
-    }, []);
+        const newToast: Toast = { id, message, type, action };
+        setToasts(prev => [...prev, newToast]);
+        
+        // Log every toast notification to System Logs
+        const logLevel: LogLevel = type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : 'info';
+        addLog(logLevel, `[Notification] ${message}`, action ? { actionLabel: action.label } : undefined);
+    }, [addLog]);
 
     // Full Size Image Cache (In-Memory + React State for reactivity if needed)
     const [fullSizeImageCache, setFullSizeImageCache] = useState<Record<string, Record<number, string>>>({});
@@ -104,44 +150,6 @@ export const useGlobalState = (currentNodes: Node[]) => {
     // Global Media Player
     const [globalMedia, setGlobalMedia] = useState<GlobalMediaState | null>(null);
 
-    // Logs & Debug Console
-    const [logs, setLogs] = useState<LogEntry[]>([]);
-    const logBuffer = useRef<LogEntry[]>([]);
-    const [isDebugConsoleOpen, setIsDebugConsoleOpen] = useState(false);
-
-    const addLog = useCallback((level: LogLevel, message: string, details?: any) => {
-        const newLog = {
-            id: `log-${Date.now()}-${Math.random()}`,
-            timestamp: Date.now(),
-            level,
-            message,
-            details
-        };
-        logBuffer.current = [...logBuffer.current, newLog].slice(-100);
-    }, []);
-
-    // Sync buffer to state periodically to avoid render loops from console capture
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (logBuffer.current.length > 0) {
-                setLogs(prev => {
-                    if (prev.length > 0 && logBuffer.current.length > 0) {
-                        if (prev[prev.length - 1].id === logBuffer.current[logBuffer.current.length - 1].id) {
-                            return prev;
-                        }
-                    }
-                    return [...logBuffer.current];
-                });
-            }
-        }, 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const clearLogs = useCallback(() => {
-        logBuffer.current = [];
-        setLogs([]);
-    }, []);
-
     // View Settings
     const [isSnapToGrid, setIsSnapToGrid] = useState(false);
     const [lineStyle, setLineStyle] = useState<LineStyle>('orthogonal');
@@ -200,6 +208,28 @@ export const useGlobalState = (currentNodes: Node[]) => {
         setCurrentTheme(theme);
         localStorage.setItem('settings_theme', theme);
         document.documentElement.setAttribute('data-theme', theme);
+    }, []);
+
+    // Canvas Background Color Mode (static dark blue vs dynamic theme-matched)
+    const [canvasColorMode, setCanvasColorModeState] = useState<CanvasColorMode>(() => {
+        return (localStorage.getItem('settings_canvasColorMode') as CanvasColorMode) || 'dynamic';
+    });
+
+    const setCanvasColorMode = useCallback((mode: CanvasColorMode) => {
+        setCanvasColorModeState(mode);
+        localStorage.setItem('settings_canvasColorMode', mode);
+        document.documentElement.setAttribute('data-canvas-bg', mode);
+    }, []);
+
+    // Text Fields / Inputs Background Color Mode (static dark blue vs dynamic theme-matched)
+    const [inputColorMode, setInputColorModeState] = useState<InputColorMode>(() => {
+        return (localStorage.getItem('settings_inputColorMode') as InputColorMode) || 'dynamic';
+    });
+
+    const setInputColorMode = useCallback((mode: InputColorMode) => {
+        setInputColorModeState(mode);
+        localStorage.setItem('settings_inputColorMode', mode);
+        document.documentElement.setAttribute('data-input-bg', mode);
     }, []);
 
     // Panel Style & Auto-hide Settings
@@ -265,10 +295,18 @@ export const useGlobalState = (currentNodes: Node[]) => {
         localStorage.setItem('settings_cursorEffect', enabled ? 'true' : 'false');
     }, []);
 
-    // Apply theme & cursor on mount/change
+    // Apply theme & cursor & canvas mode on mount/change
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', currentTheme);
     }, [currentTheme]);
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-canvas-bg', canvasColorMode);
+    }, [canvasColorMode]);
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-input-bg', inputColorMode);
+    }, [inputColorMode]);
 
     useEffect(() => {
         document.documentElement.setAttribute('data-cursor-skin', cursorSkin);
@@ -327,6 +365,7 @@ export const useGlobalState = (currentNodes: Node[]) => {
     return {
         toasts,
         addToast,
+        removeToast,
         fullSizeImageCache,
         setFullSizeImageCache,
         setFullSizeImage,
@@ -368,6 +407,8 @@ export const useGlobalState = (currentNodes: Node[]) => {
         connectionOpacity, setConnectionOpacity,
         autoSaveInterval, setAutoSaveInterval,
         currentTheme, setTheme,
+        canvasColorMode, setCanvasColorMode,
+        inputColorMode, setInputColorMode,
         panelStyle, setPanelStyle,
         isPanelAutoHide, setIsPanelAutoHide,
         panelAnimation, setPanelAnimation,

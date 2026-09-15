@@ -81,11 +81,15 @@ const ImageEditorModal: React.FC<ImageEditorModalProps> = ({ isOpen, onClose, on
 
   // Modal Window
   const [position, setPosition] = useState<Point>(() => {
+      const minTop = 135;
       try {
           const saved = localStorage.getItem(LOCAL_STORAGE_POS_KEY);
-          if (saved) return JSON.parse(saved);
+          if (saved) {
+              const parsed = JSON.parse(saved);
+              return { x: parsed.x, y: Math.max(minTop, parsed.y) };
+          }
       } catch {}
-      return { x: 0, y: 0 };
+      return { x: 0, y: minTop };
   });
   const [size, setSize] = useState<{ width: string | number; height: string | number }>(() => {
       try {
@@ -125,7 +129,8 @@ const ImageEditorModal: React.FC<ImageEditorModalProps> = ({ isOpen, onClose, on
   
   const handleHeaderPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!modalDragInfo.current) return;
-    setPosition({ x: e.clientX - modalDragInfo.current.offset.x, y: e.clientY - modalDragInfo.current.offset.y });
+    const minTop = 135;
+    setPosition({ x: e.clientX - modalDragInfo.current.offset.x, y: Math.max(minTop, e.clientY - modalDragInfo.current.offset.y) });
   };
   
   const handleHeaderPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -174,7 +179,8 @@ const ImageEditorModal: React.FC<ImageEditorModalProps> = ({ isOpen, onClose, on
             setImageState({ x: 0, y: 0, width: img.width, height: img.height });
             
             if (!localStorage.getItem(LOCAL_STORAGE_POS_KEY)) {
-                 setPosition({ x: (window.innerWidth - 1200)/2, y: (window.innerHeight - 800)/2 });
+                 const minTop = 135;
+                 setPosition({ x: (window.innerWidth - 1200)/2, y: Math.max(minTop, (window.innerHeight - 800)/2) });
                  setSize({ width: 1200, height: 800 });
             }
         };

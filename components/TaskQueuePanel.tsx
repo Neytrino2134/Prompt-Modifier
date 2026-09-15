@@ -151,7 +151,13 @@ export const TaskQueuePanel: React.FC = () => {
         if (!Array.isArray(batchJobs)) return [];
         const safeJobs = batchJobs
             .filter(j => j && typeof j === 'object' && (j.id || j.name))
-            .filter(j => matchesDeviceFilter(j.deviceId, effectiveDeviceId, effectiveFilterMode))
+            .filter(j => {
+                if (effectiveIsolationEnabled) {
+                    if (j.deviceId && j.deviceId !== effectiveDeviceId) return false;
+                    return true;
+                }
+                return matchesDeviceFilter(j.deviceId, effectiveDeviceId, effectiveFilterMode);
+            })
             .map(j => ({
                 ...j,
                 id: j.id || j.name,
@@ -176,7 +182,7 @@ export const TaskQueuePanel: React.FC = () => {
                 return aTime - bTime;
             }
         });
-    }, [batchJobs, batchSortOrder]);
+    }, [batchJobs, batchSortOrder, effectiveDeviceId, effectiveIsolationEnabled, effectiveFilterMode]);
 
     const toggleExpandBatchJob = (jobId: string) => {
         setExpandedBatchJobIds(prev => ({ ...prev, [jobId]: !prev[jobId] }));
@@ -704,7 +710,7 @@ export const TaskQueuePanel: React.FC = () => {
                     </svg>
                     <span>{t('batch.panelTitle') || 'Batch Jobs'}</span>
                     <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-gray-800 text-gray-300">
-                        {batchJobs.length}
+                        {sortedBatchJobs.length}
                     </span>
                     {activeBatchJobsCount > 0 && (
                         <span className="w-2 h-2 rounded-full bg-accent-secondary animate-pulse"></span>

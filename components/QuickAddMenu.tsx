@@ -2,6 +2,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { NodeType, Tool } from '../types';
 import { useLanguage, TranslationKey } from '../localization';
+import { useAppContext } from '../contexts/AppContext';
 import { PinIcon, ThreeDModelIcon } from './icons/AppIcons';
 
 interface QuickAddMenuProps {
@@ -54,6 +55,7 @@ interface QuickAddMenuGroup {
 
 const QuickAddMenu: React.FC<QuickAddMenuProps> = ({ isOpen, position, onClose, onAddNode, onToolChange, activeTool, isPinned, onPinToggle, onPaste }) => {
     const { t } = useLanguage();
+    const context = useAppContext();
     const menuRef = useRef<HTMLDivElement>(null);
     const [style, setStyle] = useState<React.CSSProperties>({ opacity: 0, pointerEvents: 'none' });
     const [isPinHovered, setIsPinHovered] = useState(false);
@@ -111,7 +113,8 @@ const QuickAddMenu: React.FC<QuickAddMenuProps> = ({ isOpen, position, onClose, 
                 if (bestPosition.left + menuRect.width > windowWidth) bestPosition.left = windowWidth - menuRect.width - offsetVal;
                 if (bestPosition.top + menuRect.height > windowHeight) bestPosition.top = windowHeight - menuRect.height - offsetVal;
                 if (bestPosition.left < 0) bestPosition.left = offsetVal;
-                if (bestPosition.top < 0) bestPosition.top = offsetVal;
+                const minTop = context?.isStatusBarOpen ? 135 : 84;
+                if (bestPosition.top < minTop) bestPosition.top = minTop;
 
                 setStyle({ 
                     left: bestPosition.left, 
@@ -141,9 +144,13 @@ const QuickAddMenu: React.FC<QuickAddMenuProps> = ({ isOpen, position, onClose, 
 
     const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
         if (dragStartRef.current) {
+            const minTop = context?.isStatusBarOpen ? 135 : 84;
+            const topBase = parseFloat(style.top as string) || 0;
+            const minOffsetY = minTop - topBase;
+
             setOffset({
                 x: e.clientX - dragStartRef.current.x,
-                y: e.clientY - dragStartRef.current.y
+                y: Math.max(minOffsetY, e.clientY - dragStartRef.current.y)
             });
         }
     };

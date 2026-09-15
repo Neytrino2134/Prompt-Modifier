@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useRef, MutableRefObject } from 'react';
 import { Node, Connection, ConnectingInfo, NodeType, Point } from '../../types';
 import { getOutputHandleType, getInputHandleType, COLLAPSED_NODE_HEIGHT, getConnectionPoints, PROXY_NODE_WIDTH, PROXY_NODE_HEIGHT, DETACHED_GHOST_WIDTH, DETACHED_GHOST_HEIGHT, getProxyHandles } from '../../utils/nodeUtils';
+import { triggerCursorImpulse } from '../../components/cursors/CursorEffects';
 
 interface UseConnectionHandlingProps {
     nodesRef: MutableRefObject<Node[]>;
@@ -33,6 +34,17 @@ export const useConnectionHandling = ({
         const type = getOutputHandleType(node, fromHandleId);
         const startPoint = getTransformedPoint({ x: e.clientX, y: e.clientY });
         setConnectingInfo({ fromNodeId, fromHandleId, fromPoint: startPoint, fromType: type });
+
+        // Trigger tactile click impulse glow on output point click
+        const targetEl = e.currentTarget as HTMLElement | null;
+        let clickX = e.clientX;
+        let clickY = e.clientY;
+        if (targetEl) {
+            const rect = targetEl.getBoundingClientRect();
+            clickX = rect.left + rect.width / 2;
+            clickY = rect.top + rect.height / 2;
+        }
+        triggerCursorImpulse(clickX, clickY);
     }, [getTransformedPoint, setConnectingInfo, nodesRef]);
 
     const handleStartConnectionTouch = useCallback((e: React.TouchEvent<HTMLDivElement>, fromNodeId: string, fromHandleId?: string) => {
@@ -44,6 +56,17 @@ export const useConnectionHandling = ({
         const type = getOutputHandleType(node, fromHandleId);
         const startPoint = getTransformedPoint({ x: touch.clientX, y: touch.clientY });
         setConnectingInfo({ fromNodeId, fromHandleId, fromPoint: startPoint, fromType: type });
+
+        // Trigger tactile click impulse glow on output point touch
+        const targetEl = e.currentTarget as HTMLElement | null;
+        let clickX = touch.clientX;
+        let clickY = touch.clientY;
+        if (targetEl) {
+            const rect = targetEl.getBoundingClientRect();
+            clickX = rect.left + rect.width / 2;
+            clickY = rect.top + rect.height / 2;
+        }
+        triggerCursorImpulse(clickX, clickY);
     }, [getTransformedPoint, setConnectingInfo, nodesRef]);
 
     const handleStartInputConnection = useCallback((e: React.MouseEvent<HTMLDivElement>, toNodeId: string, toHandleId?: string) => {
@@ -342,6 +365,34 @@ export const useConnectionHandling = ({
                 toNodeId: connectionTarget.nodeId,
                 toHandleId: connectionTarget.handleId,
             });
+
+            // Trigger tactile click impulse glow when releasing mouse at target socket point
+            let dropX = 0;
+            let dropY = 0;
+            if ('changedTouches' in e && (e as TouchEvent).changedTouches?.length > 0) {
+                dropX = (e as TouchEvent).changedTouches[0].clientX;
+                dropY = (e as TouchEvent).changedTouches[0].clientY;
+            } else if ('clientX' in (e as any)) {
+                dropX = (e as MouseEvent).clientX;
+                dropY = (e as MouseEvent).clientY;
+            }
+
+            // Locate target handle element for exact socket alignment if present
+            const targetHandleEl = document.querySelector(
+                `[data-node-id="${connectionTarget.nodeId}"][data-handle-id="${connectionTarget.handleId || ''}"]`
+            ) || document.querySelector(
+                `[data-node-id="${connectionTarget.nodeId}"][data-is-input-handle="true"]`
+            );
+
+            if (targetHandleEl) {
+                const rect = targetHandleEl.getBoundingClientRect();
+                dropX = rect.left + rect.width / 2;
+                dropY = rect.top + rect.height / 2;
+            }
+
+            if (dropX !== 0 || dropY !== 0) {
+                triggerCursorImpulse(dropX, dropY);
+            }
 
             // --- Reroute Dot Type Update Logic ---
             const targetNode = nodesRef.current.find(n => n.id === connectionTarget.nodeId);

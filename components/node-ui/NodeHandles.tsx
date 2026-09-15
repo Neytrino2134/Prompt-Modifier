@@ -353,6 +353,10 @@ export const OutputHandles: React.FC<HandleProps> = ({ node, getHandleColor, han
             onTouchStart={(e) => handleTouchStart(e, handle.handleId)} 
             style={{ top, cursor: handleCursor, ...handleStyle }} 
             className={`absolute w-5 h-5 rounded-full border-2 border-gray-900 transform -translate-y-1/2 ${getHandleColor(handle.type, handle.handleId)} group/handle transition-[transform,border-color,background-color] duration-200 hover:scale-125 hover:border-white hover:z-20`}
+            data-is-output-handle="true"
+            data-node-id={node.id}
+            data-handle-id={handle.handleId || ''}
+            data-handle-type={handle.type || ''}
         >
             <OutputTooltip text={handle.title} />
         </div>
