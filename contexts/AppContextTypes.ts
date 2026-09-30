@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, CanvasColorMode, InputColorMode, PanelStyle, PanelAnimation, CursorSkin, LogEntry, LogLevel, BatchJobRecord } from '../types';
+import { Node, Connection, Point, Group, LibraryItem, Tool, LineStyle, Tab, CanvasState, DraggingInfo, Toast, ToastType, ConnectingInfo, SmartGuide, ActiveOperation, DockMode, Alignment, GlobalMediaState, TutorialStep, Theme, CanvasColorMode, InputColorMode, PanelStyle, PanelAnimation, CursorSkin, LogEntry, LogLevel, BatchJobRecord, ConnectionAnimationStyle, ConnectionAnimationConfig } from '../types';
+import { PanelAnimationConfig } from '../components/settings/appearance/panelAnimationDefinitions';
 import { NodeType } from '../types';
 import { LanguageCode, TranslationKey } from '../localization';
 import {
@@ -59,6 +60,7 @@ export type AppContextType =
   
   handleLoadCanvasIntoCurrentTab: (text: string) => void; 
   handleLoadFromExternal: (text: string) => void;
+  restoreSession: (newTabs: Tab[], targetActiveTabId?: string) => void;
 
   t: (key: TranslationKey | string, options?: { [key: string]: string | number }) => string;
   isSnapToGrid: boolean;
@@ -211,6 +213,8 @@ export type AppContextType =
   isStoppingSequence: boolean;
   isInstantCloseEnabled: boolean;
   setIsInstantCloseEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  isImageDropMenuEnabled: boolean;
+  setIsImageDropMenuEnabled: (enabled: boolean) => void;
   isHoverHighlightEnabled: boolean;
   setIsHoverHighlightEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   isBringToFrontOnHoverEnabled: boolean;
@@ -267,6 +271,15 @@ export type AppContextType =
   setPanelAnimation: (anim: PanelAnimation) => void;
   isPanelAnimationAdaptive: boolean;
   setIsPanelAnimationAdaptive: (adaptive: boolean) => void;
+  panelAnimationConfig: PanelAnimationConfig;
+  setPanelAnimationConfig: React.Dispatch<React.SetStateAction<PanelAnimationConfig>>;
+  updatePanelAnimationConfig: <K extends keyof PanelAnimationConfig>(animKey: K, partial: Partial<PanelAnimationConfig[K]>) => void;
+  resetPanelAnimationConfig: (animKey?: keyof PanelAnimationConfig) => void;
+  isPanelAnimationConfigOpen: boolean;
+  setIsPanelAnimationConfigOpen: (open: boolean) => void;
+  panelAnimationConfigActiveTab: keyof PanelAnimationConfig;
+  setPanelAnimationConfigActiveTab: (tab: keyof PanelAnimationConfig) => void;
+  openPanelAnimationConfig: (anim?: PanelAnimation) => void;
 
   // Cursor Skin & Effects
   cursorSkin: CursorSkin;
@@ -274,10 +287,22 @@ export type AppContextType =
   isCursorEffectEnabled: boolean;
   setIsCursorEffectEnabled: (enabled: boolean) => void;
 
+  // Connection Animation & Themes
+  connectionAnimationStyle: ConnectionAnimationStyle;
+  setConnectionAnimationStyle: (style: ConnectionAnimationStyle) => void;
+  connectionAnimationConfig: ConnectionAnimationConfig;
+  setConnectionAnimationConfig: React.Dispatch<React.SetStateAction<ConnectionAnimationConfig>>;
+  updateConnectionAnimationConfig: (partial: Partial<ConnectionAnimationConfig>) => void;
+  resetConnectionAnimationConfig: () => void;
+  isConnectionConfigOpen: boolean;
+  setIsConnectionConfigOpen: (open: boolean) => void;
 
   // New handler
   handleUpdateCharacterPromptFromImage: (nodeId: string, cardIndex: number) => void;
   isUpdatingCharacterPrompt: string | null;
+
+  // Canvas / Session Background Loading
+  isCanvasLoading: boolean;
 
   // Connection Settings
   isConnectionAnimationEnabled: boolean;
@@ -286,6 +311,10 @@ export type AppContextType =
   setConnectionOpacity: (opacity: number) => void;
   autoSaveInterval: number;
   setAutoSaveInterval: (interval: number) => void;
+  autoSaveHistoryLimit: number;
+  setAutoSaveHistoryLimit: (limit: number) => void;
+  autoSaveSessionLimit: number;
+  setAutoSaveSessionLimit: (limit: number) => void;
 
   // Sync Logic
   handleSyncCatalogs: () => void;
@@ -314,6 +343,10 @@ export type AppContextType =
   checkBatchJob: (jobId: string) => Promise<any>;
   pollActiveBatchJobs: () => Promise<void>;
   cancelBatchJob: (jobId: string) => Promise<void>;
+  cancelBatchForNode?: (nodeId: string) => Promise<void>;
+  registerFormingBatch?: (nodeId: string, controller?: AbortController) => void;
+  unregisterFormingBatch?: (nodeId: string) => void;
+  cancelFormingBatch?: (nodeId: string) => void;
   deleteBatchJob: (jobId: string) => void;
   clearFinishedBatchJobs: () => void;
   clearAllBatchJobs: () => void;

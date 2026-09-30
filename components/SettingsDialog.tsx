@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../localization';
-import { ReloadIcon, GoogleDriveIcon, SettingsIcon, PaletteIcon } from './icons/AppIcons';
+import { ReloadIcon, GoogleDriveIcon, SettingsIcon, PaletteIcon, SaveIcon, SoundIcon } from './icons/AppIcons';
 import { useAppContext } from '../contexts/AppContext';
 import { Point } from '../types';
 import { MicrophoneSettingsTab } from './MicrophoneSettingsTab';
 import { SettingsSectionHeader } from './settings/SettingsSectionHeader';
 import { ApiSettingsSection } from './settings/ApiSettingsSection';
 import { ModelsSettingsSection } from './settings/ModelsSettingsSection';
+import { AutosaveSettingsSection } from './settings/AutosaveSettingsSection';
 import { AppearanceSettingsSection } from './settings/AppearanceSettingsSection';
 import { CloudSettingsSection } from './settings/CloudSettingsSection';
+import { SoundSettingsSection } from './settings/SoundSettingsSection';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -32,7 +34,8 @@ const MicIcon = () => (
   </svg>
 );
 
-type SettingsTab = 'all' | 'api' | 'llm' | 'microphone' | 'appearance' | 'cloud';
+type SettingsTab = 'all' | 'api' | 'llm' | 'sound' | 'microphone' | 'autosave' | 'appearance' | 'cloud';
+
 
 const SettingsDialog: React.FC<SettingsDialogProps> = ({
   isOpen,
@@ -62,7 +65,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     api: false,
     llm: false,
+    sound: false,
     microphone: false,
+    autosave: false,
     appearance: false,
     cloud: false,
   });
@@ -378,6 +383,20 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
             </button>
             <button
               type="button"
+              ref={(el) => { tabRefs.current['sound'] = el; }}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => handleSelectTab('sound')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-0 outline-none select-none flex items-center gap-1.5 border ${
+                activeTab === 'sound'
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border-transparent'
+              }`}
+            >
+              <SoundIcon className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{t('settings.tab.sound' as any) || 'Sounds'}</span>
+            </button>
+            <button
+              type="button"
               ref={(el) => { tabRefs.current['microphone'] = el; }}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSelectTab('microphone')}
@@ -389,6 +408,20 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
             >
               <MicIcon />
               <span>{t('settings.tab.microphone')}</span>
+            </button>
+            <button
+              type="button"
+              ref={(el) => { tabRefs.current['autosave'] = el; }}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => handleSelectTab('autosave')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all focus:outline-none focus:ring-0 outline-none select-none flex items-center gap-1.5 border ${
+                activeTab === 'autosave'
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 border-transparent'
+              }`}
+            >
+              <SaveIcon className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{t('settings.tab.autosave')}</span>
             </button>
             <button
               type="button"
@@ -459,6 +492,26 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
             </div>
           )}
 
+          {/* Group: Sound Notifications */}
+          {(activeTab === 'all' || activeTab === 'sound') && (
+            <div className="space-y-1.5">
+              <SettingsSectionHeader
+                title={t('settings.group.sound' as any) || 'Sound Notifications'}
+                icon={<SoundIcon className="w-4 h-4" />}
+                iconColorClass="text-cyan-400"
+                isCollapsed={collapsedSections.sound}
+                onToggle={() => toggleSection('sound')}
+              />
+              {!collapsedSections.sound && (
+                <SoundSettingsSection
+                  isOpen={isOpen}
+                  addToast={addToast}
+                />
+              )}
+            </div>
+          )}
+
+
           {/* Group 3: Microphone */}
           {(activeTab === 'all' || activeTab === 'microphone') && (
             <div className="space-y-1.5">
@@ -477,7 +530,26 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
             </div>
           )}
 
-          {/* Group 4: Style & Appearance */}
+          {/* Group 4: Autosave & Backups */}
+          {(activeTab === 'all' || activeTab === 'autosave') && (
+            <div className="space-y-1.5">
+              <SettingsSectionHeader
+                title={t('settings.group.autosave')}
+                icon={<SaveIcon className="w-4 h-4" />}
+                iconColorClass="text-cyan-400"
+                isCollapsed={collapsedSections.autosave}
+                onToggle={() => toggleSection('autosave')}
+              />
+              {!collapsedSections.autosave && (
+                <AutosaveSettingsSection
+                  isOpen={isOpen}
+                  addToast={addToast}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Group 5: Style & Appearance */}
           {(activeTab === 'all' || activeTab === 'appearance') && (
             <div className="space-y-1.5">
               <SettingsSectionHeader

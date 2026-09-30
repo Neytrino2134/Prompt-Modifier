@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { StickyNote } from 'lucide-react';
 import { ActionButton } from '../../ActionButton';
 import { ImageInputCropRect } from './types';
 import { setupImageDragData, getImageTimestampString } from '../../../utils/imageUtils';
@@ -13,6 +14,7 @@ interface SingleCropPreviewProps {
     onDownloadImage?: (nodeId: string) => void;
     addToast?: (message: string, type?: any) => void;
     onImageClick?: (e: React.MouseEvent) => void;
+    onSendToNote?: () => void;
 }
 
 export const SingleCropPreview: React.FC<SingleCropPreviewProps> = ({
@@ -24,6 +26,7 @@ export const SingleCropPreview: React.FC<SingleCropPreviewProps> = ({
     onCopyImageToClipboard,
     addToast,
     onImageClick,
+    onSendToNote
 }) => {
     const [copied, setCopied] = useState(false);
 
@@ -113,6 +116,18 @@ export const SingleCropPreview: React.FC<SingleCropPreviewProps> = ({
                         </svg>
                         <span>Скачать PNG</span>
                     </button>
+
+                    {onSendToNote && (
+                        <button
+                            type="button"
+                            onClick={onSendToNote}
+                            className="flex items-center gap-1 px-2 py-0.5 bg-accent-secondary hover:brightness-110 text-white rounded text-[11px] font-medium shadow-sm transition-colors"
+                            title="Отправить обрезанный фрагмент в новую заметку (Note в режиме References)"
+                        >
+                            <StickyNote className="h-3.5 w-3.5 text-white" />
+                            <span>В заметку</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

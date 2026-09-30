@@ -1,6 +1,7 @@
 import React, { useCallback, ReactNode, useState, useEffect, useRef } from 'react';
 import { LanguageContext, LanguageCode, getTranslation, TranslationKey } from './localization';
 import { AppProvider, useAppContext } from './contexts/AppContext';
+import { TextContextMenuProvider } from './contexts/TextContextMenuContext';
 
 // UI Layers
 import CanvasLayer from './components/CanvasLayer';
@@ -130,13 +131,30 @@ const Editor: React.FC = () => {
                       // Ensure Electron window is brought to front, un-minimized and focused
                       (window as any).electronAPI?.bringToFront?.();
 
-                      // Show in-app custom dialog with Save & Close, Close without Saving, and Cancel
+                      let alwaysMinimize = false;
+                      const checkAlwaysMinimize = (checked: boolean) => {
+                          alwaysMinimize = checked;
+                          if ((window as any).electronAPI?.setTraySettings) {
+                              (window as any).electronAPI.setTraySettings({
+                                  minimizeToTrayOnClose: checked,
+                                  closeAction: checked ? 'tray' : 'ask'
+                              });
+                          }
+                      };
+
+                      // Show in-app custom dialog with Minimize to Tray, Save & Close, Close without Saving, and Cancel
                       setConfirmInfo({
                           title: t('dialog.exitApp.title'),
                           message: t('dialog.exitApp.message'),
                           confirmLabel: t('dialog.exitApp.saveAndClose'),
                           confirmVariant: 'accent',
                           onConfirm: async () => {
+                              if (alwaysMinimize && (window as any).electronAPI?.setTraySettings) {
+                                  await (window as any).electronAPI.setTraySettings({
+                                      minimizeToTrayOnClose: true,
+                                      closeAction: 'tray'
+                                  });
+                              }
                               try {
                                   if (contextRef.current?.forceSaveSession) {
                                       await contextRef.current.forceSaveSession();
@@ -151,10 +169,36 @@ const Editor: React.FC = () => {
                           },
                           secondaryAction: {
                               label: t('dialog.exitApp.dontSave'),
-                              onAction: () => {
+                              onAction: async () => {
+                                  if (alwaysMinimize && (window as any).electronAPI?.setTraySettings) {
+                                      await (window as any).electronAPI.setTraySettings({
+                                          minimizeToTrayOnClose: true,
+                                          closeAction: 'tray'
+                                      });
+                                  }
                                   (window as any).electronAPI.forceClose();
                               },
-                              className: 'whitespace-nowrap px-4 py-2 text-sm font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 hover:text-white rounded-lg transition-colors border border-gray-600'
+                              className: 'whitespace-nowrap px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 hover:text-white rounded-lg transition-colors border border-gray-600'
+                          },
+                          extraAction: {
+                              label: t('dialog.exitApp.minimizeToTray') || 'Minimize to Tray',
+                              onAction: async () => {
+                                  if (alwaysMinimize && (window as any).electronAPI?.setTraySettings) {
+                                      await (window as any).electronAPI.setTraySettings({
+                                          minimizeToTrayOnClose: true,
+                                          closeAction: 'tray'
+                                      });
+                                  }
+                                  (window as any).electronAPI?.minimizeToTray?.();
+                              },
+                              className: 'whitespace-nowrap px-3.5 py-2 text-xs sm:text-sm font-semibold text-cyan-300 bg-cyan-950/70 hover:bg-cyan-900/80 hover:text-cyan-200 rounded-lg transition-colors border border-cyan-700/60'
+                          },
+                          checkbox: {
+                              label: t('dialog.exitApp.alwaysMinimizeToTray') || 'Always minimize to tray on close',
+                              checked: false,
+                              onChange: (checked: boolean) => {
+                                  checkAlwaysMinimize(checked);
+                              }
                           },
                           cancelLabel: t('dialog.confirmDelete.cancel')
                       });
@@ -199,11 +243,30 @@ const Editor: React.FC = () => {
   // Listen for download completion from Electron
   useEffect(() => {
     if ((window as any).electronAPI && (window as any).electronAPI.onDownloadComplete) {
-        const removeListener = (window as any).electronAPI.onDownloadComplete((event: any, { state, path }: { state: string, path: string }) => {
-            if (state === 'completed') {
-                addToast(t('toast.downloadSuccess'), 'success', {
-                    label: t('toast.openFolder'),
-                    onClick: () => (window as any).electronAPI.showItemInFolder(path)
+        const removeListener = (window as any).electronAPI.onDownloadComplete((dataOrEvent: any, maybeData?: any) => {
+            const payload = (dataOrEvent && dataOrEvent.state) ? dataOrEvent : (maybeData && maybeData.state ? maybeData : dataOrEvent);
+            if (payload && payload.state === 'completed' && payload.path) {
+                const filePath: string = payload.path;
+                const fileName = filePath.split(/[/\\]/).pop() || '';
+                const isZip = /\.zip$/i.test(fileName);
+                const isImage = /\.(png|jpe?g|webp|gif|bmp|svg|tiff|avif)$/i.test(fileName);
+
+                let msg = t('toast.downloadSuccess') || 'Файл скачан';
+                if (isZip) {
+                    msg = `${t('toast.archiveDownloaded') || 'Архив скачан'}: ${fileName}`;
+                } else if (isImage) {
+                    msg = `${t('toast.imageDownloaded') || 'Изображение скачано'}: ${fileName}`;
+                } else if (fileName) {
+                    msg = `${t('toast.downloadSuccess') || 'Файл скачан'}: ${fileName}`;
+                }
+
+                addToast(msg, 'success', {
+                    label: t('toast.openFolder') || 'Открыть папку',
+                    onClick: () => {
+                        if ((window as any).electronAPI?.showItemInFolder) {
+                            (window as any).electronAPI.showItemInFolder(filePath);
+                        }
+                    }
                 });
             }
         });
@@ -432,11 +495,13 @@ const App: React.FC = () => {
   return (
     <LanguageProvider>
       <AppProvider>
-        {detachedNodeId ? (
-          <DetachedNodeMiniApp nodeId={detachedNodeId} />
-        ) : (
-          <Editor />
-        )}
+        <TextContextMenuProvider>
+          {detachedNodeId ? (
+            <DetachedNodeMiniApp nodeId={detachedNodeId} />
+          ) : (
+            <Editor />
+          )}
+        </TextContextMenuProvider>
       </AppProvider>
     </LanguageProvider>
   );

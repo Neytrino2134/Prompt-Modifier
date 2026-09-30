@@ -297,6 +297,8 @@ export const nodes = {
     'node.promptProcessor.technicalPromptTooltip': 'Convertit le prompt en une spécification technique hautement détaillée (éclairage, caméra, paramètres de rendu).',
     'node.promptProcessor.enhanceTooltip': 'Utilise l\'IA pour étendre et enrichir le prompt avec des détails descriptifs.',
     'node.promptProcessor.chainTooltip': 'Exécute ce nœud et déclenche tous les nœuds connectés en aval.',
+    'image_sequence.auto_save': 'Enregistrement automatique',
+    'image_sequence.tooltip.autoSave': 'Enregistre automatiquement les images générées sur votre appareil.',
     'image_sequence.tooltip.autoCrop': 'Recadre automatiquement les images générées au format 16:9.',
     'image_sequence.tooltip.autoDownload': 'Enregistre automatiquement chaque image sur votre appareil après sa génération.',
     'image_sequence.tooltip.createZip': 'Regroupe toutes les images sélectionnées dans une archive ZIP unique lors du téléchargement.'

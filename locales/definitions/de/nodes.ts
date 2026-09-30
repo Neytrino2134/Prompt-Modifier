@@ -221,6 +221,8 @@ export const nodes = {
     'node.promptProcessor.technicalPromptTooltip': 'Wandelt den Prompt in eine hochdetaillierte technische Spezifikation um (Beleuchtung, Kamera, Rendereinstellungen).',
     'node.promptProcessor.enhanceTooltip': 'Nutzt KI, um den Prompt mit beschreibenden Details zu erweitern und anzureichern.',
     'node.promptProcessor.chainTooltip': 'Führt diesen Knoten aus und löst alle verbundenen nachgelagerten Knoten aus.',
+    'image_sequence.auto_save': 'Bilder automatisch speichern',
+    'image_sequence.tooltip.autoSave': 'Speichert generierte Bilder nach der Fertigstellung automatisch auf Ihrem Gerät.',
     'image_sequence.tooltip.autoCrop': 'Schneidet generierte Bilder automatisch auf ein Seitenverhältnis von 16:9 zu.',
     'image_sequence.tooltip.autoDownload': 'Speichert jedes Bild sofort nach der Generierung automatisch auf Ihrem Gerät.',
     'image_sequence.tooltip.createZip': 'Packt alle ausgewählten Bilder beim Herunterladen in ein einziges ZIP-Archiv.'

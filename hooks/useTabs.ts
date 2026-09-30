@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { type Tab, type CanvasState, NodeType } from '../types';
 import { clearImagesForTabFromCache } from '../utils/imageMemoryCache';
 import { getTranslation, LanguageCode } from '../localization';
+import { generateCanvasScreenshot } from '../utils/canvasScreenshot';
 
 // --- IndexedDB Logic for Session Persistence ---
 const SESSION_DB_NAME = 'PromptModifierSessionDB';
@@ -23,8 +24,34 @@ const getSessionDB = (): Promise<IDBDatabase> => {
     });
 };
 
-export const saveSessionToDB = async (tabs: Tab[], activeTabId: string): Promise<void> => {
-    const sessionObj = { id: SESSION_KEY, tabs, activeTabId, savedAt: Date.now() };
+export const saveSessionToDB = async (
+    tabs: Tab[],
+    activeTabId: string,
+    screenshot?: string,
+    isSnapshot = false
+): Promise<void> => {
+    // 1. Identify active tab to generate high-fidelity preview for the active canvas
+    const activeTab = (activeTabId ? tabs.find(t => t.id === activeTabId) : null) || tabs[0];
+    const screenshotData = screenshot !== undefined && screenshot !== ''
+        ? screenshot
+        : (activeTab?.state ? generateCanvasScreenshot(activeTab.state) : '');
+
+    const limitStr = typeof window !== 'undefined' ? localStorage.getItem('settings_autoSaveHistoryLimit') : null;
+    const historyLimit = limitStr !== null ? parseInt(limitStr, 10) : 5;
+
+    const sessionLimitStr = typeof window !== 'undefined' ? localStorage.getItem('settings_autoSaveSessionLimit') : null;
+    const sessionLimit = sessionLimitStr !== null ? Math.max(1, Math.min(5, parseInt(sessionLimitStr, 10))) : 2;
+
+    const sessionObj = {
+        id: SESSION_KEY,
+        tabs,
+        activeTabId,
+        savedAt: Date.now(),
+        screenshot: screenshotData,
+        historyLimit,
+        sessionLimit,
+        isSnapshot: Boolean(isSnapshot),
+    };
 
     // 1. Electron File Storage (100% durable & crash-resistant on desktop)
     if (typeof window !== 'undefined' && (window as any).electronAPI?.saveSession) {
@@ -35,7 +62,7 @@ export const saveSessionToDB = async (tabs: Tab[], activeTabId: string): Promise
         }
     }
 
-    // 2. IndexedDB
+    // 2. IndexedDB (primary fast local database)
     try {
         const db = await getSessionDB();
         await new Promise<void>((resolve, reject) => {
@@ -60,14 +87,126 @@ export const saveSessionToDB = async (tabs: Tab[], activeTabId: string): Promise
                     fullSizeImageCache: {}
                 }
             }));
-            localStorage.setItem('prompt_modifier_session_backup', JSON.stringify({
+            const payload = {
                 tabs: safeTabs,
                 activeTabId,
-                savedAt: sessionObj.savedAt
-            }));
+                savedAt: sessionObj.savedAt,
+                screenshot: screenshotData
+            };
+            localStorage.setItem('prompt_modifier_session_backup', JSON.stringify(payload));
+
+            // Only append to history list if this is a snapshot backup
+            if (isSnapshot) {
+                try {
+                    const historyRaw = localStorage.getItem('prompt_modifier_session_history');
+                    let historyList = historyRaw ? JSON.parse(historyRaw) : [];
+                    if (!Array.isArray(historyList)) historyList = [];
+
+                    const historyItem = {
+                        filename: `browser_snapshot_${new Date(sessionObj.savedAt).toLocaleDateString().replace(/\//g, '-')}_${new Date(sessionObj.savedAt).toLocaleTimeString().replace(/:/g, '-')}.json`,
+                        path: `localStorage://history_${sessionObj.savedAt}`,
+                        savedAt: sessionObj.savedAt,
+                        tabCount: safeTabs.length,
+                        tabNames: safeTabs.map((tab: any) => tab.name || 'Untitled'),
+                        screenshot: screenshotData,
+                        tabs: safeTabs,
+                        activeTabId,
+                    };
+
+                    historyList.unshift(historyItem);
+                    const effectiveHistoryLimit = historyLimit > 0 ? historyLimit : 5;
+                    const effectiveSessionLimit = sessionLimit > 0 ? sessionLimit : 2;
+                    const maxTotalWebSnapshots = effectiveHistoryLimit * effectiveSessionLimit;
+                    if (historyList.length > maxTotalWebSnapshots) {
+                        historyList = historyList.slice(0, maxTotalWebSnapshots);
+                    }
+
+                    try {
+                        localStorage.setItem('prompt_modifier_session_history', JSON.stringify(historyList));
+                    } catch (quotaErr) {
+                        // If near quota, remove screenshots from older history items
+                        const pruned = historyList.slice(0, Math.min(10, maxTotalWebSnapshots)).map((item: any, idx: number) => 
+                            idx > 1 ? { ...item, screenshot: null } : item
+                        );
+                        localStorage.setItem('prompt_modifier_session_history', JSON.stringify(pruned));
+                    }
+                } catch (histErr) {
+                    console.warn('Failed to update web history snapshot:', histErr);
+                }
+            }
         }
     } catch (e) {
         // Safe to ignore if LocalStorage quota is exceeded
+    }
+};
+
+export const normalizeTabs = (rawTabs: any[], rawActiveTabId?: string): { tabs: Tab[], activeTabId: string } => {
+    if (!Array.isArray(rawTabs) || rawTabs.length === 0) {
+        const defaultTab = createNewTab('Canvas 1', defaultCanvasState);
+        return { tabs: [defaultTab], activeTabId: defaultTab.id };
+    }
+
+    const tabs: Tab[] = rawTabs.map((t, idx) => {
+        const tabId = (t && typeof t.id === 'string' && t.id.trim()) ? t.id.trim() : `tab-${Date.now()}-${idx}`;
+        const tabName = (t && typeof t.name === 'string' && t.name.trim()) ? t.name.trim() : `Canvas ${idx + 1}`;
+        const rawState = t?.state || {};
+        
+        const normalizedNodes = Array.isArray(rawState.nodes) ? rawState.nodes : [];
+        const normalizedConnections = Array.isArray(rawState.connections) ? rawState.connections : [];
+        const normalizedGroups = Array.isArray(rawState.groups) ? rawState.groups : [];
+        const normalizedViewTransform = rawState.viewTransform && typeof rawState.viewTransform.scale === 'number'
+            ? rawState.viewTransform
+            : { scale: 1, translate: { x: 0, y: 0 } };
+        
+        let counter = typeof rawState.nodeIdCounter === 'number' ? rawState.nodeIdCounter : 0;
+        if (counter === 0 && normalizedNodes.length > 0) {
+            counter = Math.max(...normalizedNodes.map((n: any) => {
+                const match = String(n.id).match(/\d+/g);
+                return match ? Math.max(...match.map(Number)) : 0;
+            }), 100);
+        }
+
+        const normalizedState: CanvasState = {
+            nodes: normalizedNodes,
+            connections: normalizedConnections,
+            groups: normalizedGroups,
+            viewTransform: normalizedViewTransform,
+            nodeIdCounter: counter,
+            fullSizeImageCache: (rawState.fullSizeImageCache && typeof rawState.fullSizeImageCache === 'object') ? rawState.fullSizeImageCache : {}
+        };
+
+        return {
+            id: tabId,
+            name: tabName,
+            state: normalizedState
+        };
+    });
+
+    const activeTabId = (rawActiveTabId && tabs.some(t => t.id === rawActiveTabId))
+        ? rawActiveTabId
+        : tabs[0].id;
+
+    return { tabs, activeTabId };
+};
+
+export const clearAllSessionBackups = async (): Promise<void> => {
+    // 1. Electron
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.clearSessionBackups) {
+        try {
+            await (window as any).electronAPI.clearSessionBackups();
+        } catch (e) {
+            console.warn("Failed to clear backups via Electron API:", e);
+        }
+    }
+
+    // 2. Web LocalStorage
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.removeItem('prompt_modifier_session_backup');
+            localStorage.removeItem('prompt_modifier_session_history');
+        }
+    } catch (e) {
+        console.warn("Failed to clear web localStorage backups:", e);
     }
 };
 
@@ -129,14 +268,26 @@ export const loadSessionFromDB = async (): Promise<{ tabs: Tab[], activeTabId: s
         if (!cand || !Array.isArray(cand.tabs) || cand.tabs.length === 0) return false;
         if (cand.tabs.length > 1) return true;
         const tab = cand.tabs[0];
+        if (!tab) return false;
         if (tab.name && tab.name !== 'Canvas 1') return true;
-        if (tab.state?.nodes && tab.state.nodes.length > 0) return true;
-        if (tab.state?.connections && tab.state.connections.length > 0) return true;
+        if (tab.state?.nodes && tab.state.nodes.length > 0) {
+            const nodes = tab.state.nodes;
+            const hasUserVal = nodes.some((n: any) => n?.value && n.value !== '{"messages":[],"currentInput":""}' && n.value !== '{"inputText":"","targetLanguage":"ru","translatedText":"","inputHeight":197}' && n.value !== '');
+            if (hasUserVal) return true;
+            if (nodes.length !== 7) return true;
+        }
+        if (tab.state?.connections && tab.state.connections.length !== 4) return true;
+        if (tab.state?.groups && tab.state.groups.length > 0) return true;
         return false;
     };
 
+    // If running in Electron, the disk session is the absolute source of truth
+    if (electronSession && Array.isArray(electronSession.tabs) && electronSession.tabs.length > 0) {
+        return normalizeTabs(electronSession.tabs, electronSession.activeTabId);
+    }
+
     // Compare available sessions and pick the best / latest one
-    const candidates = [electronSession, idbSession, localBackupSession].filter(Boolean) as { tabs: Tab[], activeTabId: string, savedAt?: number }[];
+    const candidates = [idbSession, localBackupSession].filter(Boolean) as { tabs: Tab[], activeTabId: string, savedAt?: number }[];
     if (candidates.length === 0) return undefined;
 
     // Substantial user sessions take priority over a blank default template; then latest savedAt
@@ -148,13 +299,9 @@ export const loadSessionFromDB = async (): Promise<{ tabs: Tab[], activeTabId: s
     });
 
     const chosen = candidates[0];
+    if (!chosen || !Array.isArray(chosen.tabs) || chosen.tabs.length === 0) return undefined;
 
-    // Re-synchronize chosen session across all layers if needed
-    if (chosen && Array.isArray(chosen.tabs) && chosen.tabs.length > 0) {
-        saveSessionToDB(chosen.tabs, chosen.activeTabId).catch(() => {});
-    }
-
-    return { tabs: chosen.tabs, activeTabId: chosen.activeTabId };
+    return normalizeTabs(chosen.tabs, chosen.activeTabId);
 };
 // --- End IndexedDB Logic ---
 
@@ -303,6 +450,24 @@ export const createNewTab = (name: string, state?: Partial<CanvasState>): Tab =>
   };
 };
 
+// --- Eager Background Session Preloading ---
+let eagerSessionPromise: Promise<{ tabs: Tab[], activeTabId: string } | undefined> | null = null;
+
+export const startBackgroundSessionPreload = () => {
+    if (!eagerSessionPromise && typeof window !== 'undefined') {
+        eagerSessionPromise = loadSessionFromDB().catch(e => {
+            console.warn("Background preload error:", e);
+            return undefined;
+        });
+    }
+    return eagerSessionPromise;
+};
+
+// Immediately initiate background canvas/session loading on module load
+if (typeof window !== 'undefined') {
+    startBackgroundSessionPreload();
+}
+
 export const useTabs = () => {
     const [tabs, setTabs] = useState<Tab[]>(() => [
         createNewTab('Canvas 1', defaultCanvasState),
@@ -314,11 +479,14 @@ export const useTabs = () => {
     const [nextAutoSaveTime, setNextAutoSaveTime] = useState<number | null>(null);
     const [isAutoSaving, setIsAutoSaving] = useState(false);
 
-    // Load from DB on mount
+    // Load from DB immediately on mount utilizing the eager preload promise
     useEffect(() => {
+        let isMounted = true;
         const load = async () => {
             try {
-                const session = await loadSessionFromDB();
+                const sessionPromise = eagerSessionPromise || startBackgroundSessionPreload() || loadSessionFromDB();
+                const session = await sessionPromise;
+                if (!isMounted) return;
                 if (session && Array.isArray(session.tabs) && session.tabs.length > 0) {
                     setTabs(session.tabs);
                     const validActiveId = session.tabs.some(t => t.id === session.activeTabId)
@@ -329,10 +497,15 @@ export const useTabs = () => {
             } catch (e) {
                 console.error("Failed to load session from IndexedDB:", e);
             } finally {
-                setIsLoaded(true);
+                if (isMounted) {
+                    setIsLoaded(true);
+                }
             }
         };
         load();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const handleSwitchTab = useCallback((newTabId: string) => {

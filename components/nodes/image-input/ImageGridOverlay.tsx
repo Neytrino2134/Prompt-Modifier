@@ -316,7 +316,7 @@ export const ImageGridOverlay: React.FC<ImageGridOverlayProps> = ({
                 <div className="absolute -top-7 left-0 bg-gray-900/95 text-cyan-300 text-[11px] font-mono font-bold px-2.5 py-0.5 rounded shadow border border-cyan-500/40 backdrop-blur-sm pointer-events-none flex items-center gap-2 whitespace-nowrap z-20">
                     <span>▦ Grid: {cols}×{rows} ({totalCells})</span>
                     {isCustomActive && (
-                        <span className="text-amber-300 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-600/60 text-[10px]">
+                        <span className="text-accent-secondary bg-accent-secondary/20 px-1.5 py-0.5 rounded border border-accent-secondary/60 text-[10px]">
                             Табличные границы
                         </span>
                     )}
@@ -506,9 +506,9 @@ export const ImageGridOverlay: React.FC<ImageGridOverlayProps> = ({
                             <div
                                 className={`w-0.5 h-full transition-colors ${
                                     isDraggingThis || isHoveredThis
-                                        ? 'bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.9)] w-1'
+                                        ? 'bg-accent-secondary shadow-md w-1'
                                         : isCustomActive
-                                            ? 'bg-amber-400/80 group-hover/col:bg-amber-300 group-hover/col:w-1'
+                                            ? 'bg-accent-secondary/80 group-hover/col:bg-accent-secondary group-hover/col:w-1'
                                             : 'bg-cyan-400/70 group-hover/col:bg-cyan-300 group-hover/col:w-1 shadow-[0_0_6px_rgba(6,182,212,0.6)]'
                                 }`}
                             />
@@ -517,7 +517,7 @@ export const ImageGridOverlay: React.FC<ImageGridOverlayProps> = ({
                             <div
                                 className={`absolute bg-gray-900 border text-[9px] px-1 py-0.5 rounded shadow-lg flex items-center gap-0.5 pointer-events-none transition-all font-mono ${
                                     isDraggingThis || isHoveredThis
-                                        ? 'opacity-100 scale-110 border-amber-400 text-amber-300 bg-black'
+                                        ? 'opacity-100 scale-110 border-accent-secondary text-accent-secondary bg-black'
                                         : 'opacity-60 group-hover/col:opacity-100 border-cyan-400 text-cyan-200'
                                 }`}
                             >
@@ -553,9 +553,9 @@ export const ImageGridOverlay: React.FC<ImageGridOverlayProps> = ({
                             <div
                                 className={`h-0.5 w-full transition-colors ${
                                     isDraggingThis || isHoveredThis
-                                        ? 'bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.9)] h-1'
+                                        ? 'bg-accent-secondary shadow-md h-1'
                                         : isCustomActive
-                                            ? 'bg-amber-400/80 group-hover/row:bg-amber-300 group-hover/row:h-1'
+                                            ? 'bg-accent-secondary/80 group-hover/row:bg-accent-secondary group-hover/row:h-1'
                                             : 'bg-cyan-400/70 group-hover/row:bg-cyan-300 group-hover/row:h-1 shadow-[0_0_6px_rgba(6,182,212,0.6)]'
                                 }`}
                             />
@@ -564,7 +564,7 @@ export const ImageGridOverlay: React.FC<ImageGridOverlayProps> = ({
                             <div
                                 className={`absolute bg-gray-900 border text-[9px] px-1 py-0.5 rounded shadow-lg flex items-center gap-0.5 pointer-events-none transition-all font-mono ${
                                     isDraggingThis || isHoveredThis
-                                        ? 'opacity-100 scale-110 border-amber-400 text-amber-300 bg-black'
+                                        ? 'opacity-100 scale-110 border-accent-secondary text-accent-secondary bg-black'
                                         : 'opacity-60 group-hover/row:opacity-100 border-cyan-400 text-cyan-200'
                                 }`}
                             >

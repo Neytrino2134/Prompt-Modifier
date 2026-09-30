@@ -1,10 +1,11 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+import { useTextContextMenu } from '../contexts/TextContextMenuContext';
 
 interface DebouncedInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     value: string;
     onDebouncedChange: (value: string) => void;
     debounceTime?: number;
+    disableCustomContextMenu?: boolean;
 }
 
 export const DebouncedInput: React.FC<DebouncedInputProps> = ({ 
@@ -13,11 +14,22 @@ export const DebouncedInput: React.FC<DebouncedInputProps> = ({
     debounceTime = 300, 
     onChange,
     onPaste,
+    onContextMenu,
+    spellCheck = true,
+    disableCustomContextMenu = false,
     ...props 
 }) => {
     const [localValue, setLocalValue] = useState(externalValue);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isTypingRef = useRef(false);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    let contextMenu: ReturnType<typeof useTextContextMenu> | null = null;
+    try {
+        contextMenu = useTextContextMenu();
+    } catch {
+        contextMenu = null;
+    }
 
     useEffect(() => {
         if (!isTypingRef.current && externalValue !== localValue) {
@@ -72,13 +84,30 @@ export const DebouncedInput: React.FC<DebouncedInputProps> = ({
         }
     };
 
+    const handleContextMenu = (e: React.MouseEvent<HTMLInputElement>) => {
+        if (onContextMenu) {
+            onContextMenu(e);
+        }
+
+        if (!disableCustomContextMenu && contextMenu && inputRef.current) {
+            contextMenu.openContextMenu(e, {
+                element: inputRef.current,
+                onDebouncedChange,
+                onValueUpdate: (val) => setLocalValue(val)
+            });
+        }
+    };
+
     return (
         <input
+            ref={inputRef}
+            spellCheck={spellCheck}
             {...props}
             value={localValue}
             onChange={handleChange}
             onBlur={handleBlur}
             onPaste={handlePaste}
+            onContextMenu={handleContextMenu}
         />
     );
 };

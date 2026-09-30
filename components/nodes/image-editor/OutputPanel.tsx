@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ActionButton } from '../../ActionButton';
-import { ChevronLeft, ChevronRight, Banana, Sparkles, Zap, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Banana, Sparkles, Zap, Image as ImageIcon, X, Square, StickyNote } from 'lucide-react';
 import CustomSelect from '../../CustomSelect';
 import { ImageEditorState, ImageSlot } from './types';
 import { CopyIcon } from '../../../components/icons/AppIcons';
@@ -139,6 +139,7 @@ interface OutputPanelProps {
     deselectAllNodes: () => void;
     nodeId: string;
     onClearOutputs?: () => void;
+    onSendToNote?: () => void;
 }
 
 const ITEM_SIZE = 160;
@@ -152,10 +153,10 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     onDownload, onCopy, onSelectAll, onSelectNone, onInvertSelection, onManualRefresh,
     onOutputClick, onSequenceOutputClick, onCheckOutput, onCopyFrame, onDownloadFrame, onRegenerateFrame, onStopFrame,
     getFullSizeImage, t, upstreamPrompt, upstreamPromptsCount, isTextConnected,
-    onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs
+    onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs, onSendToNote
 }) => {
     const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, autoSaveImages, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
-    const { isBatchMode, isFormingBatch, getNodeActiveBatchJob, isNodeBatchActive } = useAppContext();
+    const { isBatchMode, isFormingBatch, getNodeActiveBatchJob, isNodeBatchActive, cancelBatchForNode } = useAppContext();
     const isForming = isFormingBatch ? isFormingBatch(nodeId) : false;
     const activeBatchJob = getNodeActiveBatchJob ? getNodeActiveBatchJob(nodeId) : undefined;
     const isBatchActive = isNodeBatchActive ? isNodeBatchActive(nodeId) : false;
@@ -167,12 +168,46 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     // Confirmation State for Clearing Outputs
     const [showConfirmClear, setShowConfirmClear] = useState(false);
 
+    // Confirmation State for Cancelling Batch Formation & Server Request
+    const [showConfirmCancelBatch, setShowConfirmCancelBatch] = useState(false);
+
+    // Confirmation State for Run Batch / Run Selected (Sequence Mode)
+    const [showConfirmRun, setShowConfirmRun] = useState(false);
+    const pendingRunRef = useRef<(() => void) | null>(null);
+
+    const triggerRunWithConfirmation = (action: () => void) => {
+        if (isBatchMode || isSequenceMode) {
+            pendingRunRef.current = action;
+            setShowConfirmRun(true);
+        } else {
+            action();
+        }
+    };
+
+    const handleConfirmRun = () => {
+        setShowConfirmRun(false);
+        if (pendingRunRef.current) {
+            pendingRunRef.current();
+            pendingRunRef.current = null;
+        }
+    };
+
     const handleConfirmClear = () => {
         setShowConfirmClear(false);
         if (onClearOutputs) {
             onClearOutputs();
         } else {
             onUpdateState({ sequenceOutputs: [], checkedSequenceOutputIndices: [] });
+        }
+    };
+
+    const handleConfirmCancelBatch = async () => {
+        setShowConfirmCancelBatch(false);
+        if (cancelBatchForNode) {
+            await cancelBatchForNode(nodeId);
+        }
+        if (onStop) {
+            onStop();
         }
     };
 
@@ -268,7 +303,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     }, [checkedInputIndices]);
 
     const isMainActionDisabled = useMemo(() => {
-        if (isEditing || isForming || !!activeBatchJob) return true;
+        if (isEditing || isForming || !!activeBatchJob) return false;
 
         if (isSequenceMode) {
             // Sequence Mode ('Run selected'):
@@ -296,6 +331,45 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             }
         }
     }, [isEditing, isForming, activeBatchJob, isSequenceMode, hasValidPrompt, activeSelectedCount, isSequentialEditingWithPrompts, hasInputImages, hasCheckedInputImages]);
+
+    const confirmRunDetails = useMemo(() => {
+        const rawPrompt = isTextConnected ? (upstreamPrompt || prompt) : prompt;
+        const promptDisplay = rawPrompt?.trim()
+            ? (rawPrompt.length > 120 ? `${rawPrompt.substring(0, 117)}...` : rawPrompt)
+            : (isSequentialEditingWithPrompts ? t('node.content.framePrompts') || 'Индивидуальные промпты кадров' : t('common.empty') || 'Пустой');
+
+        const imagesCountDisplay = isSequenceMode
+            ? `${activeSelectedCount} ${t('common.items') || 'шт.'}`
+            : `1 ${t('common.items') || 'шт.'}`;
+
+        const modelDisplay = getModelShortName(effectiveModel, effectiveModel);
+        const aspectRatioDisplay = showAspectRatio ? (aspectRatio || '1:1') : 'Auto (1:1)';
+        const resolutionDisplay = showResolution 
+            ? (resolution || '1K') 
+            : showQuality 
+                ? (quality || 'standard') 
+                : showGptSize 
+                    ? (size || '1024x1024') 
+                    : '1K (Standard)';
+        const modeDisplay = isBatchMode 
+            ? `${t('batch.mode') || 'Batch API'} (-50%)` 
+            : `${t('stats.normalMode') || 'Realtime'}`;
+
+        const question = t('dialog.confirmRun.question') || 'Вы действительно проверили промпт, количество изображений, выбранную модель, соотношение и разрешение?';
+        const lblPrompt = t('dialog.confirmRun.prompt') || 'Промпт';
+        const lblCount = t('dialog.confirmRun.imagesCount') || 'Количество изображений';
+        const lblModel = t('dialog.confirmRun.model') || 'Модель';
+        const lblAspect = t('dialog.confirmRun.aspectRatio') || 'Соотношение сторон';
+        const lblResolution = t('dialog.confirmRun.resolution') || 'Разрешение / Качество';
+        const lblMode = t('dialog.confirmRun.mode') || 'Режим генерации';
+
+        const message = `${question}\n\n• ${lblPrompt}: ${promptDisplay}\n• ${lblCount}: ${imagesCountDisplay}\n• ${lblModel}: ${modelDisplay}\n• ${lblAspect}: ${aspectRatioDisplay}\n• ${lblResolution}: ${resolutionDisplay}\n• ${lblMode}: ${modeDisplay}`;
+
+        return {
+            title: t('dialog.confirmRun.title') || 'Проверка параметров перед запуском',
+            message,
+        };
+    }, [isTextConnected, upstreamPrompt, prompt, isSequentialEditingWithPrompts, isSequenceMode, activeSelectedCount, effectiveModel, showAspectRatio, aspectRatio, showResolution, resolution, showQuality, quality, showGptSize, size, isBatchMode, t]);
 
     // Layout Calculations
     const layout = useMemo(() => {
@@ -525,7 +599,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                             <EditorTooltip title={t('image_sequence.run_selected')} description="Запустить генерацию или обработку для выбранных кадров">
                                 <ActionButton 
                                     title="" 
-                                    onClick={onRunSelected} 
+                                    onClick={() => triggerRunWithConfirmation(onRunSelected)} 
                                     disabled={isEditing || activeSelectedCount === 0 || !hasValidPrompt || (!isSequentialEditingWithPrompts && hasInputImages && !hasCheckedInputImages)}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${(isEditing || activeSelectedCount === 0 || !hasValidPrompt || (!isSequentialEditingWithPrompts && hasInputImages && !hasCheckedInputImages)) ? 'text-gray-600' : 'text-emerald-400'}`} viewBox="0 0 20 20" fill="currentColor">
@@ -551,6 +625,22 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                     </svg>
                                 </ActionButton>
                             </EditorTooltip>
+
+                            {/* Send to Note References */}
+                            {onSendToNote && (
+                                <EditorTooltip 
+                                    title={t('imageEditor.sendFramesToNoteReferences') || "Send all frames to Note (References)"} 
+                                    description={t('imageEditor.tooltip.sendFramesToNote') || "Создать ноду Note в режиме References и вложить все кадры/результаты туда"}
+                                >
+                                    <ActionButton 
+                                        title="" 
+                                        onClick={onSendToNote} 
+                                        disabled={isEditing || (sequenceOutputs.length === 0 && doneCount === 0)}
+                                    >
+                                        <StickyNote className={`h-4 w-4 ${isEditing || (sequenceOutputs.length === 0 && doneCount === 0) ? 'text-gray-600' : 'text-amber-400 hover:text-amber-300'}`} />
+                                    </ActionButton>
+                                </EditorTooltip>
+                            )}
 
                             <div className="w-px h-4 bg-gray-600 mx-1"></div>
 
@@ -584,6 +674,11 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                 {LargeCopyIcon}
                             </button>
                             <button onClick={(e) => { e.stopPropagation(); onDownload(); }} className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto" aria-label={t('node.action.download')} title={t('node.action.download')}><svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
+                            {onSendToNote && (
+                                <button onClick={(e) => { e.stopPropagation(); onSendToNote(); }} className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto" aria-label={t('imageEditor.sendToNoteReferences') || "Send to Note References"} title={t('imageEditor.sendToNoteReferences') || "Send to Note References"}>
+                                    <StickyNote className="h-10 w-10 text-amber-400/90 hover:text-amber-300" />
+                                </button>
+                            )}
                         </div>
                     )}
                     {(isEditing || isBatchActive) && (
@@ -605,10 +700,28 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                     {activeBatchJob.displayName || activeBatchJob.name} ({activeBatchJob.state})
                                 </span>
                             )}
+                            {(isForming || activeBatchJob) && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowConfirmCancelBatch(true);
+                                    }}
+                                    className="mt-3 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-md shadow flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                    <span>{t('dialog.confirmCancelBatch.actionButton') || t('common.cancel') || 'Отмена batch'}</span>
+                                </button>
+                            )}
                         </div>
                     )}
                     {outputImage && !isBatchActive && (
                         <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {onSendToNote && (
+                                <ActionButton title={t('imageEditor.sendToNoteReferences') || "Send to Note References"} onClick={(e) => { e.stopPropagation(); onSendToNote(); }}>
+                                    <StickyNote className="h-4 w-4 text-amber-400 hover:text-amber-300" />
+                                </ActionButton>
+                            )}
                             <ActionButton title={t('node.action.copy')} onClick={(e) => { e.stopPropagation(); onCopy(); }}>
                                 <CopyIcon />
                             </ActionButton>
@@ -895,13 +1008,13 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
                     {/* Auto Download Toggle */}
                     <EditorTooltip
-                        title="Autosave images"
+                        title={t('image_sequence.auto_save') || "Autosave images"}
                         status={{
                             enabled: !!autoSaveImages,
                             labelOn: t('common.enabled') || 'Включено',
                             labelOff: t('common.disabled') || 'Выключено'
                         }}
-                        description={t('image_sequence.tooltip.autoSave') || "Save images to disk automatically"}
+                        description={t('image_sequence.tooltip.autoSave') || "Автоматически сохранять сгенерированные изображения на устройство при завершении генерации."}
                     >
                         <button
                             type="button"
@@ -919,40 +1032,54 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                         </button>
                     </EditorTooltip>
 
-                    {/* Main Action Button */}
-                    {isEditing && isSequenceMode ? (
-                        <button onClick={onStop} className="flex-shrink-0 min-w-max px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors">{isStopping ? t('node.action.stopping') : t('node.action.stop')}</button>
+                    {/* Main Action Button - Dynamic State Machine */}
+                    {isEditing ? (
+                        <button 
+                            type="button"
+                            onClick={onStop} 
+                            className="flex-shrink-0 min-w-max px-3.5 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-md transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                            title={isStopping ? (t('node.action.stopping') || 'Остановка...') : (t('node.action.stop') || 'Стоп')}
+                        >
+                            <Square className="w-3.5 h-3.5 fill-current" />
+                            <span>{isStopping ? (t('node.action.stopping') || 'Остановка...') : (t('node.action.stop') || 'Стоп')}</span>
+                        </button>
+                    ) : isForming ? (
+                        <button
+                            type="button"
+                            onClick={() => setShowConfirmCancelBatch(true)}
+                            className="flex-shrink-0 min-w-max px-3.5 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-md transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-900/30 cursor-pointer animate-pulse"
+                            title={t('batch.stopForming') || 'Стоп формирования'}
+                        >
+                            <Square className="w-3.5 h-3.5 fill-current" />
+                            <span>{t('batch.stopForming') || 'Стоп формирования'}</span>
+                        </button>
+                    ) : activeBatchJob ? (
+                        <button
+                            type="button"
+                            onClick={() => setShowConfirmCancelBatch(true)}
+                            className="flex-shrink-0 min-w-max px-3.5 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-md transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-900/30 cursor-pointer"
+                            title={t('batch.stopGeneration') || 'Стоп (отмена)'}
+                        >
+                            <X className="w-4 h-4" />
+                            <span>{t('batch.stopGeneration') || 'Стоп (отмена)'}</span>
+                        </button>
                     ) : (
                         <button 
-                            onClick={isSequenceMode ? onRunSelected : onEdit}
+                            type="button"
+                            onClick={() => triggerRunWithConfirmation(isSequenceMode ? onRunSelected : onEdit)}
                             disabled={isMainActionDisabled} 
-                            className={`flex-shrink-0 min-w-[100px] px-3 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 ${
+                            className={`flex-shrink-0 min-w-[100px] px-3.5 h-[36px] items-center justify-center whitespace-nowrap font-bold text-white rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 ${
                                 isBatchMode 
                                     ? 'bg-accent-secondary hover:bg-accent-secondary-hover active:bg-accent-secondary shadow-md' 
                                     : 'bg-cyan-600 hover:bg-cyan-700'
                             }`}
                         >
-                            {isEditing 
-                                ? (hasInputImages ? t('node.content.editing') : t('node.content.generating')) 
-                                : isForming
-                                    ? (
-                                        <>
-                                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            <span>{t('batch.formingRequest') || 'Forming batch request...'}</span>
-                                        </>
-                                      )
-                                    : activeBatchJob
-                                        ? <span>{t('batch.waitingForResponseButton') || 'Waiting for response (Batch)'}</span>
-                                        : (isSequenceMode 
-                                            ? (isBatchMode ? (t('image_sequence.run_selected_batch') || `${t('image_sequence.run_selected')} (Batch)`) : t('image_sequence.run_selected')) 
-                                            : (!hasInputImages 
-                                                ? (isBatchMode ? (t('node.content.generateImage_batch') || `${t('node.content.generateImage')} (Batch)`) : t('node.content.generateImage')) 
-                                                : (isBatchMode ? (t('node.content.applyEdit_batch') || `${t('node.content.applyEdit')} (Batch)`) : t('node.content.applyEdit'))
-                                              )
-                                          )
+                            {isSequenceMode 
+                                ? (isBatchMode ? (t('image_sequence.run_selected_batch') || `${t('image_sequence.run_selected')} (Batch)`) : t('image_sequence.run_selected')) 
+                                : (!hasInputImages 
+                                    ? (isBatchMode ? (t('node.content.generateImage_batch') || `${t('node.content.generateImage')} (Batch)`) : t('node.content.generateImage')) 
+                                    : (isBatchMode ? (t('node.content.applyEdit_batch') || `${t('node.content.applyEdit')} (Batch)`) : t('node.content.applyEdit'))
+                                  )
                             }
                         </button>
                     )}
@@ -1011,6 +1138,33 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                  confirmLabel={t('dialog.deleteNode.confirm') || "Yes"}
                  cancelLabel={t('dialog.deleteNode.cancel') || "No"}
                  confirmVariant="danger"
+             />
+
+             {/* Confirmation Dialog for Cancelling Batch Formation & Server Request */}
+             <ConfirmDialog
+                 isOpen={showConfirmCancelBatch}
+                 onClose={() => setShowConfirmCancelBatch(false)}
+                 onConfirm={handleConfirmCancelBatch}
+                 title={t('dialog.confirmCancelBatch.title') || "Отмена формирования batch-запроса"}
+                 message={t('dialog.confirmCancelBatch.message') || "Вы действительно хотите отменить формирование batch-запроса и остановить отправку на сервер?"}
+                 confirmLabel={t('dialog.confirmCancelBatch.confirm') || "Да, отменить"}
+                 cancelLabel={t('dialog.confirmCancelBatch.cancel') || "Продолжить"}
+                 confirmVariant="danger"
+             />
+
+             {/* Confirmation Dialog for Run Batch / Run Selected (Sequence Mode) */}
+             <ConfirmDialog
+                 isOpen={showConfirmRun}
+                 onClose={() => {
+                     setShowConfirmRun(false);
+                     pendingRunRef.current = null;
+                 }}
+                 onConfirm={handleConfirmRun}
+                 title={confirmRunDetails.title}
+                 message={confirmRunDetails.message}
+                 confirmLabel={t('dialog.confirmRun.confirm') || "Да, запустить"}
+                 cancelLabel={t('dialog.confirmRun.cancel') || "Отмена"}
+                 confirmVariant={isBatchMode ? "accent" : "primary"}
              />
         </div>
     );

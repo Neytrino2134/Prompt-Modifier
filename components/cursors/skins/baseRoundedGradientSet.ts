@@ -26,7 +26,7 @@ export function buildRoundedGradientSvgSet(palette: GradientPalette) {
            <stop offset='100%' stop-color='${stop3}'/>`;
 
     const defs = `<defs>
-        <linearGradient id='${gradId}' x1='10%' y1='5%' x2='90%' y2='95%'>
+        <linearGradient id='${gradId}' gradientUnits='userSpaceOnUse' x1='26' y1='26' x2='2' y2='2'>
             ${stops}
         </linearGradient>
     </defs>`;

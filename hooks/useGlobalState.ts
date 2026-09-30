@@ -1,6 +1,12 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme, CanvasColorMode, InputColorMode, PanelStyle, PanelAnimation, CursorSkin } from '../types';
+import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme, CanvasColorMode, InputColorMode, PanelStyle, PanelAnimation, CursorSkin, ConnectionAnimationStyle, ConnectionAnimationConfig, DEFAULT_CONNECTION_ANIMATION_CONFIG } from '../types';
+import {
+  PanelAnimationConfig,
+  DEFAULT_PANEL_ANIMATION_CONFIG,
+  DEFAULT_BUBBLE_CONFIG,
+  DEFAULT_CYBER_CONFIG,
+} from '../components/settings/appearance/panelAnimationDefinitions';
 
 export const useGlobalState = (currentNodes: Node[]) => {
     // Logs & Debug Console
@@ -17,8 +23,10 @@ export const useGlobalState = (currentNodes: Node[]) => {
             details
         };
         logBuffer.current = [...logBuffer.current, newLog].slice(-200);
-        // Instant update to state so UI receives it immediately
-        setLogs(prev => [...prev, newLog].slice(-200));
+        // Defer state update to ensure it never fires synchronously during another component's render phase (e.g. console interception)
+        setTimeout(() => {
+            setLogs(prev => [...prev, newLog].slice(-200));
+        }, 0);
     }, []);
 
     // Sync buffer to state periodically as a safety fallback
@@ -172,6 +180,14 @@ export const useGlobalState = (currentNodes: Node[]) => {
 
     // App Settings (Initialize from localStorage where appropriate)
     const [isInstantCloseEnabled, setIsInstantCloseEnabled] = useState(() => localStorage.getItem('settings_instantNodeClose') === 'true');
+    const [isImageDropMenuEnabled, setIsImageDropMenuEnabledState] = useState<boolean>(() => {
+        const stored = localStorage.getItem('settings_imageDropMenu');
+        return stored === null ? true : stored === 'true';
+    });
+    const setIsImageDropMenuEnabled = useCallback((enabled: boolean) => {
+        setIsImageDropMenuEnabledState(enabled);
+        localStorage.setItem('settings_imageDropMenu', enabled ? 'true' : 'false');
+    }, []);
     const [isHoverHighlightEnabled, setIsHoverHighlightEnabled] = useState(() => {
         const stored = localStorage.getItem('settings_hoverHighlight');
         return stored === null ? true : stored === 'true';
@@ -189,6 +205,80 @@ export const useGlobalState = (currentNodes: Node[]) => {
         const stored = localStorage.getItem('settings_connectionOpacity');
         return stored === null ? 0.4 : parseFloat(stored) || 0.4;
     });
+    const [connectionAnimationStyle, setConnectionAnimationStyleState] = useState<ConnectionAnimationStyle>(() => {
+        return (localStorage.getItem('settings_connectionAnimationStyle') as ConnectionAnimationStyle) || 'cyber_tron';
+    });
+    const [connectionAnimationConfig, setConnectionAnimationConfigState] = useState<ConnectionAnimationConfig>(() => {
+        try {
+            const saved = localStorage.getItem('settings_connectionAnimationConfig');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return { ...DEFAULT_CONNECTION_ANIMATION_CONFIG, ...parsed };
+            }
+        } catch (e) {
+            console.error('Failed to parse connection animation config', e);
+        }
+        return DEFAULT_CONNECTION_ANIMATION_CONFIG;
+    });
+
+    const setConnectionAnimationStyle = useCallback((style: ConnectionAnimationStyle) => {
+        setConnectionAnimationStyleState(style);
+        localStorage.setItem('settings_connectionAnimationStyle', style);
+        setConnectionAnimationConfigState(prev => {
+            const updated = { ...prev, style };
+            try {
+                localStorage.setItem('settings_connectionAnimationConfig', JSON.stringify(updated));
+            } catch (e) {
+                console.error('Failed to save connection animation config', e);
+            }
+            return updated;
+        });
+    }, []);
+
+    const setConnectionAnimationConfig = useCallback((configOrUpdater: React.SetStateAction<ConnectionAnimationConfig>) => {
+        setConnectionAnimationConfigState(prev => {
+            const next = typeof configOrUpdater === 'function' ? configOrUpdater(prev) : configOrUpdater;
+            try {
+                localStorage.setItem('settings_connectionAnimationConfig', JSON.stringify(next));
+                if (next.style) {
+                    localStorage.setItem('settings_connectionAnimationStyle', next.style);
+                    setConnectionAnimationStyleState(next.style);
+                }
+            } catch (e) {
+                console.error('Failed to save connection animation config', e);
+            }
+            return next;
+        });
+    }, []);
+
+    const updateConnectionAnimationConfig = useCallback((partial: Partial<ConnectionAnimationConfig>) => {
+        setConnectionAnimationConfigState(prev => {
+            const updated = { ...prev, ...partial };
+            try {
+                localStorage.setItem('settings_connectionAnimationConfig', JSON.stringify(updated));
+                if (partial.style) {
+                    localStorage.setItem('settings_connectionAnimationStyle', partial.style);
+                    setConnectionAnimationStyleState(partial.style);
+                }
+            } catch (e) {
+                console.error('Failed to save connection animation config', e);
+            }
+            return updated;
+        });
+    }, []);
+
+    const resetConnectionAnimationConfig = useCallback(() => {
+        setConnectionAnimationConfigState(DEFAULT_CONNECTION_ANIMATION_CONFIG);
+        setConnectionAnimationStyleState(DEFAULT_CONNECTION_ANIMATION_CONFIG.style);
+        try {
+            localStorage.setItem('settings_connectionAnimationConfig', JSON.stringify(DEFAULT_CONNECTION_ANIMATION_CONFIG));
+            localStorage.setItem('settings_connectionAnimationStyle', DEFAULT_CONNECTION_ANIMATION_CONFIG.style);
+        } catch (e) {
+            console.error('Failed to reset connection animation config', e);
+        }
+    }, []);
+
+    const [isConnectionConfigOpen, setIsConnectionConfigOpen] = useState(false);
     const [autoSaveInterval, setAutoSaveIntervalState] = useState<number>(() => {
         const stored = localStorage.getItem('settings_autoSaveInterval');
         return stored === null ? 60 : parseInt(stored, 10);
@@ -197,6 +287,29 @@ export const useGlobalState = (currentNodes: Node[]) => {
     const setAutoSaveInterval = useCallback((val: number) => {
         setAutoSaveIntervalState(val);
         localStorage.setItem('settings_autoSaveInterval', val.toString());
+    }, []);
+
+    // Auto-Save History Limit (0 = Unlimited, or 3, 5, 10, 15, 20, 30, 50)
+    const [autoSaveHistoryLimit, setAutoSaveHistoryLimitState] = useState<number>(() => {
+        const stored = localStorage.getItem('settings_autoSaveHistoryLimit');
+        return stored === null ? 5 : parseInt(stored, 10);
+    });
+
+    const setAutoSaveHistoryLimit = useCallback((limit: number) => {
+        setAutoSaveHistoryLimitState(limit);
+        localStorage.setItem('settings_autoSaveHistoryLimit', limit.toString());
+    }, []);
+
+    // Auto-Save Session Count Limit (1 to 5, default 2)
+    const [autoSaveSessionLimit, setAutoSaveSessionLimitState] = useState<number>(() => {
+        const stored = localStorage.getItem('settings_autoSaveSessionLimit');
+        return stored === null ? 2 : Math.max(1, Math.min(5, parseInt(stored, 10)));
+    });
+
+    const setAutoSaveSessionLimit = useCallback((limit: number) => {
+        const val = Math.max(1, Math.min(5, limit));
+        setAutoSaveSessionLimitState(val);
+        localStorage.setItem('settings_autoSaveSessionLimit', val.toString());
     }, []);
 
     // Theme Settings
@@ -272,6 +385,95 @@ export const useGlobalState = (currentNodes: Node[]) => {
         setIsPanelAnimationAdaptiveState(adaptive);
         localStorage.setItem('settings_panelAnimationAdaptive', adaptive ? 'true' : 'false');
     }, []);
+
+    // Panel Animation Config Parameters (Bubbles, Cyber Grid, etc.)
+    const [panelAnimationConfig, setPanelAnimationConfigState] = useState<PanelAnimationConfig>(() => {
+        try {
+            const saved = localStorage.getItem('settings_panelAnimationConfig');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return {
+                    shapes_bubbles: { ...DEFAULT_BUBBLE_CONFIG, ...(parsed.shapes_bubbles || {}) },
+                    shapes_cyber: { ...DEFAULT_CYBER_CONFIG, ...(parsed.shapes_cyber || {}) },
+                };
+            }
+        } catch (e) {
+            console.error('Failed to parse panel animation config', e);
+        }
+        return DEFAULT_PANEL_ANIMATION_CONFIG;
+    });
+
+    const setPanelAnimationConfig = useCallback((configOrUpdater: React.SetStateAction<PanelAnimationConfig>) => {
+        setPanelAnimationConfigState(prev => {
+            const next = typeof configOrUpdater === 'function' ? configOrUpdater(prev) : configOrUpdater;
+            try {
+                localStorage.setItem('settings_panelAnimationConfig', JSON.stringify(next));
+            } catch (e) {
+                console.error('Failed to save panel animation config', e);
+            }
+            return next;
+        });
+    }, []);
+
+    const updatePanelAnimationConfig = useCallback(<K extends keyof PanelAnimationConfig>(
+        animKey: K,
+        partial: Partial<PanelAnimationConfig[K]>
+    ) => {
+        setPanelAnimationConfigState(prev => {
+            const updated = {
+                ...prev,
+                [animKey]: {
+                    ...prev[animKey],
+                    ...partial,
+                },
+            };
+            try {
+                localStorage.setItem('settings_panelAnimationConfig', JSON.stringify(updated));
+            } catch (e) {
+                console.error('Failed to save panel animation config', e);
+            }
+            return updated;
+        });
+    }, []);
+
+    const resetPanelAnimationConfig = useCallback((animKey?: keyof PanelAnimationConfig) => {
+        setPanelAnimationConfigState(prev => {
+            let updated: PanelAnimationConfig;
+            if (animKey === 'shapes_bubbles') {
+                updated = { ...prev, shapes_bubbles: { ...DEFAULT_BUBBLE_CONFIG } };
+            } else if (animKey === 'shapes_cyber') {
+                updated = { ...prev, shapes_cyber: { ...DEFAULT_CYBER_CONFIG } };
+            } else {
+                updated = {
+                    shapes_bubbles: { ...DEFAULT_BUBBLE_CONFIG },
+                    shapes_cyber: { ...DEFAULT_CYBER_CONFIG },
+                };
+            }
+            try {
+                localStorage.setItem('settings_panelAnimationConfig', JSON.stringify(updated));
+            } catch (e) {
+                console.error('Failed to reset panel animation config', e);
+            }
+            return updated;
+        });
+    }, []);
+
+    // Parameters Dialog Modal State
+    const [isPanelAnimationConfigOpen, setIsPanelAnimationConfigOpen] = useState(false);
+    const [panelAnimationConfigActiveTab, setPanelAnimationConfigActiveTab] = useState<keyof PanelAnimationConfig>('shapes_bubbles');
+
+    const openPanelAnimationConfig = useCallback((anim?: PanelAnimation) => {
+        if (anim === 'shapes_cyber') {
+            setPanelAnimationConfigActiveTab('shapes_cyber');
+        } else if (anim === 'shapes_bubbles') {
+            setPanelAnimationConfigActiveTab('shapes_bubbles');
+        } else if (panelAnimation === 'shapes_cyber') {
+            setPanelAnimationConfigActiveTab('shapes_cyber');
+        } else {
+            setPanelAnimationConfigActiveTab('shapes_bubbles');
+        }
+        setIsPanelAnimationConfigOpen(true);
+    }, [panelAnimation]);
 
     // Cursor Skin Setting
     const [cursorSkin, setCursorSkinState] = useState<CursorSkin>(() => {
@@ -400,12 +602,19 @@ export const useGlobalState = (currentNodes: Node[]) => {
         isDockingMenuVisible, setIsDockingMenuVisible,
         focusedNodeId, toggleNodeFullScreen,
         isInstantCloseEnabled, setIsInstantCloseEnabled,
+        isImageDropMenuEnabled, setIsImageDropMenuEnabled,
         isHoverHighlightEnabled, setIsHoverHighlightEnabled,
         isBringToFrontOnHoverEnabled, setIsBringToFrontOnHoverEnabled,
         nodeAnimationMode, setNodeAnimationMode,
         isConnectionAnimationEnabled, setIsConnectionAnimationEnabled,
         connectionOpacity, setConnectionOpacity,
+        connectionAnimationStyle, setConnectionAnimationStyle,
+        connectionAnimationConfig, setConnectionAnimationConfig,
+        updateConnectionAnimationConfig, resetConnectionAnimationConfig,
+        isConnectionConfigOpen, setIsConnectionConfigOpen,
         autoSaveInterval, setAutoSaveInterval,
+        autoSaveHistoryLimit, setAutoSaveHistoryLimit,
+        autoSaveSessionLimit, setAutoSaveSessionLimit,
         currentTheme, setTheme,
         canvasColorMode, setCanvasColorMode,
         inputColorMode, setInputColorMode,
@@ -413,6 +622,11 @@ export const useGlobalState = (currentNodes: Node[]) => {
         isPanelAutoHide, setIsPanelAutoHide,
         panelAnimation, setPanelAnimation,
         isPanelAnimationAdaptive, setIsPanelAnimationAdaptive,
+        panelAnimationConfig, setPanelAnimationConfig,
+        updatePanelAnimationConfig, resetPanelAnimationConfig,
+        isPanelAnimationConfigOpen, setIsPanelAnimationConfigOpen,
+        panelAnimationConfigActiveTab, setPanelAnimationConfigActiveTab,
+        openPanelAnimationConfig,
         cursorSkin, setCursorSkin,
         isCursorEffectEnabled, setIsCursorEffectEnabled,
         clearSelectionsSignal,

@@ -28,7 +28,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     `;
 
     // 1. Default (Chunky 2-Tone Rounded Toy Arrow with Cute Tail Tab)
-    const defaultSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const defaultSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <!-- Tail Tab -->
@@ -44,7 +44,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 2. Pointer (Toy Arrow with Cute Floating Bubble Indicator)
-    const pointerSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const pointerSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <!-- Tail Tab -->
@@ -61,7 +61,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 3. Grab (Cute 4-way Toy Mushroom Pad / Open Palm)
-    const grabSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const grabSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <circle cx='14' cy='14' r='10' fill='${outerColor}'/>
@@ -76,7 +76,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 4. Grabbing (Compressed Gripping Toy Button)
-    const grabbingSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const grabbingSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <circle cx='14' cy='14' r='8.5' fill='${outerColor}'/>
@@ -86,7 +86,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 5. Text (Toy Barbell / Capsule I-Beam)
-    const textSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const textSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <!-- Top Cap -->
@@ -102,7 +102,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 6. Crosshair (Chunky Rounded Toy Reticle)
-    const crosshairSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const crosshairSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <circle cx='14' cy='14' r='9.5' fill='none' stroke='${outerColor}' stroke-width='3.2'/>
@@ -119,7 +119,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 7. EW Resize (Chunky Double Toy Arrow Horizontal)
-    const ewResizeSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const ewResizeSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <!-- Horizontal Connector Pill -->
@@ -135,7 +135,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 8. NS Resize (Chunky Double Toy Arrow Vertical)
-    const nsResizeSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const nsResizeSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <!-- Vertical Connector Pill -->
@@ -151,7 +151,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 9. NWSE Resize (Chunky Diagonal Toy Arrow)
-    const nwseResizeSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const nwseResizeSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})' transform='rotate(45 14 14)'>
             <rect x='11.5' y='5' width='5' height='18' rx='2.5' fill='${outerColor}'/>
@@ -164,7 +164,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 10. NESW Resize (Chunky Diagonal Toy Arrow)
-    const neswResizeSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const neswResizeSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})' transform='rotate(-45 14 14)'>
             <rect x='11.5' y='5' width='5' height='18' rx='2.5' fill='${outerColor}'/>
@@ -177,7 +177,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 11. Move (Chunky 4-Way Toy D-Pad Compass)
-    const moveSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const moveSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <!-- Center Hub -->
@@ -197,7 +197,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 12. Cutter (Chunky Toy Safety Scissors)
-    const cutterSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const cutterSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <!-- Handle Ring 1 -->
@@ -218,7 +218,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 13. Reroute (Chunky Toy Reroute Capsule Node with Flow Chevrons)
-    const rerouteSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const rerouteSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <!-- Lead Wire Pins -->
@@ -239,7 +239,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 14. Not Allowed (Chunky Toy Prohibition Ring)
-    const notAllowedSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const notAllowedSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <circle cx='14' cy='14' r='9.5' fill='none' stroke='${outerColor}' stroke-width='3.6'/>
@@ -250,7 +250,7 @@ export function buildToySvgSet(palette: ToyPalette): {
     </svg>`;
 
     // 15. Wait (Playful Toy Orbital Beads)
-    const waitSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='none'>
+    const waitSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 28 28' fill='none'>
         ${filterDef}
         <g filter='url(#${filterId})'>
             <!-- Center Toy Sphere -->
@@ -270,21 +270,21 @@ export function buildToySvgSet(palette: ToyPalette): {
 
     return {
         cursors: {
-            default: `${svgToDataUri(defaultSvg)} 4 4, auto`,
-            pointer: `${svgToDataUri(pointerSvg)} 4 4, pointer`,
-            grab: `${svgToDataUri(grabSvg)} 14 14, grab`,
-            grabbing: `${svgToDataUri(grabbingSvg)} 14 14, grabbing`,
-            text: `${svgToDataUri(textSvg)} 14 14, text`,
-            crosshair: `${svgToDataUri(crosshairSvg)} 14 14, crosshair`,
-            ewResize: `${svgToDataUri(ewResizeSvg)} 14 14, ew-resize`,
-            nsResize: `${svgToDataUri(nsResizeSvg)} 14 14, ns-resize`,
-            nwseResize: `${svgToDataUri(nwseResizeSvg)} 14 14, nwse-resize`,
-            neswResize: `${svgToDataUri(neswResizeSvg)} 14 14, nesw-resize`,
-            move: `${svgToDataUri(moveSvg)} 14 14, move`,
-            cutter: `${svgToDataUri(cutterSvg)} 12 14, crosshair`,
-            reroute: `${svgToDataUri(rerouteSvg)} 14 14, crosshair`,
-            notAllowed: `${svgToDataUri(notAllowedSvg)} 14 14, not-allowed`,
-            wait: `${svgToDataUri(waitSvg)} 14 14, wait`
+            default: `${svgToDataUri(defaultSvg)} 8 8, auto`,
+            pointer: `${svgToDataUri(pointerSvg)} 8 8, pointer`,
+            grab: `${svgToDataUri(grabSvg)} 17 17, grab`,
+            grabbing: `${svgToDataUri(grabbingSvg)} 17 17, grabbing`,
+            text: `${svgToDataUri(textSvg)} 28 28, text`,
+            crosshair: `${svgToDataUri(crosshairSvg)} 28 28, crosshair`,
+            ewResize: `${svgToDataUri(ewResizeSvg)} 28 28, ew-resize`,
+            nsResize: `${svgToDataUri(nsResizeSvg)} 28 28, ns-resize`,
+            nwseResize: `${svgToDataUri(nwseResizeSvg)} 28 28, nwse-resize`,
+            neswResize: `${svgToDataUri(neswResizeSvg)} 28 28, nesw-resize`,
+            move: `${svgToDataUri(moveSvg)} 28 28, move`,
+            cutter: `${svgToDataUri(cutterSvg)} 24 28, crosshair`,
+            reroute: `${svgToDataUri(rerouteSvg)} 28 28, crosshair`,
+            notAllowed: `${svgToDataUri(notAllowedSvg)} 28 28, not-allowed`,
+            wait: `${svgToDataUri(waitSvg)} 28 28, wait`
         },
         rawSvgs: {
             default: defaultSvg,

@@ -95,7 +95,7 @@ const QuickSearchMenu: React.FC<QuickSearchMenuProps> = ({ isOpen, position, onC
     // Group 7: Game
     { group: 'game', type: NodeType.DATA_PROTECTION, title: t('search.node.data_protection.title' as any), englishTitle: 'Data Protection', description: t('search.node.data_protection.description' as any), icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg> },
     // Group 8: 3D Models
-    { group: 'threed', type: NodeType.THREE_D_GENERATOR, title: t('search.node.three_d_generator.title' as any) || '3D Generation', englishTitle: '3D Generation (Tripo)', description: t('search.node.three_d_generator.description' as any) || 'Generate 3D mesh models (.glb) from image or multiview images via Tripo AI', icon: <ThreeDModelIcon className="w-6 h-6 text-indigo-400" /> },
+    { group: 'threed', type: NodeType.THREE_D_GENERATOR, title: t('search.node.three_d_generator.title' as any) || '3D Generation', englishTitle: '3D Generation (Tripo)', description: t('search.node.three_d_generator.description' as any) || 'Generate 3D mesh models (.glb) from image or multiview images via Tripo AI', icon: <ThreeDModelIcon className="w-6 h-6" /> },
   ], [t]);
 
   const groupTitles = useMemo(() => ({

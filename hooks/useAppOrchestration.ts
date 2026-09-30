@@ -214,10 +214,10 @@ export const useAppOrchestration = (
                             return;
                         }
 
-                        // Paste Image Input Node Data (Full Batch + Parameters + Images)
+                        // Paste Image Input Node Data (Full Batch + Parameters + Images + Frames)
                         if (
                             json.type === 'image-input-data' ||
-                            (typeof json === 'object' && json !== null && !Array.isArray(json) && ('batchFiles' in json || 'grid' in json || ('image' in json && ('cropRect' in json || 'batchConfig' in json || 'extractedImages' in json || 'fullSizeImage' in json))))
+                            (typeof json === 'object' && json !== null && !Array.isArray(json) && ('framesConfig' in json || 'batchFiles' in json || 'grid' in json || ('image' in json && ('cropRect' in json || 'batchConfig' in json || 'extractedImages' in json || 'fullSizeImage' in json))))
                         ) {
                             const title = json.nodeTitle || t('node.title.image_input') || 'Image Input';
                             const newNodeId = entityActionsHook.onAddNode(NodeType.IMAGE_INPUT, pos, title);
@@ -274,10 +274,12 @@ export const useAppOrchestration = (
                             const nodeValue = JSON.stringify({
                                 image: mainThumbnail,
                                 prompt: json.prompt || '',
-                                mode: json.mode || (restoredBatchFiles.length > 0 ? 'batch' : (json.grid ? 'grid' : (json.cropRect ? 'single' : 'full'))),
+                                mode: json.mode || (json.framesConfig ? 'frames' : (restoredBatchFiles.length > 0 ? 'batch' : (json.grid ? 'grid' : (json.cropRect ? 'single' : 'full')))),
                                 cropRect: json.cropRect || null,
                                 croppedImage: json.croppedImage || null,
                                 grid: json.grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } },
+                                framesConfig: json.framesConfig || null,
+                                frameImages: json.frameImages || [],
                                 batchConfig: json.batchConfig || { subMode: 'crop', includeOriginal: true, assetName: 'Asset_Name' },
                                 batchFiles: restoredBatchFiles,
                                 extractedImages: json.extractedImages || [],

@@ -229,8 +229,8 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
                         id={`auto-save-images`}
                         checked={autoSaveImages}
                         onChange={(checked) => onUpdateState({ autoSaveImages: checked })}
-                        label="Autosave images"
-                        title={t('image_sequence.tooltip.autoSave') || "Save images to disk automatically"}
+                        label={t('image_sequence.auto_save') || "Autosave images"}
+                        title={t('image_sequence.tooltip.autoSave') || "Автоматически сохранять сгенерированные изображения на устройство при завершении генерации."}
                         className="text-sm text-gray-300"
                     />
                 </div>

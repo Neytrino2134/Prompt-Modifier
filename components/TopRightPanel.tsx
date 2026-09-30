@@ -160,7 +160,12 @@ const TopRightPanel: React.FC = () => {
     const timeDisplay = isProcessing ? elapsedTime : lastResult;
 
     return (
-        <div className={`fixed top-20 right-3 z-30 flex flex-col items-end pointer-events-none select-none transition-transform duration-300 ease-in-out ${isSidePanelOpen ? '-translate-x-80 sm:-translate-x-96' : 'translate-x-0'}`}>
+        <div 
+            className={`fixed right-3 z-30 flex flex-col items-end pointer-events-none select-none transition-transform duration-300 ease-in-out ${isSidePanelOpen ? '-translate-x-80 sm:-translate-x-96' : 'translate-x-0'}`}
+            style={{
+                top: 'calc(var(--app-header-height, 76px) + 8px)'
+            }}
+        >
              <TutorialTooltip 
                 content={t('tutorial.step3b')} 
                 isActive={!!isTutorialActive} 

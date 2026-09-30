@@ -24,7 +24,8 @@ export const nodes = {
     'node.title.data_reader': 'Data Reader',
     'node.title.video_editor': 'Video Editor Alpha',
     'node.title.media_viewer': 'Media Viewer',
-    'node.title.data_protection': 'Data Protection',
+    'node.title.data_protection': 'Mini-Games (Batch API Lounge)',
+    'node.title.mini_games': 'Mini-Games (Batch API Lounge)',
     'node.title.pose_creator': 'Pose Creator',
     'node.title.three_d_generator': '3D Generation',
     'node.help.text_input': 'A simple multiline text field for entering prompts or notes.',
@@ -51,7 +52,8 @@ export const nodes = {
     'node.help.data_reader': 'Debug tool for inspecting raw data flowing through connections.',
     'node.help.video_editor': 'A timeline-based tool for editing video clips and images.',
     'node.help.media_viewer': 'A player for viewing video and audio files with playback controls.',
-    'node.help.data_protection': 'An interactive Tower Defense game node. Defend your data stream from corruption.',
+    'node.help.data_protection': 'Collection of mini-games (Data Defender, 2048, Snake, Quantum Hopper, Memory Matrix, Cyber Arkanoid) with 8-bit sound FX and real-time Batch API monitoring.',
+    'node.help.mini_games': 'Collection of mini-games (Data Defender, 2048, Snake, Quantum Hopper, Memory Matrix, Cyber Arkanoid) with 8-bit sound FX and real-time Batch API monitoring.',
     'node.help.pose_creator': 'Visually rig and create character poses for generation guidance.',
     'node.help.three_d_generator': 'Generate 3D mesh models (.glb) from a single image or multi-view images (Front, Left, Back, Right) using Tripo AI.',
     'node.action.expand': 'Expand',
@@ -337,6 +339,8 @@ export const nodes = {
     'node.promptProcessor.enhanceTooltip': 'Uses AI to expand and enrich the prompt with descriptive details.',
     'node.promptProcessor.chainTooltip': 'Executes this node and triggers all connected downstream nodes.',
 
+    'image_sequence.auto_save': 'Autosave images',
+    'image_sequence.tooltip.autoSave': 'Automatically saves generated images to your device upon generation completion.',
     'image_sequence.tooltip.autoCrop': 'Automatically crops generated images to 16:9 ratio.',
     'image_sequence.tooltip.autoDownload': 'Automatically saves each image to your device upon generation.',
     'image_sequence.tooltip.createZip': 'Packages all selected images into a single ZIP archive for download.'

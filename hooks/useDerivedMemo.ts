@@ -152,6 +152,10 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                     const firstFull = getFullSizeImage(node.id, 1);
                     if (firstFull && !optimizedForUI) return firstFull;
                     if (parsed.extractedImages?.[0]) return parsed.extractedImages[0];
+                } else if (mode === 'frames') {
+                    const firstFull = getFullSizeImage(node.id, 1);
+                    if (firstFull && !optimizedForUI) return firstFull;
+                    if (parsed.frameImages?.[0]) return parsed.frameImages[0];
                 } else if (mode === 'batch') {
                     const subMode = parsed.batchConfig?.subMode || (parsed.grid ? 'grid' : 'crop');
                     if (subMode === 'grid' && parsed.grid && Array.isArray(parsed.extractedImages) && parsed.extractedImages.length > 0) {
@@ -534,6 +538,22 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             selectedCells.forEach((cellIdx) => {
                                 const fullUrl = getFullSizeImage(fromNode.id, 1 + cellIdx);
                                 const thumbUrl = thumbs[cellIdx];
+                                const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
+                                if (url && url.startsWith('data:')) {
+                                    const parts = url.split(',');
+                                    const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                    values.push({ base64ImageData: parts[1], mimeType: mime });
+                                    pushedAny = true;
+                                }
+                            });
+                            if (pushedAny) continue;
+                        } else if (mode === 'frames') {
+                            const frames = parsed.framesConfig?.frames || [];
+                            const thumbs = parsed.frameImages || [];
+                            let pushedAny = false;
+                            frames.forEach((_: any, frameIdx: number) => {
+                                const fullUrl = getFullSizeImage(fromNode.id, 1 + frameIdx);
+                                const thumbUrl = thumbs[frameIdx];
                                 const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
                                 if (url && url.startsWith('data:')) {
                                     const parts = url.split(',');

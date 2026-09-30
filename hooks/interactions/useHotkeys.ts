@@ -56,6 +56,7 @@ interface UseHotkeysProps {
     handleValueChange: (nodeId: string, value: string) => void;
     setIsHistoryPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setIsTaskQueuePanelOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+    handleCloseActiveTab?: () => void;
 }
 
 export const useHotkeys = (props: UseHotkeysProps) => {
@@ -70,16 +71,32 @@ export const useHotkeys = (props: UseHotkeysProps) => {
         setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition,
         radialMenuSelectedItem, setRadialMenuSelectedItem, getTransformedPoint, radialMenuPosition,
         quickSlots, isConnectionQuickAddOpen, isInstantCloseEnabled, handleAlignNodes,
-        undoPosition, redoPosition, handleValueChange, setIsHistoryPanelOpen, setIsTaskQueuePanelOpen
+        undoPosition, redoPosition, handleValueChange, setIsHistoryPanelOpen, setIsTaskQueuePanelOpen,
+        handleCloseActiveTab
     } = props;
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Close Active Tab (Ctrl + W / Cmd + W)
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.code === 'KeyW' || e.key.toLowerCase() === 'w')) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleCloseActiveTab?.();
+                return;
+            }
+
             // FIX: Catalog (Ctrl + Space) needs to be checked BEFORE input filtering
             if ((e.ctrlKey || e.metaKey) && e.code === 'Space') { 
                 e.preventDefault(); 
                 handleToggleCatalog(); 
                 return; 
+            }
+
+            // Settings (Ctrl + K)
+            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyK' && !e.shiftKey && !e.altKey) {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('open-settings', { detail: { toggle: true } }));
+                return;
             }
 
             const target = e.target as HTMLElement;
@@ -394,5 +411,5 @@ export const useHotkeys = (props: UseHotkeysProps) => {
             window.removeEventListener('focus', resetInteractionState);
             document.removeEventListener('visibilitychange', resetInteractionState);
         };
-    }, [selectedNodeIds, nodesRef, draggingInfoRef, isTyping, handleSaveCanvas, handleLoadCanvas, copyNodeValue, copyGroup, handlePaste, handleToggleCatalog, handleOpenQuickSearch, handleOpenQuickAdd, deselectAllNodes, handleDuplicateNode, handleDuplicateNodeWithContent, deleteNodeAndConnections, requestDeleteNodes, handleGroupSelection, handleToggleNodeCollapse, onAddNode, pointerPositionRef, clientPointerPositionRef, handleCloseAddNodeMenus, setIsSnapToGrid, setLineStyle, setIsSmartGuidesEnabled, setActiveTool, setIsShiftDown, setIsCtrlDown, setIsAltDown, setIsZDown, setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition, radialMenuSelectedItem, setRadialMenuSelectedItem, getTransformedPoint, radialMenuPosition, quickSlots, isConnectionQuickAddOpen, isInstantCloseEnabled, handleAlignNodes, undoPosition, redoPosition, handleValueChange]);
+    }, [selectedNodeIds, nodesRef, draggingInfoRef, isTyping, handleSaveCanvas, handleLoadCanvas, copyNodeValue, copyGroup, handlePaste, handleToggleCatalog, handleOpenQuickSearch, handleOpenQuickAdd, deselectAllNodes, handleDuplicateNode, handleDuplicateNodeWithContent, deleteNodeAndConnections, requestDeleteNodes, handleGroupSelection, handleToggleNodeCollapse, onAddNode, pointerPositionRef, clientPointerPositionRef, handleCloseAddNodeMenus, setIsSnapToGrid, setLineStyle, setIsSmartGuidesEnabled, setActiveTool, setIsShiftDown, setIsCtrlDown, setIsAltDown, setIsZDown, setSelectionRect, isRadialMenuOpen, setIsRadialMenuOpen, setRadialMenuPosition, radialMenuSelectedItem, setRadialMenuSelectedItem, getTransformedPoint, radialMenuPosition, quickSlots, isConnectionQuickAddOpen, isInstantCloseEnabled, handleAlignNodes, undoPosition, redoPosition, handleValueChange, handleCloseActiveTab]);
 };

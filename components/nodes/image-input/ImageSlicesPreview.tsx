@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import JSZip from 'jszip';
+import { StickyNote } from 'lucide-react';
 import { setupImageDragData, getImageTimestampString } from '../../../utils/imageUtils';
 import { ActionButton } from '../../ActionButton';
 
@@ -17,6 +18,7 @@ interface ImageSlicesPreviewProps {
     addToast?: (message: string, type?: any) => void;
     cols: number;
     rows: number;
+    onSendToNote?: () => void;
 }
 
 export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
@@ -31,7 +33,8 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
     onCopyImageToClipboard,
     addToast,
     cols,
-    rows
+    rows,
+    onSendToNote
 }) => {
     const [isZipping, setIsZipping] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -212,6 +215,19 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
                         )}
                         <span>Скачать все (ZIP)</span>
                     </button>
+
+                    {onSendToNote && (
+                        <button
+                            type="button"
+                            onClick={onSendToNote}
+                            disabled={slices.length === 0}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-secondary hover:brightness-110 disabled:bg-gray-700 text-white rounded text-[11px] font-medium shadow-sm transition-colors"
+                            title="Отправить все ассеты сетки в новую заметку (Note в режиме References)"
+                        >
+                            <StickyNote className="h-3.5 w-3.5 text-white" />
+                            <span>Отправить в заметку</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GenerationTask, TaskStatus } from '../types';
+import { playTaskSuccessSound, playTaskErrorSound } from '../services/soundNotificationService';
 
 export interface EnqueueTaskOptions {
     nodeId: string;
@@ -86,6 +87,7 @@ export const useTaskQueue = () => {
                         task.onError?.(new Error('Task cancelled'));
                     } else {
                         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'completed' as TaskStatus, resultUrl, completedAt: Date.now() } : t));
+                        playTaskSuccessSound();
                         if (task.onSuccess) {
                             await task.onSuccess(resultUrl);
                         }
@@ -96,11 +98,15 @@ export const useTaskQueue = () => {
                     const errorMessage = err?.message || 'Generation failed';
 
                     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: finalStatus, error: errorMessage, completedAt: Date.now() } : t));
+                    if (!isAbort) {
+                        playTaskErrorSound();
+                    }
                     
                     if (task.onError) {
                         task.onError(err);
                     }
                 } finally {
+
                     // Trigger queue processor to start next queued item
                     setTimeout(() => processQueue(), 50);
                 }

@@ -168,10 +168,12 @@ export const ImageCropOverlay: React.FC<ImageCropOverlayProps> = ({
     const widthPercent = localRect.width * 100;
     const heightPercent = localRect.height * 100;
 
+    const isNearTop = topPercent < 7;
+
     return (
         <div
             ref={containerRef}
-            className="absolute inset-0 z-30 select-none cursor-crosshair overflow-hidden"
+            className="absolute inset-0 z-30 select-none cursor-crosshair overflow-visible"
             onPointerDown={(e) => handlePointerDown('create', e)}
         >
             {/* Dark Mask Top */}
@@ -205,7 +207,7 @@ export const ImageCropOverlay: React.FC<ImageCropOverlayProps> = ({
 
             {/* Selection Box */}
             <div
-                className="absolute border-2 border-cyan-400 bg-cyan-500/10 shadow-[0_0_12px_rgba(6,182,212,0.4)] cursor-move"
+                className="absolute border-2 border-cyan-400 bg-cyan-500/10 shadow-[0_0_12px_rgba(6,182,212,0.4)] cursor-move z-40"
                 style={{
                     left: `${leftPercent}%`,
                     top: `${topPercent}%`,
@@ -228,8 +230,8 @@ export const ImageCropOverlay: React.FC<ImageCropOverlayProps> = ({
                 </div>
 
                 {/* Dimension & Drag Handle Badge */}
-                <div className="absolute -top-7 left-0 flex items-center gap-1 z-40">
-                    <div className="bg-gray-900/90 text-cyan-300 text-[11px] font-mono font-bold px-2 py-0.5 rounded shadow border border-cyan-500/40 backdrop-blur-sm pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
+                <div className={`absolute ${isNearTop ? 'top-1.5' : '-top-7'} left-1 flex items-center gap-1 z-50 pointer-events-auto`}>
+                    <div className="bg-gray-950/95 text-cyan-300 text-[11px] font-mono font-bold px-2 py-0.5 rounded shadow-md border border-cyan-500/60 backdrop-blur-md pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
                         <span>✂ Region:</span>
                         {pixelWidth && pixelHeight ? (
                             <span>{pixelWidth} × {pixelHeight} px</span>
@@ -243,7 +245,7 @@ export const ImageCropOverlay: React.FC<ImageCropOverlayProps> = ({
                         draggable={true}
                         onDragStart={handleDragOut}
                         onPointerDown={(e) => e.stopPropagation()}
-                        className="bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-medium px-2 py-0.5 rounded shadow border border-cyan-400/80 cursor-grab active:cursor-grabbing flex items-center gap-1 transition-transform hover:scale-105 active:scale-95"
+                        className="bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-medium px-2 py-0.5 rounded shadow-md border border-cyan-400 cursor-grab active:cursor-grabbing flex items-center gap-1 transition-transform hover:scale-105 active:scale-95"
                         title="Потяните мышью, чтобы вытащить фрагмент на холст"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

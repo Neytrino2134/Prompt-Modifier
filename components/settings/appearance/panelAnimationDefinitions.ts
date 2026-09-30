@@ -484,3 +484,68 @@ export const getEffectivePalette = (
   }
   return DEFAULT_ANIMATION_PALETTES[anim] || THEME_ANIMATION_PALETTES.cyan;
 };
+
+export interface BubbleAnimationConfig {
+  count: number;          // Bubble density / count (4 - 40, default: 14)
+  baseSize: number;       // Base bubble radius (15 - 90 px, default: 40)
+  sizeVariance: number;   // Random size variance % (0 - 100%, default: 50%)
+  baseSpeed: number;      // Base upward speed (6 - 60 px/s, default: 24)
+  speedVariance: number;  // Speed variance % (0 - 100%, default: 45%)
+  opacity: number;        // Opacity / Glow intensity (0.1 - 1.0, default: 0.65)
+  wobbleAmp: number;      // Horizontal wave wobble amplitude (0 - 25 px, default: 10)
+}
+
+export interface CyberGridAnimationConfig {
+  count: number;          // Photon tracer density / count (2 - 30, default: 9)
+  gridWidth: number;      // Matrix cell width (16 - 80 px, default: 36)
+  gridHeight: number;     // Matrix cell height (8 - 40 px, default: 14)
+  baseSize: number;       // Tracer head radius (1.0 - 5.0 px, default: 2.2)
+  sizeVariance: number;   // Size variance % (0 - 100%, default: 40%)
+  baseSpeed: number;      // Base tracer speed (40 - 360 px/s, default: 160)
+  speedVariance: number;  // Speed variance % (0 - 100%, default: 40%)
+  tailLength: number;     // Laser trail length (20 - 300 px, default: 120)
+  tailOpacity: number;    // Trail opacity / brightness (0.1 - 1.0, default: 0.85)
+  allowTurns: boolean;    // Allow tracers to turn 90° at grid intersections (default: true)
+  turnChance: number;     // Probability to turn at junction % (5 - 95%, default: 35%)
+}
+
+export interface PanelAnimationConfig {
+  shapes_bubbles: BubbleAnimationConfig;
+  shapes_cyber: CyberGridAnimationConfig;
+}
+
+export const DEFAULT_BUBBLE_CONFIG: BubbleAnimationConfig = {
+  count: 14,
+  baseSize: 40,
+  sizeVariance: 50,
+  baseSpeed: 24,
+  speedVariance: 45,
+  opacity: 0.65,
+  wobbleAmp: 10,
+};
+
+export const DEFAULT_CYBER_CONFIG: CyberGridAnimationConfig = {
+  count: 9,
+  gridWidth: 36,
+  gridHeight: 14,
+  baseSize: 2.2,
+  sizeVariance: 40,
+  baseSpeed: 160,
+  speedVariance: 40,
+  tailLength: 120,
+  tailOpacity: 0.85,
+  allowTurns: true,
+  turnChance: 35,
+};
+
+export const DEFAULT_PANEL_ANIMATION_CONFIG: PanelAnimationConfig = {
+  shapes_bubbles: DEFAULT_BUBBLE_CONFIG,
+  shapes_cyber: DEFAULT_CYBER_CONFIG,
+};
+
+export const isConfigurableAnimation = (
+  anim: string
+): anim is keyof PanelAnimationConfig => {
+  return anim === 'shapes_bubbles' || anim === 'shapes_cyber';
+};
+

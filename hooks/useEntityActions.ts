@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import type { Node, Connection, Point, Group, ToastType, Alignment, DockMode, BatchJobRecord } from '../types';
 import { NodeType } from '../types';
 import { getEmptyValueForNodeType, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
@@ -9,18 +9,27 @@ import { generateThumbnail } from '../utils/imageUtils';
 export const CARD_NODE_WIDTH_STEP = 410;
 export const CARD_NODE_BASE_WIDTH_OFFSET = 110;
 
+export interface SoftDeletedNodeRecord {
+    node: Node;
+    connections: Connection[];
+    groupId?: string;
+    tabId: string;
+    images?: Record<number, string>;
+    timer: ReturnType<typeof setTimeout>;
+}
+
 interface UseEntityActionsProps {
     nodes: Node[];
     setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
     connections: Connection[];
     setConnections: React.Dispatch<React.SetStateAction<Connection[]>>;
     nodeIdCounter: React.MutableRefObject<number>;
-    t: (key: string) => string;
+    t: (key: string, options?: any) => string;
     groups: Group[];
     setGroups: React.Dispatch<React.SetStateAction<Group[]>>;
     clearImagesForNodeFromCache: (nodeId: string) => void;
     tabId: string;
-    addToast: (message: string, type?: ToastType) => void;
+    addToast: (message: string, type?: ToastType, action?: { label: string; onClick: () => void }) => void;
     getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
     setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void;
     takeSnapshot?: (nodes: Node[]) => void;
@@ -29,6 +38,201 @@ interface UseEntityActionsProps {
 
 export const useEntityActions = (props: UseEntityActionsProps) => {
     const { nodes, setNodes, connections, setConnections, nodeIdCounter, t, groups, setGroups, clearImagesForNodeFromCache, tabId, addToast, getFullSizeImage, setFullSizeImage, takeSnapshot, getBatchJobs } = props;
+
+    // Temporary cache for soft-deleted nodes pending permanent deletion
+    const deletedNodesCacheRef = useRef<Map<string, SoftDeletedNodeRecord>>(new Map());
+
+    // Cleanup timers on unmount
+    useEffect(() => {
+        return () => {
+            deletedNodesCacheRef.current.forEach(item => {
+                clearTimeout(item.timer);
+            });
+            deletedNodesCacheRef.current.clear();
+        };
+    }, []);
+
+    const restoreDeletedNode = useCallback((nodeId: string) => {
+        const cached = deletedNodesCacheRef.current.get(nodeId);
+        if (!cached) return;
+
+        // Clear permanent deletion timer
+        clearTimeout(cached.timer);
+        deletedNodesCacheRef.current.delete(nodeId);
+
+        // Restore cached full-size images
+        if (cached.images) {
+            Object.entries(cached.images).forEach(([frame, dataUrl]) => {
+                setFullSizeImage(nodeId, Number(frame), dataUrl);
+            });
+        }
+
+        // Restore node to state if not already present
+        setNodes(prev => {
+            if (prev.some(n => n.id === nodeId)) return prev;
+            return [...prev, cached.node];
+        });
+
+        // Restore connections
+        setConnections(prev => {
+            const existingIds = new Set(prev.map(c => c.id));
+            const toAdd = cached.connections.filter(c => !existingIds.has(c.id));
+            return [...prev, ...toAdd];
+        });
+
+        // Restore group membership if the group exists
+        if (cached.groupId) {
+            setGroups(prev => prev.map(g => {
+                if (g.id === cached.groupId && !g.nodeIds.includes(nodeId)) {
+                    return { ...g, nodeIds: [...g.nodeIds, nodeId] };
+                }
+                return g;
+            }));
+        }
+
+        const title = cached.node.title || t('node.title.text_input') || 'Node';
+        addToast(t('toast.nodeRestoredWithName', { title }) || `Нода «${title}» восстановлена`, 'success');
+    }, [setNodes, setConnections, setGroups, setFullSizeImage, addToast, t]);
+
+    const deleteNodeAndConnections = useCallback((nodeId: string, options?: { permanent?: boolean; skipToast?: boolean }) => {
+        if (getBatchJobs) {
+            const activeJobs = getBatchJobs() || [];
+            const hasActiveBatch = activeJobs.some(j => j.nodeId === nodeId && (j.state === 'PENDING' || j.state === 'RUNNING'));
+            if (hasActiveBatch) {
+                addToast(t('batch.nodeCloseBlockedToast') || 'Нода не может быть закрыта, пока выполняется пакетная задача в Batch API!', 'info');
+                return;
+            }
+        }
+
+        const nodeToDelete = nodes.find(n => n.id === nodeId);
+        if (!nodeToDelete) return;
+
+        // Handle reroute dot reconnection
+        if (nodeToDelete.type === NodeType.REROUTE_DOT) {
+            const incomingConn = connections.find(c => c.toNodeId === nodeId);
+            const outgoingConns = connections.filter(c => c.fromNodeId === nodeId);
+            if (incomingConn && outgoingConns.length > 0) {
+                const newConnections = outgoingConns.map(outConn => ({
+                    fromNodeId: incomingConn.fromNodeId,
+                    fromHandleId: incomingConn.fromHandleId,
+                    toNodeId: outConn.toNodeId,
+                    toHandleId: outConn.toHandleId,
+                    id: `conn-${Date.now()}-${Math.random()}`
+                }));
+                setConnections(conns => [...conns.filter(c => c.toNodeId !== nodeId && c.fromNodeId !== nodeId), ...newConnections]);
+            } else {
+                setConnections(conns => conns.filter(c => c.fromNodeId !== nodeId && c.toNodeId !== nodeId));
+            }
+        } else {
+            setConnections(conns => conns.filter(c => c.fromNodeId !== nodeId && c.toNodeId !== nodeId));
+        }
+
+        // Remove node from state
+        setNodes(nds => nds.filter(n => n.id !== nodeId));
+
+        // Update groups
+        setGroups(currentGroups => {
+            return currentGroups
+                .map(g => ({ ...g, nodeIds: g.nodeIds.filter(id => id !== nodeId) }))
+                .filter(g => g.nodeIds.length > 0);
+        });
+
+        if (options?.permanent) {
+            // Permanent deletion immediately
+            const existing = deletedNodesCacheRef.current.get(nodeId);
+            if (existing) {
+                clearTimeout(existing.timer);
+                deletedNodesCacheRef.current.delete(nodeId);
+            }
+            clearImagesForNodeFromCache(nodeId);
+            return;
+        }
+
+        // Soft delete: cache node, its connections, group, and images
+        const relatedConnections = connections.filter(c => c.fromNodeId === nodeId || c.toNodeId === nodeId);
+        const parentGroup = groups.find(g => g.nodeIds.includes(nodeId));
+        const cachedImages: Record<number, string> = {};
+        for (let i = 0; i <= 100; i++) {
+            const img = getFullSizeImage(nodeId, i);
+            if (img) cachedImages[i] = img;
+        }
+
+        const existing = deletedNodesCacheRef.current.get(nodeId);
+        if (existing) {
+            clearTimeout(existing.timer);
+        }
+
+        // Permanent deletion timer (7500ms matching notification duration)
+        const timer = setTimeout(() => {
+            deletedNodesCacheRef.current.delete(nodeId);
+            clearImagesForNodeFromCache(nodeId);
+        }, 7500);
+
+        deletedNodesCacheRef.current.set(nodeId, {
+            node: { ...nodeToDelete },
+            connections: relatedConnections,
+            groupId: parentGroup?.id,
+            tabId,
+            images: cachedImages,
+            timer
+        });
+
+        if (!options?.skipToast) {
+            const title = nodeToDelete.title || t('node.title.text_input') || 'Нода';
+            addToast(
+                t('toast.nodeDeletedWithName', { title }) || `Удален узел: «${title}»`,
+                'info',
+                {
+                    label: t('toast.restoreNode') || 'Восстановить ноду',
+                    onClick: () => restoreDeletedNode(nodeId)
+                }
+            );
+        }
+    }, [nodes, connections, groups, setNodes, setConnections, setGroups, clearImagesForNodeFromCache, tabId, getBatchJobs, addToast, t, getFullSizeImage, restoreDeletedNode]);
+
+    const deleteMultipleNodesAndConnections = useCallback((nodeIds: string[]) => {
+        if (!nodeIds || nodeIds.length === 0) return;
+        if (nodeIds.length === 1) {
+            deleteNodeAndConnections(nodeIds[0]);
+            return;
+        }
+
+        // Filter active batch jobs
+        let allowedNodeIds = nodeIds;
+        if (getBatchJobs) {
+            const activeJobs = getBatchJobs() || [];
+            const blockedIds = new Set(
+                activeJobs
+                    .filter(j => j.state === 'PENDING' || j.state === 'RUNNING')
+                    .map(j => j.nodeId)
+            );
+            if (blockedIds.size > 0) {
+                allowedNodeIds = nodeIds.filter(id => !blockedIds.has(id));
+                if (allowedNodeIds.length < nodeIds.length) {
+                    addToast(t('batch.nodeCloseBlockedToast') || 'Некоторые ноды заблокированы выполнением Batch API!', 'info');
+                }
+            }
+        }
+
+        if (allowedNodeIds.length === 0) return;
+
+        // Perform soft delete on each allowed node without individual toast
+        allowedNodeIds.forEach(id => {
+            deleteNodeAndConnections(id, { skipToast: true });
+        });
+
+        // Show a single collective toast with Restore button
+        addToast(
+            t('toast.nodesDeletedCount', { count: allowedNodeIds.length }) || `Удалено узлов: ${allowedNodeIds.length}`,
+            'info',
+            {
+                label: t('toast.restoreNodes') || 'Восстановить ноды',
+                onClick: () => {
+                    allowedNodeIds.forEach(id => restoreDeletedNode(id));
+                }
+            }
+        );
+    }, [deleteNodeAndConnections, getBatchJobs, addToast, t, restoreDeletedNode]);
 
     const onAddNode = useCallback((type: NodeType, position: Point, title?: string, options: { centerNode?: boolean; alignToInput?: boolean; initialValue?: string } = { centerNode: true }): string => {
         nodeIdCounter.current++;
@@ -112,35 +316,6 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         setNodes(nds => [...nds, newNode]);
         return newNodeId;
     }, [nodeIdCounter, setNodes, t]);
-
-    const deleteNodeAndConnections = useCallback((nodeId: string) => {
-        if (getBatchJobs) {
-            const activeJobs = getBatchJobs() || [];
-            const hasActiveBatch = activeJobs.some(j => j.nodeId === nodeId && (j.state === 'PENDING' || j.state === 'RUNNING'));
-            if (hasActiveBatch) {
-                addToast(t('batch.nodeCloseBlockedToast') || 'Нода не может быть закрыта, пока выполняется пакетная задача в Batch API!', 'info');
-                return;
-            }
-        }
-
-        const nodeToDelete = nodes.find(n => n.id === nodeId);
-        if (nodeToDelete && nodeToDelete.type === NodeType.REROUTE_DOT) {
-            const incomingConn = connections.find(c => c.toNodeId === nodeId);
-            const outgoingConns = connections.filter(c => c.fromNodeId === nodeId);
-            if (incomingConn && outgoingConns.length > 0) {
-                const newConnections = outgoingConns.map(outConn => ({ fromNodeId: incomingConn.fromNodeId, fromHandleId: incomingConn.fromHandleId, toNodeId: outConn.toNodeId, toHandleId: outConn.toHandleId, id: `conn-${Date.now()}-${Math.random()}` }));
-                setConnections(conns => [...conns.filter(c => c.toNodeId !== nodeId && c.fromNodeId !== nodeId), ...newConnections]);
-            }
-        }
-        setNodes(nds => nds.filter(n => n.id !== nodeId));
-        setConnections(conns => conns.filter(c => c.fromNodeId !== nodeId && c.toNodeId !== nodeId));
-        setGroups(currentGroups => {
-            return currentGroups
-                .map(g => ({ ...g, nodeIds: g.nodeIds.filter(id => id !== nodeId) }))
-                .filter(g => g.nodeIds.length > 0);
-        });
-        clearImagesForNodeFromCache(nodeId);
-    }, [nodes, connections, setNodes, setConnections, setGroups, clearImagesForNodeFromCache, tabId, getBatchJobs, addToast, t]);
 
     const handleDockNode = useCallback((nodeId: string, mode: DockMode, capturePosition?: Point) => {
         setNodes(currentNodes => currentNodes.map(node => {
@@ -736,6 +911,8 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
     return {
         onAddNode,
         deleteNodeAndConnections,
+        deleteMultipleNodesAndConnections,
+        restoreDeletedNode,
         getPromptForNode,
         copyGroup,
         duplicateGroup,

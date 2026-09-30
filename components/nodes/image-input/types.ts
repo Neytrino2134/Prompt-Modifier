@@ -5,9 +5,41 @@ export interface ImageInputCropRect {
     height: number; // 0..1 normalized
 }
 
-export type ImageInputMode = 'full' | 'single' | 'grid' | 'batch';
+export type ImageInputMode = 'full' | 'single' | 'grid' | 'batch' | 'frames';
 export type ImageBatchSubMode = 'crop' | 'grid';
 export type ImageGridBorderMode = 'inner' | 'all';
+
+export interface ImageInputFrameItem {
+    id: string;
+    rect: ImageInputCropRect;
+    name?: string;
+    cols?: number; // horizontal grid subdivisions (>= 1, default 1)
+    rows?: number; // vertical grid subdivisions (>= 1, default 1)
+    colDividers?: number[]; // normalized split points [x1, x2, ..., x_{cols-1}] in 0..1 range within frame rect
+    rowDividers?: number[]; // normalized split points [y1, y2, ..., y_{rows-1}] in 0..1 range within frame rect
+}
+
+export interface ImageInputFrameAssetItem {
+    globalIndex: number;
+    frameIndex: number;
+    frameId: string;
+    subIndex: number;
+    totalInFrame: number;
+    row: number;
+    col: number;
+    name: string;
+    frameName: string;
+    rect: ImageInputCropRect;
+    cols: number;
+    rows: number;
+}
+
+export interface ImageInputFramesConfig {
+    frames: ImageInputFrameItem[];
+    selectedFrameIndex?: number;
+    includeOriginal?: boolean;
+    assetName?: string;
+}
 
 export interface ImageInputGridConfig {
     cols: number; // default 2 (X)
@@ -44,13 +76,44 @@ export interface ImageInputBatchConfig {
     individualGridSettings?: boolean; // toggle individual grid/table boundaries per image
 }
 
+export interface BatchResultFileItem {
+    name: string;
+    type: 'original' | 'crop' | 'slice';
+    dataUrl: string;
+    folderName?: string;
+    size?: number;
+    row?: number;
+    col?: number;
+    sliceIndex?: number;
+    width?: number;
+    height?: number;
+}
+
+export interface BatchResultFolder {
+    name: string;
+    imageIndex: number;
+    sourceImageName: string;
+    files: BatchResultFileItem[];
+}
+
+export interface BatchResultData {
+    zipBlob: Blob;
+    totalImages: number;
+    totalSlices: number;
+    timestamp: string;
+    filename: string;
+    folders?: BatchResultFolder[];
+}
+
 export interface ImageInputValue {
     image: string | null;
     prompt?: string;
-    mode?: ImageInputMode; // 'full' | 'single' | 'grid' | 'batch'
+    mode?: ImageInputMode; // 'full' | 'single' | 'grid' | 'batch' | 'frames'
     cropRect?: ImageInputCropRect | null;
     croppedImage?: string | null; // Thumbnail of cropped region for fast UI
     grid?: ImageInputGridConfig;
+    framesConfig?: ImageInputFramesConfig;
+    frameImages?: string[]; // Thumbnails of multiple frames
     batchConfig?: ImageInputBatchConfig;
     batchFiles?: ImageBatchItem[];
     extractedImages?: string[]; // Thumbnails of grid cells

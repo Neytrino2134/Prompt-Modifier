@@ -223,6 +223,8 @@ export const nodes = {
     'node.promptProcessor.enhanceTooltip': '使用 AI 扩展并用描述性细节丰富提示词。',
     'node.promptProcessor.chainTooltip': '执行此节点并触发所有连接的下游节点。',
 
+    'image_sequence.auto_save': '自动保存图像',
+    'image_sequence.tooltip.autoSave': '生成完成后自动将图像保存到您的设备。',
     'image_sequence.tooltip.autoCrop': '自动将生成的图像裁剪为 16:9 比例。',
     'image_sequence.tooltip.autoDownload': '生成后自动将每张图像保存到您的设备。',
     'image_sequence.tooltip.createZip': '将所有选定的图像打包成一个 ZIP 存档以便下载。'

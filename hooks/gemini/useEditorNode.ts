@@ -168,6 +168,11 @@ export const useEditorNode = ({
 
         // --- BATCH API MODE INTERCEPTION ---
         if (batchManager?.isBatchMode) {
+            const formingAbortCtrl = new AbortController();
+            if (batchManager.registerFormingBatch) {
+                batchManager.registerFormingBatch(nodeId, formingAbortCtrl);
+            }
+
             if (isSequenceMode) {
                 const targetIndices = indicesToProcess || (
                     parsed.isSequentialEditingWithPrompts 
@@ -198,6 +203,10 @@ export const useEditorNode = ({
                 }> = [];
 
                 for (const i of targetIndices) {
+                    if (formingAbortCtrl.signal.aborted) {
+                        return;
+                    }
+
                     let imagesForFrame: { base64ImageData: string, mimeType: string }[] = [];
 
                     if (parsed.isSequentialEditingWithPrompts) {
@@ -269,6 +278,10 @@ export const useEditorNode = ({
                     });
                 }
 
+                if (formingAbortCtrl.signal.aborted) {
+                    return;
+                }
+
                 if (batchItems.length > 0) {
                     await batchManager.createBatchGeneration({
                         nodeId,
@@ -276,7 +289,8 @@ export const useEditorNode = ({
                         tabId: currentTabId,
                         model: effectiveModel,
                         isSequence: true,
-                        items: batchItems
+                        items: batchItems,
+                        signal: formingAbortCtrl.signal
                     });
                 }
                 return;
@@ -315,6 +329,10 @@ export const useEditorNode = ({
                     promptWithOutpaint = outpaintingTemplate.replace('{main_prompt}', promptToUse);
                 }
 
+                if (formingAbortCtrl.signal.aborted) {
+                    return;
+                }
+
                 await batchManager.createBatchGeneration({
                     nodeId,
                     nodeTitle: node.title || 'Image Editor',
@@ -334,7 +352,8 @@ export const useEditorNode = ({
                         autoDownload: parsed.autoDownload !== undefined ? !!parsed.autoDownload : !!node.autoDownload,
                         autoSaveImages: !!parsed.autoSaveImages,
                         frameIndex: 0
-                    }]
+                    }],
+                    signal: formingAbortCtrl.signal
                 });
                 return;
             }
@@ -578,14 +597,19 @@ export const useEditorNode = ({
     }, [nodes, getUpstreamNodeValues, getFullSizeImage, setError, updateNodeInStorage, activeTabName, activeTabIdRef, addToHistory, taskQueue]);
 
     const handleStopEdit = useCallback((nodeId?: string) => {
-        if (nodeId && taskQueue) {
-            taskQueue.cancelAllNodeTasks(nodeId);
+        if (nodeId) {
+            if (taskQueue) {
+                taskQueue.cancelAllNodeTasks(nodeId);
+            }
+            if (batchManager?.cancelBatchForNode) {
+                batchManager.cancelBatchForNode(nodeId);
+            }
         }
         if (abortControllerRef.current) {
             setIsStoppingEdit(true);
             abortControllerRef.current.abort();
         }
-    }, [taskQueue]);
+    }, [taskQueue, batchManager]);
 
     return {
         isEditingImage,

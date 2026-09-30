@@ -244,7 +244,7 @@ const QuickAddMenu: React.FC<QuickAddMenuProps> = ({ isOpen, position, onClose, 
       },
       threed: {
         items: [
-          { type: 'node', id: NodeType.THREE_D_GENERATOR, title: t('search.node.three_d_generator.title' as any) || '3D Generation (Tripo)', icon: <ThreeDModelIcon className="h-5 w-5 text-indigo-400" /> },
+          { type: 'node', id: NodeType.THREE_D_GENERATOR, title: t('search.node.three_d_generator.title' as any) || '3D Generation (Tripo)', icon: <ThreeDModelIcon className="h-5 w-5" /> },
         ]
       },
     }), [t]);

@@ -473,5 +473,129 @@ div:focus-visible {
   pointer-events: none;
 }
 
+@keyframes indeterminate-progress {
+  0% {
+    transform: translateX(-100%) scaleX(0.4);
+  }
+  50% {
+    transform: translateX(100%) scaleX(0.8);
+  }
+  100% {
+    transform: translateX(300%) scaleX(0.4);
+  }
+}
+
+.animate-indeterminate {
+  animation: indeterminate-progress 1.6s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite;
+}
+
+/* Connection Data Flow Animations */
+@keyframes flow-move-fwd {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: calc(-1 * var(--conn-period, 100px));
+  }
+}
+
+@keyframes flow-move-rev {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: var(--conn-period, 100px);
+  }
+}
+
+/* Whole-line pulse: rhythmic breathing and glow bloom across the whole line */
+@keyframes conn-whole-line-pulse {
+  0%, 100% {
+    opacity: 0.32;
+    filter: drop-shadow(0 0 2px var(--conn-glow-color, #00f0ff)) drop-shadow(0 0 6px var(--conn-glow-color, #00f0ff));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px var(--conn-glow-color, #00f0ff)) drop-shadow(0 0 18px var(--conn-glow-color, #00f0ff)) drop-shadow(0 0 28px var(--conn-glow-color, #00f0ff));
+  }
+}
+
+@keyframes conn-pulse-core {
+  0%, 100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Whole-line shimmer: glistening luminescence & multi-harmonic sparkle */
+@keyframes conn-whole-line-shimmer {
+  0% {
+    opacity: 0.45;
+    filter: drop-shadow(0 0 3px var(--conn-glow-color, #fef08a));
+  }
+  20% {
+    opacity: 0.95;
+    filter: drop-shadow(0 0 10px var(--conn-glow-color, #fef08a)) drop-shadow(0 0 16px #ffffff);
+  }
+  42% {
+    opacity: 0.55;
+    filter: drop-shadow(0 0 4px var(--conn-glow-color, #fef08a));
+  }
+  65% {
+    opacity: 1.0;
+    filter: drop-shadow(0 0 14px var(--conn-glow-color, #fef08a)) drop-shadow(0 0 24px var(--conn-glow-color, #fef08a));
+  }
+  82% {
+    opacity: 0.60;
+    filter: drop-shadow(0 0 5px var(--conn-glow-color, #fef08a));
+  }
+  100% {
+    opacity: 0.45;
+    filter: drop-shadow(0 0 3px var(--conn-glow-color, #fef08a));
+  }
+}
+
+@keyframes conn-shimmer-core {
+  0%, 100% {
+    opacity: 0.50;
+  }
+  30% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.65;
+  }
+  80% {
+    opacity: 0.95;
+  }
+}
+
+/* Neon flow aura breathing */
+@keyframes conn-neon-aura-breath {
+  0%, 100% {
+    opacity: 0.60;
+    filter: drop-shadow(0 0 4px var(--conn-glow-color, #ec4899));
+  }
+  50% {
+    opacity: 0.98;
+    filter: drop-shadow(0 0 10px var(--conn-glow-color, #ec4899)) drop-shadow(0 0 22px var(--conn-glow-color, #ec4899));
+  }
+}
+
+/* Energy beam surge */
+@keyframes conn-beam-surge {
+  0%, 100% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 4px var(--conn-glow-color, #a855f7));
+  }
+  50% {
+    opacity: 1.0;
+    filter: drop-shadow(0 0 12px var(--conn-glow-color, #a855f7)) drop-shadow(0 0 24px #ffffff);
+  }
+}
+
+
 
 

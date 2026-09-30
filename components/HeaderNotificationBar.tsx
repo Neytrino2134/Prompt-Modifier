@@ -11,7 +11,7 @@ const EXIT_ANIMATION_DURATION_MS = 350;
 
 const HeaderToastItem: React.FC<HeaderToastItemProps> = ({ toast, onDismiss }) => {
     const isAction = Boolean(toast.action);
-    const duration = isAction ? 6500 : 3800;
+    const duration = isAction ? 7500 : 3800;
     const [isExiting, setIsExiting] = useState(false);
 
     const onDismissRef = useRef(onDismiss);
@@ -136,9 +136,12 @@ const HeaderToastItem: React.FC<HeaderToastItemProps> = ({ toast, onDismiss }) =
                         toast.action?.onClick();
                         handleDismiss();
                     }}
-                    className="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-white/15 hover:bg-white/30 text-white transition-colors cursor-pointer"
+                    className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-semibold tracking-wide bg-white/20 hover:bg-white/35 active:scale-95 text-white transition-all cursor-pointer shadow-sm border border-white/25 hover:border-white/50"
                 >
-                    {toast.action.label}
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                    </svg>
+                    <span>{toast.action.label}</span>
                 </button>
             )}
 
@@ -169,19 +172,18 @@ const HeaderToastItem: React.FC<HeaderToastItemProps> = ({ toast, onDismiss }) =
 
 export const HeaderNotificationBar: React.FC = () => {
     const context = useAppContext();
-    if (!context) return null;
-
-    const { toasts, removeToast } = context;
-
-    if (!toasts || toasts.length === 0) {
-        return null;
-    }
+    const toasts = context?.toasts;
+    const removeToast = context?.removeToast;
 
     const handleDismiss = useCallback((id: number) => {
         if (removeToast) {
             removeToast(id);
         }
     }, [removeToast]);
+
+    if (!context || !toasts || toasts.length === 0) {
+        return null;
+    }
 
     // Show up to 3 most recent toasts side by side or compact
     const visibleToasts = toasts.slice(-3);

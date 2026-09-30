@@ -300,10 +300,10 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                 try {
                     const parsedClipboard = JSON.parse(text);
 
-                    // Case 1: Full Image Input Payload or Object with Batch/Grid/Image
+                    // Case 1: Full Image Input Payload or Object with Batch/Grid/Image/Frames
                     if (
                         parsedClipboard.type === 'image-input-data' ||
-                        (typeof parsedClipboard === 'object' && parsedClipboard !== null && !Array.isArray(parsedClipboard) && ('batchFiles' in parsedClipboard || 'grid' in parsedClipboard || 'mode' in parsedClipboard || 'image' in parsedClipboard || 'fullSizeImage' in parsedClipboard))
+                        (typeof parsedClipboard === 'object' && parsedClipboard !== null && !Array.isArray(parsedClipboard) && ('framesConfig' in parsedClipboard || 'batchFiles' in parsedClipboard || 'grid' in parsedClipboard || 'mode' in parsedClipboard || 'image' in parsedClipboard || 'fullSizeImage' in parsedClipboard))
                     ) {
                         const mainImg = parsedClipboard.fullSizeImage || parsedClipboard.image || (parsedClipboard.batchFiles?.[0]?.dataUrl) || null;
                         let mainThumb = parsedClipboard.image || null;
@@ -362,10 +362,12 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                             ...currentVal,
                             image: mainThumb !== null ? mainThumb : currentVal.image,
                             prompt: parsedClipboard.prompt !== undefined ? parsedClipboard.prompt : (currentVal.prompt || ''),
-                            mode: parsedClipboard.mode || (restoredBatchFiles.length > 0 ? 'batch' : (parsedClipboard.grid ? 'grid' : (parsedClipboard.cropRect ? 'single' : (currentVal.mode || 'full')))),
+                            mode: parsedClipboard.mode || (parsedClipboard.framesConfig ? 'frames' : (restoredBatchFiles.length > 0 ? 'batch' : (parsedClipboard.grid ? 'grid' : (parsedClipboard.cropRect ? 'single' : (currentVal.mode || 'full'))))),
                             cropRect: parsedClipboard.cropRect !== undefined ? parsedClipboard.cropRect : currentVal.cropRect,
                             croppedImage: parsedClipboard.croppedImage !== undefined ? parsedClipboard.croppedImage : currentVal.croppedImage,
                             grid: parsedClipboard.grid !== undefined ? parsedClipboard.grid : currentVal.grid,
+                            framesConfig: parsedClipboard.framesConfig !== undefined ? parsedClipboard.framesConfig : currentVal.framesConfig,
+                            frameImages: parsedClipboard.frameImages !== undefined ? parsedClipboard.frameImages : currentVal.frameImages,
                             batchConfig: parsedClipboard.batchConfig !== undefined ? parsedClipboard.batchConfig : currentVal.batchConfig,
                             batchFiles: restoredBatchFiles.length > 0 ? restoredBatchFiles : (currentVal.batchFiles || []),
                             extractedImages: parsedClipboard.extractedImages !== undefined ? parsedClipboard.extractedImages : currentVal.extractedImages,
@@ -571,6 +573,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                                             newValue = JSON.stringify({
                                                 ...parsed,
                                                 image: thumbnailUrl,
+                                                prompt: prompt || parsed.prompt || '',
                                                 batchFiles: mergedBatch
                                             });
                                         } else {
@@ -718,10 +721,12 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                                 image: fullRes,
                                 fullSizeImage: fullRes,
                                 prompt: parsed.prompt || '',
-                                mode: parsed.mode || (processedBatchFiles.length > 0 ? 'batch' : (parsed.grid ? 'grid' : (parsed.cropRect ? 'single' : 'full'))),
+                                mode: parsed.mode || (parsed.framesConfig ? 'frames' : (processedBatchFiles.length > 0 ? 'batch' : (parsed.grid ? 'grid' : (parsed.cropRect ? 'single' : 'full')))),
                                 cropRect: parsed.cropRect || null,
                                 croppedImage: parsed.croppedImage || null,
                                 grid: parsed.grid || null,
+                                framesConfig: parsed.framesConfig || null,
+                                frameImages: parsed.frameImages || [],
                                 batchConfig: parsed.batchConfig || null,
                                 batchFiles: processedBatchFiles,
                                 extractedImages: parsed.extractedImages || [],
@@ -897,7 +902,19 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
     };
 
     const handleAutoDownloadChange = (nodeId: string, enabled: boolean) => {
-        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, autoDownload: enabled } : n));
+        setNodes(nds => nds.map(n => {
+            if (n.id === nodeId) {
+                let updatedValue = n.value;
+                if (n.type === NodeType.IMAGE_EDITOR) {
+                    try {
+                        const parsed = JSON.parse(n.value || '{}');
+                        updatedValue = JSON.stringify({ ...parsed, autoDownload: enabled });
+                    } catch {}
+                }
+                return { ...n, autoDownload: enabled, value: updatedValue };
+            }
+            return n;
+        }));
     };
 
     const handleDurationChange = (nodeId: string, duration: string) => {

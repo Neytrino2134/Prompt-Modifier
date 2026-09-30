@@ -1,10 +1,11 @@
-
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useTextContextMenu } from '../contexts/TextContextMenuContext';
 
 interface SyntaxHighlightedTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
     value: string;
     onDebouncedChange: (value: string) => void;
     debounceTime?: number;
+    disableCustomContextMenu?: boolean;
 }
 
 export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps> = ({ 
@@ -13,6 +14,9 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
     debounceTime = 300, 
     className = '',
     style,
+    spellCheck = true,
+    disableCustomContextMenu = false,
+    onContextMenu,
     ...props 
 }) => {
     const [localValue, setLocalValue] = useState(externalValue);
@@ -20,6 +24,13 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const backdropRef = useRef<HTMLDivElement>(null);
     const isTypingRef = useRef(false);
+
+    let contextMenu: ReturnType<typeof useTextContextMenu> | null = null;
+    try {
+        contextMenu = useTextContextMenu();
+    } catch {
+        contextMenu = null;
+    }
 
     // Sync with external value changes
     useEffect(() => {
@@ -54,6 +65,20 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
         }
     };
 
+    const handleContextMenu = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+        if (onContextMenu) {
+            onContextMenu(e);
+        }
+
+        if (!disableCustomContextMenu && contextMenu && textareaRef.current) {
+            contextMenu.openContextMenu(e, {
+                element: textareaRef.current,
+                onDebouncedChange,
+                onValueUpdate: (val) => setLocalValue(val)
+            });
+        }
+    };
+
     // Sync width/padding to account for scrollbar
     useEffect(() => {
         if (!textareaRef.current || !backdropRef.current) return;
@@ -63,15 +88,11 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
             const backdrop = backdropRef.current;
             
             if (textarea && backdrop) {
-                // Calculate actual scrollbar width by checking difference between offset and client width
-                // accounting for borders
                 const computed = window.getComputedStyle(textarea);
                 const borderLeft = parseFloat(computed.borderLeftWidth) || 0;
                 const borderRight = parseFloat(computed.borderRightWidth) || 0;
                 const scrollbarWidth = textarea.offsetWidth - textarea.clientWidth - borderLeft - borderRight;
                 
-                // If scrollbar is present, we need to increase the right padding of the backdrop
-                // so its content wraps at the exact same pixel width as the textarea
                 if (scrollbarWidth > 0) {
                     const currentPaddingRight = parseFloat(computed.paddingRight) || 0;
                     backdrop.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`;
@@ -84,7 +105,6 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
         const observer = new ResizeObserver(syncDimensions);
         observer.observe(textareaRef.current);
         
-        // Also listen to input to trigger re-measure if scrollbar appears due to content
         textareaRef.current.addEventListener('input', syncDimensions);
         
         return () => {
@@ -100,8 +120,7 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
         
         return parts.map((part, index) => {
             if (part.match(/^\[(?:Entity|Character)-[^\]]+\]$/)) {
-                // Important: Removed font-bold to ensure width matches the input text exactly
-                return <span key={index} className="text-connection-text">{part}</span>;
+                return <span key={index} className="text-connection-text font-medium">{part}</span>;
             }
             return <span key={index}>{part}</span>;
         });
@@ -114,16 +133,15 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
                 ref={backdropRef}
                 className={`absolute inset-0 pointer-events-none whitespace-pre-wrap break-words overflow-hidden text-transparent ${className}`}
                 style={{
-                    color: 'transparent', // Ensure parent text is hidden
+                    color: 'transparent',
                     zIndex: 0,
-                    borderColor: 'transparent', // Hide borders on backdrop to avoid double borders
+                    borderColor: 'transparent',
                 }}
                 aria-hidden="true"
             >
                 {/* Inner wrapper to apply visible text color for highlights */}
                 <div className="text-gray-200" style={{ width: '100%', height: '100%' }}>
                     {renderHighlights(localValue)}
-                    {/* Add a trailing space to fix height issues with trailing newlines */}
                     {localValue.endsWith('\n') && <br />}
                 </div>
             </div>
@@ -135,14 +153,15 @@ export const SyntaxHighlightedTextarea: React.FC<SyntaxHighlightedTextareaProps>
                 value={localValue}
                 onChange={handleChange}
                 onScroll={handleScroll}
+                onContextMenu={handleContextMenu}
                 className={`relative w-full h-full text-transparent caret-white resize-none focus:outline-none z-10 ${className}`}
                 style={{ 
                     color: 'transparent', 
                     caretColor: 'white',
-                    backgroundColor: 'transparent', // Force transparent so we see backdrop
+                    backgroundColor: 'transparent',
                     ...style 
                 }}
-                spellCheck={false}
+                spellCheck={spellCheck}
             />
         </div>
     );

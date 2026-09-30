@@ -1,6 +1,12 @@
 import React, { useMemo } from 'react';
 import { PanelAnimation, Theme } from '../../../types';
-import { getEffectivePalette } from './panelAnimationDefinitions';
+import {
+  getEffectivePalette,
+  PanelAnimationConfig,
+} from './panelAnimationDefinitions';
+import { ProceduralBubblesCanvas } from './ProceduralBubblesCanvas';
+import { ProceduralCyberGridCanvas } from './ProceduralCyberGridCanvas';
+import { useAppContext } from '../../../contexts/AppContext';
 
 interface PanelAnimationBackgroundProps {
   animation: PanelAnimation;
@@ -8,6 +14,7 @@ interface PanelAnimationBackgroundProps {
   isAdaptive: boolean;
   className?: string;
   previewMode?: boolean;
+  config?: Partial<PanelAnimationConfig>;
 }
 
 export const PanelAnimationBackground: React.FC<PanelAnimationBackgroundProps> = ({
@@ -16,11 +23,23 @@ export const PanelAnimationBackground: React.FC<PanelAnimationBackgroundProps> =
   isAdaptive,
   className = '',
   previewMode = false,
+  config,
 }) => {
+  let contextConfig: PanelAnimationConfig | undefined;
+  try {
+    const ctx = useAppContext();
+    contextConfig = ctx.panelAnimationConfig;
+  } catch {
+    // In case used outside provider
+  }
+
+  const effectiveConfig = config || contextConfig;
+
   const palette = useMemo(
     () => getEffectivePalette(animation, theme, isAdaptive),
     [animation, theme, isAdaptive]
   );
+
 
   if (animation === 'none') {
     return null;
@@ -37,7 +56,7 @@ export const PanelAnimationBackground: React.FC<PanelAnimationBackgroundProps> =
           <div
             className="top-panel-glare"
             style={{
-              background: `linear-gradient(90deg, transparent 0%, ${palette.dim} 20%, rgba(255, 255, 255, 0.16) 50%, ${palette.dim} 80%, transparent 100%)`,
+              backgroundImage: `linear-gradient(90deg, transparent 0%, ${palette.dim} 20%, rgba(255, 255, 255, 0.16) 50%, ${palette.dim} 80%, transparent 100%)`,
             }}
           />
         </div>
@@ -72,7 +91,7 @@ export const PanelAnimationBackground: React.FC<PanelAnimationBackgroundProps> =
           <div
             className="absolute inset-0"
             style={{
-              background: `radial-gradient(ellipse 70% 80% at 50% 50%, ${palette.subtleGlow} 0%, transparent 80%)`,
+              backgroundImage: `radial-gradient(ellipse 70% 80% at 50% 50%, ${palette.subtleGlow} 0%, transparent 80%)`,
             }}
           />
         </div>
@@ -83,7 +102,7 @@ export const PanelAnimationBackground: React.FC<PanelAnimationBackgroundProps> =
         <div
           className="absolute inset-0 anim-panel-fluid-wave"
           style={{
-            background: `linear-gradient(90deg, 
+            backgroundImage: `linear-gradient(90deg, 
               rgba(11, 15, 25, 0) 0%, 
               ${palette.waveGradient[0]} 20%, 
               ${palette.waveGradient[1]} 40%, 
@@ -102,7 +121,7 @@ export const PanelAnimationBackground: React.FC<PanelAnimationBackgroundProps> =
         <div
           className="absolute inset-0 anim-panel-aurora"
           style={{
-            background: `linear-gradient(125deg, 
+            backgroundImage: `linear-gradient(125deg, 
               rgba(10, 16, 30, 0.4) 0%, 
               ${palette.auroraGradient[0]} 25%, 
               ${palette.auroraGradient[1]} 45%, 
@@ -123,7 +142,7 @@ export const PanelAnimationBackground: React.FC<PanelAnimationBackgroundProps> =
           <div
             className="w-full h-[1.5px] anim-panel-neon-flow"
             style={{
-              background: `linear-gradient(90deg, ${palette.neonStops.join(', ')})`,
+              backgroundImage: `linear-gradient(90deg, ${palette.neonStops.join(', ')})`,
               backgroundSize: '200% 100%',
               boxShadow: `0 0 6px 0.5px ${palette.glow}`,
             }}
@@ -131,56 +150,13 @@ export const PanelAnimationBackground: React.FC<PanelAnimationBackgroundProps> =
         </div>
       )}
 
-      {/* 7. Vector Shapes: Bubbles (Large, perfectly round, highly translucent, continuous upward flight) */}
+      {/* 7. Vector Shapes: Bubbles (Procedural real-time upward flight, random sizes, speeds, and spawn coordinates) */}
       {animation === 'shapes_bubbles' && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Defined bubble stream items with fixed pixel dimensions and % horizontal positioning */}
-          {[
-            { left: '3%', size: previewMode ? 32 : 72, dur: 9.5, delay: -2.3, skew: 3 },
-            { left: '14%', size: previewMode ? 42 : 96, dur: 12.0, delay: -7.5, skew: -4 },
-            { left: '26%', size: previewMode ? 28 : 64, dur: 8.5, delay: -4.1, skew: 2 },
-            { left: '38%', size: previewMode ? 46 : 108, dur: 13.5, delay: -10.2, skew: -3 },
-            { left: '50%', size: previewMode ? 36 : 82, dur: 10.5, delay: -1.8, skew: 4 },
-            { left: '62%', size: previewMode ? 44 : 102, dur: 12.8, delay: -6.4, skew: -2 },
-            { left: '74%', size: previewMode ? 30 : 68, dur: 8.8, delay: -3.6, skew: 3 },
-            { left: '85%', size: previewMode ? 42 : 94, dur: 11.6, delay: -8.9, skew: -4 },
-            { left: '95%', size: previewMode ? 34 : 76, dur: 9.8, delay: -5.0, skew: 2 },
-          ].map((b, i) => (
-            <div
-              key={i}
-              className="absolute pointer-events-none"
-              style={{
-                left: b.left,
-                bottom: 0,
-                width: `${b.size}px`,
-                height: `${b.size}px`,
-                borderRadius: '9999px',
-                aspectRatio: '1 / 1',
-                animation: `bubble-rise-infinite ${b.dur}s linear infinite`,
-                animationDelay: `${b.delay}s`,
-                background: `radial-gradient(circle at 35% 30%, 
-                  rgba(255, 255, 255, 0.35) 0%, 
-                  ${palette.subtleGlow} 35%, 
-                  ${palette.dim} 65%, 
-                  rgba(255, 255, 255, 0.05) 100%
-                )`,
-                border: `1px solid ${palette.primary}`,
-                borderColor: `${palette.primary}40`,
-                boxShadow: `inset 0 0 14px ${palette.subtleGlow}, 0 0 8px ${palette.dim}`,
-              }}
-            >
-              {/* Internal Glass Reflection Glare */}
-              <div
-                className="absolute top-[18%] left-[22%] rounded-full bg-white/40"
-                style={{
-                  width: `${Math.max(4, b.size * 0.18)}px`,
-                  height: `${Math.max(3, b.size * 0.12)}px`,
-                  transform: 'rotate(-25deg)',
-                }}
-              />
-            </div>
-          ))}
-        </div>
+        <ProceduralBubblesCanvas
+          palette={palette}
+          previewMode={previewMode}
+          config={effectiveConfig?.shapes_bubbles}
+        />
       )}
 
       {/* 8. Vector Shapes: Ocean Waves (Moving to the RIGHT, increased height, seamless tile width-independent) */}
@@ -402,107 +378,13 @@ export const PanelAnimationBackground: React.FC<PanelAnimationBackgroundProps> =
         </div>
       )}
 
-      {/* 11. Vector Shapes: Cyber Grid (Top-down camera view, orthogonal matrix, glowing tracers with tails) */}
+      {/* 11. Vector Shapes: Cyber Grid (Procedural Tron Matrix Grid, dynamic randomized photon tracers along grid lanes) */}
       {animation === 'shapes_cyber' && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-85">
-          {/* Top-down Orthogonal Matrix Grid */}
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `
-                linear-gradient(to right, ${palette.dim} 1px, transparent 1px),
-                linear-gradient(to bottom, ${palette.dim} 1px, transparent 1px)
-              `,
-              backgroundSize: '36px 14px',
-            }}
-          />
-
-          {/* Tracer Track 1 (Horizontal, Top Track at y=14px) */}
-          <div className="absolute top-[13px] left-0 w-full h-[2px]">
-            <div
-              className="anim-cyber-tracer-1 absolute top-0 flex items-center"
-              style={{ width: '120px' }}
-            >
-              <div
-                className="h-[1.5px] flex-1"
-                style={{
-                  background: `linear-gradient(90deg, transparent 0%, ${palette.primary} 70%, ${palette.highlight} 100%)`,
-                }}
-              />
-              <div
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{
-                  backgroundColor: palette.highlight,
-                  boxShadow: `0 0 6px 1.5px ${palette.highlight}`,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Tracer Track 2 (Horizontal, Bottom Track at y=27px) */}
-          <div className="absolute top-[27px] left-0 w-full h-[2px]">
-            <div
-              className="anim-cyber-tracer-2 absolute top-0 flex items-center"
-              style={{ width: '140px' }}
-            >
-              <div
-                className="h-[1.5px] flex-1"
-                style={{
-                  background: `linear-gradient(90deg, transparent 0%, ${palette.secondary} 70%, ${palette.highlight} 100%)`,
-                }}
-              />
-              <div
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{
-                  backgroundColor: palette.highlight,
-                  boxShadow: `0 0 6px 1.5px ${palette.highlight}`,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Tracer Track 3 (Horizontal, Mid Track at y=20px) */}
-          <div className="absolute top-[20px] left-0 w-full h-[2px]">
-            <div
-              className="anim-cyber-tracer-3 absolute top-0 flex items-center"
-              style={{ width: '100px' }}
-            >
-              <div
-                className="h-[1.5px] flex-1"
-                style={{
-                  background: `linear-gradient(90deg, transparent 0%, ${palette.primary} 70%, ${palette.highlight} 100%)`,
-                }}
-              />
-              <div
-                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                style={{
-                  backgroundColor: palette.highlight,
-                  boxShadow: `0 0 5px 1px ${palette.highlight}`,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Vertical Grid Pulses */}
-          <div className="absolute top-0 left-[25%] h-full w-[2px]">
-            <div
-              className="anim-cyber-tracer-v1 absolute left-0 w-full h-4"
-              style={{
-                background: `linear-gradient(180deg, transparent 0%, ${palette.highlight} 100%)`,
-                boxShadow: `0 0 4px ${palette.glow}`,
-              }}
-            />
-          </div>
-          <div className="absolute top-0 left-[68%] h-full w-[2px]">
-            <div
-              className="anim-cyber-tracer-v2 absolute left-0 w-full h-4"
-              style={{
-                background: `linear-gradient(180deg, transparent 0%, ${palette.highlight} 100%)`,
-                boxShadow: `0 0 4px ${palette.glow}`,
-              }}
-            />
-          </div>
-        </div>
+        <ProceduralCyberGridCanvas
+          palette={palette}
+          previewMode={previewMode}
+          config={effectiveConfig?.shapes_cyber}
+        />
       )}
 
       {/* 12. Vector Shapes: Nature & Forest (Translucent organic leaves & glowing bioluminescent fireflies) */}

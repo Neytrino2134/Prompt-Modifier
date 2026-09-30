@@ -257,6 +257,8 @@ const HelpPanel: React.FC<HelpPanelProps> = ({ buttonClassName, iconClassName })
     windows: [
       { key: 'Space', description: t('hotkeys.windows.search') },
       { key: 'Ctrl+Space', description: t('hotkeys.windows.catalog') },
+      { key: 'Ctrl+W', description: t('hotkeys.windows.closeTab') || 'Close Tab' },
+      { key: 'Ctrl+K', description: t('hotkeys.windows.settings') || t('toolbar.settings') || 'Settings' },
       { key: 'Ctrl+H', description: t('ui.generation_history') || 'Generation History' },
       { key: 'Ctrl+T', description: t('queue.title') || 'Task Queue' },
       { key: 'Shift+F', description: t('hotkeys.windows.fullscreen') },

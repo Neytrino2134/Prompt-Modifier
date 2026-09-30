@@ -143,20 +143,26 @@ export const readMetadataFromPNG = async (base64Image: string): Promise<Record<s
             const base64Parts = base64Image.split('base64,');
             if (base64Parts.length !== 2) return resolve({});
             const base64Data = base64Parts[1];
-            
+
             const binaryString = atob(base64Data);
             const bytes = new Uint8Array(binaryString.length);
             for (let i = 0; i < bytes.length; i++) {
                 bytes[i] = binaryString.charCodeAt(i);
             }
-            
+
+            // Validate PNG signature
+            if (bytes.length < 8) return resolve({});
+            const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+            for (let i = 0; i < signature.length; i++) {
+                if (bytes[i] !== signature[i]) return resolve({});
+            }
+
             const metadata: Record<string, string> = {};
             let offset = 8; // Skip PNG signature
 
             while (offset < bytes.length) {
-                const dataView = new DataView(bytes.buffer, offset);
                 if (offset + 8 > bytes.length) break;
-
+                const dataView = new DataView(bytes.buffer, offset);
                 const length = dataView.getUint32(0, false);
                 const type = bytesToText(bytes.slice(offset + 4, offset + 8));
 
@@ -169,6 +175,27 @@ export const readMetadataFromPNG = async (base64Image: string): Promise<Record<s
                         const keyword = bytesToText(chunkData.slice(0, nullSeparatorIndex));
                         const text = bytesToText(chunkData.slice(nullSeparatorIndex + 1));
                         metadata[keyword] = text;
+                    }
+                } else if (type === 'iTXt') {
+                    const chunkData = bytes.slice(offset + 8, offset + 8 + length);
+                    const nullSeparatorIndex = chunkData.indexOf(0);
+                    if (nullSeparatorIndex !== -1) {
+                        const keyword = bytesToText(chunkData.slice(0, nullSeparatorIndex));
+                        // iTXt structure: keyword, 0x00, compression flag (1 byte), compression method (1 byte), lang tag, 0x00, trans keyword, 0x00, text
+                        const compressionFlag = chunkData[nullSeparatorIndex + 1];
+                        if (compressionFlag === 0) { // Uncompressed
+                            let current = nullSeparatorIndex + 3;
+                            // skip lang tag
+                            while (current < chunkData.length && chunkData[current] !== 0) current++;
+                            current++; // skip null
+                            // skip translated keyword
+                            while (current < chunkData.length && chunkData[current] !== 0) current++;
+                            current++; // skip null
+                            if (current < chunkData.length) {
+                                const text = bytesToText(chunkData.slice(current));
+                                metadata[keyword] = text;
+                            }
+                        }
                     }
                 }
 
@@ -187,6 +214,25 @@ export const readMetadataFromPNG = async (base64Image: string): Promise<Record<s
 
 export const readPromptFromPNG = async (base64: string): Promise<string | null> => {
     const meta = await readMetadataFromPNG(base64);
-    // Check for common prompt keys used by other AIs for compatibility
-    return meta['prompt'] || meta['Prompt'] || meta['parameters'] || meta['Comment'] || null;
-}
+    if (meta['prompt']) return meta['prompt'];
+    if (meta['Prompt']) return meta['Prompt'];
+    if (meta['parameters']) {
+        const raw = meta['parameters'];
+        // Extract positive prompt from SD/A1111 parameters if present
+        const match = raw.split(/\r?\nNegative prompt:|\r?\nSteps:/i)[0]?.trim();
+        return match || raw;
+    }
+    if (meta['Comment']) {
+        try {
+            const parsed = JSON.parse(meta['Comment']);
+            if (parsed.prompt) return parsed.prompt;
+            if (parsed.caption) return parsed.caption;
+        } catch {
+            return meta['Comment'];
+        }
+    }
+    if (meta['caption']) return meta['caption'];
+    if (meta['Description']) return meta['Description'];
+    if (meta['user_comment']) return meta['user_comment'];
+    return null;
+};

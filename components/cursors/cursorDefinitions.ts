@@ -9,6 +9,13 @@ import { modernFlatSkin, getModernFlatDefinition } from './skins/modernFlatSkin'
 import { modernFlatDarkSkin, getModernFlatDarkDefinition } from './skins/modernFlatDarkSkin';
 import { modernFlatDarkCyanSkin } from './skins/modernFlatDarkCyanSkin';
 import { modernFlatDarkWhiteSkin } from './skins/modernFlatDarkWhiteSkin';
+import { sleekBlackWhiteSkin } from './skins/sleekBlackWhiteSkin';
+import { sleekBlackAdaptiveSkin, getSleekBlackAdaptiveDefinition } from './skins/sleekBlackAdaptiveSkin';
+import { sleekBlackCyanSkin } from './skins/sleekBlackCyanSkin';
+import { sleekBlackAmberSkin } from './skins/sleekBlackAmberSkin';
+import { sleekBlackEmeraldSkin } from './skins/sleekBlackEmeraldSkin';
+import { sleekBlackPurpleSkin } from './skins/sleekBlackPurpleSkin';
+import { sleekBlackRoseSkin } from './skins/sleekBlackRoseSkin';
 import { roundedGradientCyanSkin } from './skins/roundedGradientCyanSkin';
 import { roundedGradientAdaptiveSkin, getRoundedGradientAdaptiveDefinition } from './skins/roundedGradientAdaptiveSkin';
 import { roundedGradientPurpleSkin } from './skins/roundedGradientPurpleSkin';
@@ -29,6 +36,13 @@ export { getModernFlatDefinition } from './skins/modernFlatSkin';
 export { getModernFlatDarkDefinition } from './skins/modernFlatDarkSkin';
 export { modernFlatDarkCyanSkin } from './skins/modernFlatDarkCyanSkin';
 export { modernFlatDarkWhiteSkin } from './skins/modernFlatDarkWhiteSkin';
+export { sleekBlackWhiteSkin } from './skins/sleekBlackWhiteSkin';
+export { sleekBlackAdaptiveSkin, getSleekBlackAdaptiveDefinition } from './skins/sleekBlackAdaptiveSkin';
+export { sleekBlackCyanSkin } from './skins/sleekBlackCyanSkin';
+export { sleekBlackAmberSkin } from './skins/sleekBlackAmberSkin';
+export { sleekBlackEmeraldSkin } from './skins/sleekBlackEmeraldSkin';
+export { sleekBlackPurpleSkin } from './skins/sleekBlackPurpleSkin';
+export { sleekBlackRoseSkin } from './skins/sleekBlackRoseSkin';
 export { defaultSkin } from './skins/defaultSkin';
 export { promptModifierSkin } from './skins/promptModifierSkin';
 export { cyberNeonSkin } from './skins/cyberNeonSkin';
@@ -52,6 +66,13 @@ export { toyLilacSkin } from './skins/toyLilacSkin';
 
 export const CURSOR_SETS: Record<CursorSkin, CursorDefinitionSet> = {
     default: defaultSkin,
+    sleek_black_white: sleekBlackWhiteSkin,
+    sleek_black_adaptive: sleekBlackAdaptiveSkin,
+    sleek_black_cyan: sleekBlackCyanSkin,
+    sleek_black_amber: sleekBlackAmberSkin,
+    sleek_black_emerald: sleekBlackEmeraldSkin,
+    sleek_black_purple: sleekBlackPurpleSkin,
+    sleek_black_rose: sleekBlackRoseSkin,
     rounded_gradient_cyan: roundedGradientCyanSkin,
     rounded_gradient_adaptive: roundedGradientAdaptiveSkin,
     rounded_gradient_purple: roundedGradientPurpleSkin,
@@ -79,6 +100,9 @@ export const CURSOR_SETS: Record<CursorSkin, CursorDefinitionSet> = {
  * Returns the currently active CursorDefinitionSet based on skin and theme
  */
 export function getActiveCursorDefinition(skin: CursorSkin, theme: Theme = 'cyan'): CursorDefinitionSet {
+    if (skin === 'sleek_black_adaptive') {
+        return getSleekBlackAdaptiveDefinition(theme);
+    }
     if (skin === 'rounded_gradient_adaptive') {
         return getRoundedGradientAdaptiveDefinition(theme);
     }
@@ -97,14 +121,27 @@ export function getActiveCursorDefinition(skin: CursorSkin, theme: Theme = 'cyan
     if (skin === 'modern_flat_dark_white') {
         return modernFlatDarkWhiteSkin;
     }
-    return CURSOR_SETS[skin] || CURSOR_SETS.rounded_gradient_cyan || CURSOR_SETS.prompt_modifier;
+    return CURSOR_SETS[skin] || CURSOR_SETS.sleek_black_white || CURSOR_SETS.rounded_gradient_cyan || CURSOR_SETS.prompt_modifier;
 }
 
 /**
  * Generates global CSS injection string based on active skin and theme
  */
 export function generateCursorCss(skin: CursorSkin, currentTheme: Theme = 'cyan'): string {
-    const allThemes: Theme[] = ['cyan', 'orange', 'pink', 'gray', 'lime', 'purple', 'azure', 'red', 'emerald'];
+    const allThemes: Theme[] = ['cyan', 'orange', 'pink', 'gray', 'lime', 'purple', 'azure', 'red', 'emerald', 'teal', 'rose', 'amber', 'pastel_mint', 'pastel_lavender', 'pastel_peach', 'pastel_rose', 'pastel_sky', 'pastel_vanilla', 'pastel_sage', 'pastel_sand'];
+
+    if (skin === 'sleek_black_adaptive') {
+        const activeDef = getSleekBlackAdaptiveDefinition(currentTheme);
+        let css = `/* Custom Dynamic Cursor Skin: Sleek Black (Adaptive Theme) */\n`;
+        // Base fallback
+        css += renderCssRules(`html[data-cursor-skin="sleek_black_adaptive"]`, activeDef.cursors);
+        // Instant pure-CSS rules for each specific theme
+        for (const t of allThemes) {
+            const tDef = getSleekBlackAdaptiveDefinition(t);
+            css += renderCssRules(`html[data-cursor-skin="sleek_black_adaptive"][data-theme="${t}"]`, tDef.cursors);
+        }
+        return css;
+    }
 
     if (skin === 'rounded_gradient_adaptive') {
         const activeDef = getRoundedGradientAdaptiveDefinition(currentTheme);
@@ -158,6 +195,6 @@ export function generateCursorCss(skin: CursorSkin, currentTheme: Theme = 'cyan'
         return css;
     }
 
-    const def = CURSOR_SETS[skin] || CURSOR_SETS.rounded_gradient_cyan || CURSOR_SETS.prompt_modifier;
+    const def = CURSOR_SETS[skin] || CURSOR_SETS.sleek_black_white || CURSOR_SETS.rounded_gradient_cyan || CURSOR_SETS.prompt_modifier;
     return renderCssRules(`html[data-cursor-skin="${skin}"]`, def.cursors);
 }

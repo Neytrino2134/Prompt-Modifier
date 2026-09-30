@@ -237,6 +237,8 @@ export const nodes = {
     'node.promptProcessor.technicalPromptTooltip': 'Convierte el prompt en una especificación técnica altamente detallada (iluminación, cámara, ajustes de renderizado).',
     'node.promptProcessor.enhanceTooltip': 'Usa IA para expandir y enriquecer el prompt con detalles descriptivos.',
     'node.promptProcessor.chainTooltip': 'Ejecuta este nodo y activa todos los nodos posteriores conectados.',
+    'image_sequence.auto_save': 'Guardar automáticamente las imágenes',
+    'image_sequence.tooltip.autoSave': 'Guarda automáticamente las imágenes generadas en tu dispositivo al completarse.',
     'image_sequence.tooltip.autoCrop': 'Recorta automáticamente las imágenes generadas a una proporción de 16:9.',
     'image_sequence.tooltip.autoDownload': 'Guarda automáticamente cada imagen en tu dispositivo tras la generación.',
     'image_sequence.tooltip.createZip': 'Empaqueta todas las imágenes seleccionadas en un único archivo ZIP para su descarga.'

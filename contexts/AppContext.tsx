@@ -38,16 +38,19 @@ import { useTaskQueue } from '../hooks/useTaskQueue';
 import { useTutorial } from '../hooks/useTutorial';
 import { useBatchManager } from '../hooks/useBatchManager';
 import { addMetadataToPNG } from '../utils/pngMetadata';
+import { generateCanvasScreenshot } from '../utils/canvasScreenshot';
 import { getConnectionPoints, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
 import { generateThumbnail } from '../utils/imageUtils';
-import { createNewTab } from '../hooks/useTabs';
+import { createNewTab, normalizeTabs } from '../hooks/useTabs';
 import { clearImagesForTabFromCache } from '../utils/imageMemoryCache';
+import { playAutosaveSound } from '../services/soundNotificationService';
 import type { Tab, CanvasState } from '../types';
+
 
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const { t, language, setLanguage } = useLanguage();
+    const { t, language, setLanguage, secondaryLanguage, setSecondaryLanguage } = useLanguage();
     const permissionsHook = usePermissions('clipboard-read');
 
     // Core Hooks
@@ -117,8 +120,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const lastLoadedTabIdRef = useRef<string | null>(null);
     const isTabLoadedFromDBRef = useRef(false);
     const saveTimeoutRef = useRef<any>(null);
+    const [isCanvasLoading, setIsCanvasLoading] = useState(true);
 
-    const loadCanvasState = useCallback((state: any) => {
+    const loadCanvasState = useCallback((state: any, tabName?: string) => {
         if (!state) return;
         isLoadingStateRef.current = true;
         nodesHook.setNodes(state.nodes || []);
@@ -128,14 +132,77 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         nodesHook.nodeIdCounter.current = state.nodeIdCounter || 0;
         setFullSizeImageCache(state.fullSizeImageCache || {});
 
+        const newState: CanvasState = {
+            nodes: state.nodes || [],
+            connections: state.connections || [],
+            groups: state.groups || [],
+            viewTransform: state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } },
+            nodeIdCounter: state.nodeIdCounter || 0,
+            fullSizeImageCache: state.fullSizeImageCache || {}
+        };
+
+        setTabs(prevTabs => {
+            const updated = prevTabs.map(tab => tab.id === activeTabId ? {
+                ...tab,
+                name: (tabName && tabName.trim()) ? tabName.trim() : tab.name,
+                state: newState
+            } : tab);
+            saveSessionToDB(updated, activeTabId);
+            return updated;
+        });
+
         setTimeout(() => {
             isLoadingStateRef.current = false;
-        }, 50);
+        }, 100);
     }, [
+        activeTabId,
         nodesHook.setNodes,
         connectionsHook.setConnections,
         groupsHook.setGroups,
         canvasHook.setViewTransform,
+        nodesHook.nodeIdCounter,
+        setFullSizeImageCache,
+        setTabs
+    ]);
+
+    // Comprehensive session restoration that synchronizes tab metadata and canvas hooks
+    const restoreSession = useCallback((newTabs: Tab[], targetActiveTabId?: string) => {
+        if (!Array.isArray(newTabs) || newTabs.length === 0) return;
+
+        const { tabs: normalizedTabs, activeTabId: validActiveId } = normalizeTabs(newTabs, targetActiveTabId);
+        const targetTab = normalizedTabs.find(t => t.id === validActiveId) || normalizedTabs[0];
+
+        // 1. Lock live sync
+        isLoadingStateRef.current = true;
+        lastLoadedTabIdRef.current = validActiveId;
+
+        // 2. Update tabs and activeTabId in state
+        setTabs(normalizedTabs);
+        setActiveTabId(validActiveId);
+
+        // 3. Load canvas state directly into canvas hooks
+        nodesHook.setNodes(targetTab.state.nodes || []);
+        connectionsHook.setConnections(targetTab.state.connections || []);
+        groupsHook.setGroups(targetTab.state.groups || []);
+        canvasHook.setViewTransform(targetTab.state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
+        nodesHook.nodeIdCounter.current = targetTab.state.nodeIdCounter || 0;
+        setFullSizeImageCache(targetTab.state.fullSizeImageCache || {});
+
+        // 4. Save to DB immediately
+        saveSessionToDB(normalizedTabs, validActiveId);
+
+        // 5. Release lock after state flush
+        setTimeout(() => {
+            isLoadingStateRef.current = false;
+        }, 120);
+    }, [
+        setTabs,
+        setActiveTabId,
+        nodesHook.setNodes,
+        connectionsHook.setConnections,
+        groupsHook.setGroups,
+        canvasHook.setViewTransform,
+        nodesHook.nodeIdCounter,
         setFullSizeImageCache
     ]);
 
@@ -144,13 +211,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!tabsHook.isLoaded) return;
         if (!isTabLoadedFromDBRef.current) {
             isTabLoadedFromDBRef.current = true;
-            lastLoadedTabIdRef.current = activeTabId;
-            const currentActiveTab = tabs.find(t => t.id === activeTabId) || tabs[0];
-            if (currentActiveTab) {
-                loadCanvasState(currentActiveTab.state);
-            }
+            restoreSession(tabsHook.tabs, tabsHook.activeTabId);
+            setIsCanvasLoading(false);
         }
-    }, [tabsHook.isLoaded, tabs, activeTabId, loadCanvasState]);
+    }, [tabsHook.isLoaded, tabsHook.tabs, tabsHook.activeTabId, restoreSession]);
 
     // Sync live canvas state back to active tab in tabs array when user modifies canvas
     useEffect(() => {
@@ -199,7 +263,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         canvasHook.viewTransform,
         fullSizeImageCache,
         activeTabId,
-        tabs,
         tabsHook.isLoaded,
         setTabs
     ]);
@@ -222,13 +285,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { tabs: latestTabs, activeTabId };
     }, [nodesHook.nodes, connectionsHook.connections, groupsHook.groups, canvasHook.viewTransform, nodesHook.nodeIdCounter, fullSizeImageCache, tabs, activeTabId]);
 
+    const getCompleteProjectStateRef = useRef(getCompleteProjectState);
+    useEffect(() => {
+        getCompleteProjectStateRef.current = getCompleteProjectState;
+    }, [getCompleteProjectState]);
+
     // Force save session to IndexedDB immediately (e.g. before exit, manual save, or batch finish)
     const forceSaveSession = useCallback(async (overrideTabs?: Tab[], overrideActiveTabId?: string): Promise<void> => {
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-            saveTimeoutRef.current = null;
-        }
-
         setIsAutoSaving(true);
         try {
             let tabsToSave: Tab[];
@@ -244,83 +307,60 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setTabs(tabsToSave);
             }
 
-            await saveSessionToDB(tabsToSave, activeTabIdToSave);
+            const activeTab = (activeTabIdToSave ? tabsToSave.find(t => t.id === activeTabIdToSave) : null) || tabsToSave[0];
+            const screenshot = activeTab?.state ? generateCanvasScreenshot(activeTab.state) : '';
+
+            await saveSessionToDB(tabsToSave, activeTabIdToSave, screenshot, false);
+            playAutosaveSound();
         } catch (e) {
             console.error("Failed to save session to IndexedDB:", e);
         } finally {
             setIsAutoSaving(false);
-            setNextAutoSaveTime(null);
         }
-    }, [getCompleteProjectState, setTabs, setIsAutoSaving, setNextAutoSaveTime]);
+    }, [getCompleteProjectState, setTabs, setIsAutoSaving]);
 
-    // Central Auto-Save Timer
+    // Central Auto-Save Timer (runs strictly on intervalSeconds cadence without resetting on canvas events)
     useEffect(() => {
         if (!tabsHook.isLoaded || isLoadingStateRef.current) return;
 
         const intervalSeconds = globalState.autoSaveInterval;
         if (intervalSeconds <= 0) {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-                saveTimeoutRef.current = null;
-            }
             setNextAutoSaveTime(null);
             return;
         }
 
-        const now = Date.now();
-        const fullDelayMs = intervalSeconds * 1000;
-        const COUNTDOWN_RESET_MS = 10000; // 10 seconds
+        const intervalMs = intervalSeconds * 1000;
+        setNextAutoSaveTime(Date.now() + intervalMs);
 
-        // If we are already in countdown (last 10 seconds), only reset countdown by 10s
-        let delayToUse = fullDelayMs;
-        if (saveTimeoutRef.current && nextAutoSaveTime && nextAutoSaveTime > now) {
-            const remaining = nextAutoSaveTime - now;
-            if (remaining <= 10000) {
-                delayToUse = COUNTDOWN_RESET_MS;
-            }
-        }
+        const timerId = setInterval(async () => {
+            if (isLoadingStateRef.current) return;
 
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-
-        const newTargetTime = now + delayToUse;
-        setNextAutoSaveTime(newTargetTime);
-
-        saveTimeoutRef.current = setTimeout(async () => {
             setIsAutoSaving(true);
             try {
-                const snapshot = getCompleteProjectState();
-                setTabs(snapshot.tabs);
-                await saveSessionToDB(snapshot.tabs, snapshot.activeTabId);
+                const snapshot = getCompleteProjectStateRef.current();
+                const activeTab = (snapshot.activeTabId ? snapshot.tabs.find(t => t.id === snapshot.activeTabId) : null) || snapshot.tabs[0];
+                const screenshot = activeTab?.state ? generateCanvasScreenshot(activeTab.state) : '';
+
+                // Save with isSnapshot = true to create a persistent snapshot in autosave history
+                await saveSessionToDB(snapshot.tabs, snapshot.activeTabId, screenshot, true);
                 addToast(t('toast.autoSaved'), 'success');
+                playAutosaveSound();
             } catch (e) {
                 console.error("Failed to auto-save session:", e);
             } finally {
                 setIsAutoSaving(false);
-                setNextAutoSaveTime(null);
+                setNextAutoSaveTime(Date.now() + intervalMs);
             }
-        }, delayToUse);
+        }, intervalMs);
 
         return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-            }
+            clearInterval(timerId);
         };
     }, [
-        nodesHook.nodes,
-        connectionsHook.connections,
-        groupsHook.groups,
-        canvasHook.viewTransform,
-        fullSizeImageCache,
-        tabs,
-        activeTabId,
-        tabsHook.isLoaded,
         globalState.autoSaveInterval,
-        getCompleteProjectState,
-        setTabs,
-        setIsAutoSaving,
+        tabsHook.isLoaded,
         setNextAutoSaveTime,
+        setIsAutoSaving,
         addToast,
         t
     ]);
@@ -351,24 +391,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             tab.id === activeTabId ? { ...tab, state: currentLiveState } : tab
         );
         setTabs(updatedTabs);
-
-        // 4. Load target tab's canvas state
-        loadCanvasState(targetTab.state);
-
-        // 5. Update activeTabId
         setActiveTabId(targetTabId);
+
+        // 4. Directly load target tab's canvas state into canvas hooks
+        nodesHook.setNodes(targetTab.state.nodes || []);
+        connectionsHook.setConnections(targetTab.state.connections || []);
+        groupsHook.setGroups(targetTab.state.groups || []);
+        canvasHook.setViewTransform(targetTab.state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
+        nodesHook.nodeIdCounter.current = targetTab.state.nodeIdCounter || 0;
+        setFullSizeImageCache(targetTab.state.fullSizeImageCache || {});
+
+        // 5. Persist the updated snapshot immediately
+        saveSessionToDB(updatedTabs, targetTabId);
+
+        setTimeout(() => {
+            isLoadingStateRef.current = false;
+        }, 80);
     }, [
         activeTabId,
         tabs,
         setTabs,
         setActiveTabId,
         nodesHook.nodes,
+        nodesHook.setNodes,
         connectionsHook.connections,
+        connectionsHook.setConnections,
         groupsHook.groups,
+        groupsHook.setGroups,
         canvasHook.viewTransform,
+        canvasHook.setViewTransform,
         nodesHook.nodeIdCounter,
         fullSizeImageCache,
-        loadCanvasState
+        setFullSizeImageCache
     ]);
 
     const handleAddTab = useCallback((customName?: string | unknown) => {
@@ -392,20 +446,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ).concat(newTab);
 
         setTabs(updatedTabs);
-        loadCanvasState(newTab.state);
         setActiveTabId(newTab.id);
+
+        nodesHook.setNodes(newTab.state.nodes || []);
+        connectionsHook.setConnections(newTab.state.connections || []);
+        groupsHook.setGroups(newTab.state.groups || []);
+        canvasHook.setViewTransform(newTab.state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
+        nodesHook.nodeIdCounter.current = newTab.state.nodeIdCounter || 0;
+        setFullSizeImageCache(newTab.state.fullSizeImageCache || {});
+
+        saveSessionToDB(updatedTabs, newTab.id);
+
+        setTimeout(() => {
+            isLoadingStateRef.current = false;
+        }, 80);
     }, [
         activeTabId,
         tabs,
         setTabs,
         setActiveTabId,
         nodesHook.nodes,
+        nodesHook.setNodes,
         connectionsHook.connections,
+        connectionsHook.setConnections,
         groupsHook.groups,
+        groupsHook.setGroups,
         canvasHook.viewTransform,
+        canvasHook.setViewTransform,
         nodesHook.nodeIdCounter,
         fullSizeImageCache,
-        loadCanvasState
+        setFullSizeImageCache
     ]);
 
     const handleCloseTab = useCallback((tabIdToClose: string) => {
@@ -417,23 +487,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (activeTabId === tabIdToClose) {
             const nextActiveIndex = Math.max(0, closingIndex - 1);
-            const nextActiveTab = newTabs[nextActiveIndex];
+            const nextActiveTab = newTabs[nextActiveIndex] || newTabs[0];
 
             isLoadingStateRef.current = true;
             lastLoadedTabIdRef.current = nextActiveTab.id;
 
-            loadCanvasState(nextActiveTab.state);
+            setTabs(newTabs);
             setActiveTabId(nextActiveTab.id);
-        }
 
-        setTabs(newTabs);
-    }, [tabs, activeTabId, setTabs, setActiveTabId, loadCanvasState]);
+            nodesHook.setNodes(nextActiveTab.state.nodes || []);
+            connectionsHook.setConnections(nextActiveTab.state.connections || []);
+            groupsHook.setGroups(nextActiveTab.state.groups || []);
+            canvasHook.setViewTransform(nextActiveTab.state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
+            nodesHook.nodeIdCounter.current = nextActiveTab.state.nodeIdCounter || 0;
+            setFullSizeImageCache(nextActiveTab.state.fullSizeImageCache || {});
+
+            saveSessionToDB(newTabs, nextActiveTab.id);
+
+            setTimeout(() => {
+                isLoadingStateRef.current = false;
+            }, 80);
+        } else {
+            setTabs(newTabs);
+            saveSessionToDB(newTabs, activeTabId);
+        }
+    }, [tabs, activeTabId, setTabs, setActiveTabId, nodesHook.setNodes, connectionsHook.setConnections, groupsHook.setGroups, canvasHook.setViewTransform, setFullSizeImageCache, clearImagesForTabFromCache]);
 
     const handleRenameTab = useCallback((tabId: string, newName: string) => {
-        setTabs(prevTabs =>
-            prevTabs.map(tab => (tab.id === tabId ? { ...tab, name: newName } : tab))
-        );
-    }, [setTabs]);
+        setTabs(prevTabs => {
+            const updated = prevTabs.map(tab => (tab.id === tabId ? { ...tab, name: newName } : tab));
+            saveSessionToDB(updated, activeTabId);
+            return updated;
+        });
+    }, [setTabs, activeTabId]);
 
     const handleReorderTabs = useCallback((sourceIndex: number, targetIndex: number) => {
         if (sourceIndex === targetIndex) return;
@@ -474,25 +560,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const resetTabs = useCallback(async (lang: LanguageCode) => {
         const defaultState = getLocalizedCanvasState(lang);
         const newTab = createNewTab('Canvas 1', defaultState);
-
-        isLoadingStateRef.current = true;
-        lastLoadedTabIdRef.current = newTab.id;
-
-        loadCanvasState(newTab.state);
-        setTabs([newTab]);
-        setActiveTabId(newTab.id);
-
+        restoreSession([newTab], newTab.id);
         await saveSessionToDB([newTab], newTab.id);
-    }, [getLocalizedCanvasState, loadCanvasState, setTabs, setActiveTabId]);
+    }, [getLocalizedCanvasState, restoreSession]);
 
     const resetCurrentTab = useCallback((lang: LanguageCode) => {
         const defaultState = getLocalizedCanvasState(lang);
         isLoadingStateRef.current = true;
         loadCanvasState(defaultState);
 
-        setTabs(prev => prev.map(tab => 
-            tab.id === activeTabId ? { ...tab, state: defaultState } : tab
-        ));
+        setTabs(prev => {
+            const updated = prev.map(tab => 
+                tab.id === activeTabId ? { ...tab, state: defaultState } : tab
+            );
+            saveSessionToDB(updated, activeTabId);
+            return updated;
+        });
     }, [activeTabId, getLocalizedCanvasState, loadCanvasState, setTabs]);
 
     const resetCanvasToDefault = useCallback((lang: LanguageCode) => {
@@ -651,7 +734,89 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     const canvasIOHook = useCanvasIO({
-        getCurrentCanvasState, loadCanvasState, setError: globalState.setError, nodes: nodesHook.nodes, getPromptForNode: entityActionsHook.getPromptForNode, handleValueChange: nodesHook.handleValueChange, addToast, t, activeTabName: activeTab.name, getFullSizeImage, handleRenameTab, activeTabId, setFullSizeImage, tabs: tabsHook.tabs, setTabs: tabsHook.setTabs, setActiveTabId: tabsHook.setActiveTabId, catalogItems: catalogHook.catalogItems, setCatalogItems: catalogHook.replaceAllItems, libraryItems: libraryHook.libraryItems, setLibraryItems: libraryHook.replaceAllItems, characterCatalog: characterCatalogHook, scriptCatalog: scriptCatalogHook, sequenceCatalog: sequenceCatalogHook, language, setLanguage, isSnapToGrid: globalState.isSnapToGrid, setIsSnapToGrid: globalState.setIsSnapToGrid, lineStyle: globalState.lineStyle, setLineStyle: globalState.setLineStyle, setConfirmInfo: (info) => dialogsHook.setConfirmInfo(info), handleRenameNode: nodesHook.handleRenameNode, onAddNode: entityActionsHook.onAddNode, pasteGroup: entityActionsHook.pasteGroup, viewTransform: canvasHook.viewTransform
+        getCurrentCanvasState,
+        loadCanvasState,
+        restoreSession,
+        setError: globalState.setError,
+        nodes: nodesHook.nodes,
+        getPromptForNode: entityActionsHook.getPromptForNode,
+        handleValueChange: nodesHook.handleValueChange,
+        addToast,
+        t,
+        activeTabName: activeTab.name,
+        getFullSizeImage,
+        handleRenameTab,
+        activeTabId,
+        setFullSizeImage,
+        tabs: tabsHook.tabs,
+        setTabs: tabsHook.setTabs,
+        setActiveTabId: tabsHook.setActiveTabId,
+        catalogItems: catalogHook.catalogItems,
+        setCatalogItems: catalogHook.replaceAllItems,
+        libraryItems: libraryHook.libraryItems,
+        setLibraryItems: libraryHook.replaceAllItems,
+        characterCatalog: characterCatalogHook,
+        scriptCatalog: scriptCatalogHook,
+        sequenceCatalog: sequenceCatalogHook,
+        language,
+        setLanguage,
+        secondaryLanguage,
+        setSecondaryLanguage,
+        isSnapToGrid: globalState.isSnapToGrid,
+        setIsSnapToGrid: globalState.setIsSnapToGrid,
+        lineStyle: globalState.lineStyle,
+        setLineStyle: globalState.setLineStyle,
+        currentTheme: globalState.currentTheme,
+        setTheme: globalState.setTheme,
+        canvasColorMode: globalState.canvasColorMode,
+        setCanvasColorMode: globalState.setCanvasColorMode,
+        inputColorMode: globalState.inputColorMode,
+        setInputColorMode: globalState.setInputColorMode,
+        panelStyle: globalState.panelStyle,
+        setPanelStyle: globalState.setPanelStyle,
+        isPanelAutoHide: globalState.isPanelAutoHide,
+        setIsPanelAutoHide: globalState.setIsPanelAutoHide,
+        panelAnimation: globalState.panelAnimation,
+        setPanelAnimation: globalState.setPanelAnimation,
+        isPanelAnimationAdaptive: globalState.isPanelAnimationAdaptive,
+        setIsPanelAnimationAdaptive: globalState.setIsPanelAnimationAdaptive,
+        panelAnimationConfig: globalState.panelAnimationConfig,
+        setPanelAnimationConfig: globalState.setPanelAnimationConfig,
+        cursorSkin: globalState.cursorSkin,
+        setCursorSkin: globalState.setCursorSkin,
+        isCursorEffectEnabled: globalState.isCursorEffectEnabled,
+        setIsCursorEffectEnabled: globalState.setIsCursorEffectEnabled,
+        autoSaveInterval: globalState.autoSaveInterval,
+        setAutoSaveInterval: globalState.setAutoSaveInterval,
+        autoSaveHistoryLimit: globalState.autoSaveHistoryLimit,
+        setAutoSaveHistoryLimit: globalState.setAutoSaveHistoryLimit,
+        autoSaveSessionLimit: globalState.autoSaveSessionLimit,
+        setAutoSaveSessionLimit: globalState.setAutoSaveSessionLimit,
+        isInstantCloseEnabled: globalState.isInstantCloseEnabled,
+        setIsInstantCloseEnabled: globalState.setIsInstantCloseEnabled,
+        isImageDropMenuEnabled: globalState.isImageDropMenuEnabled,
+        setIsImageDropMenuEnabled: globalState.setIsImageDropMenuEnabled,
+        isHoverHighlightEnabled: globalState.isHoverHighlightEnabled,
+        setIsHoverHighlightEnabled: globalState.setIsHoverHighlightEnabled,
+        isBringToFrontOnHoverEnabled: globalState.isBringToFrontOnHoverEnabled,
+        setIsBringToFrontOnHoverEnabled: globalState.setIsBringToFrontOnHoverEnabled,
+        nodeAnimationMode: globalState.nodeAnimationMode,
+        setNodeAnimationMode: globalState.setNodeAnimationMode,
+        isConnectionAnimationEnabled: globalState.isConnectionAnimationEnabled,
+        setIsConnectionAnimationEnabled: globalState.setIsConnectionAnimationEnabled,
+        connectionOpacity: globalState.connectionOpacity,
+        setConnectionOpacity: globalState.setConnectionOpacity,
+        connectionAnimationStyle: globalState.connectionAnimationStyle,
+        setConnectionAnimationStyle: globalState.setConnectionAnimationStyle,
+        connectionAnimationConfig: globalState.connectionAnimationConfig,
+        setConnectionAnimationConfig: globalState.setConnectionAnimationConfig,
+        isSmartGuidesEnabled: globalState.isSmartGuidesEnabled,
+        setIsSmartGuidesEnabled: globalState.setIsSmartGuidesEnabled,
+        setConfirmInfo: (info) => dialogsHook.setConfirmInfo(info),
+        handleRenameNode: nodesHook.handleRenameNode,
+        onAddNode: entityActionsHook.onAddNode,
+        pasteGroup: entityActionsHook.pasteGroup,
+        viewTransform: canvasHook.viewTransform
     });
 
     const dialogsHook = useDialogsAndUI({
@@ -1040,7 +1205,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         redoPosition: positionHistoryHook.redoPosition,
         handleToggleNodePin: nodesHook.handleToggleNodePin,
         setIsHistoryPanelOpen,
-        setIsTaskQueuePanelOpen
+        setIsTaskQueuePanelOpen,
+        handleCloseActiveTab: () => dialogsHook.handleCloseTab(activeTabId)
     });
 
     const handleNodeContextMenuLogic = useCallback((e: React.MouseEvent, nodeId: string) => {
@@ -1096,7 +1262,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         handleAddGroupFromCatalog: orchestrationHook.handleAddGroupFromCatalog,
         activeTabId: activeTabId,
         handleRenameTab: handleRenameTab,
-        handleRemoveGroup 
+        handleRemoveGroup,
+        isImageDropMenuEnabled: globalState.isImageDropMenuEnabled 
     });
 
     const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
@@ -1370,6 +1537,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleReorderTabs,
             resetTabs,
             resetCurrentTab,
+            restoreSession,
             getCurrentCanvasState,
 
             tutorialStep: tutorialHook.tutorialStep,
@@ -1458,6 +1626,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setPanelAnimation: globalState.setPanelAnimation,
             isPanelAnimationAdaptive: globalState.isPanelAnimationAdaptive,
             setIsPanelAnimationAdaptive: globalState.setIsPanelAnimationAdaptive,
+            panelAnimationConfig: globalState.panelAnimationConfig,
+            setPanelAnimationConfig: globalState.setPanelAnimationConfig,
+            updatePanelAnimationConfig: globalState.updatePanelAnimationConfig,
+            resetPanelAnimationConfig: globalState.resetPanelAnimationConfig,
+            isPanelAnimationConfigOpen: globalState.isPanelAnimationConfigOpen,
+            setIsPanelAnimationConfigOpen: globalState.setIsPanelAnimationConfigOpen,
+            panelAnimationConfigActiveTab: globalState.panelAnimationConfigActiveTab,
+            setPanelAnimationConfigActiveTab: globalState.setPanelAnimationConfigActiveTab,
+            openPanelAnimationConfig: globalState.openPanelAnimationConfig,
+
+            connectionAnimationStyle: globalState.connectionAnimationStyle,
+            setConnectionAnimationStyle: globalState.setConnectionAnimationStyle,
+            connectionAnimationConfig: globalState.connectionAnimationConfig,
+            setConnectionAnimationConfig: globalState.setConnectionAnimationConfig,
+            updateConnectionAnimationConfig: globalState.updateConnectionAnimationConfig,
+            resetConnectionAnimationConfig: globalState.resetConnectionAnimationConfig,
+            isConnectionConfigOpen: globalState.isConnectionConfigOpen,
+            setIsConnectionConfigOpen: globalState.setIsConnectionConfigOpen,
 
             onUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
             handleUpdateCharacterDescription: geminiModificationHook.handleUpdateCharacterDescription,
@@ -1508,7 +1694,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             isStatusBarOpen,
             setIsStatusBarOpen,
             headerHeight,
-            setHeaderHeight
+            setHeaderHeight,
+            isCanvasLoading
         };
     }, [
         tabsHook, nodesHook, connectionsHook, groupsHook, canvasHook,
@@ -1517,7 +1704,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         geminiAnalysisHook, geminiConversationHook, geminiChainExecutionHook, geminiGenerationHook, geminiModificationHook,
         positionHistoryHook, globalState, orchestrationHook, tutorialHook, googleDriveHook, generationHistoryHook, taskQueueHook, batchManagerHook,
         updateNodeInStorage, forceSaveSession,
-        tabs, activeTabId, handleSwitchTab, handleAddTab, dialogsHook.handleCloseTab, handleRenameTab, handleReorderTabs, resetTabs, resetCurrentTab, getCurrentCanvasState,
+        tabs, activeTabId, handleSwitchTab, handleAddTab, dialogsHook.handleCloseTab, handleRenameTab, handleReorderTabs, resetTabs, resetCurrentTab, restoreSession, getCurrentCanvasState,
         handleToggleNodeCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,
@@ -1530,7 +1717,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         connectionsHook.removeConnectionsByNodeId,
         handleRemoveGroup, handleSaveGroupToCatalog, handleSaveGroupToDisk, handleDetachAndPasteConcept, onDetachImageToNode,
         onSaveCharacterToCatalog, onSaveGeneratedCharacterToCatalog, onSaveScriptToCatalog, onSaveSequenceToCatalog,
-        isStatusBarOpen, setIsStatusBarOpen, headerHeight, setHeaderHeight
+        isStatusBarOpen, setIsStatusBarOpen, headerHeight, setHeaderHeight, isCanvasLoading
     ]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

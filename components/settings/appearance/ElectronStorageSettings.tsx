@@ -29,9 +29,13 @@ export const ElectronStorageSettings: React.FC<ElectronStorageSettingsProps> = (
   const { t } = useLanguage();
 
   const [traySettings, setTraySettings] = useState<{
+    closeAction: 'ask' | 'tray' | 'quit';
+    minimizeAction: 'taskbar' | 'tray';
     minimizeToTrayOnClose: boolean;
     minimizeToTrayOnMinimize: boolean;
   }>({
+    closeAction: 'ask',
+    minimizeAction: 'taskbar',
     minimizeToTrayOnClose: false,
     minimizeToTrayOnMinimize: false,
   });
@@ -41,9 +45,13 @@ export const ElectronStorageSettings: React.FC<ElectronStorageSettingsProps> = (
     if (api && api.getTraySettings) {
       api.getTraySettings().then((settings: any) => {
         if (settings) {
+          const closeAction = settings.closeAction || (settings.minimizeToTrayOnClose ? 'tray' : 'ask');
+          const minimizeAction = settings.minimizeAction || (settings.minimizeToTrayOnMinimize ? 'tray' : 'taskbar');
           setTraySettings({
-            minimizeToTrayOnClose: Boolean(settings.minimizeToTrayOnClose),
-            minimizeToTrayOnMinimize: Boolean(settings.minimizeToTrayOnMinimize),
+            closeAction,
+            minimizeAction,
+            minimizeToTrayOnClose: closeAction === 'tray',
+            minimizeToTrayOnMinimize: minimizeAction === 'tray',
           });
         }
       });
@@ -52,9 +60,13 @@ export const ElectronStorageSettings: React.FC<ElectronStorageSettingsProps> = (
     if (api && api.onTraySettingsUpdated) {
       const remove = api.onTraySettingsUpdated((settings: any) => {
         if (settings) {
+          const closeAction = settings.closeAction || (settings.minimizeToTrayOnClose ? 'tray' : 'ask');
+          const minimizeAction = settings.minimizeAction || (settings.minimizeToTrayOnMinimize ? 'tray' : 'taskbar');
           setTraySettings({
-            minimizeToTrayOnClose: Boolean(settings.minimizeToTrayOnClose),
-            minimizeToTrayOnMinimize: Boolean(settings.minimizeToTrayOnMinimize),
+            closeAction,
+            minimizeAction,
+            minimizeToTrayOnClose: closeAction === 'tray',
+            minimizeToTrayOnMinimize: minimizeAction === 'tray',
           });
         }
       });
@@ -62,8 +74,47 @@ export const ElectronStorageSettings: React.FC<ElectronStorageSettingsProps> = (
     }
   }, []);
 
-  const handleUpdateTraySetting = (key: 'minimizeToTrayOnClose' | 'minimizeToTrayOnMinimize', value: boolean) => {
-    const nextSettings = { ...traySettings, [key]: value };
+  const handleSetCloseAction = (action: 'ask' | 'tray' | 'quit') => {
+    const nextSettings = {
+      ...traySettings,
+      closeAction: action,
+      minimizeToTrayOnClose: action === 'tray',
+    };
+    setTraySettings(nextSettings);
+    const api = (window as any).electronAPI;
+    if (api && api.setTraySettings) {
+      api.setTraySettings(nextSettings);
+    }
+  };
+
+  const handleSetMinimizeAction = (action: 'taskbar' | 'tray') => {
+    const nextSettings = {
+      ...traySettings,
+      minimizeAction: action,
+      minimizeToTrayOnMinimize: action === 'tray',
+    };
+    setTraySettings(nextSettings);
+    const api = (window as any).electronAPI;
+    if (api && api.setTraySettings) {
+      api.setTraySettings(nextSettings);
+    }
+  };
+
+  const handleToggleCheckbox = (key: 'minimizeToTrayOnClose' | 'minimizeToTrayOnMinimize', checked: boolean) => {
+    let nextSettings: typeof traySettings;
+    if (key === 'minimizeToTrayOnClose') {
+      nextSettings = {
+        ...traySettings,
+        minimizeToTrayOnClose: checked,
+        closeAction: checked ? 'tray' : 'ask',
+      };
+    } else {
+      nextSettings = {
+        ...traySettings,
+        minimizeToTrayOnMinimize: checked,
+        minimizeAction: checked ? 'tray' : 'taskbar',
+      };
+    }
     setTraySettings(nextSettings);
     const api = (window as any).electronAPI;
     if (api && api.setTraySettings) {
@@ -81,7 +132,7 @@ export const ElectronStorageSettings: React.FC<ElectronStorageSettingsProps> = (
   return (
     <>
       {/* System Tray Behavior (Electron Only) */}
-      <div className="space-y-2 pt-2 border-t border-gray-700/50">
+      <div className="space-y-2.5 pt-2 border-t border-gray-700/50">
         <div>
           <label className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
             <MonitorIcon className="w-3.5 h-3.5 text-cyan-400" />
@@ -92,32 +143,110 @@ export const ElectronStorageSettings: React.FC<ElectronStorageSettingsProps> = (
           </p>
         </div>
 
-        <div className="space-y-1.5 bg-gray-900/60 p-2.5 rounded-lg border border-gray-800">
-          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 hover:text-white transition-colors">
-            <CustomCheckbox
-              checked={traySettings.minimizeToTrayOnClose}
-              onChange={(checked) => handleUpdateTraySetting('minimizeToTrayOnClose', checked)}
-            />
-            <span>{t('settings.trayMinimizeToTrayOnClose')}</span>
-          </label>
+        <div className="space-y-3 bg-gray-900/60 p-3 rounded-lg border border-gray-800">
+          {/* Action on Close */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-200">{t('settings.closeActionLabel')}</span>
+              <span className="text-[10px] text-gray-400">{t('settings.closeActionDesc')}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 bg-gray-950/70 p-1 rounded-lg border border-gray-800">
+              <button
+                type="button"
+                onClick={() => handleSetCloseAction('ask')}
+                className={`px-2 py-1.5 rounded text-xs font-medium transition-all text-center ${
+                  traySettings.closeAction === 'ask'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                }`}
+              >
+                {t('settings.closeAction.ask')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetCloseAction('tray')}
+                className={`px-2 py-1.5 rounded text-xs font-medium transition-all text-center ${
+                  traySettings.closeAction === 'tray'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                }`}
+              >
+                {t('settings.closeAction.tray')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetCloseAction('quit')}
+                className={`px-2 py-1.5 rounded text-xs font-medium transition-all text-center ${
+                  traySettings.closeAction === 'quit'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                }`}
+              >
+                {t('settings.closeAction.quit')}
+              </button>
+            </div>
+          </div>
 
-          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 hover:text-white transition-colors">
-            <CustomCheckbox
-              checked={traySettings.minimizeToTrayOnMinimize}
-              onChange={(checked) => handleUpdateTraySetting('minimizeToTrayOnMinimize', checked)}
-            />
-            <span>{t('settings.trayMinimizeToTrayOnMinimize')}</span>
-          </label>
+          {/* Action on Minimize */}
+          <div className="space-y-1.5 pt-2 border-t border-gray-800/80">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-200">{t('settings.minimizeActionLabel')}</span>
+              <span className="text-[10px] text-gray-400">{t('settings.minimizeActionDesc')}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 bg-gray-950/70 p-1 rounded-lg border border-gray-800">
+              <button
+                type="button"
+                onClick={() => handleSetMinimizeAction('taskbar')}
+                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all text-center ${
+                  traySettings.minimizeAction === 'taskbar'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                }`}
+              >
+                {t('settings.minimizeAction.taskbar')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetMinimizeAction('tray')}
+                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all text-center ${
+                  traySettings.minimizeAction === 'tray'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                }`}
+              >
+                {t('settings.minimizeAction.tray')}
+              </button>
+            </div>
+          </div>
 
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={handleMinimizeToTrayNow}
-              className="px-2.5 py-1 bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-300 hover:text-cyan-200 text-xs font-medium rounded border border-cyan-700/50 flex items-center gap-1.5 transition-colors"
-            >
-              <MonitorIcon className="w-3 h-3 text-cyan-400" />
-              {t('settings.trayMinimizeNowBtn')}
-            </button>
+          {/* Quick Checkboxes & Direct Minimize Button */}
+          <div className="space-y-2 pt-2 border-t border-gray-800/80">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 hover:text-white transition-colors">
+              <CustomCheckbox
+                checked={traySettings.minimizeToTrayOnClose}
+                onChange={(checked) => handleToggleCheckbox('minimizeToTrayOnClose', checked)}
+              />
+              <span>{t('settings.trayMinimizeToTrayOnClose')}</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 hover:text-white transition-colors">
+              <CustomCheckbox
+                checked={traySettings.minimizeToTrayOnMinimize}
+                onChange={(checked) => handleToggleCheckbox('minimizeToTrayOnMinimize', checked)}
+              />
+              <span>{t('settings.trayMinimizeToTrayOnMinimize')}</span>
+            </label>
+
+            <div className="pt-1 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleMinimizeToTrayNow}
+                className="px-3 py-1.5 bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-300 hover:text-cyan-200 text-xs font-medium rounded-md border border-cyan-700/50 flex items-center gap-1.5 transition-colors"
+              >
+                <MonitorIcon className="w-3.5 h-3.5 text-cyan-400" />
+                {t('settings.trayMinimizeNowBtn')}
+              </button>
+            </div>
           </div>
         </div>
       </div>

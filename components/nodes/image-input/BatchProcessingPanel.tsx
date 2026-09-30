@@ -27,8 +27,11 @@ interface BatchProcessingPanelProps {
     progress: { current: number; total: number; currentName: string; percent: number } | null;
     onStartBatchProcess: () => void;
     onCancelBatchProcess: () => void;
-    batchResult: { zipBlob: Blob; totalImages: number; totalSlices: number; timestamp: string; filename: string } | null;
+    batchResult: { zipBlob: Blob; totalImages: number; totalSlices: number; timestamp: string; filename: string; folders?: any[] } | null;
     onDownloadZip: () => void;
+    onOpenArchiveFolder?: () => void;
+    onNavigatePrev?: () => void;
+    onNavigateNext?: () => void;
     addToast?: (msg: string, type?: any) => void;
     upstreamImagesCount?: number;
     onSyncFromUpstream?: () => void;
@@ -60,6 +63,9 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
     onCancelBatchProcess,
     batchResult,
     onDownloadZip,
+    onOpenArchiveFolder,
+    onNavigatePrev,
+    onNavigateNext,
     addToast,
     upstreamImagesCount = 0,
     onSyncFromUpstream,
@@ -134,10 +140,25 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
         setScrollLeft(e.currentTarget.scrollLeft);
     }, []);
 
-    // Item size calculations: 64px width + 6px gap = 70px per item slot
     const ITEM_WIDTH = 64;
     const ITEM_GAP = 6;
     const SLOT_WIDTH = ITEM_WIDTH + ITEM_GAP;
+
+    // Auto-scroll selected thumbnail into view when selectedReferenceIndex changes
+    useEffect(() => {
+        if (!scrollContainerRef.current || batchFiles.length === 0) return;
+        const targetLeft = selectedReferenceIndex * SLOT_WIDTH;
+        const currentScroll = scrollContainerRef.current.scrollLeft;
+        const width = containerWidth || scrollContainerRef.current.clientWidth;
+
+        if (targetLeft < currentScroll || targetLeft + ITEM_WIDTH > currentScroll + width) {
+            scrollContainerRef.current.scrollTo({
+                left: Math.max(0, targetLeft - width / 2 + ITEM_WIDTH / 2),
+                behavior: 'smooth'
+            });
+        }
+    }, [selectedReferenceIndex, batchFiles.length, containerWidth, SLOT_WIDTH, ITEM_WIDTH]);
+
     // Total items include all batch images plus the '+' card and 'Paste' card
     const totalSlotCount = batchFiles.length + 2;
     const totalContentWidth = totalSlotCount * SLOT_WIDTH - ITEM_GAP;
@@ -249,7 +270,7 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span>+ Добавить файлы</span>
+                        <span>Добавить файлы</span>
                     </button>
 
                     {batchFiles.length > 0 && (
@@ -268,7 +289,7 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
 
             {/* Individual Grid Settings & Batch Actions Toolbar (when Grid mode) */}
             {subMode === 'grid' && (
-                <div className="flex items-center justify-between px-2 py-1.5 bg-gray-900/90 border border-amber-800/40 rounded text-xs gap-2 flex-wrap">
+                <div className="flex items-center justify-between px-2 py-1.5 bg-gray-900/90 border border-gray-800 rounded text-xs gap-2 flex-wrap">
                     <div className="flex items-center gap-2 flex-wrap">
                         {/* Individual per-image toggle */}
                         <button
@@ -277,14 +298,14 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                             disabled={isProcessing}
                             className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1.5 border ${
                                 individualGridSettings
-                                    ? 'bg-amber-950/90 border-amber-400 text-amber-200 shadow-sm font-semibold'
+                                    ? 'bg-cyan-950/80 border-cyan-500 text-cyan-300 shadow-sm font-semibold'
                                     : 'bg-gray-950/80 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600'
                             } disabled:opacity-50`}
                             title="Сохранять индивидуальные размеры, разделители и границы строк/колонок для каждого изображения в пакете отдельно"
                         >
                             <span className={`w-3.5 h-3.5 flex items-center justify-center rounded border text-[10px] font-bold ${
                                 individualGridSettings
-                                    ? 'bg-amber-400 border-amber-300 text-black'
+                                    ? 'bg-cyan-500 border-cyan-400 text-black'
                                     : 'border-gray-500 bg-transparent text-transparent'
                             }`}>
                                 ✓
@@ -324,7 +345,7 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                                 type="button"
                                 onClick={onResetGridForAll}
                                 disabled={isProcessing}
-                                className="px-2 py-0.5 bg-gray-800 hover:bg-red-950 text-amber-300 hover:text-red-300 border border-amber-600/50 hover:border-red-600 rounded text-[10px] font-medium transition-colors disabled:opacity-50"
+                                className="px-2 py-0.5 bg-gray-800 hover:bg-red-950 text-gray-300 hover:text-red-300 border border-gray-700 hover:border-red-600 rounded text-[10px] font-medium transition-colors disabled:opacity-50"
                                 title="Сбросить кастомные разделители у ВСЕХ изображений пакета к равномерной сетке"
                             >
                                 ⟲ Сбросить для всех
@@ -381,16 +402,32 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                         )}
 
                         {batchResult && !isProcessing && (
-                            <button
-                                type="button"
-                                onClick={onDownloadZip}
-                                className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs font-bold shadow-md ring-1 ring-green-400/50 transition-all flex items-center gap-1.5 animate-bounce-short"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                <span>Скачать ZIP ({batchResult.totalSlices} шт.)</span>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                                {onOpenArchiveFolder && (
+                                    <button
+                                        type="button"
+                                        onClick={onOpenArchiveFolder}
+                                        className="px-2.5 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-xs font-bold shadow-md ring-1 ring-cyan-400/50 transition-all flex items-center gap-1.5"
+                                        title="Открыть папку и просмотреть структуру всех файлов архива"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-cyan-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                        </svg>
+                                        <span>📁 Открыть папку</span>
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={onDownloadZip}
+                                    className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs font-bold shadow-md ring-1 ring-green-400/50 transition-all flex items-center gap-1.5 animate-bounce-short"
+                                    title="Скачать ZIP архив со всеми папками и файлами"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    <span>Скачать ZIP ({batchResult.totalSlices} шт.)</span>
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -415,36 +452,83 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
 
                 {/* Finished Result Banner */}
                 {batchResult && !isProcessing && (
-                    <div className="flex items-center justify-between p-2 bg-green-950/40 border border-green-800/60 rounded text-xs text-green-300">
-                        <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between p-2 bg-green-950/40 border border-green-800/60 rounded text-xs text-green-300 flex-wrap gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                             <span className="text-green-400 text-sm">✓</span>
-                            <span>
+                            <span className="truncate">
                                 Успешно обработано: <b>{batchResult.totalImages}</b> изобр. (<b>{batchResult.totalSlices}</b> файлов) в папках архива.
                             </span>
                         </div>
-                        <button
-                            type="button"
-                            onClick={onDownloadZip}
-                            className="text-green-400 hover:text-green-200 underline font-semibold text-[11px]"
-                        >
-                            Скачать еще раз
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {onOpenArchiveFolder && (
+                                <button
+                                    type="button"
+                                    onClick={onOpenArchiveFolder}
+                                    className="px-2 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 hover:text-white rounded border border-cyan-700/60 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                                >
+                                    <span>📁 Папка архива</span>
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={onDownloadZip}
+                                className="text-green-400 hover:text-green-200 underline font-semibold text-[11px]"
+                            >
+                                Скачать еще раз
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
 
             {/* Virtualized Reference Carousel / File Strip (Always visible for preview configuration) */}
             <div className="w-full flex flex-col gap-1">
-                <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
-                    <span className="truncate max-w-[50%]">
-                        Пример для настройки:{' '}
-                        {batchFiles.length > 0 ? (
-                            <b className="text-cyan-300">#{selectedReferenceIndex + 1} ({batchFiles[selectedReferenceIndex]?.name})</b>
-                        ) : (
-                            <span className="text-gray-500 italic">Нет файлов (добавьте изображения)</span>
+                <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 flex-wrap gap-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        {/* Keyboard Arrow Navigation Buttons */}
+                        {batchFiles.length > 1 && (
+                            <div className="flex items-center gap-0.5 bg-gray-900/90 border border-gray-700/80 rounded p-0.5">
+                                <button
+                                    type="button"
+                                    onClick={() => onNavigatePrev ? onNavigatePrev() : onSelectReferenceIndex((selectedReferenceIndex - 1 + batchFiles.length) % batchFiles.length)}
+                                    className="w-5 h-5 flex items-center justify-center rounded hover:bg-gray-700 text-cyan-300 hover:text-white transition-colors"
+                                    title="Предыдущее изображение (Клавиша стрелка влево ←)"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                                <span className="text-[10px] font-mono font-bold text-cyan-300 px-1 select-none">
+                                    {selectedReferenceIndex + 1}/{batchFiles.length}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => onNavigateNext ? onNavigateNext() : onSelectReferenceIndex((selectedReferenceIndex + 1) % batchFiles.length)}
+                                    className="w-5 h-5 flex items-center justify-center rounded hover:bg-gray-700 text-cyan-300 hover:text-white transition-colors"
+                                    title="Следующее изображение (Клавиша стрелка вправо →)"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
                         )}
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
+
+                        <span className="truncate max-w-[200px] sm:max-w-[280px]">
+                            {batchFiles.length > 0 ? (
+                                <b className="text-cyan-300">#{selectedReferenceIndex + 1} ({batchFiles[selectedReferenceIndex]?.name})</b>
+                            ) : (
+                                <span className="text-gray-500 italic">Нет файлов (добавьте изображения)</span>
+                            )}
+                        </span>
+
+                        {batchFiles.length > 1 && (
+                            <span className="text-[10px] text-cyan-400/80 bg-cyan-950/60 px-1.5 py-0.2 rounded border border-cyan-800/40 hidden md:inline font-mono">
+                                ⌨ ← / → выбор фото
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                         <button
                             type="button"
                             onClick={handlePasteFromClipboard}
@@ -467,10 +551,10 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                             </svg>
-                            <span>+ Добавить</span>
+                            <span>Добавить</span>
                         </button>
                         {batchFiles.length > 0 && (
-                            <span className="text-[10px] text-gray-500 hidden sm:inline ml-1">• Колесико: прокрутка</span>
+                            <span className="text-[10px] text-gray-500 hidden lg:inline ml-1">• Колесико: прокрутка</span>
                         )}
                     </div>
                 </div>
@@ -528,7 +612,7 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
 
                                     {/* Custom Grid Indicator Badge */}
                                     {individualGridSettings && hasCustomGrid && (
-                                        <div className="absolute top-0.5 right-6 bg-amber-950/90 text-amber-300 text-[7px] font-mono px-0.5 py-0.2 rounded border border-amber-500/60 z-10">
+                                        <div className="absolute top-0.5 right-6 bg-accent-secondary/20 text-accent-secondary text-[7px] font-mono px-0.5 py-0.2 rounded border border-accent-secondary/60 z-10">
                                             ▦
                                         </div>
                                     )}

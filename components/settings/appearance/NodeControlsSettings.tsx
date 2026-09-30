@@ -40,6 +40,8 @@ export const NodeControlsSettings: React.FC<NodeControlsSettingsProps> = ({
     setIsConnectionAnimationEnabled,
     connectionOpacity,
     setConnectionOpacity,
+    isImageDropMenuEnabled,
+    setIsImageDropMenuEnabled,
   } = useAppContext();
 
   return (
@@ -127,6 +129,84 @@ export const NodeControlsSettings: React.FC<NodeControlsSettingsProps> = ({
               label={t('dialog.settings.bringToFrontOnHoverLabel')}
               className="text-sm text-gray-400"
             />
+          </div>
+
+          {/* Image Drag & Drop Behavior & Shortcuts */}
+          <div className="space-y-2 pt-1 border-t border-gray-800/70">
+            <label className="block text-xs font-medium text-gray-400">
+              {t('dialog.settings.imageDropBehaviorTitle')}
+            </label>
+            <div className="flex flex-col gap-2.5 p-2.5 bg-gray-800/90 rounded-md border border-gray-700">
+              <CustomCheckbox
+                id="imageDropMenuEnabled"
+                checked={isImageDropMenuEnabled}
+                onChange={setIsImageDropMenuEnabled}
+                label={t('dialog.settings.imageDropMenuEnabledLabel')}
+                className="text-sm text-gray-200 font-medium"
+              />
+              <p className="text-[11px] text-gray-400 leading-relaxed pl-6">
+                {t('dialog.settings.imageDropMenuDesc')}
+              </p>
+
+              {/* Keyboard Shortcuts Hint Panel */}
+              <div className="mt-1 pt-2 border-t border-gray-700/60 flex flex-col space-y-1.5">
+                <span className="text-[11px] font-semibold text-gray-300">
+                  {t('dialog.settings.imageDropShortcutsTitle')}
+                </span>
+
+                <div className="flex flex-col space-y-1 text-[11px]">
+                  {/* Default Drop */}
+                  <div className="flex items-center justify-between py-0.5 px-2 bg-gray-900/50 rounded border border-gray-700/40">
+                    <span className="text-gray-400">
+                      {isImageDropMenuEnabled
+                        ? t('dialog.settings.imageDropShortcutDefaultWithMenu')
+                        : t('dialog.settings.imageDropShortcutDefaultNoMenu')}
+                    </span>
+                    <span className="font-mono text-[10px] text-cyan-400 bg-cyan-950/40 px-1.5 py-0.5 rounded border border-cyan-800/40">
+                      Drop
+                    </span>
+                  </div>
+
+                  {/* Ctrl + Drop */}
+                  <div className="flex items-center justify-between py-0.5 px-2 bg-gray-900/50 rounded border border-gray-700/40">
+                    <span className="text-gray-400">
+                      {isImageDropMenuEnabled
+                        ? t('dialog.settings.imageDropShortcutCtrlWithMenu')
+                        : t('dialog.settings.imageDropShortcutCtrlNoMenu')}
+                    </span>
+                    <span className="font-mono text-[10px] text-amber-400 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/40">
+                      Ctrl + Drop
+                    </span>
+                  </div>
+
+                  {/* Ctrl + Shift + Drop */}
+                  <div className="flex items-center justify-between py-0.5 px-2 bg-gray-900/50 rounded border border-gray-700/40">
+                    <span className="text-gray-400">
+                      {t('dialog.settings.imageDropShortcutCtrlShift')}
+                    </span>
+                    <span className="font-mono text-[10px] text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-800/40">
+                      Ctrl + Shift + Drop
+                    </span>
+                  </div>
+
+                  {/* Ctrl + Alt + Shift + Drop */}
+                  <div className="flex items-center justify-between py-0.5 px-2 bg-gray-900/50 rounded border border-gray-700/40">
+                    <span className="text-gray-400">
+                      {t('dialog.settings.imageDropShortcutCtrlAltShift')}
+                    </span>
+                    <span className="font-mono text-[10px] text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/40">
+                      Ctrl + Alt + Shift
+                    </span>
+                  </div>
+                </div>
+
+                {/* Drop Menu Quick Keys */}
+                <div className="pt-1.5 text-[10px] text-gray-400 border-t border-gray-700/40 flex items-center justify-between">
+                  <span className="text-gray-500">{t('dialog.settings.imageDropMenuHotkeysTitle')}</span>
+                  <span className="font-mono text-gray-300">{t('dialog.settings.imageDropMenuHotkeysDesc')}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Connection Settings */}

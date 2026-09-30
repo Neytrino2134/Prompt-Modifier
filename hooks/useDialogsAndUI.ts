@@ -46,6 +46,16 @@ export const useDialogsAndUI = (props: UseDialogsAndUIProps) => {
             onAction: () => void;
             className?: string;
         };
+        extraAction?: {
+            label: string;
+            onAction: () => void;
+            className?: string;
+        };
+        checkbox?: {
+            label: string;
+            checked: boolean;
+            onChange: (checked: boolean) => void;
+        };
     } | null>(null);
     const [isErrorCopied, setIsErrorCopied] = useState(false);
     const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);

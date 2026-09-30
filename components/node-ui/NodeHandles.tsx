@@ -392,7 +392,8 @@ export const OutputHandles: React.FC<HandleProps> = ({ node, getHandleColor, han
                 { handleId: 'clothing', type: 'text', title: t('node.content.clothing') }
             ];
         } else if (node.type === NodeType.IMAGE_INPUT || node.type === NodeType.IMAGE_ANALYZER) {
-            handles = [{ handleId: 'image', type: 'image', title: 'Image Output' }, { handleId: 'text', type: 'text', title: 'Text Output' }];
+            const isMulti = parsedValue.mode === 'grid' || parsedValue.mode === 'frames' || parsedValue.mode === 'batch';
+            handles = [{ handleId: 'image', type: 'image', title: isMulti ? 'All Images / Frames Output' : 'Image Output' }, { handleId: 'text', type: 'text', title: 'Text Output' }];
         } else if (node.type === NodeType.SCRIPT_GENERATOR) {
              const { summary, detailedCharacters = [], scenes = [] } = parsedValue;
              const characterHandles = detailedCharacters.map((_: any, i: number) => ({ handleId: `character-${i}`, type: 'text', title: `Character ${i + 1}` }));
@@ -560,12 +561,13 @@ export const OutputHandles: React.FC<HandleProps> = ({ node, getHandleColor, han
         })} </>);
     }
     if (node.type === NodeType.IMAGE_INPUT) {
+        const isMultiMode = parsedValue.mode === 'grid' || parsedValue.mode === 'frames' || parsedValue.mode === 'batch';
         const imageHandleY = HEADER_HEIGHT + 410;
         const textHandleY = node.height - 80;
         
         return (
             <>
-                {renderHandle({ type: 'image', handleId: 'image', title: 'Image Output' }, `${imageHandleY}px`, 'image')}
+                {renderHandle({ type: 'image', handleId: 'image', title: isMultiMode ? 'All Images / Frames Output' : 'Image Output' }, `${imageHandleY}px`, 'image')}
                 {renderHandle({ type: 'text', handleId: 'text', title: 'Text Output' }, `${textHandleY}px`, 'text')}
             </>
         );

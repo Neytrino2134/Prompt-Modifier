@@ -56,7 +56,7 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     sequenceOutputs: [],
     checkedSequenceOutputIndices: [],
     autoDownload: true, // Default enabled
-    autoSaveImages: false,
+    autoSaveImages: true,
     createZip: false, // Default false
     checkedInputIndices: [],
     selectedSourceFrameIndex: null

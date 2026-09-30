@@ -1,5 +1,6 @@
 
 import React, { useRef, useCallback, ReactNode, forwardRef, useImperativeHandle } from 'react';
+import { StickyNote } from 'lucide-react';
 import { ImageInputList } from './ImageInputList';
 import { ImageEditorSettings } from './ImageEditorSettings';
 import { SequencedPromptList, SequencedPromptListRef } from './SequencedPromptList';
@@ -68,6 +69,7 @@ interface ImageEditorLeftPaneProps {
     onSelectFrame?: (index: number) => void;
     onClearFrames?: () => void;
     selectedFrameIndex?: number | null;
+    onSendInputsToNote?: (isB?: boolean) => void;
 }
 
 export const ImageEditorLeftPane = forwardRef<SequencedPromptListRef, ImageEditorLeftPaneProps>(({
@@ -97,7 +99,8 @@ export const ImageEditorLeftPane = forwardRef<SequencedPromptListRef, ImageEdito
     onMoveFrame,
     onSelectFrame,
     onClearFrames,
-    selectedFrameIndex
+    selectedFrameIndex,
+    onSendInputsToNote
 }, ref) => {
     const { topPaneHeight, inputImages, inputImagesB, checkedInputIndices, isSequenceMode, isSequentialCombinationMode, isSequentialPromptMode, isSequentialEditingWithPrompts, enableAspectRatio, framePrompts, prompt, enableOutpainting, outpaintingPrompt } = state;
     
@@ -142,6 +145,20 @@ export const ImageEditorLeftPane = forwardRef<SequencedPromptListRef, ImageEdito
                          <label className="text-xs font-medium text-gray-400 flex-shrink-0">{inputPanelHeader}</label>
                      </div>
                      <div className="flex items-center space-x-1">
+                         {onSendInputsToNote && (
+                             <ActionButton 
+                                title={t('imageEditor.sendInputsToNoteReferences') || "Send all inputs to Note (References)"} 
+                                onClick={(e) => { e.stopPropagation(); onSendInputsToNote(); }}
+                                disabled={imageSlots.length === 0 && imageSlotsB.length === 0}
+                                className={`p-1 rounded transition-colors ${
+                                    (imageSlots.length > 0 || imageSlotsB.length > 0) 
+                                        ? 'text-amber-400 hover:text-amber-200 hover:bg-gray-600' 
+                                        : 'text-gray-600 cursor-not-allowed opacity-40'
+                                }`}
+                             >
+                                <StickyNote className="h-4 w-4" />
+                             </ActionButton>
+                         )}
                          <ActionButton 
                             title={t('node.action.detachAndPaste')} 
                             onClick={(e) => { e.stopPropagation(); handleDetachAndPasteInput(); }}
@@ -191,6 +208,7 @@ export const ImageEditorLeftPane = forwardRef<SequencedPromptListRef, ImageEdito
                                 const newChecked = allIndices.filter(i => !checkedInputIndices.includes(i));
                                 onUpdateState({ checkedInputIndices: newChecked });
                             }}
+                            onSendToNote={onSendInputsToNote ? () => onSendInputsToNote(false) : undefined}
                         />
                     )}
                     
@@ -215,6 +233,7 @@ export const ImageEditorLeftPane = forwardRef<SequencedPromptListRef, ImageEdito
                             onSlotDrop={(i, f) => onSlotDrop(i, f, true)}
                             t={t}
                             isSequentialCombinationMode={true}
+                            onSendToNote={onSendInputsToNote ? () => onSendInputsToNote(true) : undefined}
                         />
                     )}
                 </div>

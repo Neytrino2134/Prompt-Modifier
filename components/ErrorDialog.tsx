@@ -51,7 +51,10 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({ isOpen, message, onClose }) =
 
   return (
     <div 
-        className={`fixed top-20 left-1/2 -translate-x-1/2 z-[200] w-full max-w-lg px-4 pointer-events-none transition-all duration-300 ease-out transform ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}
+        className={`fixed left-1/2 -translate-x-1/2 z-[250] w-full max-w-lg px-4 pointer-events-none transition-all duration-300 ease-out transform ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}
+        style={{
+            top: 'max(150px, calc(var(--app-header-height, 120px) + 20px))'
+        }}
     >
       <div
         className="bg-[#20293c] bg-opacity-95 backdrop-blur-xl rounded-xl shadow-2xl flex flex-col pointer-events-auto overflow-hidden border border-gray-600/50"
@@ -69,7 +72,7 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({ isOpen, message, onClose }) =
            </div>
            <button 
                 onClick={onClose} 
-                className="text-text-secondary hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
+                className="text-text-secondary hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg cursor-pointer"
                 title="Close"
            >
                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -79,7 +82,7 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({ isOpen, message, onClose }) =
         </div>
         
         {/* Content */}
-        <div className="p-5 max-h-[300px] overflow-y-auto custom-scrollbar">
+        <div className="p-5 max-h-[calc(100vh-150px-140px)] min-h-[60px] overflow-y-auto custom-scrollbar">
             <p className="text-gray-300 text-sm whitespace-pre-wrap break-words leading-relaxed font-medium select-none">
               {displayMessage}
             </p>

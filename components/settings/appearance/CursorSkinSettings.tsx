@@ -35,6 +35,24 @@ export const CURSOR_SKIN_GROUPS: CursorSkinGroup[] = [
     ]
   },
   {
+    id: 'sleekBlack',
+    titleKey: 'settings.cursorSkinGroup.sleekBlack',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+        <path d="M 2.5 2 L 17.2 13.5 Q 18.6 14.6 17.0 14.8 L 9.2 13.8 Q 8.4 13.7 7.6 14.8 L 3.6 20.8 Q 2.5 22.2 2.5 20.8 Z" fill="#09090b" stroke="#ffffff" strokeWidth="1.6" strokeLinejoin="round" />
+      </svg>
+    ),
+    skins: [
+      { key: 'sleek_black_white' },
+      { key: 'sleek_black_adaptive' },
+      { key: 'sleek_black_cyan' },
+      { key: 'sleek_black_amber' },
+      { key: 'sleek_black_emerald' },
+      { key: 'sleek_black_purple' },
+      { key: 'sleek_black_rose' }
+    ]
+  },
+  {
     id: 'roundedGradient',
     titleKey: 'settings.cursorSkinGroup.roundedGradient',
     icon: (
@@ -194,7 +212,7 @@ export const CursorSkinSettings: React.FC<CursorSkinSettingsProps> = ({
                         }`}
                       >
                         <div
-                          className={`p-1.5 rounded-md flex-shrink-0 mt-0.5 flex items-center justify-center w-7 h-7 overflow-hidden ${
+                          className={`p-1.5 rounded-md flex-shrink-0 mt-0.5 flex items-center justify-center w-7 h-7 overflow-hidden [&>svg]:w-full [&>svg]:h-full ${
                             isSelected
                               ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-500/40'
                               : 'bg-gray-900 text-gray-400 border border-gray-700'

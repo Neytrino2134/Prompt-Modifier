@@ -9,10 +9,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Session Persistence on Disk for Electron
   saveSession: (sessionData) => ipcRenderer.invoke('session:save', sessionData),
   loadSession: () => ipcRenderer.invoke('session:load'),
+  getSessionInfo: () => ipcRenderer.invoke('session:get-info'),
   openAutosaveFolder: () => ipcRenderer.invoke('session:open-folder'),
   listSessionBackups: () => ipcRenderer.invoke('session:list-backups'),
   restoreSessionBackup: (backupPath) => ipcRenderer.invoke('session:restore-backup', backupPath),
   readSessionBackup: (backupPath) => ipcRenderer.invoke('session:restore-backup', backupPath),
+  clearSessionBackups: () => ipcRenderer.invoke('session:clear-backups'),
   // Listen for close request from Main
   onCloseRequested: (callback) => {
     const subscription = (event, ...args) => callback(...args);
@@ -28,7 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // Listen for download completion
   onDownloadComplete: (callback) => {
-    const subscription = (event, ...args) => callback(...args);
+    const subscription = (event, data) => callback(data, event);
     ipcRenderer.on('app:download-complete', subscription);
     return () => ipcRenderer.removeListener('app:download-complete', subscription);
   },

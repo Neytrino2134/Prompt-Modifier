@@ -37,6 +37,7 @@ declare global {
             listSessionBackups?: () => Promise<any[]>;
             restoreSessionBackup?: (backupPath: string) => Promise<any>;
             readSessionBackup?: (backupPath: string) => Promise<any>;
+            clearSessionBackups?: () => Promise<any>;
             openNodeMiniApp?: (options: any) => Promise<boolean>;
             closeNodeMiniApp?: (nodeId: string) => Promise<boolean>;
             onMiniAppClosed?: (callback: (data: any) => void) => () => void;
@@ -96,6 +97,13 @@ export type CursorSkin =
   | 'modern_flat_dark' 
   | 'modern_flat_dark_cyan' 
   | 'modern_flat_dark_white'
+  | 'sleek_black_white'
+  | 'sleek_black_adaptive'
+  | 'sleek_black_cyan'
+  | 'sleek_black_amber'
+  | 'sleek_black_emerald'
+  | 'sleek_black_purple'
+  | 'sleek_black_rose'
   | 'rounded_gradient_cyan'
   | 'rounded_gradient_adaptive'
   | 'rounded_gradient_purple'
@@ -110,6 +118,46 @@ export type CursorSkin =
   | 'toy_amber'
   | 'toy_lilac';
 
+
+export type ConnectionAnimationStyle = 
+  | 'cyber_tron' 
+  | 'neon_flow' 
+  | 'pulse' 
+  | 'shimmer' 
+  | 'particle_stream' 
+  | 'energy_beam' 
+  | 'classic';
+
+export type ConnectionColorMode = 
+  | 'handle_type' 
+  | 'theme' 
+  | 'cyber_cyan' 
+  | 'neon_amber' 
+  | 'plasma_pink' 
+  | 'matrix_green' 
+  | 'rainbow';
+
+export interface ConnectionAnimationConfig {
+  style: ConnectionAnimationStyle;
+  speed: number;          // 0.25 to 4.0 (multiplier, default 1.0)
+  frequency: number;      // 1 to 8 (particle / pulse density, default 2)
+  trailLength: number;    // 15 to 250 (px trail length, default 70)
+  particleSize: number;   // 2 to 10 (head dot / photon size in px, default 4)
+  glowIntensity: number;  // 0.1 to 1.0 (glow bloom strength, default 0.8)
+  flowDirection: 'forward' | 'reverse'; // default 'forward'
+  colorMode: ConnectionColorMode; // default 'handle_type'
+}
+
+export const DEFAULT_CONNECTION_ANIMATION_CONFIG: ConnectionAnimationConfig = {
+  style: 'cyber_tron',
+  speed: 1.0,
+  frequency: 2,
+  trailLength: 70,
+  particleSize: 4.5,
+  glowIntensity: 0.8,
+  flowDirection: 'forward',
+  colorMode: 'handle_type',
+};
 
 export enum NodeType {
   TEXT_INPUT = 'TEXT_INPUT',
@@ -563,4 +611,32 @@ export interface NodeContentProps {
   tutorialStep?: TutorialStep;
   advanceTutorial?: () => void;
   skipTutorial?: () => void;
+}
+
+// Sound Notifications
+export type SoundNotificationType = 
+    | 'batch_success' 
+    | 'batch_error' 
+    | 'autosave' 
+    | 'task_success' 
+    | 'task_error' 
+    | 'info' 
+    | 'click';
+
+export type SoundTheme = 'modern' | 'crystal' | 'organic' | 'minimal';
+
+export interface SoundNotificationSettings {
+    soundEnabled: boolean;
+    masterVolume: number; // 0.0 to 1.0
+    soundTheme: SoundTheme;
+    enableBatchSuccessSound: boolean;
+    enableBatchErrorSound: boolean;
+    enableAutosaveSound: boolean;
+    enableTaskCompleteSound: boolean;
+    enableGeneralNotificationSound: boolean;
+    batchSuccessVolume: number; // 0.0 to 1.0
+    batchErrorVolume: number; // 0.0 to 1.0
+    autosaveVolume: number; // 0.0 to 1.0
+    taskCompleteVolume: number; // 0.0 to 1.0
+    notificationVolume: number; // 0.0 to 1.0
 }

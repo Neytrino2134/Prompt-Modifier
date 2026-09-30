@@ -6,13 +6,14 @@ import { generateThumbnail } from '../utils/imageUtils';
 
 interface UseCanvasIOProps {
     getCurrentCanvasState: () => CanvasState;
-    loadCanvasState: (state: CanvasState) => void;
+    loadCanvasState: (state: CanvasState, tabName?: string) => void;
+    restoreSession: (tabs: Tab[], targetActiveTabId?: string) => void;
     setError: (error: string | null) => void;
     nodes: Node[];
     getPromptForNode: (nodeId: string) => string;
     handleValueChange: (nodeId: string, value: string) => void;
     addToast: (message: string, type?: 'success' | 'info' | 'error') => void;
-    t: (key: string) => string;
+    t: (key: string, options?: { [key: string]: string | number }) => string;
     activeTabName: string;
     getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
     handleRenameTab: (tabId: string, newName: string) => void;
@@ -30,10 +31,58 @@ interface UseCanvasIOProps {
     sequenceCatalog: any;
     language: string;
     setLanguage: (lang: any) => void;
+    secondaryLanguage?: string;
+    setSecondaryLanguage?: (lang: any) => void;
     isSnapToGrid: boolean;
     setIsSnapToGrid: (val: boolean) => void;
     lineStyle: string;
     setLineStyle: (val: any) => void;
+    currentTheme?: string;
+    setTheme?: (val: any) => void;
+    canvasColorMode?: string;
+    setCanvasColorMode?: (val: any) => void;
+    inputColorMode?: string;
+    setInputColorMode?: (val: any) => void;
+    panelStyle?: string;
+    setPanelStyle?: (val: any) => void;
+    isPanelAutoHide?: boolean;
+    setIsPanelAutoHide?: (val: boolean) => void;
+    panelAnimation?: string;
+    setPanelAnimation?: (val: any) => void;
+    isPanelAnimationAdaptive?: boolean;
+    setIsPanelAnimationAdaptive?: (val: boolean) => void;
+    panelAnimationConfig?: any;
+    setPanelAnimationConfig?: (val: any) => void;
+    cursorSkin?: string;
+    setCursorSkin?: (val: any) => void;
+    isCursorEffectEnabled?: boolean;
+    setIsCursorEffectEnabled?: (val: boolean) => void;
+    autoSaveInterval?: number;
+    setAutoSaveInterval?: (val: number) => void;
+    autoSaveHistoryLimit?: number;
+    setAutoSaveHistoryLimit?: (val: number) => void;
+    autoSaveSessionLimit?: number;
+    setAutoSaveSessionLimit?: (val: number) => void;
+    isInstantCloseEnabled?: boolean;
+    setIsInstantCloseEnabled?: (val: boolean) => void;
+    isImageDropMenuEnabled?: boolean;
+    setIsImageDropMenuEnabled?: (val: boolean) => void;
+    isHoverHighlightEnabled?: boolean;
+    setIsHoverHighlightEnabled?: (val: boolean) => void;
+    isBringToFrontOnHoverEnabled?: boolean;
+    setIsBringToFrontOnHoverEnabled?: (val: boolean) => void;
+    nodeAnimationMode?: string;
+    setNodeAnimationMode?: (val: any) => void;
+    isConnectionAnimationEnabled?: boolean;
+    setIsConnectionAnimationEnabled?: (val: boolean) => void;
+    connectionOpacity?: number;
+    setConnectionOpacity?: (val: number) => void;
+    connectionAnimationStyle?: string;
+    setConnectionAnimationStyle?: (val: any) => void;
+    connectionAnimationConfig?: any;
+    setConnectionAnimationConfig?: (val: any) => void;
+    isSmartGuidesEnabled?: boolean;
+    setIsSmartGuidesEnabled?: (val: boolean) => void;
     setConfirmInfo: (info: any) => void;
     handleRenameNode: (nodeId: string, newName: string) => void;
     onAddNode: (type: NodeType, position: any) => string;
@@ -43,11 +92,21 @@ interface UseCanvasIOProps {
 
 export const useCanvasIO = (props: UseCanvasIOProps) => {
     const {
-        getCurrentCanvasState, loadCanvasState, setError, nodes, handleValueChange, addToast, t,
+        getCurrentCanvasState, loadCanvasState, restoreSession, setError, nodes, handleValueChange, addToast, t,
         activeTabName, getFullSizeImage, handleRenameTab, activeTabId, setFullSizeImage, tabs, setTabs, setActiveTabId,
         catalogItems, setCatalogItems, libraryItems, setLibraryItems, characterCatalog, scriptCatalog, sequenceCatalog,
-        language, setLanguage, isSnapToGrid, setIsSnapToGrid, lineStyle, setLineStyle, setConfirmInfo, handleRenameNode,
-        onAddNode, pasteGroup, viewTransform
+        language, setLanguage, secondaryLanguage, setSecondaryLanguage, isSnapToGrid, setIsSnapToGrid, lineStyle, setLineStyle,
+        currentTheme, setTheme, canvasColorMode, setCanvasColorMode, inputColorMode, setInputColorMode,
+        panelStyle, setPanelStyle, isPanelAutoHide, setIsPanelAutoHide, panelAnimation, setPanelAnimation,
+        isPanelAnimationAdaptive, setIsPanelAnimationAdaptive, panelAnimationConfig, setPanelAnimationConfig,
+        cursorSkin, setCursorSkin, isCursorEffectEnabled, setIsCursorEffectEnabled, autoSaveInterval, setAutoSaveInterval,
+        autoSaveHistoryLimit, setAutoSaveHistoryLimit, autoSaveSessionLimit, setAutoSaveSessionLimit,
+        isInstantCloseEnabled, setIsInstantCloseEnabled, isImageDropMenuEnabled, setIsImageDropMenuEnabled,
+        isHoverHighlightEnabled, setIsHoverHighlightEnabled, isBringToFrontOnHoverEnabled, setIsBringToFrontOnHoverEnabled,
+        nodeAnimationMode, setNodeAnimationMode, isConnectionAnimationEnabled, setIsConnectionAnimationEnabled,
+        connectionOpacity, setConnectionOpacity, connectionAnimationStyle, setConnectionAnimationStyle,
+        connectionAnimationConfig, setConnectionAnimationConfig, isSmartGuidesEnabled, setIsSmartGuidesEnabled,
+        setConfirmInfo, handleRenameNode, onAddNode, pasteGroup, viewTransform
     } = props;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +127,14 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
             type: 'prompt-modifier-canvas',
             appName: 'Prompt_modifier',
             version: 1,
-            ...state,
+            tabName: activeTabName,
+            name: activeTabName,
+            nodes: state.nodes || [],
+            connections: state.connections || [],
+            groups: state.groups || [],
+            viewTransform: state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } },
+            nodeIdCounter: state.nodeIdCounter || 0,
+            fullSizeImageCache: state.fullSizeImageCache || {},
             timestamp: new Date().toISOString()
         };
         
@@ -76,19 +142,19 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const sanitizedTitle = activeTabName.trim().replace(/\s+/g, '_');
-        // Changed extension to .PMC (Prompt Modifier Canvas)
+        const sanitizedTitle = (activeTabName || 'Canvas').trim().replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
         a.download = `Prompt_Modifier_${sanitizedTitle}_${getTimestamp()}.PMC`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        a.remove();
-        addToast(t('toast.canvasSaved'), 'success');
+        addToast(t('toast.canvasSaved') || 'Холст сохранен', 'success');
     }, [getCurrentCanvasState, activeTabName, addToast, t]);
 
     const handleSaveProject = useCallback(() => {
         const currentActiveState = getCurrentCanvasState();
         const updatedTabs = tabs.map(tab => 
-            tab.id === activeTabId ? { ...tab, state: currentActiveState } : tab
+            tab.id === activeTabId ? { ...tab, name: tab.name, state: currentActiveState } : tab
         );
 
         const projectData = {
@@ -96,19 +162,43 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
             appName: 'Prompt_modifier',
             version: 1,
             timestamp: new Date().toISOString(),
-            tabs: updatedTabs,
             activeTabId,
+            tabs: updatedTabs,
             settings: {
                 language,
+                secondaryLanguage,
                 isSnapToGrid,
                 lineStyle,
+                currentTheme,
+                canvasColorMode,
+                inputColorMode,
+                panelStyle,
+                isPanelAutoHide,
+                panelAnimation,
+                isPanelAnimationAdaptive,
+                panelAnimationConfig,
+                cursorSkin,
+                isCursorEffectEnabled,
+                autoSaveInterval,
+                autoSaveHistoryLimit,
+                autoSaveSessionLimit,
+                isInstantCloseEnabled,
+                isImageDropMenuEnabled,
+                isHoverHighlightEnabled,
+                isBringToFrontOnHoverEnabled,
+                nodeAnimationMode,
+                isConnectionAnimationEnabled,
+                connectionOpacity,
+                connectionAnimationStyle,
+                connectionAnimationConfig,
+                isSmartGuidesEnabled,
             },
             catalogs: {
                 groups: catalogItems,
                 library: libraryItems,
-                characters: characterCatalog.items,
-                scripts: scriptCatalog.items,
-                sequences: sequenceCatalog.items
+                characters: characterCatalog?.items || [],
+                scripts: scriptCatalog?.items || [],
+                sequences: sequenceCatalog?.items || []
             }
         };
 
@@ -116,103 +206,184 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        // Changed extension to .PMP (Prompt Modifier Project)
         a.download = `Prompt_Modifier_Project_${getTimestamp()}.PMP`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        a.remove();
-        addToast(t('toast.projectSaved'), 'success');
-    }, [getCurrentCanvasState, tabs, activeTabId, language, isSnapToGrid, lineStyle, catalogItems, libraryItems, characterCatalog.items, scriptCatalog.items, sequenceCatalog.items, addToast, t]);
+        addToast(t('toast.projectSaved') || 'Проект сохранен', 'success');
+    }, [
+        getCurrentCanvasState, tabs, activeTabId, language, secondaryLanguage, isSnapToGrid, lineStyle,
+        currentTheme, canvasColorMode, inputColorMode, panelStyle, isPanelAutoHide, panelAnimation,
+        isPanelAnimationAdaptive, panelAnimationConfig, cursorSkin, isCursorEffectEnabled, autoSaveInterval,
+        autoSaveHistoryLimit, autoSaveSessionLimit, isInstantCloseEnabled, isImageDropMenuEnabled,
+        isHoverHighlightEnabled, isBringToFrontOnHoverEnabled, nodeAnimationMode, isConnectionAnimationEnabled,
+        connectionOpacity, connectionAnimationStyle, connectionAnimationConfig, isSmartGuidesEnabled,
+        catalogItems, libraryItems, characterCatalog, scriptCatalog, sequenceCatalog, addToast, t
+    ]);
 
     // --- LOAD CANVAS / PROJECT ---
 
-    const handleLoadCanvasIntoCurrentTab = useCallback((text: string) => {
+    const handleLoadCanvasIntoCurrentTab = useCallback((text: string, extractedName?: string | null) => {
         try {
             const data = JSON.parse(text);
+
+            if (data.type === 'script-modifier-project' || data.type === 'script-modifier-canvas') {
+                setError(t('error.scriptModifierCanvas') || 'Incompatible script modifier format');
+                return;
+            }
             
             // 1. Project Load
-            if (data.type === 'prompt-modifier-project') {
-                if (data.tabs && Array.isArray(data.tabs)) {
-                    setTabs(data.tabs);
-                    if (data.activeTabId) setActiveTabId(data.activeTabId);
-                }
+            if (data.type === 'prompt-modifier-project' || (data.tabs && Array.isArray(data.tabs) && data.tabs.length > 0)) {
+                // Restore tabs and active canvas state atomically
+                restoreSession(data.tabs, data.activeTabId);
+
+                // Restore Settings if present in project file
                 if (data.settings) {
-                    if (data.settings.language) setLanguage(data.settings.language);
-                    if (data.settings.isSnapToGrid !== undefined) setIsSnapToGrid(data.settings.isSnapToGrid);
-                    if (data.settings.lineStyle) setLineStyle(data.settings.lineStyle);
+                    if (data.settings.language && setLanguage) setLanguage(data.settings.language);
+                    if (data.settings.secondaryLanguage && setSecondaryLanguage) setSecondaryLanguage(data.settings.secondaryLanguage);
+                    if (data.settings.isSnapToGrid !== undefined && setIsSnapToGrid) setIsSnapToGrid(data.settings.isSnapToGrid);
+                    if (data.settings.lineStyle && setLineStyle) setLineStyle(data.settings.lineStyle);
+                    if ((data.settings.currentTheme || data.settings.theme) && setTheme) setTheme(data.settings.currentTheme || data.settings.theme);
+                    if (data.settings.canvasColorMode && setCanvasColorMode) setCanvasColorMode(data.settings.canvasColorMode);
+                    if (data.settings.inputColorMode && setInputColorMode) setInputColorMode(data.settings.inputColorMode);
+                    if (data.settings.panelStyle && setPanelStyle) setPanelStyle(data.settings.panelStyle);
+                    if (data.settings.isPanelAutoHide !== undefined && setIsPanelAutoHide) setIsPanelAutoHide(data.settings.isPanelAutoHide);
+                    if (data.settings.panelAnimation && setPanelAnimation) setPanelAnimation(data.settings.panelAnimation);
+                    if (data.settings.isPanelAnimationAdaptive !== undefined && setIsPanelAnimationAdaptive) setIsPanelAnimationAdaptive(data.settings.isPanelAnimationAdaptive);
+                    if (data.settings.panelAnimationConfig && setPanelAnimationConfig) setPanelAnimationConfig(data.settings.panelAnimationConfig);
+                    if (data.settings.cursorSkin && setCursorSkin) setCursorSkin(data.settings.cursorSkin);
+                    if (data.settings.isCursorEffectEnabled !== undefined && setIsCursorEffectEnabled) setIsCursorEffectEnabled(data.settings.isCursorEffectEnabled);
+                    if (data.settings.autoSaveInterval !== undefined && setAutoSaveInterval) setAutoSaveInterval(data.settings.autoSaveInterval);
+                    if (data.settings.autoSaveHistoryLimit !== undefined && setAutoSaveHistoryLimit) setAutoSaveHistoryLimit(data.settings.autoSaveHistoryLimit);
+                    if (data.settings.autoSaveSessionLimit !== undefined && setAutoSaveSessionLimit) setAutoSaveSessionLimit(data.settings.autoSaveSessionLimit);
+                    if (data.settings.isInstantCloseEnabled !== undefined && setIsInstantCloseEnabled) setIsInstantCloseEnabled(data.settings.isInstantCloseEnabled);
+                    if (data.settings.isImageDropMenuEnabled !== undefined && setIsImageDropMenuEnabled) setIsImageDropMenuEnabled(data.settings.isImageDropMenuEnabled);
+                    if (data.settings.isHoverHighlightEnabled !== undefined && setIsHoverHighlightEnabled) setIsHoverHighlightEnabled(data.settings.isHoverHighlightEnabled);
+                    if (data.settings.isBringToFrontOnHoverEnabled !== undefined && setIsBringToFrontOnHoverEnabled) setIsBringToFrontOnHoverEnabled(data.settings.isBringToFrontOnHoverEnabled);
+                    if (data.settings.nodeAnimationMode && setNodeAnimationMode) setNodeAnimationMode(data.settings.nodeAnimationMode);
+                    if (data.settings.isConnectionAnimationEnabled !== undefined && setIsConnectionAnimationEnabled) setIsConnectionAnimationEnabled(data.settings.isConnectionAnimationEnabled);
+                    if (data.settings.connectionOpacity !== undefined && setConnectionOpacity) setConnectionOpacity(data.settings.connectionOpacity);
+                    if (data.settings.connectionAnimationStyle && setConnectionAnimationStyle) setConnectionAnimationStyle(data.settings.connectionAnimationStyle);
+                    if (data.settings.connectionAnimationConfig && setConnectionAnimationConfig) setConnectionAnimationConfig(data.settings.connectionAnimationConfig);
+                    if (data.settings.isSmartGuidesEnabled !== undefined && setIsSmartGuidesEnabled) setIsSmartGuidesEnabled(data.settings.isSmartGuidesEnabled);
                 }
-                if (data.catalogs) {
-                    if (data.catalogs.groups) setCatalogItems(data.catalogs.groups);
-                    if (data.catalogs.library) setLibraryItems(data.catalogs.library);
-                    if (data.catalogs.characters) characterCatalog.replaceAllItems(data.catalogs.characters);
-                    if (data.catalogs.scripts) scriptCatalog.replaceAllItems(data.catalogs.scripts);
-                    if (data.catalogs.sequences) sequenceCatalog.replaceAllItems(data.catalogs.sequences);
+
+                // Restore Catalogs & Library
+                const catalogs = data.catalogs || {};
+                if (catalogs.groups || data.catalogItems) {
+                    setCatalogItems(catalogs.groups || data.catalogItems);
                 }
-                addToast(t('toast.downloadStarted'), 'success');
+                if (catalogs.library || data.libraryItems) {
+                    setLibraryItems(catalogs.library || data.libraryItems);
+                }
+                if (catalogs.characters || data.characters) {
+                    characterCatalog?.replaceAllItems?.(catalogs.characters || data.characters);
+                }
+                if (catalogs.scripts || data.scripts) {
+                    scriptCatalog?.replaceAllItems?.(catalogs.scripts || data.scripts);
+                }
+                if (catalogs.sequences || data.sequences) {
+                    sequenceCatalog?.replaceAllItems?.(catalogs.sequences || data.sequences);
+                }
+
+                addToast(t('toast.projectLoaded') || t('toast.downloadStarted') || 'Проект успешно загружен', 'success');
                 return;
             }
 
             // 2. Single Canvas Load (Current Tab)
-            let newState: CanvasState;
-            if (data.nodes && data.connections) {
-                newState = {
-                    nodes: data.nodes || [],
-                    connections: data.connections || [],
-                    groups: data.groups || [],
-                    viewTransform: data.viewTransform || { scale: 1, translate: { x: 0, y: 0 } },
-                    nodeIdCounter: data.nodeIdCounter || 100,
-                    fullSizeImageCache: data.fullSizeImageCache || {}
+            if (data.nodes || data.connections || data.type === 'prompt-modifier-canvas') {
+                const targetTabName = extractedName || data.tabName || data.name || activeTabName;
+                const newState: CanvasState = {
+                    nodes: Array.isArray(data.nodes) ? data.nodes : [],
+                    connections: Array.isArray(data.connections) ? data.connections : [],
+                    groups: Array.isArray(data.groups) ? data.groups : [],
+                    viewTransform: (data.viewTransform && typeof data.viewTransform.scale === 'number')
+                        ? data.viewTransform
+                        : { scale: 1, translate: { x: 0, y: 0 } },
+                    nodeIdCounter: typeof data.nodeIdCounter === 'number'
+                        ? data.nodeIdCounter
+                        : (Math.max(0, ...(data.nodes || []).map((n: any) => {
+                            const m = String(n.id).match(/\d+/g);
+                            return m ? Math.max(...m.map(Number)) : 0;
+                        })) + 100),
+                    fullSizeImageCache: (data.fullSizeImageCache && typeof data.fullSizeImageCache === 'object') ? data.fullSizeImageCache : {}
                 };
-            } else {
-                throw new Error("Invalid file format");
-            }
 
-            loadCanvasState(newState);
+                loadCanvasState(newState, targetTabName);
+                addToast(t('toast.canvasLoaded') || t('toast.downloadStarted') || 'Холст успешно загружен', 'success');
+            } else {
+                throw new Error("Invalid file format. Neither a project nor a canvas file.");
+            }
 
         } catch (err: any) {
             console.error("Load error:", err);
             setError(`Failed to load file: ${err.message}`);
         }
-    }, [setTabs, setActiveTabId, setLanguage, setIsSnapToGrid, setLineStyle, setCatalogItems, setLibraryItems, characterCatalog, scriptCatalog, sequenceCatalog, loadCanvasState, setError, addToast, t]);
+    }, [
+        restoreSession, loadCanvasState, activeTabName, setLanguage, setSecondaryLanguage,
+        setIsSnapToGrid, setLineStyle, setTheme, setCanvasColorMode, setInputColorMode,
+        setPanelStyle, setIsPanelAutoHide, setPanelAnimation, setIsPanelAnimationAdaptive,
+        setPanelAnimationConfig, setCursorSkin, setIsCursorEffectEnabled, setAutoSaveInterval,
+        setAutoSaveHistoryLimit, setAutoSaveSessionLimit, setIsInstantCloseEnabled,
+        setIsImageDropMenuEnabled, setIsHoverHighlightEnabled, setIsBringToFrontOnHoverEnabled,
+        setNodeAnimationMode, setIsConnectionAnimationEnabled, setConnectionOpacity,
+        setConnectionAnimationStyle, setConnectionAnimationConfig, setIsSmartGuidesEnabled,
+        setCatalogItems, setLibraryItems, characterCatalog, scriptCatalog, sequenceCatalog,
+        setError, addToast, t
+    ]);
 
-    // Handles loading from external sources (OS file association)
-    // Canvas files (.PMC) open in a NEW tab to prevent data loss
+    // Handles loading from external sources (OS file association or drag & drop)
+    // Canvas files (.PMC) open in a NEW tab to prevent accidental data loss
     // Project files (.PMP) prompt for overwrite
     const handleLoadFromExternal = useCallback((text: string) => {
         try {
             const data = JSON.parse(text);
 
             if (data.type === 'script-modifier-project' || data.type === 'script-modifier-canvas') {
-                setError(t('error.scriptModifierCanvas'));
+                setError(t('error.scriptModifierCanvas') || 'Incompatible script modifier format');
                 return;
             }
 
-            if (data.type === 'prompt-modifier-project') {
-                // Project file: Needs confirmation as it replaces everything
+            if (data.type === 'prompt-modifier-project' || (data.tabs && Array.isArray(data.tabs))) {
                 setConfirmInfo({
-                    title: t('dialog.confirmLoad.title'),
-                    message: t('dialog.confirmLoad.message') + " (Project)",
+                    title: t('dialog.confirmLoad.title') || 'Confirm Project Load',
+                    message: (t('dialog.confirmLoad.message') || 'Are you sure you want to load this project? Current unsaved work will be replaced.') + " (Project)",
                     onConfirm: () => handleLoadCanvasIntoCurrentTab(text)
                 });
-            } else if (data.nodes && data.connections) {
-                // Canvas file: Open in NEW tab safely
+            } else if (data.nodes || data.connections || data.type === 'prompt-modifier-canvas') {
+                const tabName = data.tabName || data.name || `Ext ${getTimestamp()}`;
                 const newTabId = `tab-${Date.now()}`;
-                const newTab: Tab = {
-                    id: newTabId,
-                    name: `Ext ${getTimestamp()}`,
-                    state: {
-                        nodes: data.nodes || [],
-                        connections: data.connections || [],
-                        groups: data.groups || [],
-                        viewTransform: data.viewTransform || { scale: 1, translate: { x: 0, y: 0 } },
-                        nodeIdCounter: data.nodeIdCounter || 100,
-                        fullSizeImageCache: data.fullSizeImageCache || {}
-                    }
+                const newState: CanvasState = {
+                    nodes: Array.isArray(data.nodes) ? data.nodes : [],
+                    connections: Array.isArray(data.connections) ? data.connections : [],
+                    groups: Array.isArray(data.groups) ? data.groups : [],
+                    viewTransform: (data.viewTransform && typeof data.viewTransform.scale === 'number')
+                        ? data.viewTransform
+                        : { scale: 1, translate: { x: 0, y: 0 } },
+                    nodeIdCounter: typeof data.nodeIdCounter === 'number'
+                        ? data.nodeIdCounter
+                        : (Math.max(0, ...(data.nodes || []).map((n: any) => {
+                            const m = String(n.id).match(/\d+/g);
+                            return m ? Math.max(...m.map(Number)) : 0;
+                        })) + 100),
+                    fullSizeImageCache: (data.fullSizeImageCache && typeof data.fullSizeImageCache === 'object') ? data.fullSizeImageCache : {}
                 };
                 
-                setTabs(prev => [...prev, newTab]);
-                setActiveTabId(newTabId);
-                addToast(t('toast.downloadStarted'), 'success');
+                const newTab: Tab = {
+                    id: newTabId,
+                    name: tabName,
+                    state: newState
+                };
+                
+                // Snapshot live active tab first, then append new tab
+                const currentLiveState = getCurrentCanvasState();
+                const updatedTabs = tabs.map(tab => 
+                    tab.id === activeTabId ? { ...tab, state: currentLiveState } : tab
+                ).concat(newTab);
+
+                restoreSession(updatedTabs, newTabId);
+                addToast(t('toast.canvasLoaded') || t('toast.downloadStarted') || 'Холст открыт в новой вкладке', 'success');
             } else {
                  throw new Error("Unknown file format");
             }
@@ -220,15 +391,14 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         } catch (err: any) {
             setError(`Failed to open external file: ${err.message}`);
         }
-    }, [handleLoadCanvasIntoCurrentTab, setConfirmInfo, t, setTabs, setActiveTabId, setError, addToast]);
+    }, [getCurrentCanvasState, tabs, activeTabId, restoreSession, handleLoadCanvasIntoCurrentTab, setConfirmInfo, t, setError, addToast]);
 
     const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Try to extract tab name if possible (works for both old .json and new .PMC format naming conventions)
         const filenameMatch = file.name.match(/^Prompt_Modifier_(.+?)_\d{4}-\d{2}-\d{2}/);
-        const extractedTabName = filenameMatch && filenameMatch[1] ? filenameMatch[1].replace(/_/g, ' ') : null;
+        const extractedTabName = filenameMatch && filenameMatch[1] ? filenameMatch[1].replace(/_/g, ' ') : file.name.replace(/\.(json|PMC|PMP)$/i, '');
 
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -237,22 +407,19 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
                 const peek = JSON.parse(text);
 
                 if (peek.type === 'script-modifier-project' || peek.type === 'script-modifier-canvas') {
-                    setError(t('error.scriptModifierCanvas'));
+                    setError(t('error.scriptModifierCanvas') || 'Incompatible script modifier format');
                     return;
                 }
 
-                const isProject = peek.type === 'prompt-modifier-project';
+                const isProject = peek.type === 'prompt-modifier-project' || (peek.tabs && Array.isArray(peek.tabs));
                 
                 const performLoad = () => {
-                    handleLoadCanvasIntoCurrentTab(text);
-                    if (!isProject && extractedTabName) {
-                        handleRenameTab(activeTabId, extractedTabName);
-                    }
+                    handleLoadCanvasIntoCurrentTab(text, isProject ? null : extractedTabName);
                 };
 
                 setConfirmInfo({
-                    title: t('dialog.confirmLoad.title'),
-                    message: t('dialog.confirmLoad.message') + (isProject ? " (Loading Project)" : ""),
+                    title: t('dialog.confirmLoad.title') || 'Confirm Load',
+                    message: (t('dialog.confirmLoad.message') || 'Are you sure you want to load this file? Unsaved changes will be overwritten.') + (isProject ? " (Project)" : " (Canvas)"),
                     onConfirm: performLoad
                 });
 
@@ -262,7 +429,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         };
         reader.readAsText(file);
         if (e.target) e.target.value = '';
-    }, [handleLoadCanvasIntoCurrentTab, setConfirmInfo, t, setError, handleRenameTab, activeTabId]);
+    }, [handleLoadCanvasIntoCurrentTab, setConfirmInfo, t, setError]);
 
     const handleLoadCanvas = useCallback(() => {
         fileInputRef.current?.click();

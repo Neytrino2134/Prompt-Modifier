@@ -515,14 +515,23 @@ export const setupImageDragData = (
                 const arr = imageSrc.split(',');
                 const mimeMatch = arr[0].match(/:(.*?);/);
                 const fileMime = mimeMatch ? mimeMatch[1] : 'image/png';
-                const bstr = atob(arr[1]);
-                let n = bstr.length;
-                const u8arr = new Uint8Array(n);
-                while (n--) {
-                    u8arr[n] = bstr.charCodeAt(n);
+                const base64Str = arr[1];
+
+                // Fast binary conversion: use Buffer in Node/Electron if present, or fast typed array
+                if (typeof Buffer !== 'undefined' && typeof Buffer.from === 'function') {
+                    const buf = Buffer.from(base64Str, 'base64');
+                    const file = new File([buf], filename, { type: fileMime });
+                    e.dataTransfer.items.add(file);
+                } else {
+                    const binaryString = atob(base64Str);
+                    const len = binaryString.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    const file = new File([bytes], filename, { type: fileMime });
+                    e.dataTransfer.items.add(file);
                 }
-                const file = new File([u8arr], filename, { type: fileMime });
-                e.dataTransfer.items.add(file);
             } catch (fileErr) {
                 console.warn('Could not add File to dataTransfer items:', fileErr);
             }

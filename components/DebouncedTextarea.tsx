@@ -1,10 +1,11 @@
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useTextContextMenu } from '../contexts/TextContextMenuContext';
 
 interface DebouncedTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
     value: string;
     onDebouncedChange: (value: string) => void;
     debounceTime?: number;
+    disableCustomContextMenu?: boolean;
 }
 
 export const DebouncedTextarea: React.FC<DebouncedTextareaProps> = ({ 
@@ -13,11 +14,23 @@ export const DebouncedTextarea: React.FC<DebouncedTextareaProps> = ({
     debounceTime = 300, 
     onChange, // Capture original onChange to prevent double binding if passed
     onPaste,  // Capture original onPaste to call it after our logic
+    onContextMenu,
+    spellCheck = true,
+    disableCustomContextMenu = false,
     ...props 
 }) => {
     const [localValue, setLocalValue] = useState(externalValue);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isTypingRef = useRef(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    
+    // Custom context menu hook (safely optional if outside provider)
+    let contextMenu: ReturnType<typeof useTextContextMenu> | null = null;
+    try {
+        contextMenu = useTextContextMenu();
+    } catch {
+        contextMenu = null;
+    }
 
     // Sync with external value changes (e.g. undo/redo or other nodes updating this)
     // Only sync if user is NOT currently typing in this specific component
@@ -79,13 +92,30 @@ export const DebouncedTextarea: React.FC<DebouncedTextareaProps> = ({
         }
     };
 
+    const handleContextMenu = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+        if (onContextMenu) {
+            onContextMenu(e);
+        }
+
+        if (!disableCustomContextMenu && contextMenu && textareaRef.current) {
+            contextMenu.openContextMenu(e, {
+                element: textareaRef.current,
+                onDebouncedChange,
+                onValueUpdate: (val) => setLocalValue(val)
+            });
+        }
+    };
+
     return (
         <textarea
+            ref={textareaRef}
+            spellCheck={spellCheck}
             {...props}
             value={localValue}
             onChange={handleChange}
             onBlur={handleBlur}
             onPaste={handlePaste}
+            onContextMenu={handleContextMenu}
         />
     );
 };

@@ -19,7 +19,7 @@ import { SequencedPromptListRef } from './image-editor/SequencedPromptList';
 import { useOpenAiEnabled, getImageEditorModelOptions, resolveImageEditorModel } from '../../services/modelConfig';
 
 export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onEditImage, onStopEdit, isEditingImage, onPasteImage, onSetImageEditorOutputToInput, connectedImageSources, t, deselectAllNodes, connectedInputs, onCopyImageToClipboard, onDownloadImage, libraryItems, onDetachImageToNode, getUpstreamNodeValues, viewTransform, setImageViewer, getFullSizeImage, setFullSizeImage, onDownloadImageFromUrl, onRefreshUpstreamData, isStopping, onCutConnections, addToast, clearImagesForNodeFromCache }) => {
-    const { setConnections, handleNavigateToNodeFrame, nodes: allNodes, connections } = useAppContext();
+    const { setConnections, handleNavigateToNodeFrame, nodes: allNodes, connections, onAddNode } = useAppContext();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fileInputBRef = useRef<HTMLInputElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -792,6 +792,143 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         handleValueUpdate({ framePrompts: newFramePrompts });
     }, [upstreamPromptsMap, framePrompts, handleValueUpdate]);
 
+    const handleSendInputsToNote = useCallback((isB?: boolean) => {
+        const slotsToUse = isB ? imageSlotsB : imageSlots;
+        const offset = isB ? 2000 : 0;
+        const upstreamFull = isB ? [] : getUpstreamNodeValues(node.id, 'image', undefined, false);
+        const upstreamFullB = isB ? getUpstreamNodeValues(node.id, 'image_b', undefined, false) : [];
+        const upstreamToUse = isB ? upstreamFullB : upstreamFull;
+
+        const references: { id: string; image: string | null; caption: string }[] = [];
+
+        slotsToUse.forEach((slot, index) => {
+            let src: string | undefined | null = null;
+            if (slot.type === 'local') {
+                src = getFullSizeImage(node.id, offset + slot.index + 1) || slot.src;
+            } else {
+                const raw = upstreamToUse[slot.index];
+                if (typeof raw === 'object' && raw && raw.base64ImageData) {
+                    src = `data:${raw.mimeType || 'image/png'};base64,${raw.base64ImageData}`;
+                } else if (typeof raw === 'string') {
+                    src = raw;
+                } else {
+                    src = slot.src;
+                }
+            }
+            if (src) {
+                references.push({
+                    id: `ref-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
+                    image: src,
+                    caption: `Image ${index + 1}`
+                });
+            }
+        });
+
+        if (references.length === 0) {
+            if (addToast) addToast(t('imageEditor.noImagesToSend') || 'Нет изображений для отправки', 'warning');
+            return;
+        }
+
+        const position = {
+            x: node.position.x + (node.width || 800) + 40,
+            y: node.position.y
+        };
+
+        const noteData = {
+            text: '',
+            references,
+            activeTab: 'reference',
+            isMinimal: false,
+            style: {
+                fontSize: 14,
+                color: '#ffffff',
+                isBold: false,
+                isItalic: false,
+                textAlign: 'left'
+            }
+        };
+
+        if (onAddNode) {
+            onAddNode(NodeType.NOTE, position, 'Note References', {
+                initialValue: JSON.stringify(noteData)
+            });
+            if (addToast) {
+                addToast(t('imageEditor.toast.sentToNote') || 'Отправлено в Note (References)', 'success');
+            }
+        }
+    }, [imageSlots, imageSlotsB, getUpstreamNodeValues, getFullSizeImage, node.id, node.position, node.width, onAddNode, addToast, t]);
+
+    const handleSendOutputsToNote = useCallback(() => {
+        const references: { id: string; image: string | null; caption: string }[] = [];
+
+        if (isSequenceMode) {
+            const total = isSequentialEditingWithPrompts ? seqTotalFrames : (sequenceOutputs.length || imageSlots.length);
+            for (let i = 0; i < total; i++) {
+                const output = sequenceOutputs[i];
+                const fullSize = getFullSizeImage(node.id, 1000 + i);
+                const src = fullSize || output?.thumbnail;
+                if (src) {
+                    references.push({
+                        id: `ref-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
+                        image: src,
+                        caption: `Frame ${i + 1}`
+                    });
+                } else if (imageSlots[i]?.src) {
+                    const slotSrc = getFullSizeImage(node.id, imageSlots[i].index + 1) || imageSlots[i].src;
+                    if (slotSrc) {
+                        references.push({
+                            id: `ref-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
+                            image: slotSrc,
+                            caption: `Frame ${i + 1}`
+                        });
+                    }
+                }
+            }
+        } else {
+            const src = getFullSizeImage(node.id, 0) || outputImage;
+            if (src) {
+                references.push({
+                    id: `ref-${Date.now()}-0-${Math.random().toString(36).substring(2, 7)}`,
+                    image: src,
+                    caption: 'Output 1'
+                });
+            }
+        }
+
+        if (references.length === 0) {
+            if (addToast) addToast(t('imageEditor.noImagesToSend') || 'Нет изображений для отправки', 'warning');
+            return;
+        }
+
+        const position = {
+            x: node.position.x + (node.width || 800) + 40,
+            y: node.position.y
+        };
+
+        const noteData = {
+            text: '',
+            references,
+            activeTab: 'reference',
+            isMinimal: false,
+            style: {
+                fontSize: 14,
+                color: '#ffffff',
+                isBold: false,
+                isItalic: false,
+                textAlign: 'left'
+            }
+        };
+
+        if (onAddNode) {
+            onAddNode(NodeType.NOTE, position, 'Note References', {
+                initialValue: JSON.stringify(noteData)
+            });
+            if (addToast) {
+                addToast(t('imageEditor.toast.sentToNote') || 'Отправлено в Note (References)', 'success');
+            }
+        }
+    }, [isSequenceMode, isSequentialEditingWithPrompts, seqTotalFrames, sequenceOutputs, imageSlots, getFullSizeImage, outputImage, node.id, node.position, node.width, onAddNode, addToast, t]);
+
     return (
         <div ref={contentRef} className="flex w-full h-full">
             <ImageEditorModal isOpen={isEditorOpen} onClose={() => { setIsEditorOpen(false); editingFrameRef.current = null; }} onApply={handleApplyEditor} imageSrc={editorImageSrc} />
@@ -830,6 +967,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 onSelectFrame={handleSelectFramePrompt}
                 onClearFrames={handleClearAllFramePrompts}
                 selectedFrameIndex={selectedSourceFrameIndex}
+                onSendInputsToNote={handleSendInputsToNote}
             />
 
             <div onMouseDown={handleHorizontalResize} className="w-2 h-full bg-gray-700/50 hover:bg-cyan-600 cursor-col-resize rounded transition-colors flex-shrink-0"></div>
@@ -1034,6 +1172,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                 deselectAllNodes={deselectAllNodes}
                 nodeId={node.id} // Added nodeId
                 onClearOutputs={handleClearOutputs}
+                onSendToNote={handleSendOutputsToNote}
             />
         </div>
     );

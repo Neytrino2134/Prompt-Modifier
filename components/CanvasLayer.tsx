@@ -19,6 +19,7 @@ import { NodeType, ToolbarViewMode } from '../types';
 import { Tooltip } from './Tooltip';
 import { COLLAPSED_NODE_HEIGHT, PROXY_NODE_WIDTH, PROXY_NODE_HEIGHT, DETACHED_GHOST_WIDTH, DETACHED_GHOST_HEIGHT } from '../utils/nodeUtils';
 import { getActiveCursorDefinition } from './cursors/cursorDefinitions';
+import { PromptModifierIcon } from './icons/PromptModifierLogo';
 
 // Helper wrapper for tooltips
 const TopTooltipWrapper: React.FC<{ title: string; children: React.ReactNode; align?: 'center' | 'left' | 'right' }> = ({ title, children, align = 'center' }) => {
@@ -133,7 +134,8 @@ const CanvasLayer: React.FC = () => {
         getTransformedPoint, setSpawnLine,
         tutorialStep, advanceTutorial,
         panelStyle, isPanelAutoHide,
-        isConnectionQuickAddOpen, connectionQuickAddInfo
+        isConnectionQuickAddOpen, connectionQuickAddInfo,
+        isCanvasLoading
     } = context;
 
     const isModern = panelStyle === 'modern';
@@ -833,8 +835,8 @@ const CanvasLayer: React.FC = () => {
                         isModern ? 'bottom-0 left-0' : 'bottom-2 left-2'
                     }`}
                     style={isModern ? {
-                        transform: (isViewControlsCollapsed || (isPanelAutoHide && !isViewControlsHovered))
-                            ? (isVerticalViewControls ? 'translateY(calc(100% - 36px))' : 'translateX(calc(-100% + 36px))')
+                        transform: (!isViewControlsCollapsed && isPanelAutoHide && !isViewControlsHovered)
+                            ? (isVerticalViewControls ? 'translateX(calc(-100% + 36px))' : 'translateX(calc(-100% + 36px))')
                             : 'translate(0, 0)'
                     } : undefined}
                     onMouseEnter={handleViewControlsMouseEnter}
@@ -856,13 +858,13 @@ const CanvasLayer: React.FC = () => {
                                 >
                                     {isModern ? (
                                         isVerticalViewControls ? (
-                                            (isViewControlsCollapsed || (isPanelAutoHide && !isViewControlsHovered)) ? (
+                                            isViewControlsCollapsed ? (
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
                                             ) : (
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                                             )
                                         ) : (
-                                            (isViewControlsCollapsed || (isPanelAutoHide && !isViewControlsHovered)) ? (
+                                            isViewControlsCollapsed ? (
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                                             ) : (
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -877,7 +879,7 @@ const CanvasLayer: React.FC = () => {
                                     )}
                                 </button>
                             </TopTooltipWrapper>
-                            {(isModern || !isViewControlsCollapsed) && (
+                            {!isViewControlsCollapsed && (
                                 <ViewControlsToolbar
                                     isSnapToGrid={isSnapToGrid}
                                     onSnapToGridChange={() => setIsSnapToGrid(p => !p)}
@@ -920,6 +922,32 @@ const CanvasLayer: React.FC = () => {
                         >
                             {t('tutorial.success.button')}
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Canvas Loading Overlay: shown if the user resumes before background session load has completed */}
+            {isCanvasLoading && (
+                <div 
+                    id="canvas-loading-overlay"
+                    className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0b0f19]/90 backdrop-blur-md select-none pointer-events-auto transition-all duration-500 animate-fade-in"
+                >
+                    <div className="flex flex-col items-center p-8 rounded-2xl bg-gray-900/95 border border-cyan-500/30 shadow-[0_0_60px_rgba(6,182,212,0.2)] max-w-sm text-center transform scale-100 transition-all">
+                        <div className="relative mb-6 flex items-center justify-center">
+                            <div className="w-20 h-20 rounded-full border-2 border-cyan-500/20 border-t-cyan-400 animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <PromptModifierIcon className="w-10 h-10 text-cyan-400 animate-pulse" />
+                            </div>
+                        </div>
+                        <h3 className="text-xl font-bold text-white tracking-wide mb-2">
+                            {t('canvas.loadingSession')}
+                        </h3>
+                        <p className="text-xs text-gray-400 mb-5 leading-relaxed">
+                            {t('canvas.restoringNodes')}
+                        </p>
+                        <div className="w-56 h-1.5 bg-gray-800/80 rounded-full overflow-hidden relative">
+                            <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-400 rounded-full animate-indeterminate" />
+                        </div>
                     </div>
                 </div>
             )}

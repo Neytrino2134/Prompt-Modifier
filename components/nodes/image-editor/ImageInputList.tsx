@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ActionButton } from '../../ActionButton';
+import { StickyNote } from 'lucide-react';
 import { ImageSlot } from './types';
 import { setupImageDragData } from '../../../utils/imageUtils';
 
@@ -87,6 +88,7 @@ interface ImageInputListProps {
     isSequentialCombinationMode: boolean;
     onSetCheckedIndices?: (indices: number[]) => void;
     onInvertSelection?: () => void;
+    onSendToNote?: () => void;
 }
 
 // Updated Item Size to accommodate header
@@ -116,7 +118,8 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
     t,
     isSequentialCombinationMode,
     onSetCheckedIndices,
-    onInvertSelection
+    onInvertSelection,
+    onSendToNote
 }) => {
     const [isDragOver, setIsDragOver] = useState(false);
     const [dragOverSlotIndex, setDragOverSlotIndex] = useState<number | null>(null);
@@ -363,6 +366,12 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                         </ActionButton>
                                     )}
 
+                                    {onSendToNote && (
+                                        <ActionButton title={t('imageEditor.sendInputsToNoteReferences') || "Send to Note (References)"} onClick={onSendToNote} disabled={slots.length === 0 || isEditing}>
+                                            <StickyNote className={`h-3 w-3 ${slots.length === 0 || isEditing ? 'text-gray-600' : 'text-amber-400 hover:text-amber-300'}`} />
+                                        </ActionButton>
+                                    )}
+
                                     <div className="w-px h-3 bg-gray-600 mx-1"></div>
                                     
                                     <ActionButton title={t('node.action.clear')} onClick={onClear} disabled={slots.length === 0 || isEditing}>
@@ -371,9 +380,16 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                 </div>
                             </>
                         ) : (
-                             <ActionButton title={t('node.action.clear')} onClick={onClear} disabled={slots.length === 0 || isEditing}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${slots.length === 0 || isEditing ? 'text-gray-600' : 'text-gray-300 hover:text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </ActionButton>
+                            <div className="flex items-center space-x-1">
+                                {onSendToNote && (
+                                    <ActionButton title={t('imageEditor.sendInputsToNoteReferences') || "Send to Note (References)"} onClick={onSendToNote} disabled={slots.length === 0 || isEditing}>
+                                        <StickyNote className={`h-3 w-3 ${slots.length === 0 || isEditing ? 'text-gray-600' : 'text-amber-400 hover:text-amber-300'}`} />
+                                    </ActionButton>
+                                )}
+                                <ActionButton title={t('node.action.clear')} onClick={onClear} disabled={slots.length === 0 || isEditing}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${slots.length === 0 || isEditing ? 'text-gray-600' : 'text-gray-300 hover:text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </ActionButton>
+                            </div>
                         )}
                      </div>
                  </div>

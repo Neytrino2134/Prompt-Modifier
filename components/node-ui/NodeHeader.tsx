@@ -132,6 +132,14 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
 
     const isDownloadingBatch = completedBatchJob ? !!fetchingJobIds?.[completedBatchJob.id] : false;
 
+    const totalActiveBatchCount = React.useMemo(() => {
+        return (batchJobs || []).filter(j => j && (j.state === 'PENDING' || j.state === 'RUNNING')).length;
+    }, [batchJobs]);
+
+    const totalCompletedBatchCount = React.useMemo(() => {
+        return (batchJobs || []).filter(j => j && j.state === 'SUCCEEDED').length;
+    }, [batchJobs]);
+
     // Batch Auto-Download Eligibility & Toggle
     const isBatchAutoDownloadEligible = node.type === NodeType.IMAGE_EDITOR || node.type === NodeType.IMAGE_OUTPUT;
     const isBatchActive = (context?.isBatchMode) || node.useBatch || isWaitingBatch || !!completedBatchJob;
@@ -557,6 +565,27 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isAutoDownloadEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
                                 </button>
                             </EditorTooltip>
+                        )}
+
+                        {/* Mini-Games Lounge Batch API Status Badge */}
+                        {node.type === NodeType.DATA_PROTECTION && (
+                            <div 
+                                className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-semibold font-mono select-none transition-all shadow-sm ${
+                                    totalActiveBatchCount > 0
+                                        ? 'bg-amber-500/20 border-amber-500/60 text-amber-300 animate-pulse shadow-amber-900/30'
+                                        : totalCompletedBatchCount > 0
+                                        ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300 shadow-emerald-900/30'
+                                        : 'bg-slate-800/80 border-slate-700 text-slate-400'
+                                }`}
+                                title={t('batch.loungeMonitorTooltip') || 'Статус фоновых задач Batch API в реальном времени'}
+                            >
+                                <span className={`w-2 h-2 rounded-full ${
+                                    totalActiveBatchCount > 0 ? 'bg-amber-400 animate-ping' : totalCompletedBatchCount > 0 ? 'bg-emerald-400' : 'bg-slate-500'
+                                }`} />
+                                <span>
+                                    Batch API: {totalActiveBatchCount > 0 ? `${totalActiveBatchCount} в работе` : totalCompletedBatchCount > 0 ? `${totalCompletedBatchCount} готово` : 'Ожидание задач'}
+                                </span>
+                            </div>
                         )}
 
                         {/* Batch Waiting Status Badge */}

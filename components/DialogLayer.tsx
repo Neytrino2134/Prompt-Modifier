@@ -20,6 +20,8 @@ import ErrorDialog from './ErrorDialog';
 import { DebugConsole } from './DebugConsole';
 import { HistoryPanel } from './HistoryPanel';
 import { TaskQueuePanel } from './TaskQueuePanel';
+import { PanelAnimationConfigDialog } from './settings/appearance/PanelAnimationConfigDialog';
+import { TextContextMenu } from './TextContextMenu';
 import { CatalogItemType } from '../hooks/useCatalog';
 import { Point } from '../types';
 
@@ -32,10 +34,19 @@ const DialogLayer: React.FC = () => {
 
     React.useEffect(() => {
         const handler = (e: any) => {
-             if (e.detail) {
+             if (e.detail?.x !== undefined && e.detail?.y !== undefined) {
+                 setSettingsAnchor({ x: e.detail.x, y: e.detail.y });
+             } else if (e.detail && !e.detail.toggle) {
                  setSettingsAnchor(e.detail);
+             } else {
+                 setSettingsAnchor(null);
              }
-             setIsSettingsOpen(true);
+
+             if (e.detail?.toggle) {
+                 setIsSettingsOpen(prev => !prev);
+             } else {
+                 setIsSettingsOpen(true);
+             }
         };
         window.addEventListener('open-settings', handler);
         return () => window.removeEventListener('open-settings', handler);
@@ -69,7 +80,7 @@ const DialogLayer: React.FC = () => {
         nodeContextMenu, handleCloseNodeContextMenu, handleAlignNodes, selectedNodeIds,
         isConnectionQuickAddOpen, connectionQuickAddInfo, handleCloseConnectionQuickAdd, handleAddNodeAndConnect,
         imageDropMenuInfo, handleCloseImageDropMenu, handleSelectImageDropTarget,
-        nodeDeleteConfirm, deleteNodeAndConnections, setIsInstantCloseEnabled, cancelDeleteNodes,
+        nodeDeleteConfirm, deleteNodeAndConnections, deleteMultipleNodesAndConnections, setIsInstantCloseEnabled, cancelDeleteNodes,
         renameInfo, confirmRename, setRenameInfo, deselectAllNodes, t,
         showDialog, requestPermission, declinePermission, // PermissionDialog
         confirmInfo, setConfirmInfo,
@@ -186,7 +197,11 @@ const DialogLayer: React.FC = () => {
                 <NodeDeleteConfirm
                     position={nodeDeleteConfirm.position}
                     onConfirm={(dontShow) => {
-                        nodeDeleteConfirm.nodeIds.forEach(id => deleteNodeAndConnections(id));
+                        if (deleteMultipleNodesAndConnections && nodeDeleteConfirm.nodeIds.length > 1) {
+                            deleteMultipleNodesAndConnections(nodeDeleteConfirm.nodeIds);
+                        } else {
+                            nodeDeleteConfirm.nodeIds.forEach(id => deleteNodeAndConnections(id));
+                        }
                         if (dontShow) {
                             localStorage.setItem('settings_instantNodeClose', 'true');
                             setIsInstantCloseEnabled(true);
@@ -228,6 +243,8 @@ const DialogLayer: React.FC = () => {
                 cancelLabel={confirmInfo?.cancelLabel}
                 confirmVariant={confirmInfo?.confirmVariant}
                 secondaryAction={confirmInfo?.secondaryAction}
+                extraAction={confirmInfo?.extraAction}
+                checkbox={confirmInfo?.checkbox}
             />
             
             <ErrorDialog 
@@ -307,6 +324,8 @@ const DialogLayer: React.FC = () => {
             />
             <HistoryPanel />
             <TaskQueuePanel />
+            <PanelAnimationConfigDialog />
+            <TextContextMenu />
         </>
     );
 };

@@ -68,22 +68,11 @@ export const THEME_GROUPS: ThemeGroup[] = [
 export const allThemes: ThemeDefinition[] = THEME_GROUPS.flatMap((g) => g.themes);
 export const themes = allThemes;
 
-const AUTO_SAVE_OPTIONS = [
-  { value: 0, labelKey: 'settings.autoSaveBtn.off', desc: 'Off' },
-  { value: 30, labelKey: 'settings.autoSaveBtn.30s', desc: '30s' },
-  { value: 60, labelKey: 'settings.autoSaveBtn.1m', desc: '1m' },
-  { value: 120, labelKey: 'settings.autoSaveBtn.2m', desc: '2m' },
-  { value: 300, labelKey: 'settings.autoSaveBtn.5m', desc: '5m' },
-  { value: 600, labelKey: 'settings.autoSaveBtn.10m', desc: '10m' },
-];
-
 export const ThemeAndAutoSaveSettings: React.FC = () => {
   const { t } = useLanguage();
   const { 
     currentTheme, 
     setTheme, 
-    autoSaveInterval, 
-    setAutoSaveInterval,
     canvasColorMode,
     setCanvasColorMode,
     inputColorMode,
@@ -115,57 +104,7 @@ export const ThemeAndAutoSaveSettings: React.FC = () => {
 
   return (
     <div className="space-y-3.5">
-      {/* 1. Auto-Save Row (Dedicated row with toggle switch buttons) */}
-      <div className="bg-gray-900/80 p-3 rounded-lg border border-gray-700/60 space-y-2.5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-          <div className="flex items-center gap-2">
-            <span className="text-cyan-400">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-              </svg>
-            </span>
-            <div>
-              <label className="block text-xs font-semibold text-gray-200">
-                {t('settings.autoSaveLabel')}
-              </label>
-              <p className="text-[10px] text-gray-400 leading-tight">
-                {t('settings.autoSaveDesc')}
-              </p>
-            </div>
-          </div>
-          <span className="text-[11px] px-2.5 py-0.5 rounded-md font-medium text-cyan-400 bg-cyan-950/70 border border-cyan-800/50 self-start sm:self-auto">
-            {autoSaveInterval === 0 
-              ? (t('settings.autoSave.off') || 'Off') 
-              : `${autoSaveInterval < 60 ? `${autoSaveInterval}s` : `${autoSaveInterval / 60}m`}`}
-          </span>
-        </div>
-
-        {/* Switch Buttons for Auto-Save */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-0.5">
-          {AUTO_SAVE_OPTIONS.map((opt) => {
-            const isSelected = autoSaveInterval === opt.value;
-            const localized = t(opt.labelKey as any);
-            const labelText = localized && localized !== opt.labelKey ? localized : opt.desc;
-
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setAutoSaveInterval(opt.value)}
-                className={`flex items-center justify-center py-2 px-1.5 rounded-md text-xs font-medium transition-all cursor-pointer outline-none focus:outline-none select-none border ${
-                  isSelected
-                    ? 'bg-cyan-950/60 border-cyan-500 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.15)] font-semibold'
-                    : 'bg-gray-800/70 border-gray-700/60 text-gray-300 hover:bg-gray-700/60 hover:border-gray-600 hover:text-gray-100'
-                }`}
-              >
-                <span className="truncate">{labelText}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 2. Canvas Background Mode Row */}
+      {/* 1. Canvas Background Mode Row */}
       <div className="bg-gray-900/80 p-3 rounded-lg border border-gray-700/60 space-y-2.5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
           <div className="flex items-center gap-2">

@@ -4,7 +4,7 @@ import { NodeType, ToolbarViewMode } from '../types';
 import { useLanguage } from '../localization';
 import { useAppContext } from '../contexts/AppContext';
 import { TutorialTooltip } from './TutorialTooltip';
-import { GoogleDriveIcon, ThreeDModelIcon } from './icons/AppIcons'; // Import Drive and 3D Icon
+import { GoogleDriveIcon, ThreeDModelIcon, GamepadIcon } from './icons/AppIcons'; // Import Drive, 3D, and Gamepad Icon
 
 interface ToolbarProps {
   onAddNode: (type: NodeType, e: React.MouseEvent) => void;
@@ -76,20 +76,20 @@ const ToolGroup: React.FC<{ title: string; children: React.ReactNode; isDetached
 
 
 const isGroupVisible = (
-  group: 'catalog' | 'general' | 'input' | 'processing' | 'character' | 'output' | 'aiTools' | 'scripts' | 'video' | 'threed' | 'file',
+  group: 'catalog' | 'general' | 'input' | 'processing' | 'character' | 'output' | 'aiTools' | 'scripts' | 'video' | 'threed' | 'games' | 'file',
   mode: ToolbarViewMode = 'full'
 ): boolean => {
   switch (mode) {
     case 'simple':
-      return ['catalog', 'general', 'input', 'output', 'aiTools', 'threed', 'file'].includes(group);
+      return ['catalog', 'general', 'input', 'output', 'aiTools', 'threed', 'games', 'file'].includes(group);
     case 'analysis':
-      return ['catalog', 'general', 'input', 'output', 'aiTools', 'file', 'processing'].includes(group);
+      return ['catalog', 'general', 'input', 'output', 'aiTools', 'file', 'processing', 'games'].includes(group);
     case 'video':
-      return ['catalog', 'general', 'input', 'output', 'aiTools', 'file', 'scripts', 'video'].includes(group);
+      return ['catalog', 'general', 'input', 'output', 'aiTools', 'file', 'scripts', 'video', 'games'].includes(group);
     case 'characters':
-      return ['catalog', 'general', 'input', 'output', 'aiTools', 'file', 'character'].includes(group);
+      return ['catalog', 'general', 'input', 'output', 'aiTools', 'file', 'character', 'games'].includes(group);
     case '3d':
-      return ['catalog', 'general', 'input', 'output', 'aiTools', 'file', 'threed'].includes(group);
+      return ['catalog', 'general', 'input', 'output', 'aiTools', 'file', 'threed', 'games'].includes(group);
     case 'full':
     default:
       return true;
@@ -333,7 +333,15 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
       {isGroupVisible('threed', viewMode) && (
         <ToolGroup title={t('toolbar.group.threed') || '3D'} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
           <ToolButton title={t('toolbar.addThreeDGenerator') || 'Add 3D Generation Tripo (Shift+T)'} onClick={(e) => onAddNode(NodeType.THREE_D_GENERATOR, e)}>
-            <ThreeDModelIcon className="w-5 h-5 text-indigo-400" />
+            <ThreeDModelIcon className="w-5 h-5" />
+          </ToolButton>
+        </ToolGroup>
+      )}
+
+      {isGroupVisible('games', viewMode) && (
+        <ToolGroup title={t('toolbar.group.games') || 'Игры'} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
+          <ToolButton title={t('toolbar.addMiniGames') || 'Мини-игры & Лаундж (Отдых и Batch API)'} onClick={(e) => onAddNode(NodeType.DATA_PROTECTION, e)}>
+            <GamepadIcon className="w-5 h-5" />
           </ToolButton>
         </ToolGroup>
       )}

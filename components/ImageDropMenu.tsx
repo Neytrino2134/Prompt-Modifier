@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Point } from '../types';
 import { useLanguage } from '../localization';
+import { useAppContext } from '../contexts/AppContext';
 
 export interface DroppedImageItem {
     name: string;
@@ -26,6 +27,7 @@ interface ImageDropMenuProps {
 
 export const ImageDropMenu: React.FC<ImageDropMenuProps> = ({ isOpen, info, onClose, onSelect }) => {
     const { t } = useLanguage();
+    const { setIsImageDropMenuEnabled, addToast } = useAppContext();
     const menuRef = useRef<HTMLDivElement>(null);
     const [menuPos, setMenuPos] = useState<Point>({ x: 0, y: 0 });
     const [isVisible, setIsVisible] = useState(false);
@@ -36,6 +38,23 @@ export const ImageDropMenu: React.FC<ImageDropMenuProps> = ({ isOpen, info, onCl
 
     const imagesCount = info?.images?.length || 0;
     const isSingle = imagesCount === 1;
+
+    const handleDisableDropMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsImageDropMenuEnabled(false);
+        if (addToast) {
+            addToast(
+                t('imageDropMenu.disabledToast') || 'Drop-меню отключено в Настройках. Удерживайте Ctrl при перетаскивании для его вызова.',
+                'info'
+            );
+        }
+        if (info) {
+            onSelect('image_input', info);
+        } else {
+            onClose();
+        }
+    };
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -90,6 +109,25 @@ export const ImageDropMenu: React.FC<ImageDropMenuProps> = ({ isOpen, info, onCl
     }, [isOpen, info, onClose, onSelect]);
 
     useEffect(() => {
+        if (!isOpen) return;
+
+        const handleClickOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                onClose();
+            }
+        };
+
+        const timer = setTimeout(() => {
+            window.addEventListener('mousedown', handleClickOutside);
+        }, 50);
+
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOpen, onClose]);
+
+    useEffect(() => {
         if (isOpen && info) {
             const width = menuRef.current?.offsetWidth || 340;
             const height = menuRef.current?.offsetHeight || 220;
@@ -116,6 +154,10 @@ export const ImageDropMenu: React.FC<ImageDropMenuProps> = ({ isOpen, info, onCl
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (e.button !== 0) return;
+        // Do not initiate dragging if clicked on a button or interactive element
+        if ((e.target as HTMLElement).closest('button')) {
+            return;
+        }
         e.preventDefault();
         e.stopPropagation();
 
@@ -204,16 +246,37 @@ export const ImageDropMenu: React.FC<ImageDropMenuProps> = ({ isOpen, info, onCl
                     </span>
                 </div>
                 <div className="flex items-center space-x-1.5">
+                    <button
+                        type="button"
+                        id="image-drop-menu-disable-btn"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={handleDisableDropMenu}
+                        className="text-gray-400 hover:text-amber-300 p-1 rounded hover:bg-gray-700/80 transition-colors cursor-pointer"
+                        title={t('imageDropMenu.dontShowAgain') || 'Не показывать Drop-меню при перетаскивании (отключить в настройках)'}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                            <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                    </button>
                     <span className="text-[10px] text-gray-500 font-mono select-none">
                         ESC
                     </span>
                     <button
                         type="button"
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                        }}
+                        onMouseDown={(e) => {
+                            e.stopPropagation();
+                        }}
                         onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             onClose();
                         }}
-                        className="text-gray-400 hover:text-white p-0.5 rounded hover:bg-gray-700/60 transition-colors"
+                        className="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700/80 transition-colors cursor-pointer"
                         title="Закрыть (ESC)"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">

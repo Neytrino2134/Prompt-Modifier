@@ -26,7 +26,8 @@ export const useCanvasEvents = (props: any) => {
         setNodes, // Ensure setNodes is destructured from props
         setConfirmInfo, // Add this
         handleRenameTab,
-        activeTabId
+        activeTabId,
+        isImageDropMenuEnabled = true
     } = props;
 
     const dragCounter = useRef(0);
@@ -41,12 +42,13 @@ export const useCanvasEvents = (props: any) => {
         if (target === 'image_input') {
             if (images.length === 1) {
                 const { dataUrl, prompt } = images[0];
-                const newNodeId = onAddNode(NodeType.IMAGE_INPUT, pos);
+                const finalPrompt = prompt || await readPromptFromPNG(dataUrl).catch(() => '');
+                const thumb = await generateThumbnail(dataUrl, 256, 256).catch(() => dataUrl);
+                const initialValue = JSON.stringify({ image: thumb, prompt: finalPrompt || '' });
+                const newNodeId = onAddNode(NodeType.IMAGE_INPUT, pos, undefined, { initialValue });
                 if (newNodeId) {
                     setFullSizeImage(newNodeId, 0, dataUrl);
-                    const finalPrompt = prompt || await readPromptFromPNG(dataUrl).catch(() => '');
-                    const thumb = await generateThumbnail(dataUrl, 256, 256).catch(() => dataUrl);
-                    handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: finalPrompt || '' }));
+                    handleValueChange(newNodeId, initialValue);
                 }
             } else {
                 const batchFiles: ImageBatchItem[] = await Promise.all(images.map(async (v, idx) => {
@@ -192,6 +194,46 @@ export const useCanvasEvents = (props: any) => {
         }
     }, [onAddNode, setFullSizeImage, handleValueChange, addToast, t]);
 
+    const processDroppedImages = useCallback((
+        images: DroppedImageItem[],
+        screenPos: Point,
+        worldPos: Point,
+        isCtrl: boolean,
+        isShift: boolean,
+        isAlt: boolean = false
+    ) => {
+        if (!images || images.length === 0) return;
+
+        const info: ImageDropMenuInfo = {
+            position: screenPos,
+            dropWorldPosition: worldPos,
+            images
+        };
+
+        // 1. Modifier Ctrl + Alt + Shift (or Alt + Shift or Alt directly) -> directly open Note (References mode)
+        if ((isCtrl && isAlt && isShift) || (isAlt && isShift) || isAlt) {
+            handleSelectImageDropTarget('note', info);
+            return;
+        }
+
+        // 2. Modifier Ctrl + Shift -> directly open AI Image Editor
+        if (isCtrl && isShift) {
+            handleSelectImageDropTarget('image_editor', info);
+            return;
+        }
+
+        // 3. Determine whether to show Drop Menu or create Image Input directly
+        // When isImageDropMenuEnabled is true: Default (no Ctrl) -> Menu, Ctrl -> Image Input
+        // When isImageDropMenuEnabled is false: Default (no Ctrl) -> Image Input, Ctrl -> Menu
+        const shouldShowMenu = isImageDropMenuEnabled ? !isCtrl : isCtrl;
+
+        if (shouldShowMenu) {
+            setImageDropMenuInfo(info);
+        } else {
+            handleSelectImageDropTarget('image_input', info);
+        }
+    }, [handleSelectImageDropTarget, isImageDropMenuEnabled]);
+
     const toggleHighlight = (active: boolean) => {
         const el = document.getElementById('app-container');
         if (el) {
@@ -201,14 +243,31 @@ export const useCanvasEvents = (props: any) => {
     };
 
     useEffect(() => {
+        const handleGlobalDragOver = (e: DragEvent) => {
+            // Instantly allow copy effect across window for app drag objects & files to prevent forbidden cursor delay
+            if (e.dataTransfer && (
+                e.dataTransfer.types.includes('application/prompt-modifier-drag-image') ||
+                e.dataTransfer.types.includes('application/prompt-modifier-drag-info') ||
+                e.dataTransfer.types.includes('application/prompt-modifier-drag-item') ||
+                e.dataTransfer.types.includes('Files') ||
+                e.dataTransfer.types.includes('text/uri-list')
+            )) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            }
+        };
+
         const handleGlobalDragReset = (e: DragEvent) => {
             if (e.type === 'dragleave' && e.relatedTarget) return;
             dragCounter.current = 0;
             toggleHighlight(false);
         };
+
+        window.addEventListener('dragover', handleGlobalDragOver);
         window.addEventListener('dragend', handleGlobalDragReset);
         window.addEventListener('dragleave', handleGlobalDragReset);
         return () => {
+            window.removeEventListener('dragover', handleGlobalDragOver);
             window.removeEventListener('dragend', handleGlobalDragReset);
             window.removeEventListener('dragleave', handleGlobalDragReset);
         };
@@ -221,6 +280,9 @@ export const useCanvasEvents = (props: any) => {
             return;
         }
 
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+
         // Подсвечиваем холст только если мы реально над холстом, а не над нодой
         const target = e.target as HTMLElement;
         const isActuallyCanvas = target.id === 'app-container' || target.id === 'canvas-transform-layer';
@@ -229,7 +291,6 @@ export const useCanvasEvents = (props: any) => {
             return;
         }
 
-        e.preventDefault(); e.stopPropagation();
         dragCounter.current += 1;
         if (dragCounter.current === 1) toggleHighlight(true);
     }, []);
@@ -246,7 +307,7 @@ export const useCanvasEvents = (props: any) => {
             return;
         }
 
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
         dragCounter.current -= 1;
         if (dragCounter.current <= 0) {
             dragCounter.current = 0;
@@ -255,13 +316,11 @@ export const useCanvasEvents = (props: any) => {
     }, []);
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
-        // Если мы над нодой, не даем холсту перехватывать событие для подсветки
-        const target = e.target as HTMLElement;
-        if (target.closest('.node-view')) {
+        if (e.dataTransfer.types.includes('application/prompt-modifier-card')) {
             return;
         }
 
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
     }, []);
 
@@ -274,22 +333,22 @@ export const useCanvasEvents = (props: any) => {
         dragCounter.current = 0;
         toggleHighlight(false);
         const dropPosition = getTransformedPoint({ x: e.clientX, y: e.clientY });
+        const screenPosition = { x: e.clientX, y: e.clientY };
+        const isCtrl = e.ctrlKey || e.metaKey;
+        const isShift = e.shiftKey;
+        const isAlt = e.altKey;
 
         // Check for rich info first (Image + Prompt)
         const dragInfoData = e.dataTransfer.getData('application/prompt-modifier-drag-info');
         if (dragInfoData) {
              try {
                  const { src, prompt } = JSON.parse(dragInfoData);
-                 setImageDropMenuInfo({
-                     position: { x: e.clientX, y: e.clientY },
-                     dropWorldPosition: dropPosition,
-                     images: [{
-                         name: 'image.png',
-                         dataUrl: src,
-                         size: Math.round(src.length * 0.75),
-                         prompt: prompt || ''
-                     }]
-                 });
+                 processDroppedImages([{
+                     name: 'image.png',
+                     dataUrl: src,
+                     size: Math.round(src.length * 0.75),
+                     prompt: prompt || ''
+                 }], screenPosition, dropPosition, isCtrl, isShift, isAlt);
                  return;
              } catch (e) {
                  console.error("Failed to parse drag info", e);
@@ -299,16 +358,12 @@ export const useCanvasEvents = (props: any) => {
         const dragImageData = e.dataTransfer.getData('application/prompt-modifier-drag-image');
         if (dragImageData) {
              readPromptFromPNG(dragImageData).then(prompt => {
-                 setImageDropMenuInfo({
-                     position: { x: e.clientX, y: e.clientY },
-                     dropWorldPosition: dropPosition,
-                     images: [{
-                         name: 'image.png',
-                         dataUrl: dragImageData,
-                         size: Math.round(dragImageData.length * 0.75),
-                         prompt: prompt || ''
-                     }]
-                 });
+                 processDroppedImages([{
+                     name: 'image.png',
+                     dataUrl: dragImageData,
+                     size: Math.round(dragImageData.length * 0.75),
+                     prompt: prompt || ''
+                 }], screenPosition, dropPosition, isCtrl, isShift, isAlt);
              });
              return;
         }
@@ -497,11 +552,7 @@ export const useCanvasEvents = (props: any) => {
                      const valid = results.filter((r): r is DroppedImageItem => r !== null && !!r.dataUrl);
                      if (valid.length === 0) return;
 
-                     setImageDropMenuInfo({
-                         position: { x: e.clientX, y: e.clientY },
-                         dropWorldPosition: dropPosition,
-                         images: valid
-                     });
+                     processDroppedImages(valid, screenPosition, dropPosition, isCtrl, isShift, isAlt);
                  })();
              }
 
@@ -699,7 +750,7 @@ export const useCanvasEvents = (props: any) => {
                  }
              });
         }
-    }, [onAddNode, handleValueChange, handleRenameNode, setFullSizeImage, getTransformedPoint, handleLoadCanvasIntoCurrentTab, setError, pasteGroup, t, handleAddGroupFromCatalog, libraryItems, setNodes, setConfirmInfo, activeTabId, handleRenameTab]);
+    }, [onAddNode, handleValueChange, handleRenameNode, setFullSizeImage, getTransformedPoint, handleLoadCanvasIntoCurrentTab, setError, pasteGroup, t, handleAddGroupFromCatalog, libraryItems, setNodes, setConfirmInfo, activeTabId, handleRenameTab, processDroppedImages]);
     
     return {
         handleDrop,

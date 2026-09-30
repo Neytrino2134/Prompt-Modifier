@@ -118,7 +118,7 @@ const TabButton: React.FC<{
                 </div>
             </Tooltip>
             
-            <Tooltip content={t('node.action.close')} position="bottom">
+            <Tooltip content={`${t('node.action.close')} (Ctrl+W)`} position="bottom">
                 <button
                     type="button"
                     tabIndex={-1}

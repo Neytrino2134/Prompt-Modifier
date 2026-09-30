@@ -19,6 +19,10 @@ import { generateThumbnail, cropImageTo169 } from '../utils/imageUtils';
 import { recordGenerationEvent } from '../utils/generationStats';
 import { addMetadataToPNG } from '../utils/pngMetadata';
 import { 
+    playBatchSuccessSound, 
+    playBatchErrorSound 
+} from '../services/soundNotificationService';
+import { 
     getDeviceId, 
     setDeviceId, 
     regenerateDeviceId, 
@@ -63,6 +67,30 @@ export const useBatchManager = ({
 }: UseBatchManagerProps = {}) => {
     // State to track node IDs that are currently forming/submitting a batch request
     const [formingBatchNodeIds, setFormingBatchNodeIds] = useState<string[]>([]);
+    const formingBatchNodeIdsRef = useRef<string[]>([]);
+    formingBatchNodeIdsRef.current = formingBatchNodeIds;
+    const formingAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
+
+    const registerFormingBatch = useCallback((nodeId: string, controller?: AbortController) => {
+        if (controller) {
+            formingAbortControllersRef.current.set(nodeId, controller);
+        }
+        setFormingBatchNodeIds(prev => prev.includes(nodeId) ? prev : [...prev, nodeId]);
+    }, []);
+
+    const unregisterFormingBatch = useCallback((nodeId: string) => {
+        formingAbortControllersRef.current.delete(nodeId);
+        setFormingBatchNodeIds(prev => prev.filter(id => id !== nodeId));
+    }, []);
+
+    const cancelFormingBatch = useCallback((nodeId: string) => {
+        const controller = formingAbortControllersRef.current.get(nodeId);
+        if (controller) {
+            controller.abort();
+            formingAbortControllersRef.current.delete(nodeId);
+        }
+        setFormingBatchNodeIds(prev => prev.filter(id => id !== nodeId));
+    }, []);
 
     // 1. Centralized Batch Mode State (synced with localStorage)
     const [isBatchMode, setIsBatchModeState] = useState<boolean>(() => {
@@ -523,6 +551,12 @@ export const useBatchManager = ({
                 addToast(toastMsg, 'success');
             }
 
+            if (successCount > 0) {
+                playBatchSuccessSound();
+            } else {
+                playBatchErrorSound();
+            }
+
             if (triggerAutoSave) {
                 try {
                     await triggerAutoSave();
@@ -532,10 +566,12 @@ export const useBatchManager = ({
             }
         } catch (e: any) {
             console.error("Error downloading batch job results:", e);
+            playBatchErrorSound();
             if (addToast) {
                 addToast(`Failed to download batch results: ${e?.message || e}`, 'error');
             }
         } finally {
+
             setFetchingJobIds(prev => ({ ...prev, [targetJobId]: false }));
         }
     }, [updateNodeInStorage, setFullSizeImage, addToHistory, addToast, persistBatchJobs, triggerAutoSave, t]);
@@ -590,6 +626,7 @@ export const useBatchManager = ({
                 }
             } else if (mappedState === 'FAILED') {
                 const errMsg = sdkJob.error?.message || 'Batch job failed on server';
+                playBatchErrorSound();
                 persistBatchJobs(prev => prev.map(j => {
                     if (j.id === job!.id) {
                         return {
@@ -816,12 +853,31 @@ export const useBatchManager = ({
             autoDownload?: boolean;
             autoSaveImages?: boolean;
         }[];
-    }): Promise<BatchJobRecord> => {
-        const { nodeId, nodeTitle, tabId, tabName, model, isSequence, items } = params;
+        signal?: AbortSignal;
+    }): Promise<BatchJobRecord | null> => {
+        const { nodeId, nodeTitle, tabId, tabName, model, isSequence, items, signal } = params;
+
+        // Check if already aborted
+        if (signal?.aborted) {
+            unregisterFormingBatch(nodeId);
+            return null;
+        }
+
+        let abortController = formingAbortControllersRef.current.get(nodeId);
+        if (!abortController) {
+            abortController = new AbortController();
+            formingAbortControllersRef.current.set(nodeId, abortController);
+        }
+
+        const combinedSignal = signal || abortController.signal;
 
         setFormingBatchNodeIds(prev => prev.includes(nodeId) ? prev : [...prev, nodeId]);
         try {
             // 1. Prepare request inputs
+            if (combinedSignal.aborted) {
+                throw new Error('ABORTED');
+            }
+
             const batchInputs: BatchRequestItemInput[] = items.map(item => ({
                 id: item.id,
                 prompt: item.prompt,
@@ -839,8 +895,24 @@ export const useBatchManager = ({
                 currentDevId
             );
 
+            if (combinedSignal.aborted) {
+                throw new Error('ABORTED');
+            }
+
             // 2. Call Batch API (Gemini or OpenAI based on model)
             const createdSdkJob = await createBatchImageJob(batchInputs, model, displayName);
+
+            // If cancelled while network call was in flight, cancel remotely immediately
+            if (combinedSignal.aborted) {
+                if (createdSdkJob?.name) {
+                    try {
+                        await cancelBatchJobService(createdSdkJob.name);
+                    } catch (e) {
+                        console.warn("Failed to auto-cancel aborted batch job on server:", e);
+                    }
+                }
+                throw new Error('ABORTED');
+            }
 
             const clientId = `batch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
             const batchRecord: BatchJobRecord = {
@@ -963,10 +1035,29 @@ export const useBatchManager = ({
             }
 
             return batchRecord;
+        } catch (err: any) {
+            if (err?.message === 'ABORTED' || combinedSignal?.aborted) {
+                console.log(`[BatchManager] Batch formation for node ${nodeId} was cancelled.`);
+                // Reset 'generating' sequence outputs back to idle
+                if (updateNodeInStorage && tabId && isSequence) {
+                    updateNodeInStorage(tabId, nodeId, (prevNode: any) => {
+                        const nextOutputs = [...(prevNode.sequenceOutputs || [])];
+                        items.forEach(it => {
+                            if (it.frameIndex !== undefined && nextOutputs[it.frameIndex]?.status === 'generating') {
+                                nextOutputs[it.frameIndex] = { status: 'idle', thumbnail: null };
+                            }
+                        });
+                        return { ...prevNode, sequenceOutputs: nextOutputs };
+                    });
+                }
+                return null;
+            }
+            throw err;
         } finally {
+            formingAbortControllersRef.current.delete(nodeId);
             setFormingBatchNodeIds(prev => prev.filter(id => id !== nodeId));
         }
-    }, [persistBatchJobs, updateNodeInStorage, enqueueTask, addToast, triggerAutoSave, t]);
+    }, [persistBatchJobs, updateNodeInStorage, enqueueTask, addToast, triggerAutoSave, unregisterFormingBatch, t]);
 
     // 7. Cancel a batch job
     const cancelBatchJob = useCallback(async (jobId: string) => {
@@ -998,6 +1089,22 @@ export const useBatchManager = ({
             }
         }
     }, [persistBatchJobs, addToast, t]);
+
+    // 7b. Cancel batch operations for a specific node (both formation & active server job)
+    const cancelBatchForNode = useCallback(async (nodeId: string) => {
+        const isForming = formingBatchNodeIdsRef.current.includes(nodeId) || formingAbortControllersRef.current.has(nodeId);
+        if (isForming) {
+            cancelFormingBatch(nodeId);
+            if (addToast) {
+                addToast(t?.('batch.cancelFormation.toast') || 'Формирование batch-запроса отменено', 'info');
+            }
+        }
+
+        const activeJob = batchJobsRef.current.find(j => j.nodeId === nodeId && (j.state === 'PENDING' || j.state === 'RUNNING'));
+        if (activeJob) {
+            await cancelBatchJob(activeJob.id);
+        }
+    }, [cancelFormingBatch, cancelBatchJob, addToast, t]);
 
     // 8. Delete / Remove a batch job record
     const deleteBatchJob = useCallback((jobId: string) => {
@@ -1139,6 +1246,10 @@ export const useBatchManager = ({
         checkBatchJob,
         pollActiveBatchJobs,
         cancelBatchJob,
+        cancelBatchForNode,
+        cancelFormingBatch,
+        registerFormingBatch,
+        unregisterFormingBatch,
         deleteBatchJob,
         retryBatchJob,
         clearFinishedBatchJobs,

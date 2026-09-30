@@ -486,7 +486,7 @@ const AppHeader: React.FC = () => {
         });
     };
 
-    const canResume = nodes && nodes.length > 0 && localStorage.getItem('hasVisited') === 'true';
+    const canResume = Boolean(localStorage.getItem('hasVisited') === 'true' || (tabs && tabs.length > 0) || (nodes && nodes.length > 0));
 
     const hasAnyActiveWork = queueStats.running > 0 || queueStats.queued > 0 || batchStats.activeJobs > 0 || batchStats.readyToDownload > 0;
     
@@ -595,11 +595,11 @@ const AppHeader: React.FC = () => {
                             </Tooltip>
 
                             {/* Settings Button */}
-                            <Tooltip content={t('toolbar.settings')} position="bottom">
+                            <Tooltip content={`${t('toolbar.settings')} (Ctrl + K)`} position="bottom">
                                 <button
                                     onClick={openSettings}
                                     className="p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 bg-gray-800/70 hover:bg-accent hover:text-white text-gray-300 border border-gray-700/50"
-                                    aria-label={t('toolbar.settings')}
+                                    aria-label={`${t('toolbar.settings')} (Ctrl + K)`}
                                 >
                                     <SettingsIcon />
                                 </button>

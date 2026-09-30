@@ -6,16 +6,19 @@ import { readPromptFromPNG } from '../../utils/pngMetadata';
 import { ActionButton } from '../ActionButton';
 import { Tooltip } from '../Tooltip';
 import ImageEditorModal from '../ImageEditorModal';
-import { generateThumbnail, cropImageNormalized, sliceImageGrid, setupImageDragData, getImageTimestampString } from '../../utils/imageUtils';
+import { generateThumbnail, cropImageNormalized, sliceImageGrid, setupImageDragData, getImageTimestampString, getIntervalsFromDividers, getEffectiveDividers } from '../../utils/imageUtils';
 import { useAppContext } from '../../contexts/AppContext';
 import { expandImageAspectRatio } from '../../services/imageActions';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { ImageCropOverlay } from './image-input/ImageCropOverlay';
 import { ImageGridOverlay } from './image-input/ImageGridOverlay';
+import { ImageFramesOverlay } from './image-input/ImageFramesOverlay';
 import { ImageSlicesPreview } from './image-input/ImageSlicesPreview';
 import { SingleCropPreview } from './image-input/SingleCropPreview';
+import { ImageFramesPreview } from './image-input/ImageFramesPreview';
 import { BatchProcessingPanel } from './image-input/BatchProcessingPanel';
-import { ImageBatchItem, ImageBatchSubMode, ImageInputCropRect, ImageInputGridConfig, ImageInputMode, ImageInputValue } from './image-input/types';
+import { ArchiveFolderModal } from './image-input/ArchiveFolderModal';
+import { BatchResultData, BatchResultFolder, BatchResultFileItem, ImageBatchItem, ImageBatchSubMode, ImageInputCropRect, ImageInputGridConfig, ImageInputMode, ImageInputValue, ImageInputFramesConfig, ImageInputFrameItem } from './image-input/types';
 
 export const ImageInputNode: React.FC<NodeContentProps> = ({ 
     node, 
@@ -91,6 +94,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         cropRect = null, 
         croppedImage = null, 
         grid = { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } }, 
+        framesConfig = { frames: [{ id: 'frame-1', rect: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 }, name: 'Frame 1' }], selectedFrameIndex: 0 },
+        frameImages = [],
         batchConfig,
         batchFiles: initialBatchFiles = [],
         extractedImages = [],
@@ -98,23 +103,26 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         showControls = false
     } = parsedValue;
 
+    // State for multiple frames mode
+    const [selectedFrameIndex, setSelectedFrameIndex] = useState<number>(() => framesConfig?.selectedFrameIndex ?? 0);
+    const [framesAssetName, setFramesAssetName] = useState<string>(() => framesConfig?.assetName || 'Asset_Frames');
+
     // State for batch processing mode
     const [batchFiles, setBatchFiles] = useState<ImageBatchItem[]>(() => initialBatchFiles);
     const [selectedRefIndex, setSelectedRefIndex] = useState<number>(0);
     const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
     const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; currentName: string; percent: number } | null>(null);
-    const [batchResult, setBatchResult] = useState<{ zipBlob: Blob; totalImages: number; totalSlices: number; timestamp: string; filename: string } | null>(null);
+    const [batchResult, setBatchResult] = useState<BatchResultData | null>(null);
+    const [isArchiveFolderModalOpen, setIsArchiveFolderModalOpen] = useState<boolean>(false);
+    const [isNodeHovered, setIsNodeHovered] = useState<boolean>(false);
+    const nodeContainerRef = useRef<HTMLDivElement>(null);
     const abortBatchRef = useRef<boolean>(false);
 
     // Synchronize batchFiles from node value if changed externally (e.g. sent from TaskQueue Batch Job)
     useEffect(() => {
         if (parsedValue.batchFiles && Array.isArray(parsedValue.batchFiles) && parsedValue.batchFiles.length > 0) {
-            setBatchFiles(prev => {
-                if (prev.length === parsedValue.batchFiles!.length && prev[0]?.id === parsedValue.batchFiles![0]?.id) {
-                    return prev;
-                }
-                return parsedValue.batchFiles!;
-            });
+            setBatchFiles(parsedValue.batchFiles);
+            batchFilesRef.current = parsedValue.batchFiles;
         }
     }, [parsedValue.batchFiles]);
 
@@ -213,25 +221,35 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
     // Active configurations for the current preview image (taking individual settings into account)
     const activeGridConfig: ImageInputGridConfig = useMemo(() => {
-        const globalCols = grid?.cols || 2;
-        const globalRows = grid?.rows || 1;
+        const rootGrid = parsedValueRef.current.grid || grid;
+        const globalCols = rootGrid?.cols || 2;
+        const globalRows = rootGrid?.rows || 1;
+        const baseGrid: ImageInputGridConfig = rootGrid || { cols: globalCols, rows: globalRows, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+
         if (mode === 'batch' && individualGridSettings && batchFiles[selectedRefIndex]?.gridConfig) {
             const itemGrid = batchFiles[selectedRefIndex].gridConfig!;
             return {
+                ...baseGrid,
                 ...itemGrid,
                 cols: globalCols,
                 rows: globalRows,
-                bounds: itemGrid.bounds || { x: 0, y: 0, width: 1, height: 1 }
+                bounds: itemGrid.bounds || baseGrid.bounds || { x: 0, y: 0, width: 1, height: 1 }
             };
         }
-        return grid || { cols: globalCols, rows: globalRows, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+        return {
+            ...baseGrid,
+            cols: globalCols,
+            rows: globalRows,
+            bounds: baseGrid.bounds || { x: 0, y: 0, width: 1, height: 1 }
+        };
     }, [mode, individualGridSettings, batchFiles, selectedRefIndex, grid]);
 
     const activeCropRect: ImageInputCropRect = useMemo(() => {
+        const baseCrop = parsedValueRef.current.cropRect || cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
         if (mode === 'batch' && individualGridSettings && batchFiles[selectedRefIndex]?.cropRect) {
             return batchFiles[selectedRefIndex].cropRect!;
         }
-        return cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
+        return baseCrop;
     }, [mode, individualGridSettings, batchFiles, selectedRefIndex, cropRect]);
 
     // Unique operation sequence token to prevent stale async slicing results from overriding current state
@@ -251,7 +269,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         rect: ImageInputCropRect,
         explicitMode?: ImageInputMode,
         overrideSrc?: string,
-        targetRefIndex?: number
+        targetRefIndex?: number,
+        overrideThumbnail?: string
     ) => {
         const masterSrc = overrideSrc || getFullSizeImage(node.id, 0) || image;
         if (!masterSrc) return;
@@ -271,12 +290,19 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const targetIdx = targetRefIndex !== undefined ? targetRefIndex : selectedRefIndexRef.current;
 
             if (currentMode === 'batch' && currentBatch.length > 0) {
-                currentBatch = currentBatch.map((bf, idx) => {
-                    if (idx === targetIdx) {
-                        return { ...bf, cropRect: { ...rect } };
-                    }
-                    return bf;
-                });
+                if (individualGridSettingsRef.current) {
+                    currentBatch = currentBatch.map((bf, idx) => {
+                        if (idx === targetIdx) {
+                            return { ...bf, cropRect: { ...rect } };
+                        }
+                        return bf;
+                    });
+                } else {
+                    currentBatch = currentBatch.map(bf => ({
+                        ...bf,
+                        cropRect: { ...rect }
+                    }));
+                }
                 batchFilesRef.current = currentBatch;
                 setBatchFiles(currentBatch);
             }
@@ -284,6 +310,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const updates: Partial<ImageInputValue> = {
                 cropRect: rect,
                 croppedImage: thumb,
+                ...(overrideThumbnail ? { image: overrideThumbnail } : {}),
                 ...(currentMode === 'batch' ? { batchFiles: currentBatch } : {})
             };
             if (explicitMode) {
@@ -300,7 +327,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         gridConfig: ImageInputGridConfig,
         explicitMode?: ImageInputMode,
         overrideSrc?: string,
-        targetRefIndex?: number
+        targetRefIndex?: number,
+        overrideThumbnail?: string
     ) => {
         const masterSrc = overrideSrc || getFullSizeImage(node.id, 0) || image;
         if (!masterSrc) return;
@@ -309,24 +337,27 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         setIsSlicing(true);
         try {
             // cols and rows are global across all images
-            const cols = Math.max(1, gridConfig.cols || grid?.cols || 2);
-            const rows = Math.max(1, gridConfig.rows || grid?.rows || 1);
-            const bounds = gridConfig.bounds || { x: 0, y: 0, width: 1, height: 1 };
+            const rootGrid = parsedValueRef.current.grid || grid;
+            const cols = Math.max(1, gridConfig.cols || rootGrid?.cols || 2);
+            const rows = Math.max(1, gridConfig.rows || rootGrid?.rows || 1);
+            const bounds = gridConfig.bounds || rootGrid?.bounds || { x: 0, y: 0, width: 1, height: 1 };
             const borderConfig = {
-                enableBorder: gridConfig.enableBorder,
-                borderWidth: gridConfig.borderWidth,
-                borderMode: gridConfig.borderMode,
-                customDividers: gridConfig.customDividers,
-                colDividers: gridConfig.colDividers,
-                rowDividers: gridConfig.rowDividers
+                enableBorder: gridConfig.enableBorder !== undefined ? gridConfig.enableBorder : rootGrid?.enableBorder,
+                borderWidth: gridConfig.borderWidth !== undefined ? gridConfig.borderWidth : rootGrid?.borderWidth,
+                borderMode: gridConfig.borderMode !== undefined ? gridConfig.borderMode : rootGrid?.borderMode,
+                customDividers: gridConfig.customDividers !== undefined ? gridConfig.customDividers : rootGrid?.customDividers,
+                colDividers: gridConfig.colDividers !== undefined ? gridConfig.colDividers : rootGrid?.colDividers,
+                rowDividers: gridConfig.rowDividers !== undefined ? gridConfig.rowDividers : rootGrid?.rowDividers
             };
 
             const fullConfig: ImageInputGridConfig = {
+                ...rootGrid,
                 ...gridConfig,
+                ...borderConfig,
                 cols,
                 rows,
                 bounds,
-                assetName: gridConfig.assetName || grid?.assetName || gridAssetName || 'Asset_Name'
+                assetName: gridConfig.assetName || rootGrid?.assetName || gridAssetName || 'Asset_Name'
             };
 
             const { slices, thumbs } = await sliceImageGrid(masterSrc, cols, rows, bounds, borderConfig);
@@ -342,12 +373,19 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const targetIdx = targetRefIndex !== undefined ? targetRefIndex : selectedRefIndexRef.current;
 
             if (currentMode === 'batch' && currentBatch.length > 0) {
-                currentBatch = currentBatch.map((bf, idx) => {
-                    if (idx === targetIdx) {
-                        return { ...bf, gridConfig: { ...fullConfig } };
-                    }
-                    return bf;
-                });
+                if (individualGridSettingsRef.current) {
+                    currentBatch = currentBatch.map((bf, idx) => {
+                        if (idx === targetIdx) {
+                            return { ...bf, gridConfig: { ...fullConfig } };
+                        }
+                        return bf;
+                    });
+                } else {
+                    currentBatch = currentBatch.map(bf => ({
+                        ...bf,
+                        gridConfig: { ...fullConfig }
+                    }));
+                }
                 batchFilesRef.current = currentBatch;
                 setBatchFiles(currentBatch);
             }
@@ -355,6 +393,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const updates: Partial<ImageInputValue> = {
                 grid: fullConfig,
                 extractedImages: thumbs,
+                ...(overrideThumbnail ? { image: overrideThumbnail } : {}),
                 ...(currentMode === 'batch' ? { batchFiles: currentBatch } : {})
             };
             if (explicitMode) {
@@ -368,7 +407,91 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 setIsSlicing(false);
             }
         }
-    }, [getFullSizeImage, node.id, image, setFullSizeImage, handleValueUpdate, mode, grid?.cols, grid?.rows]);
+    }, [getFullSizeImage, node.id, image, setFullSizeImage, handleValueUpdate, mode, grid, gridAssetName]);
+
+    const updateMultipleFramesSlices = useCallback(async (
+        config: ImageInputFramesConfig,
+        explicitMode?: ImageInputMode,
+        overrideSrc?: string
+    ) => {
+        const masterSrc = overrideSrc || getFullSizeImage(node.id, 0) || image;
+        if (!masterSrc) return;
+
+        const thisOpId = ++operationIdRef.current;
+        setIsSlicing(true);
+        try {
+            const currentFrames = config.frames || [];
+            if (currentFrames.length === 0) {
+                handleValueUpdate({
+                    framesConfig: config,
+                    frameImages: [],
+                    ...(explicitMode ? { mode: explicitMode } : {})
+                });
+                return;
+            }
+
+            const subSlicesToCrop: ImageInputCropRect[] = [];
+            currentFrames.forEach((frame) => {
+                const cols = Math.max(1, Math.min(20, frame.cols || 1));
+                const rows = Math.max(1, Math.min(20, frame.rows || 1));
+                const effectiveColDivs = getEffectiveDividers(cols, frame.colDividers);
+                const effectiveRowDivs = getEffectiveDividers(rows, frame.rowDividers);
+                const colIntervals = getIntervalsFromDividers(effectiveColDivs);
+                const rowIntervals = getIntervalsFromDividers(effectiveRowDivs);
+
+                for (let r = 0; r < rows; r++) {
+                    const rowInt = rowIntervals[r] || { start: r / rows, end: (r + 1) / rows };
+                    const cellY = frame.rect.y + rowInt.start * frame.rect.height;
+                    const cellHeight = (rowInt.end - rowInt.start) * frame.rect.height;
+
+                    for (let c = 0; c < cols; c++) {
+                        const colInt = colIntervals[c] || { start: c / cols, end: (c + 1) / cols };
+                        const cellX = frame.rect.x + colInt.start * frame.rect.width;
+                        const cellWidth = (colInt.end - colInt.start) * frame.rect.width;
+
+                        subSlicesToCrop.push({
+                            x: cellX,
+                            y: cellY,
+                            width: cellWidth,
+                            height: cellHeight
+                        });
+                    }
+                }
+            });
+
+            const cropPromises = subSlicesToCrop.map(r => cropImageNormalized(masterSrc, r));
+            const highResCrops = await Promise.all(cropPromises);
+            if (thisOpId !== operationIdRef.current) return;
+
+            highResCrops.forEach((crop, idx) => {
+                setFullSizeImage(node.id, idx + 1, crop);
+            });
+
+            const thumbPromises = highResCrops.map(crop => generateThumbnail(crop, 256, 256));
+            const thumbs = await Promise.all(thumbPromises);
+            if (thisOpId !== operationIdRef.current) return;
+
+            const fullConfig: ImageInputFramesConfig = {
+                ...config,
+                assetName: config.assetName || framesAssetName || 'Asset_Frames'
+            };
+
+            const updates: Partial<ImageInputValue> = {
+                framesConfig: fullConfig,
+                frameImages: thumbs
+            };
+            if (explicitMode) {
+                updates.mode = explicitMode;
+            }
+            handleValueUpdate(updates);
+        } catch (e) {
+            console.error('Error slicing multiple frames:', e);
+        } finally {
+            if (thisOpId === operationIdRef.current) {
+                setIsSlicing(false);
+            }
+        }
+    }, [getFullSizeImage, node.id, image, setFullSizeImage, handleValueUpdate, framesAssetName]);
 
     const prevMasterSrcRef = useRef<string | null>(null);
 
@@ -396,6 +519,9 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             } else if (mode === 'grid') {
                 const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, undefined, masterSrc);
+            } else if (mode === 'frames') {
+                const activeFrames = framesConfig || { frames: [{ id: 'frame-1', rect: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 }, name: 'Frame 1' }], selectedFrameIndex: 0 };
+                updateMultipleFramesSlices(activeFrames, undefined, masterSrc);
             }
         } else if (isFirstLoad) {
             if (mode === 'single' && !croppedImage) {
@@ -404,9 +530,12 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             } else if (mode === 'grid' && (!extractedImages || extractedImages.length === 0)) {
                 const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
                 updateGridSlices(activeGrid, undefined, masterSrc);
+            } else if (mode === 'frames' && (!frameImages || frameImages.length === 0)) {
+                const activeFrames = framesConfig || { frames: [{ id: 'frame-1', rect: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 }, name: 'Frame 1' }], selectedFrameIndex: 0 };
+                updateMultipleFramesSlices(activeFrames, undefined, masterSrc);
             }
         }
-    }, [fullResImage, image, mode, updateSingleCropSlice, updateGridSlices, cropRect, grid, croppedImage, extractedImages]);
+    }, [fullResImage, image, mode, updateSingleCropSlice, updateGridSlices, updateMultipleFramesSlices, cropRect, grid, framesConfig, croppedImage, extractedImages, frameImages]);
 
     const handleImageChange = async (dataUrl: string) => {
         const promptFromMeta = await readPromptFromPNG(dataUrl);
@@ -418,7 +547,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         // Save high-res to cache (index 0)
         setFullSizeImage(node.id, 0, dataUrl);
         
-        // Refresh slices if in single or grid mode
+        // Refresh slices if in single, grid or frames mode
         if (mode === 'single') {
             const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
             const highResCrop = await cropImageNormalized(dataUrl, activeCrop);
@@ -443,6 +572,29 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             );
             slices.forEach((slice, idx) => setFullSizeImage(node.id, idx + 1, slice));
             handleValueUpdate({ image: thumbnail, extractedImages: thumbs });
+        } else if (mode === 'frames') {
+            const activeFrames = framesConfig || { frames: [{ id: 'frame-1', rect: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 }, name: 'Frame 1' }], selectedFrameIndex: 0 };
+            const subSlicesToCrop: ImageInputCropRect[] = [];
+            (activeFrames.frames || []).forEach(f => {
+                const cols = Math.max(1, Math.min(20, f.cols || 1));
+                const rows = Math.max(1, Math.min(20, f.rows || 1));
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        subSlicesToCrop.push({
+                            x: f.rect.x + (c / cols) * f.rect.width,
+                            y: f.rect.y + (r / rows) * f.rect.height,
+                            width: f.rect.width / cols,
+                            height: f.rect.height / rows
+                        });
+                    }
+                }
+            });
+            const cropPromises = subSlicesToCrop.map(r => cropImageNormalized(dataUrl, r));
+            const highResCrops = await Promise.all(cropPromises);
+            highResCrops.forEach((crop, idx) => setFullSizeImage(node.id, idx + 1, crop));
+            const thumbPromises = highResCrops.map(crop => generateThumbnail(crop, 256, 256));
+            const thumbs = await Promise.all(thumbPromises);
+            handleValueUpdate({ image: thumbnail, frameImages: thumbs });
         } else {
             handleValueUpdate({ image: thumbnail });
         }
@@ -558,37 +710,89 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     }, [mode, loadMultipleFiles, onPasteImage, node.id, addToast]);
 
     const handleSelectReferenceIndex = async (index: number) => {
-        if (index < 0 || index >= batchFiles.length) return;
+        if (index < 0 || index >= batchFilesRef.current.length) return;
         selectedRefIndexRef.current = index;
         setSelectedRefIndex(index);
-        const item = batchFiles[index];
+        const item = batchFilesRef.current[index];
+        if (!item) return;
+
         setFullSizeImage(node.id, 0, item.dataUrl);
         const thumb = await generateThumbnail(item.dataUrl, 256, 256);
 
-        const globalCols = grid?.cols || 2;
-        const globalRows = grid?.rows || 1;
+        const currentRootGrid = parsedValueRef.current.grid || grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+        const globalCols = currentRootGrid.cols || 2;
+        const globalRows = currentRootGrid.rows || 1;
 
         if (batchSubMode === 'crop') {
-            const activeCrop = (individualGridSettings && item.cropRect) ? item.cropRect : (cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
-            updateSingleCropSlice(activeCrop, 'batch', item.dataUrl, index);
+            const currentRootCrop = parsedValueRef.current.cropRect || cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
+            const activeCrop = (individualGridSettingsRef.current && item.cropRect) 
+                ? item.cropRect 
+                : currentRootCrop;
+            await updateSingleCropSlice(activeCrop, 'batch', item.dataUrl, index, thumb);
         } else {
-            const activeGrid = (individualGridSettings && item.gridConfig)
+            const activeGrid: ImageInputGridConfig = (individualGridSettingsRef.current && item.gridConfig)
                 ? {
+                    ...currentRootGrid,
                     ...item.gridConfig,
                     cols: globalCols,
                     rows: globalRows,
-                    bounds: item.gridConfig.bounds || { x: 0, y: 0, width: 1, height: 1 }
+                    bounds: item.gridConfig.bounds || currentRootGrid.bounds || { x: 0, y: 0, width: 1, height: 1 }
                 }
                 : {
-                    ...(grid || { cols: globalCols, rows: globalRows }),
+                    ...currentRootGrid,
                     cols: globalCols,
                     rows: globalRows,
-                    bounds: grid?.bounds || { x: 0, y: 0, width: 1, height: 1 }
+                    bounds: currentRootGrid.bounds || { x: 0, y: 0, width: 1, height: 1 }
                 };
-            updateGridSlices(activeGrid, 'batch', item.dataUrl, index);
+            await updateGridSlices(activeGrid, 'batch', item.dataUrl, index, thumb);
         }
-        handleValueUpdate({ image: thumb, batchFiles });
     };
+
+    const handleNavigateBatch = useCallback((direction: 'prev' | 'next') => {
+        const total = batchFilesRef.current.length;
+        if (total <= 1) return;
+        const current = selectedRefIndexRef.current;
+        const nextIndex = direction === 'prev'
+            ? (current - 1 + total) % total
+            : (current + 1) % total;
+        handleSelectReferenceIndex(nextIndex);
+    }, []);
+
+    // Keyboard Arrow navigation (Left / Right arrow keys) for batch images
+    useEffect(() => {
+        if (mode !== 'batch' || batchFiles.length <= 1) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Ignore if typing inside text fields, textareas, or contentEditable elements
+            const target = e.target as HTMLElement | null;
+            if (target) {
+                const tag = target.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
+                    return;
+                }
+            }
+
+            // Only respond if the node is hovered, or focused, or selected
+            const isInside = nodeContainerRef.current?.contains(document.activeElement);
+            const isSelected = context?.selectedNodeIds?.includes(node.id);
+            const shouldHandle = isNodeHovered || isInside || isSelected;
+
+            if (!shouldHandle) return;
+
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                e.stopPropagation();
+                handleNavigateBatch('prev');
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                e.stopPropagation();
+                handleNavigateBatch('next');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown, { capture: true });
+        return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    }, [mode, batchFiles.length, isNodeHovered, context?.selectedNodeIds, node.id, handleNavigateBatch]);
 
     const handleRemoveBatchFile = (index: number) => {
         const updated = batchFiles.filter((_, i) => i !== index);
@@ -855,6 +1059,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             const timestamp = getImageTimestampString();
             const cleanAssetName = (assetName || 'Asset_Name').trim().replace(/[^a-zA-Z0-9_\-а-яА-ЯёЁ]/g, '_') || 'Asset_Name';
             let totalSlicesCount = 0;
+            const generatedFolders: BatchResultFolder[] = [];
 
             for (let i = 0; i < batchFiles.length; i++) {
                 if (abortBatchRef.current) {
@@ -875,6 +1080,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 const cleanBaseName = item.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_\-а-яА-ЯёЁ]/g, '_');
                 const folderName = `${String(i + 1).padStart(2, '0')}_${cleanBaseName}_${cleanAssetName}`;
                 const folder = zip.folder(folderName) || zip;
+                const currentFolderFiles: BatchResultFileItem[] = [];
 
                 // 1. If includeOriginal is requested, write full uncropped original image in this subfolder
                 if (includeOriginal && item.dataUrl) {
@@ -883,8 +1089,14 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                         const mimeMatch = item.dataUrl.match(/data:([^;]+);/);
                         const mime = mimeMatch ? mimeMatch[1] : 'image/png';
                         const ext = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : mime.includes('webp') ? 'webp' : 'png';
-                        folder.file(`original_${cleanBaseName}_${cleanAssetName}.${ext}`, dataParts[1], { base64: true });
+                        const origFileName = `original_${cleanBaseName}_${cleanAssetName}.${ext}`;
+                        folder.file(origFileName, dataParts[1], { base64: true });
                         totalSlicesCount += 1;
+                        currentFolderFiles.push({
+                            name: origFileName,
+                            type: 'original',
+                            dataUrl: item.dataUrl
+                        });
                     }
                 }
 
@@ -893,8 +1105,14 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     const activeCrop = (individualGridSettings && item.cropRect) ? item.cropRect : (cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
                     const croppedDataUrl = await cropImageNormalized(item.dataUrl, activeCrop);
                     const base64Data = croppedDataUrl.split(',')[1];
-                    folder.file(`crop_${cleanBaseName}_${cleanAssetName}.png`, base64Data, { base64: true });
+                    const cropFileName = `crop_${cleanBaseName}_${cleanAssetName}.png`;
+                    folder.file(cropFileName, base64Data, { base64: true });
                     totalSlicesCount += 1;
+                    currentFolderFiles.push({
+                        name: cropFileName,
+                        type: 'crop',
+                        dataUrl: croppedDataUrl
+                    });
                 } else {
                     const globalCols = grid?.cols || 2;
                     const globalRows = grid?.rows || 1;
@@ -931,8 +1149,23 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                         const sliceFileName = `slice_${String(s + 1).padStart(3, '0')}_${cleanAssetName}_r${row}_c${col}.png`;
                         folder.file(sliceFileName, base64Data, { base64: true });
                         totalSlicesCount += 1;
+                        currentFolderFiles.push({
+                            name: sliceFileName,
+                            type: 'slice',
+                            dataUrl: sliceData,
+                            row,
+                            col,
+                            sliceIndex: s
+                        });
                     }
                 }
+
+                generatedFolders.push({
+                    name: folderName,
+                    imageIndex: i,
+                    sourceImageName: item.name,
+                    files: currentFolderFiles
+                });
 
                 // Small micro-delay to let React render progress bar smoothly
                 await new Promise(resolve => setTimeout(resolve, 15));
@@ -946,12 +1179,13 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
             const zipFilename = `Batch_${batchSubMode === 'crop' ? 'Crop' : `Grid_${grid?.cols || 2}x${grid?.rows || 1}`}_${cleanAssetName}_${batchFiles.length}_images_${timestamp}.zip`;
 
-            const result = {
+            const result: BatchResultData = {
                 zipBlob,
                 totalImages: batchFiles.length,
                 totalSlices: totalSlicesCount,
                 timestamp,
-                filename: zipFilename
+                filename: zipFilename,
+                folders: generatedFolders
             };
 
             setBatchResult(result);
@@ -1196,6 +1430,44 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 };
                 onValueChange(newNodeId, JSON.stringify(defaultEditorState));
                 if (addToast) addToast(`Loaded ${editorThumbnails.length} assets into AI Editor!`, 'success');
+            } else if (mode === 'frames' && framesConfig?.frames && framesConfig.frames.length > 0) {
+                // Populate all frame items and sub-grid sliced assets into Image Editor!
+                const editorThumbnails: string[] = [];
+                let globalIdx = 0;
+                framesConfig.frames.forEach((frame) => {
+                    const cols = Math.max(1, Math.min(20, frame.cols || 1));
+                    const rows = Math.max(1, Math.min(20, frame.rows || 1));
+                    for (let r = 0; r < rows; r++) {
+                        for (let c = 0; c < cols; c++) {
+                            const thumb = frameImages[globalIdx] || image || '';
+                            if (thumb) {
+                                editorThumbnails.push(thumb);
+                                const frameFull = getFullSizeImage(node.id, 1 + globalIdx) || thumb;
+                                setFullSizeImage(newNodeId, editorThumbnails.length, frameFull);
+                            }
+                            globalIdx++;
+                        }
+                    }
+                });
+
+                const defaultEditorState = {
+                    inputImages: editorThumbnails,
+                    prompt: prompt || '',
+                    outputImage: null,
+                    aspectRatio: '1:1',
+                    enableAspectRatio: false,
+                    enableOutpainting: false,
+                    outpaintingPrompt: '{main_prompt}. Fill the background with environment.',
+                    model: 'gemini-2.5-flash-image',
+                    autoDownload: true,
+                    autoCrop169: false,
+                    leftPaneWidth: 280,
+                    topPaneHeight: 320,
+                    isSequenceMode: true,
+                    checkedSequenceOutputIndices: editorThumbnails.map((_, i) => i)
+                };
+                onValueChange(newNodeId, JSON.stringify(defaultEditorState));
+                if (addToast) addToast(`Загружено ${editorThumbnails.length} ассетов в AI Editor!`, 'success');
             } else if (mode === 'single') {
                 const singleThumb = croppedImage || image;
                 const singleFull = getFullSizeImage(node.id, 1) || fullRes;
@@ -1244,6 +1516,221 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         }
     };
 
+    const handleSendGridSlicesToNote = useCallback(() => {
+        if (!addNode) return;
+        const cleanAssetName = (gridAssetName || 'Asset_Name').trim().replace(/[^a-zA-Z0-9_\-а-яА-ЯёЁ]/g, '_') || 'Asset_Name';
+        const cols = grid?.cols || 2;
+        const references: { id: string; image: string | null; caption: string }[] = [];
+
+        // 1. Original if includeOriginal
+        if (grid?.includeOriginal && image) {
+            const origFull = getFullSizeImage ? getFullSizeImage(node.id, 0) : null;
+            const origSrc = origFull || image;
+            if (origSrc) {
+                references.push({
+                    id: `ref-${Date.now()}-orig-${Math.random().toString(36).substring(2, 7)}`,
+                    image: origSrc,
+                    caption: `Original (${cleanAssetName})`
+                });
+            }
+        }
+
+        // 2. All grid slices
+        if (extractedImages && extractedImages.length > 0) {
+            for (let i = 0; i < extractedImages.length; i++) {
+                const fullRes = getFullSizeImage ? getFullSizeImage(node.id, i + 1) : null;
+                const src = fullRes || extractedImages[i];
+                if (src) {
+                    const row = Math.floor(i / cols) + 1;
+                    const col = (i % cols) + 1;
+                    references.push({
+                        id: `ref-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
+                        image: src,
+                        caption: `#${i + 1} (${cleanAssetName} r${row}c${col})`
+                    });
+                }
+            }
+        }
+
+        if (references.length === 0) {
+            if (addToast) addToast(t('imageEditor.noImagesToSend') || 'Нет ассетов для отправки', 'warning');
+            return;
+        }
+
+        const GAP = 50;
+        const position = {
+            x: node.position.x + (node.width || 380) + GAP,
+            y: node.position.y
+        };
+
+        const noteData = {
+            text: '',
+            references,
+            activeTab: 'reference',
+            isMinimal: false,
+            style: {
+                fontSize: 14,
+                color: '#ffffff',
+                isBold: false,
+                isItalic: false,
+                textAlign: 'left'
+            }
+        };
+
+        const newNodeId = addNode(NodeType.NOTE, position, `Note (${cleanAssetName})`, {
+            initialValue: JSON.stringify(noteData)
+        });
+
+        if (newNodeId) {
+            onValueChange(newNodeId, JSON.stringify(noteData));
+            if (setSelectedNodeIds) {
+                setSelectedNodeIds([newNodeId]);
+            }
+            if (addToast) {
+                addToast(`Отправлено ${references.length} ассетов в Note (References)`, 'success');
+            }
+        }
+    }, [addNode, gridAssetName, grid?.cols, grid?.includeOriginal, image, getFullSizeImage, node.id, node.position, node.width, extractedImages, onValueChange, setSelectedNodeIds, addToast, t]);
+
+    const handleSendFramesToNote = useCallback(() => {
+        if (!addNode) return;
+        const cleanAssetName = (framesAssetName || 'Asset_Frames').trim().replace(/[^a-zA-Z0-9_\-а-яА-ЯёЁ]/g, '_') || 'Asset_Frames';
+        const frames = framesConfig?.frames || [];
+        const references: { id: string; image: string | null; caption: string }[] = [];
+
+        // 1. Original if includeOriginal
+        if (framesConfig?.includeOriginal && image) {
+            const origFull = getFullSizeImage ? getFullSizeImage(node.id, 0) : null;
+            const origSrc = origFull || image;
+            if (origSrc) {
+                references.push({
+                    id: `ref-${Date.now()}-orig-${Math.random().toString(36).substring(2, 7)}`,
+                    image: origSrc,
+                    caption: `Original (${cleanAssetName})`
+                });
+            }
+        }
+
+        // 2. All frames and sub-grid sliced assets
+        let globalIdx = 0;
+        for (let i = 0; i < frames.length; i++) {
+            const frame = frames[i];
+            const cols = Math.max(1, Math.min(20, frame.cols || 1));
+            const rows = Math.max(1, Math.min(20, frame.rows || 1));
+            const totalInFrame = cols * rows;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const fullRes = getFullSizeImage ? getFullSizeImage(node.id, globalIdx + 1) : null;
+                    const src = fullRes || frameImages[globalIdx];
+                    if (src) {
+                        const frameName = frame?.name || `Frame ${i + 1}`;
+                        const caption = totalInFrame > 1
+                            ? `#${globalIdx + 1} (${frameName} [${r + 1},${c + 1}])`
+                            : `#${globalIdx + 1} (${frameName})`;
+                        references.push({
+                            id: `ref-${Date.now()}-${globalIdx}-${Math.random().toString(36).substring(2, 7)}`,
+                            image: src,
+                            caption
+                        });
+                    }
+                    globalIdx++;
+                }
+            }
+        }
+
+        if (references.length === 0) {
+            if (addToast) addToast(t('imageEditor.noImagesToSend') || 'Нет рамок для отправки', 'warning');
+            return;
+        }
+
+        const GAP = 50;
+        const position = {
+            x: node.position.x + (node.width || 380) + GAP,
+            y: node.position.y
+        };
+
+        const noteData = {
+            text: '',
+            references,
+            activeTab: 'reference',
+            isMinimal: false,
+            style: {
+                fontSize: 14,
+                color: '#ffffff',
+                isBold: false,
+                isItalic: false,
+                textAlign: 'left'
+            }
+        };
+
+        const newNodeId = addNode(NodeType.NOTE, position, `Note (${cleanAssetName})`, {
+            initialValue: JSON.stringify(noteData)
+        });
+
+        if (newNodeId) {
+            onValueChange(newNodeId, JSON.stringify(noteData));
+            if (setSelectedNodeIds) {
+                setSelectedNodeIds([newNodeId]);
+            }
+            if (addToast) {
+                addToast(`Отправлено ${references.length} рамок в Note (References)`, 'success');
+            }
+        }
+    }, [addNode, framesAssetName, framesConfig?.frames, framesConfig?.includeOriginal, image, getFullSizeImage, node.id, node.position, node.width, frameImages, onValueChange, setSelectedNodeIds, addToast, t]);
+
+    const handleSendSingleCropToNote = useCallback(() => {
+        if (!addNode) return;
+        const activeFull = getFullSizeImage ? getFullSizeImage(node.id, 1) : null;
+        const activeImage = activeFull || croppedImage || image;
+        if (!activeImage) {
+            if (addToast) addToast(t('imageEditor.noImagesToSend') || 'Нет изображения для отправки', 'warning');
+            return;
+        }
+
+        const GAP = 50;
+        const position = {
+            x: node.position.x + (node.width || 380) + GAP,
+            y: node.position.y
+        };
+
+        const references = [
+            {
+                id: `ref-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                image: activeImage,
+                caption: 'Single Crop'
+            }
+        ];
+
+        const noteData = {
+            text: '',
+            references,
+            activeTab: 'reference',
+            isMinimal: false,
+            style: {
+                fontSize: 14,
+                color: '#ffffff',
+                isBold: false,
+                isItalic: false,
+                textAlign: 'left'
+            }
+        };
+
+        const newNodeId = addNode(NodeType.NOTE, position, 'Note (Crop)', {
+            initialValue: JSON.stringify(noteData)
+        });
+
+        if (newNodeId) {
+            onValueChange(newNodeId, JSON.stringify(noteData));
+            if (setSelectedNodeIds) {
+                setSelectedNodeIds([newNodeId]);
+            }
+            if (addToast) {
+                addToast('Отправлено обрезанное изображение в Note (References)', 'success');
+            }
+        }
+    }, [addNode, getFullSizeImage, croppedImage, image, node.id, node.position, node.width, onValueChange, setSelectedNodeIds, addToast, t]);
+
     const handleToggleControls = (e: React.MouseEvent) => {
         e.stopPropagation();
         handleValueUpdate({ showControls: !showControls });
@@ -1267,6 +1754,12 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             if (!extractedImages || extractedImages.length !== expectedTotal) {
                 updateGridSlices(activeGrid, 'grid');
             }
+        } else if (newMode === 'frames') {
+            const activeFrames = parsedValueRef.current.framesConfig || framesConfig || {
+                frames: [{ id: 'frame-1', rect: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 }, name: 'Frame 1' }],
+                selectedFrameIndex: 0
+            };
+            updateMultipleFramesSlices(activeFrames, 'frames');
         } else if (newMode === 'batch') {
             const masterSrc = batchFiles[selectedRefIndex]?.dataUrl || getFullSizeImage(node.id, 0) || image;
             if (masterSrc) {
@@ -1279,6 +1772,258 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 }
             }
         }
+    };
+
+    // Frame helper functions for Multiple Frames mode
+    const handleAddFrame = () => {
+        const currentFrames = parsedValueRef.current.framesConfig?.frames || framesConfig?.frames || [];
+        const offset = (currentFrames.length * 0.05) % 0.3;
+        const newFrame: ImageInputFrameItem = {
+            id: `frame_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            rect: {
+                x: Math.min(0.6, 0.15 + offset),
+                y: Math.min(0.6, 0.15 + offset),
+                width: 0.4,
+                height: 0.4
+            },
+            name: `Frame ${currentFrames.length + 1}`
+        };
+        const nextFrames = [...currentFrames, newFrame];
+        const newIndex = nextFrames.length - 1;
+        setSelectedFrameIndex(newIndex);
+        const newConfig: ImageInputFramesConfig = {
+            ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+            frames: nextFrames,
+            selectedFrameIndex: newIndex
+        };
+        updateMultipleFramesSlices(newConfig, mode);
+    };
+
+    const handleDuplicateFrame = () => {
+        const currentFrames = parsedValueRef.current.framesConfig?.frames || framesConfig?.frames || [];
+        if (currentFrames.length === 0) {
+            handleAddFrame();
+            return;
+        }
+        const target = currentFrames[selectedFrameIndex] || currentFrames[0];
+        const newRect: ImageInputCropRect = {
+            x: Math.max(0, Math.min(1 - target.rect.width, target.rect.x + 0.04)),
+            y: Math.max(0, Math.min(1 - target.rect.height, target.rect.y + 0.04)),
+            width: target.rect.width,
+            height: target.rect.height
+        };
+        const newFrame: ImageInputFrameItem = {
+            id: `frame_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            rect: newRect,
+            name: `Frame ${currentFrames.length + 1}`
+        };
+        const nextFrames = [...currentFrames, newFrame];
+        const newIndex = nextFrames.length - 1;
+        setSelectedFrameIndex(newIndex);
+        const newConfig: ImageInputFramesConfig = {
+            ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+            frames: nextFrames,
+            selectedFrameIndex: newIndex
+        };
+        updateMultipleFramesSlices(newConfig, mode);
+    };
+
+    const handleDeleteSelectedFrame = (indexToDelete?: number) => {
+        const currentFrames = parsedValueRef.current.framesConfig?.frames || framesConfig?.frames || [];
+        const idx = indexToDelete !== undefined ? indexToDelete : selectedFrameIndex;
+        if (idx < 0 || idx >= currentFrames.length) return;
+        const nextFrames = currentFrames.filter((_, i) => i !== idx);
+        const newIndex = Math.max(0, Math.min(nextFrames.length - 1, idx >= nextFrames.length ? nextFrames.length - 1 : idx));
+        setSelectedFrameIndex(newIndex);
+        const newConfig: ImageInputFramesConfig = {
+            ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+            frames: nextFrames,
+            selectedFrameIndex: newIndex
+        };
+        updateMultipleFramesSlices(newConfig, mode);
+    };
+
+    const handleClearAllFrames = () => {
+        setSelectedFrameIndex(0);
+        const newConfig: ImageInputFramesConfig = {
+            ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+            frames: [],
+            selectedFrameIndex: 0
+        };
+        updateMultipleFramesSlices(newConfig, mode);
+    };
+
+    const updateSelectedFrameGrid = (newCols: number, newRows: number) => {
+        const currentFrames = parsedValueRef.current.framesConfig?.frames || framesConfig?.frames || [];
+        if (currentFrames.length === 0) return;
+        const targetIdx = selectedFrameIndex >= 0 && selectedFrameIndex < currentFrames.length ? selectedFrameIndex : 0;
+        const safeCols = Math.max(1, Math.min(20, newCols));
+        const safeRows = Math.max(1, Math.min(20, newRows));
+
+        const nextFrames = currentFrames.map((f, i) => {
+            if (i === targetIdx) {
+                return { ...f, cols: safeCols, rows: safeRows };
+            }
+            return f;
+        });
+
+        const newConfig: ImageInputFramesConfig = {
+            ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+            frames: nextFrames,
+            selectedFrameIndex: targetIdx
+        };
+        updateMultipleFramesSlices(newConfig, mode);
+    };
+
+    const applyFramesPresetLayout = (rows: number, cols: number) => {
+        const newFrames: ImageInputFrameItem[] = [];
+        const cellW = 1 / cols;
+        const cellH = 1 / rows;
+        let count = 1;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                newFrames.push({
+                    id: `frame_${Date.now()}_${r}_${c}`,
+                    rect: {
+                        x: c * cellW,
+                        y: r * cellH,
+                        width: cellW,
+                        height: cellH
+                    },
+                    name: `Frame ${count++}`
+                });
+            }
+        }
+        setSelectedFrameIndex(0);
+        const newConfig: ImageInputFramesConfig = {
+            ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+            frames: newFrames,
+            selectedFrameIndex: 0
+        };
+        updateMultipleFramesSlices(newConfig, mode);
+    };
+
+    const applyAspectToSelectedFrame = (ratioStr: string) => {
+        if (!originalDimensions) return;
+        const currentFrames = parsedValueRef.current.framesConfig?.frames || framesConfig?.frames || [];
+        if (currentFrames.length === 0) {
+            handleAddFrame();
+            return;
+        }
+        const targetIdx = selectedFrameIndex >= 0 && selectedFrameIndex < currentFrames.length ? selectedFrameIndex : 0;
+        const target = currentFrames[targetIdx];
+
+        if (ratioStr === 'full') {
+            const newRect: ImageInputCropRect = { x: 0, y: 0, width: 1, height: 1 };
+            const nextFrames = [...currentFrames];
+            nextFrames[targetIdx] = { ...target, rect: newRect };
+            const newConfig: ImageInputFramesConfig = {
+                ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+                frames: nextFrames,
+                selectedFrameIndex: targetIdx
+            };
+            updateMultipleFramesSlices(newConfig, mode);
+            return;
+        }
+
+        const [w, h] = ratioStr.split(':').map(Number);
+        const targetRatio = w / h;
+        const imgRatio = originalDimensions.width / originalDimensions.height;
+
+        let width = target.rect.width || 0.5;
+        let height = target.rect.height || 0.5;
+
+        if (imgRatio > targetRatio) {
+            width = (height * originalDimensions.height * targetRatio) / originalDimensions.width;
+        } else {
+            height = (width * originalDimensions.width / targetRatio) / originalDimensions.height;
+        }
+
+        width = Math.min(0.98, Math.max(0.05, width));
+        height = Math.min(0.98, Math.max(0.05, height));
+
+        const cx = target.rect.x + (target.rect.width / 2);
+        const cy = target.rect.y + (target.rect.height / 2);
+
+        let x = cx - (width / 2);
+        let y = cy - (height / 2);
+
+        x = Math.max(0, Math.min(1 - width, x));
+        y = Math.max(0, Math.min(1 - height, y));
+
+        const newRect: ImageInputCropRect = { x, y, width, height };
+        const nextFrames = [...currentFrames];
+        nextFrames[targetIdx] = { ...target, rect: newRect };
+        const newConfig: ImageInputFramesConfig = {
+            ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+            frames: nextFrames,
+            selectedFrameIndex: targetIdx
+        };
+        updateMultipleFramesSlices(newConfig, mode);
+    };
+
+    const updateSelectedFrameDimensions = (newWidthPx: number, newHeightPx: number) => {
+        const currentFrames = parsedValueRef.current.framesConfig?.frames || framesConfig?.frames || [];
+        if (currentFrames.length === 0) return;
+        const targetIdx = selectedFrameIndex >= 0 && selectedFrameIndex < currentFrames.length ? selectedFrameIndex : 0;
+        const target = currentFrames[targetIdx];
+
+        let normW: number;
+        let normH: number;
+
+        if (originalDimensions && originalDimensions.width > 0 && originalDimensions.height > 0) {
+            normW = Math.max(0.02, Math.min(1, newWidthPx / originalDimensions.width));
+            normH = Math.max(0.02, Math.min(1, newHeightPx / originalDimensions.height));
+        } else {
+            normW = Math.max(0.02, Math.min(1, newWidthPx / 100));
+            normH = Math.max(0.02, Math.min(1, newHeightPx / 100));
+        }
+
+        const clampedX = Math.max(0, Math.min(1 - normW, target.rect.x));
+        const clampedY = Math.max(0, Math.min(1 - normH, target.rect.y));
+
+        const nextFrames = currentFrames.map((f, i) => {
+            if (i === targetIdx) {
+                return {
+                    ...f,
+                    rect: {
+                        x: clampedX,
+                        y: clampedY,
+                        width: normW,
+                        height: normH
+                    }
+                };
+            }
+            return f;
+        });
+
+        const newConfig: ImageInputFramesConfig = {
+            ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+            frames: nextFrames,
+            selectedFrameIndex: targetIdx
+        };
+        updateMultipleFramesSlices(newConfig, mode);
+    };
+
+    const resetSelectedFrameDividers = () => {
+        const currentFrames = parsedValueRef.current.framesConfig?.frames || framesConfig?.frames || [];
+        if (currentFrames.length === 0) return;
+        const targetIdx = selectedFrameIndex >= 0 && selectedFrameIndex < currentFrames.length ? selectedFrameIndex : 0;
+
+        const nextFrames = currentFrames.map((f, i) => {
+            if (i === targetIdx) {
+                const { colDividers, rowDividers, ...rest } = f;
+                return rest;
+            }
+            return f;
+        });
+
+        const newConfig: ImageInputFramesConfig = {
+            ...(parsedValueRef.current.framesConfig || framesConfig || {}),
+            frames: nextFrames,
+            selectedFrameIndex: targetIdx
+        };
+        updateMultipleFramesSlices(newConfig, mode);
     };
 
     // Quick Aspect Ratio Crop presets
@@ -1317,11 +2062,12 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     const updateGridDims = (newCols: number, newRows: number) => {
         const safeCols = Math.max(1, Math.min(30, newCols));
         const safeRows = Math.max(1, Math.min(30, newRows));
+        const rootGrid = parsedValueRef.current.grid || grid;
         const newGrid: ImageInputGridConfig = {
-            ...(grid || {}),
+            ...(rootGrid || {}),
             cols: safeCols,
             rows: safeRows,
-            bounds: activeGridConfig.bounds || { x: 0, y: 0, width: 1, height: 1 },
+            bounds: activeGridConfig.bounds || rootGrid?.bounds || { x: 0, y: 0, width: 1, height: 1 },
             selectedCells: undefined, // reset selection to all
             colDividers: undefined, // reset dividers to equal distribution for new dimensions
             rowDividers: undefined
@@ -1351,7 +2097,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     };
 
     const updateGridBorderConfig = (borderUpdates: Partial<ImageInputGridConfig>) => {
-        const currentGrid: ImageInputGridConfig = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+        const rootGrid = parsedValueRef.current.grid || grid;
+        const currentGrid: ImageInputGridConfig = rootGrid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
         const newGrid: ImageInputGridConfig = {
             ...currentGrid,
             ...borderUpdates,
@@ -1391,6 +2138,9 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
     return (
         <div 
+            ref={nodeContainerRef}
+            onMouseEnter={() => setIsNodeHovered(true)}
+            onMouseLeave={() => setIsNodeHovered(false)}
             className="flex flex-col h-full space-y-2 select-none" 
             data-node-id={node.id}
             tabIndex={0}
@@ -1464,6 +2214,20 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
+                            setMode('frames');
+                        }}
+                        className={`px-2 py-1 rounded font-medium transition-all flex items-center gap-1 ${
+                            mode === 'frames' 
+                                ? 'bg-cyan-600 text-white shadow-sm font-semibold ring-1 ring-cyan-400' 
+                                : 'text-gray-400 hover:text-cyan-300 hover:bg-gray-800'
+                        }`}
+                    >
+                        <span>⬚ Multiple Frames</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
                             setMode('grid');
                         }}
                         className={`px-2 py-1 rounded font-medium transition-all flex items-center gap-1 ${
@@ -1495,6 +2259,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     {mode === 'full' && 'Full image'}
                     {mode === 'single' && 'Active selection -> output'}
                     {mode === 'grid' && `${(grid?.cols || 2) * (grid?.rows || 1)} assets pack`}
+                    {mode === 'frames' && `${framesConfig?.frames?.length || 0} frames pack`}
                     {mode === 'batch' && (batchFiles.length > 0 ? `${batchFiles.length} files (${batchSubMode})` : 'Batch mode')}
                 </div>
             </div>
@@ -1553,6 +2318,297 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                         <button onClick={handleResetCrop} className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded">Весь кадр</button>
                     </div>
                     <span className="text-[10px] text-cyan-400/80 font-mono hidden sm:inline">Качество 100% (Без сжатия)</span>
+                </div>
+            )}
+
+            {/* Mode-Specific Quick Sub-Toolbar: Multiple Frames Controls */}
+            {image && mode === 'frames' && (
+                <div className="flex flex-col gap-1.5 bg-cyan-950/50 border border-cyan-800/50 p-2 rounded-md text-xs text-cyan-200 animate-fadeIn">
+                    {/* Row 1: Actions: Add Frame, Duplicate, Delete, Clear & Presets */}
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                                type="button"
+                                onClick={handleAddFrame}
+                                className="px-2 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded flex items-center gap-1 shadow-sm transition-colors text-[11px]"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                                <span>Добавить рамку</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleDuplicateFrame}
+                                className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded border border-cyan-700/50 text-[11px] transition-colors"
+                                title="Дублировать выбранную рамку"
+                            >
+                                Дублировать
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => handleDeleteSelectedFrame()}
+                                disabled={!framesConfig?.frames?.length}
+                                className="px-2 py-1 bg-gray-800 hover:bg-red-950/80 hover:border-red-600/60 text-red-300 rounded border border-gray-700 text-[11px] transition-colors disabled:opacity-40"
+                                title="Удалить выбранную рамку"
+                            >
+                                Удалить
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleClearAllFrames}
+                                disabled={!framesConfig?.frames?.length}
+                                className="px-1.5 py-1 text-gray-400 hover:text-gray-200 hover:bg-gray-800/80 rounded text-[11px] transition-colors disabled:opacity-40"
+                                title="Очистить все рамки"
+                            >
+                                Очистить
+                            </button>
+                        </div>
+
+                        {/* Layout Presets */}
+                        <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-[10px]">Шаблоны:</span>
+                            {[
+                                { label: '1×2', r: 1, c: 2 },
+                                { label: '1×3', r: 1, c: 3 },
+                                { label: '2×1', r: 2, c: 1 },
+                                { label: '2×2', r: 2, c: 2 },
+                                { label: '3×3', r: 3, c: 3 }
+                            ].map((preset) => (
+                                <button
+                                    key={preset.label}
+                                    type="button"
+                                    onClick={() => applyFramesPresetLayout(preset.r, preset.c)}
+                                    className="px-1.5 py-0.5 bg-gray-900/80 hover:bg-cyan-800 text-cyan-300 rounded text-[10px] font-mono border border-cyan-800/40"
+                                >
+                                    {preset.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Row 2: Aspect Ratio Presets for Selected Frame & Width/Height Editing */}
+                    {framesConfig?.frames && framesConfig.frames.length > 0 && (() => {
+                        const targetFrame = framesConfig.frames[selectedFrameIndex] || framesConfig.frames[0];
+                        const curW = originalDimensions ? Math.round(targetFrame.rect.width * originalDimensions.width) : Math.round(targetFrame.rect.width * 100);
+                        const curH = originalDimensions ? Math.round(targetFrame.rect.height * originalDimensions.height) : Math.round(targetFrame.rect.height * 100);
+                        const step = originalDimensions ? 10 : 2;
+
+                        return (
+                            <div className="flex items-center justify-between border-t border-cyan-800/30 pt-1.5 flex-wrap gap-2 text-[11px]">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-cyan-300 font-semibold text-[10px]">Размер #{selectedFrameIndex + 1}:</span>
+                                    
+                                    {/* Width Stepper & Input */}
+                                    <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
+                                        <span className="px-1 text-cyan-400 font-bold select-none text-[9px]" title="Ширина рамки">Ш:</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => updateSelectedFrameDimensions(curW - step, curH)}
+                                            className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
+                                            title="Уменьшить ширину"
+                                        >
+                                            -
+                                        </button>
+                                        <input
+                                            type="number"
+                                            value={curW}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value, 10);
+                                                if (!isNaN(val) && val > 0) updateSelectedFrameDimensions(val, curH);
+                                            }}
+                                            className="w-12 bg-transparent text-center font-mono font-bold text-cyan-200 text-xs focus:outline-none focus:bg-cyan-950/60"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => updateSelectedFrameDimensions(curW + step, curH)}
+                                            className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
+                                            title="Увеличить ширину"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+
+                                    {/* Height Stepper & Input */}
+                                    <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
+                                        <span className="px-1 text-cyan-400 font-bold select-none text-[9px]" title="Высота рамки">В:</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => updateSelectedFrameDimensions(curW, curH - step)}
+                                            className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
+                                            title="Уменьшить высоту"
+                                        >
+                                            -
+                                        </button>
+                                        <input
+                                            type="number"
+                                            value={curH}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value, 10);
+                                                if (!isNaN(val) && val > 0) updateSelectedFrameDimensions(curW, val);
+                                            }}
+                                            className="w-12 bg-transparent text-center font-mono font-bold text-cyan-200 text-xs focus:outline-none focus:bg-cyan-950/60"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => updateSelectedFrameDimensions(curW, curH + step)}
+                                            className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
+                                            title="Увеличить высоту"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+
+                                    {/* Aspect Ratio Presets */}
+                                    <div className="flex items-center gap-1 font-mono text-[10px]">
+                                        <button onClick={() => applyAspectToSelectedFrame('1:1')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">1:1</button>
+                                        <button onClick={() => applyAspectToSelectedFrame('16:9')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">16:9</button>
+                                        <button onClick={() => applyAspectToSelectedFrame('9:16')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">9:16</button>
+                                        <button onClick={() => applyAspectToSelectedFrame('4:3')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">4:3</button>
+                                        <button onClick={() => applyAspectToSelectedFrame('3:4')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">3:4</button>
+                                        <button onClick={() => applyAspectToSelectedFrame('full')} className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]">Весь кадр</button>
+                                    </div>
+                                </div>
+
+                                <div className="text-[10px] text-gray-400 font-mono">
+                                    Рамок: <span className="text-cyan-300 font-bold">{framesConfig?.frames?.length || 0}</span> | Перетаскивайте и масштабируйте рамки на холсте
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Row 3: Sub-Grid Division for Selected Frame (+/- Horiz & Vert) */}
+                    {framesConfig?.frames && framesConfig.frames.length > 0 && (() => {
+                        const targetFrame = framesConfig.frames[selectedFrameIndex] || framesConfig.frames[0];
+                        const targetCols = Math.max(1, targetFrame?.cols || 1);
+                        const targetRows = Math.max(1, targetFrame?.rows || 1);
+                        const hasSub = targetCols > 1 || targetRows > 1;
+                        const hasCustomDivs = Boolean(targetFrame?.colDividers?.length || targetFrame?.rowDividers?.length);
+
+                        return (
+                            <div className="flex items-center justify-between border-t border-cyan-800/30 pt-1.5 flex-wrap gap-2 text-[11px]">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-cyan-300 font-semibold text-[10px] flex items-center gap-1">
+                                        <span>Сетка рамки #{selectedFrameIndex + 1}:</span>
+                                        {hasSub && (
+                                            <span className="text-cyan-300 font-bold bg-cyan-900/60 px-1 py-0.2 rounded border border-cyan-500/40 text-[9px]">
+                                                {targetCols}×{targetRows} ({targetCols * targetRows} ассет.)
+                                            </span>
+                                        )}
+                                    </span>
+
+                                    {/* Horizontal Stepper (X/Cols) */}
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-gray-400 text-[10px]">По гор. (X):</span>
+                                        <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
+                                            <button
+                                                type="button"
+                                                disabled={targetCols <= 1}
+                                                onClick={() => updateSelectedFrameGrid(targetCols - 1, targetRows)}
+                                                className="px-1.5 py-0.5 hover:bg-cyan-800/60 disabled:opacity-30 text-cyan-300 font-bold"
+                                                title="Уменьшить колонки по горизонтали"
+                                            >
+                                                -
+                                            </button>
+                                            <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
+                                                {targetCols}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                disabled={targetCols >= 20}
+                                                onClick={() => updateSelectedFrameGrid(targetCols + 1, targetRows)}
+                                                className="px-1.5 py-0.5 hover:bg-cyan-800/60 disabled:opacity-30 text-cyan-300 font-bold"
+                                                title="Разделить рамку по горизонтали"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Vertical Stepper (Y/Rows) */}
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-gray-400 text-[10px]">По верт. (Y):</span>
+                                        <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
+                                            <button
+                                                type="button"
+                                                disabled={targetRows <= 1}
+                                                onClick={() => updateSelectedFrameGrid(targetCols, targetRows - 1)}
+                                                className="px-1.5 py-0.5 hover:bg-cyan-800/60 disabled:opacity-30 text-cyan-300 font-bold"
+                                                title="Уменьшить строки по вертикали"
+                                            >
+                                                -
+                                            </button>
+                                            <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
+                                                {targetRows}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                disabled={targetRows >= 20}
+                                                onClick={() => updateSelectedFrameGrid(targetCols, targetRows + 1)}
+                                                className="px-1.5 py-0.5 hover:bg-cyan-800/60 disabled:opacity-30 text-cyan-300 font-bold"
+                                                title="Разделить рамку по вертикали"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Frame Grid Presets */}
+                                    <div className="flex items-center gap-1 font-mono text-[10px]">
+                                        {[
+                                            { label: '1×1', c: 1, r: 1 },
+                                            { label: '1×2', c: 2, r: 1 },
+                                            { label: '2×1', c: 1, r: 2 },
+                                            { label: '2×2', c: 2, r: 2 },
+                                            { label: '3×3', c: 3, r: 3 },
+                                        ].map((p) => {
+                                            const isActive = targetCols === p.c && targetRows === p.r;
+                                            return (
+                                                <button
+                                                    key={p.label}
+                                                    type="button"
+                                                    onClick={() => updateSelectedFrameGrid(p.c, p.r)}
+                                                    className={`px-1.5 py-0.5 rounded transition-colors ${
+                                                        isActive
+                                                            ? 'bg-cyan-600 text-white font-bold ring-1 ring-cyan-400'
+                                                            : 'bg-gray-900 hover:bg-cyan-800/60 text-cyan-300 border border-cyan-800/40'
+                                                    }`}
+                                                >
+                                                    {p.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Reset custom dividers button */}
+                                    {hasSub && hasCustomDivs && (
+                                        <button
+                                            type="button"
+                                            onClick={resetSelectedFrameDividers}
+                                            className="px-1.5 py-0.5 bg-amber-950 hover:bg-amber-700 text-amber-200 rounded border border-amber-600/70 text-[10px] font-mono whitespace-nowrap transition-colors"
+                                            title="Сбросить линии разделения сетки к равномерным"
+                                        >
+                                            Сброс
+                                        </button>
+                                    )}
+                                </div>
+
+                                {hasSub && (
+                                    <button
+                                        type="button"
+                                        onClick={() => updateSelectedFrameGrid(1, 1)}
+                                        className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]"
+                                        title="Сбросить деление рамки к 1×1"
+                                    >
+                                        Сброс сетки рамки
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
             )}
 
@@ -1792,7 +2848,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                 }}
                                 className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-medium transition-colors ${
                                     grid?.customDividers
-                                        ? 'bg-amber-500 text-black font-semibold shadow-sm'
+                                        ? 'bg-accent-secondary text-white font-semibold shadow-sm'
                                         : 'bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-700'
                                 }`}
                                 title="Включить ручное перемещение внутренних линий колонок и строк мышкой"
@@ -1813,7 +2869,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                             rowDividers: undefined
                                         });
                                     }}
-                                    className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-amber-300 hover:text-amber-200 rounded text-[10px] border border-amber-500/40 font-mono transition-colors"
+                                    className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded text-[10px] border border-gray-700 font-mono transition-colors"
                                     title="Выровнять все столбцы и строки до одинаковой ширины и высоты"
                                 >
                                     ⟲ Выровнять ячейки
@@ -1823,8 +2879,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
                         <div className="text-[10px] text-gray-400 font-mono">
                             {grid?.customDividers ? (
-                                <span className="text-amber-300/90 font-sans">
-                                    Потяните линии <span className="font-mono text-amber-200 font-bold">⇿ ⇳</span> между ячейками мышкой
+                                <span className="text-accent-secondary/90 font-sans">
+                                    Потяните линии <span className="font-mono text-accent-secondary font-bold">⇿ ⇳</span> между ячейками мышкой
                                 </span>
                             ) : (
                                 <span>Линии можно двигать в любой момент</span>
@@ -1853,7 +2909,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     className={`w-full h-full flex items-center justify-center transition-all relative ${isDragOver ? 'bg-gray-700 ring-2 ring-accent' : 'hover:bg-gray-750'}`}
                 >
                     {image ? (
-                        <div className="relative w-full h-full flex items-center justify-center overflow-hidden p-1">
+                        <div className="relative w-full h-full flex items-center justify-center overflow-visible p-1">
                             <div 
                                 className="relative max-w-full max-h-full flex items-center justify-center"
                                 style={originalDimensions ? {
@@ -1907,6 +2963,54 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                         imageNaturalSize={originalDimensions}
                                         onGetCellImage={(cellIdx) => getFullSizeImage(node.id, cellIdx + 1) || extractedImages?.[cellIdx]}
                                     />
+                                )}
+
+                                {/* Interactive Overlays: Multiple Frames */}
+                                {mode === 'frames' && (
+                                    <ImageFramesOverlay
+                                        framesConfig={framesConfig || { frames: [], selectedFrameIndex: 0 }}
+                                        onChangeFramesConfig={(newConfig) => {
+                                            updateMultipleFramesSlices(newConfig, mode);
+                                        }}
+                                        selectedFrameIndex={selectedFrameIndex}
+                                        onSelectFrame={setSelectedFrameIndex}
+                                        imageNaturalSize={originalDimensions}
+                                        nodeId={node.id}
+                                        getFullSizeImage={getFullSizeImage}
+                                        frameThumbnails={frameImages || []}
+                                    />
+                                )}
+
+                                {/* Batch Mode Preview Navigation Arrows */}
+                                {mode === 'batch' && batchFiles.length > 1 && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleNavigateBatch('prev');
+                                            }}
+                                            className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/70 hover:bg-cyan-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg border border-cyan-500/40 hover:scale-110 active:scale-95"
+                                            title="Предыдущее изображение (клавиша ←)"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleNavigateBatch('next');
+                                            }}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/70 hover:bg-cyan-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg border border-cyan-500/40 hover:scale-110 active:scale-95"
+                                            title="Следующее изображение (клавиша →)"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </button>
+                                    </>
                                 )}
                             </div>
                             
@@ -2023,6 +3127,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     onDownloadImage={onDownloadImage}
                     addToast={addToast}
                     onImageClick={handleImageClick}
+                    onSendToNote={handleSendSingleCropToNote}
                 />
             )}
 
@@ -2047,6 +3152,44 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     addToast={addToast}
                     cols={grid?.cols || 2}
                     rows={grid?.rows || 1}
+                    onSendToNote={handleSendGridSlicesToNote}
+                />
+            )}
+
+            {/* Slices Drawer in Multiple Frames Mode */}
+            {image && mode === 'frames' && framesConfig?.frames && framesConfig.frames.length > 0 && (
+                <ImageFramesPreview
+                    nodeId={node.id}
+                    frames={framesConfig.frames}
+                    frameThumbnails={frameImages || []}
+                    selectedFrameIndex={selectedFrameIndex}
+                    onSelectFrame={setSelectedFrameIndex}
+                    onAddFrame={handleAddFrame}
+                    onDeleteFrame={handleDeleteSelectedFrame}
+                    onDuplicateFrame={handleDuplicateFrame}
+                    originalImage={image}
+                    includeOriginal={framesConfig?.includeOriginal ?? true}
+                    onChangeIncludeOriginal={(val) => {
+                        const currentFrames = framesConfig || { frames: [] };
+                        updateMultipleFramesSlices({
+                            ...currentFrames,
+                            includeOriginal: val
+                        }, mode);
+                    }}
+                    assetName={framesAssetName}
+                    onChangeAssetName={(name) => {
+                        setFramesAssetName(name);
+                        const currentFrames = framesConfig || { frames: [] };
+                        updateMultipleFramesSlices({
+                            ...currentFrames,
+                            assetName: name
+                        }, mode);
+                    }}
+                    getFullSizeImage={getFullSizeImage}
+                    onCopyImageToClipboard={onCopyImageToClipboard}
+                    onDownloadImage={onDownloadImage}
+                    addToast={addToast}
+                    onSendToNote={handleSendFramesToNote}
                 />
             )}
 
@@ -2057,6 +3200,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     batchFiles={batchFiles}
                     selectedReferenceIndex={selectedRefIndex}
                     onSelectReferenceIndex={handleSelectReferenceIndex}
+                    onNavigatePrev={() => handleNavigateBatch('prev')}
+                    onNavigateNext={() => handleNavigateBatch('next')}
                     onRemoveBatchFile={handleRemoveBatchFile}
                     onClearBatch={handleClearBatch}
                     onAddBatchFiles={(files) => loadMultipleFiles(files)}
@@ -2079,6 +3224,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     onCancelBatchProcess={handleCancelBatchProcess}
                     batchResult={batchResult}
                     onDownloadZip={handleDownloadZip}
+                    onOpenArchiveFolder={() => setIsArchiveFolderModalOpen(true)}
                     addToast={addToast}
                     upstreamImagesCount={upstreamImages.length}
                     onSyncFromUpstream={() => syncFromUpstream()}
@@ -2272,6 +3418,15 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                      </div>
                 </div>
             </div>
+
+            {/* Archive Folder Inspector Modal */}
+            <ArchiveFolderModal
+                isOpen={isArchiveFolderModalOpen}
+                onClose={() => setIsArchiveFolderModalOpen(false)}
+                batchResult={batchResult}
+                onDownloadZip={handleDownloadZip}
+                addToast={addToast}
+            />
         </div>
     );
 };

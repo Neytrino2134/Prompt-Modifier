@@ -1,8 +1,12 @@
 import React from 'react';
+import { SlidersHorizontal, Settings2, Sparkles } from 'lucide-react';
 import { useLanguage } from '../../../localization';
 import { useAppContext } from '../../../contexts/AppContext';
 import { CustomCheckbox } from '../../CustomCheckbox';
-import { PANEL_ANIMATION_GROUPS } from './panelAnimationDefinitions';
+import {
+  PANEL_ANIMATION_GROUPS,
+  isConfigurableAnimation,
+} from './panelAnimationDefinitions';
 import { PanelAnimationBackground } from './PanelAnimationBackground';
 import { PanelAnimation } from '../../../types';
 
@@ -22,6 +26,7 @@ export const PanelAnimationSettings: React.FC<PanelAnimationSettingsProps> = ({
     setPanelAnimation,
     isPanelAnimationAdaptive,
     setIsPanelAnimationAdaptive,
+    openPanelAnimationConfig,
   } = useAppContext();
 
   const getGroupIcon = (icon: string) => {
@@ -210,29 +215,63 @@ export const PanelAnimationSettings: React.FC<PanelAnimationSettingsProps> = ({
             {t('settings.panelAnimationDesc')}
           </p>
 
-          {/* Theme Adaptive Switch */}
-          <div className="p-2.5 rounded-lg bg-gray-950/60 border border-gray-800/80 flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <CustomCheckbox
-                id="panelAnimationAdaptiveToggle"
-                checked={isPanelAnimationAdaptive}
-                onChange={setIsPanelAnimationAdaptive}
-                label={t('settings.panelAnimationAdaptiveLabel')}
-                className="text-xs font-semibold text-gray-200"
-              />
-              <span
-                className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                  isPanelAnimationAdaptive
-                    ? 'bg-accent/20 text-accent'
-                    : 'bg-gray-800 text-gray-400'
-                }`}
-              >
-                {isPanelAnimationAdaptive ? t('common.enabled') : t('common.disabled')}
-              </span>
+          {/* Theme Adaptive Switch & Parameters Quick Action */}
+          <div className="space-y-2">
+            <div className="p-2.5 rounded-lg bg-gray-950/60 border border-gray-800/80 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <CustomCheckbox
+                  id="panelAnimationAdaptiveToggle"
+                  checked={isPanelAnimationAdaptive}
+                  onChange={setIsPanelAnimationAdaptive}
+                  label={t('settings.panelAnimationAdaptiveLabel')}
+                  className="text-xs font-semibold text-gray-200"
+                />
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                    isPanelAnimationAdaptive
+                      ? 'bg-accent/20 text-accent'
+                      : 'bg-gray-800 text-gray-400'
+                  }`}
+                >
+                  {isPanelAnimationAdaptive ? t('common.enabled') : t('common.disabled')}
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-400 pl-6 leading-relaxed">
+                {t('settings.panelAnimationAdaptiveDesc')}
+              </p>
             </div>
-            <p className="text-[10px] text-gray-400 pl-6 leading-relaxed">
-              {t('settings.panelAnimationAdaptiveDesc')}
-            </p>
+
+            {/* Quick Parameters Button for Configurable Animations */}
+            <div className="p-2.5 rounded-lg bg-gradient-to-r from-cyan-950/40 via-gray-950/60 to-purple-950/40 border border-cyan-500/30 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-1.5 rounded-md bg-cyan-500/20 text-cyan-300 flex-shrink-0">
+                  <SlidersHorizontal size={14} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-gray-200 truncate flex items-center gap-1.5">
+                    <span>{t('settings.panelAnimation.configButtonLabel' as any) || 'Параметры анимаций'}</span>
+                    {isConfigurableAnimation(panelAnimation) && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-normal">
+                        {t(`settings.panelAnimation.${panelAnimation}` as any)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 truncate">
+                    {t('settings.panelAnimation.configButtonDesc' as any) ||
+                      'Настройка частоты, размеров, скорости, шлейфа и поворотов'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => openPanelAnimationConfig(isConfigurableAnimation(panelAnimation) ? panelAnimation : 'shapes_bubbles')}
+                className="flex-shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 hover:border-cyan-500/60 transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                <Settings2 size={13} />
+                <span>{t('settings.panelAnimation.configure' as any) || 'Параметры'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Grouped Panel Animation Categories */}
@@ -249,16 +288,19 @@ export const PanelAnimationSettings: React.FC<PanelAnimationSettingsProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {group.items.map((opt) => {
                     const isSelected = panelAnimation === opt.id;
+                    const isConfigurable = isConfigurableAnimation(opt.id);
+
                     return (
-                      <button
+                      <div
                         key={opt.id}
-                        type="button"
-                        onClick={() => setPanelAnimation(opt.id)}
-                        className={`relative group/item overflow-hidden flex items-start gap-2.5 p-2 rounded-lg text-left transition-all border outline-none focus:outline-none ${
+                        className={`relative group/item overflow-hidden flex items-start gap-2.5 p-2 rounded-lg text-left transition-all border ${
                           isSelected
                             ? 'bg-gray-900 border-accent text-white shadow-sm ring-1 ring-accent/40'
                             : 'bg-gray-800/60 border-gray-700/60 text-gray-300 hover:bg-gray-700/60 hover:border-gray-600 hover:text-white'
                         }`}
+                        onClick={() => setPanelAnimation(opt.id)}
+                        role="button"
+                        tabIndex={0}
                       >
                         {/* Live Micro Background Preview Layer */}
                         <div className="absolute inset-0 opacity-40 group-hover/item:opacity-65 transition-opacity pointer-events-none overflow-hidden rounded-lg">
@@ -291,9 +333,24 @@ export const PanelAnimationSettings: React.FC<PanelAnimationSettingsProps> = ({
                             >
                               {t(opt.labelKey as any)}
                             </span>
-                            {isSelected && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse flex-shrink-0" />
-                            )}
+                            <div className="flex items-center gap-1">
+                              {isConfigurable && (
+                                <button
+                                  type="button"
+                                  title={t('settings.panelAnimation.configure' as any) || 'Параметры'}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPanelAnimationConfig(opt.id);
+                                  }}
+                                  className="p-1 rounded bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 hover:border-cyan-500/60 transition-all flex items-center justify-center"
+                                >
+                                  <SlidersHorizontal size={11} />
+                                </button>
+                              )}
+                              {isSelected && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse flex-shrink-0" />
+                              )}
+                            </div>
                           </div>
                           <p
                             className={`text-[10px] leading-tight mt-0.5 line-clamp-2 ${
@@ -303,7 +360,7 @@ export const PanelAnimationSettings: React.FC<PanelAnimationSettingsProps> = ({
                             {t(opt.descKey as any)}
                           </p>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
