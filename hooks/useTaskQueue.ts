@@ -7,7 +7,7 @@ export interface EnqueueTaskOptions {
     nodeTitle?: string;
     frameIndex?: number;
     prompt: string;
-    type?: 'image_edit' | 'image_gen' | 'sequence_frame' | 'character_gen' | 'video_gen';
+    type?: 'image_edit' | 'image_gen' | 'sequence_frame' | 'character_gen' | 'video_gen' | 'three_d_gen';
     tabId?: string;
     tabName?: string;
     execute?: (signal: AbortSignal) => Promise<string>;

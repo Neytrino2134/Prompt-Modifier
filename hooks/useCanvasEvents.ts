@@ -556,9 +556,41 @@ export const useCanvasEvents = (props: any) => {
                  })();
              }
 
-             // Handle non-image files (JSON, Project, Character, Script)
+             // Handle non-image files (3D models, JSON, Project, Character, Script)
              otherFiles.forEach((file: File) => {
                  const pos = { x: dropPosition.x + offsetX, y: dropPosition.y + offsetY };
+
+                 // Handle 3D GLB / glTF models drop
+                 if (file.name.toLowerCase().endsWith('.glb') || file.name.toLowerCase().endsWith('.gltf') || file.name.toLowerCase().endsWith('.obj') || file.type === 'model/gltf-binary' || file.type === 'model/gltf+json') {
+                     const reader = new FileReader();
+                     reader.onload = (event) => {
+                         const dataUrl = event.target?.result as string;
+                         if (dataUrl) {
+                             const cleanName = file.name.replace(/\.[^/.]+$/, "");
+                             const newNodeId = onAddNode(NodeType.THREE_D_VIEWER, pos, `3D: ${cleanName}`);
+                             const initialValue = JSON.stringify({
+                                 modelUrl: dataUrl,
+                                 modelName: file.name,
+                                 autoRotate: true,
+                                 autoRotateSpeed: 1.5,
+                                 cameraControls: true,
+                                 environmentImage: 'neutral',
+                                 shadowIntensity: 1,
+                                 exposure: 1,
+                                 backgroundColor: '#111827',
+                                 wireframe: false,
+                                 currentAnimation: '',
+                                 sourceNodeId: null,
+                                 previewScreenshot: null
+                             });
+                             handleValueChange(newNodeId, initialValue);
+                         }
+                     };
+                     reader.readAsDataURL(file);
+                     offsetX += 40; offsetY += 40;
+                     return;
+                 }
+
                  if (file.type === 'application/json' || file.name.endsWith('.json') || file.name.endsWith('.PMC') || file.name.endsWith('.PMP') || file.name.endsWith('.CHAR')) {
                      const reader = new FileReader();
                      reader.onload = async (event) => {

@@ -1,6 +1,6 @@
 // Generation Statistics Service and Analytics Engine
 
-export type ModelCategory = 'gpt_image_2' | 'pro_3_0' | 'flash_3_1' | 'lite_3_1' | 'other';
+export type ModelCategory = 'gpt_image_2' | 'pro_3_0' | 'flash_3_1' | 'lite_3_1' | 'tripo_h3_1' | 'tripo_p1' | 'other';
 export type GenerationMode = 'normal' | 'batch';
 
 export interface GenerationRecord {
@@ -15,6 +15,8 @@ export interface GenerationRecord {
   promptLength?: number;
   source?: string;
   generationMode?: GenerationMode;
+  mediaType?: 'image' | 'video' | '3d';
+  modelUrl?: string;
 }
 
 export type StatsPeriod = '1d' | '7d' | '28d' | '90d' | 'all' | 'custom';
@@ -40,6 +42,26 @@ export interface CategoryMeta {
   textColor: string;
 }
 
+export interface ThreeDStatsSummary {
+  totalCount: number;
+  tripoH31Count: number;
+  tripoP1Count: number;
+  other3dCount: number;
+  tripoH31Percentage: number;
+  tripoP1Percentage: number;
+  other3dPercentage: number;
+  items: Array<{
+    id: 'tripo_h3_1' | 'tripo_p1' | 'tripo_other';
+    label: string;
+    modelCode: string;
+    count: number;
+    percentage: number;
+    badgeClass: string;
+    barColor: string;
+    textColor: string;
+  }>;
+}
+
 export interface StatsSummary {
   totalLifetimeCount: number;
   filteredCount: number;
@@ -56,6 +78,7 @@ export interface StatsSummary {
   topResolution: { resolution: string; count: number; percentage: number } | null;
   peakHour: { hour: number; label: string; count: number } | null;
   peakDay: { dayIndex: number; dayName: string; count: number } | null;
+  threeDStats: ThreeDStatsSummary;
   dailyTimeline: Array<{
     date: string;
     fullDate: string;
@@ -113,7 +136,7 @@ const STORAGE_KEY_LOG = 'gemini_generation_stats_log_v2';
 const STORAGE_KEY_TOTAL = 'gemini_generation_stats_lifetime_total';
 export const STATS_UPDATED_EVENT = 'generation-stats-updated';
 
-// Category metadata definitions: GPT-Image-2, 3.0 Pro, 3.1 Flash, 3.1 Lite, and Other (DALL-E, 2.5 flash, Imagen, etc.)
+// Category metadata definitions: GPT-Image-2, 3.0 Pro, 3.1 Flash, 3.1 Lite, Tripo H3.1 (3D), Tripo P1 (3D), and Other
 export const CATEGORY_METAS: Record<ModelCategory, CategoryMeta> = {
   gpt_image_2: {
     category: 'gpt_image_2',
@@ -147,6 +170,22 @@ export const CATEGORY_METAS: Record<ModelCategory, CategoryMeta> = {
     barColor: '#10b981',
     textColor: 'text-emerald-400',
   },
+  tripo_h3_1: {
+    category: 'tripo_h3_1',
+    label: 'Tripo H3.1 (3D)',
+    badgeClass: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+    color: 'rgb(99, 102, 241)',
+    barColor: '#6366f1',
+    textColor: 'text-indigo-400',
+  },
+  tripo_p1: {
+    category: 'tripo_p1',
+    label: 'Tripo P1 (3D)',
+    badgeClass: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30',
+    color: 'rgb(217, 70, 239)',
+    barColor: '#d946ef',
+    textColor: 'text-fuchsia-400',
+  },
   other: {
     category: 'other',
     label: 'Другие',
@@ -159,17 +198,43 @@ export const CATEGORY_METAS: Record<ModelCategory, CategoryMeta> = {
 
 /**
  * Maps model ID to high-level model category:
+ * - 'tripo_h3_1': Tripo H3.1 (v3.1-20260211, Tripo H3.1)
+ * - 'tripo_p1': Tripo P1 (P1-20260311, Tripo P1)
  * - 'gpt_image_2': GPT-Image-2 (gpt-image-2, GPT Image 2)
  * - 'pro_3_0': 3.0 pro (Gemini 3.0 Pro Image / Nano Banana Pro / gemini-3-pro-image-preview)
  * - 'flash_3_1': 3.1 Flash (Gemini 3.1 Flash Image / Nano Banana 2 / gemini-3.1-flash-image)
  * - 'lite_3_1': 3.1 Lite (Gemini 3.1 Flash Image Preview / Nana Banana 2 Lite / gemini-3.1-flash-image-preview)
- * - 'other': DALL-E 3, DALL-E 2, 2.5 flash, Imagen 4.0, Imagen 3.0, and other models
+ * - 'other': Tripo v3.0, Tripo v2.5, Turbo, DALL-E 3, Imagen 4.0, and other models
  */
 export const getModelCategory = (modelRaw?: string): ModelCategory => {
   if (!modelRaw) return 'other';
   const model = modelRaw.toLowerCase().trim();
 
-  // 1. GPT-Image-2 check (Main list model)
+  // 1. Tripo H3.1 Check (3D Flagship)
+  if (
+    model === 'v3.1-20260211' ||
+    model === 'v3.1' ||
+    model.includes('h3.1') ||
+    model.includes('v3.1') ||
+    model.includes('tripo h3.1') ||
+    model === 'tripo-h3.1'
+  ) {
+    return 'tripo_h3_1';
+  }
+
+  // 2. Tripo P1 Check (3D Ultra Precision)
+  if (
+    model === 'p1-20260311' ||
+    model === 'p1' ||
+    model.includes('p1-2026') ||
+    model.includes('tripo p1') ||
+    model === 'tripo-p1' ||
+    (model.includes('p1') && model.includes('tripo'))
+  ) {
+    return 'tripo_p1';
+  }
+
+  // 3. GPT-Image-2 check (Main list model)
   if (
     model === 'gpt-image-2' ||
     model.includes('gpt-image-2') ||
@@ -179,7 +244,7 @@ export const getModelCategory = (modelRaw?: string): ModelCategory => {
     return 'gpt_image_2';
   }
 
-  // 2. 3.1 Lite check (Preview / Lite variant of 3.1)
+  // 4. 3.1 Lite check (Preview / Lite variant of 3.1)
   if (
     model === 'gemini-3.1-flash-image-preview' ||
     (model.includes('3.1') && (model.includes('lite') || model.includes('preview'))) ||
@@ -189,7 +254,7 @@ export const getModelCategory = (modelRaw?: string): ModelCategory => {
     return 'lite_3_1';
   }
 
-  // 3. 3.1 Flash check (Standard 3.1 Flash / Nano Banana 2)
+  // 5. 3.1 Flash check (Standard 3.1 Flash / Nano Banana 2)
   if (
     model === 'gemini-3.1-flash-image' ||
     (model.includes('3.1') && model.includes('flash')) ||
@@ -199,7 +264,7 @@ export const getModelCategory = (modelRaw?: string): ModelCategory => {
     return 'flash_3_1';
   }
 
-  // 4. 3.0 Pro check (Gemini 3.0 Pro / Nano Banana Pro)
+  // 6. 3.0 Pro check (Gemini 3.0 Pro / Nano Banana Pro)
   if (
     model === 'gemini-3-pro-image-preview' ||
     model.includes('3-pro') ||
@@ -211,7 +276,7 @@ export const getModelCategory = (modelRaw?: string): ModelCategory => {
     return 'pro_3_0';
   }
 
-  // 5. All other models (dall-e-3, dall-e-2, 2.5 flash, Imagen 4.0, Imagen 3.0, etc.) go to "other"
+  // 7. All other models (Tripo v3.0, Tripo v2.5, Turbo, dall-e-3, dall-e-2, 2.5 flash, Imagen 4.0, Imagen 3.0, etc.) go to "other"
   return 'other';
 };
 
@@ -236,9 +301,27 @@ export const getStandardModelName = (modelRaw?: string): string => {
     'imagen-3.0-generate-001': 'Imagen 3.0',
     'imagen-3.0-capability-001': 'Imagen 3.0',
     'imagen-4.0-upscale-preview': 'Imagen 4.0 Upscale',
+    'v3.1-20260211': 'Tripo H3.1 (Flagship 3D)',
+    'v3.1': 'Tripo H3.1 (Flagship 3D)',
+    'P1-20260311': 'Tripo P1 (Ultra Precision 3D)',
+    'p1-20260311': 'Tripo P1 (Ultra Precision 3D)',
+    'P1': 'Tripo P1 (Ultra Precision 3D)',
+    'v3.0-20250812': 'Tripo v3.0 (Next-Gen 3D)',
+    'v3.0': 'Tripo v3.0 (Next-Gen 3D)',
+    'v2.5-20250123': 'Tripo v2.5 (Balanced 3D)',
+    'v2.5': 'Tripo v2.5 (Balanced 3D)',
+    'v2.0-20240919': 'Tripo v2.0 Turbo (Fast 3D)',
+    'v2.0': 'Tripo v2.0 Turbo (Fast 3D)',
+    'tripo-h3.1': 'Tripo H3.1 (Flagship 3D)',
+    'tripo-p1': 'Tripo P1 (Ultra Precision 3D)',
   };
 
   if (nameMap[model]) return nameMap[model];
+  if (model.startsWith('v3.1')) return 'Tripo H3.1 (Flagship 3D)';
+  if (model.startsWith('P1') || model.startsWith('p1')) return 'Tripo P1 (Ultra Precision 3D)';
+  if (model.startsWith('v3.0')) return 'Tripo v3.0 (Next-Gen 3D)';
+  if (model.startsWith('v2.5')) return 'Tripo v2.5 (Balanced 3D)';
+  if (model.startsWith('v2.0')) return 'Tripo v2.0 Turbo (Fast 3D)';
   if (model.startsWith('imagen-4.0')) return 'Imagen 4.0';
   if (model.startsWith('imagen-3.0')) return 'Imagen 3.0';
   if (model.startsWith('gemini-')) return model.replace('gemini-', 'Gemini ');
@@ -317,6 +400,8 @@ export const recordGenerationEvent = (event: {
   prompt?: string;
   source?: string;
   generationMode?: GenerationMode;
+  mediaType?: 'image' | 'video' | '3d';
+  modelUrl?: string;
 }): GenerationRecord => {
   const records = getGenerationRecords();
   const model = event.model || 'imagen-4.0-generate-001';
@@ -325,6 +410,7 @@ export const recordGenerationEvent = (event: {
   const aspectRatio = event.aspectRatio || '1:1';
   const prompt = event.prompt || '';
   const generationMode: GenerationMode = event.generationMode || (event.source === 'batch_api' ? 'batch' : 'normal');
+  const mediaType = event.mediaType || (category === 'tripo_h3_1' || category === 'tripo_p1' || event.source === 'tripo_3d' ? '3d' : 'image');
 
   const newRecord: GenerationRecord = {
     id: event.id || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -336,8 +422,10 @@ export const recordGenerationEvent = (event: {
     resolution: event.resolution,
     prompt: prompt.slice(0, 500), // snippet for search & preview
     promptLength: prompt.length,
-    source: event.source || (generationMode === 'batch' ? 'batch_api' : 'image_generation'),
+    source: event.source || (mediaType === '3d' ? 'tripo_3d' : (generationMode === 'batch' ? 'batch_api' : 'image_generation')),
     generationMode,
+    mediaType,
+    modelUrl: event.modelUrl,
   };
 
   // Avoid exact duplicates if called repeatedly with same ID
@@ -365,6 +453,8 @@ export const syncWithHistoryItems = (items: Array<{
   prompt?: string;
   generationMode?: GenerationMode;
   isBatch?: boolean;
+  mediaType?: 'image' | 'video' | '3d';
+  modelUrl?: string;
 }>) => {
   if (!items || items.length === 0) return;
   const records = getGenerationRecords();
@@ -377,19 +467,23 @@ export const syncWithHistoryItems = (items: Array<{
   items.forEach(item => {
     if (!existingMap.has(item.id)) {
       const model = item.model || 'imagen-4.0-generate-001';
+      const category = getModelCategory(model);
       const genMode: GenerationMode = item.generationMode || (item.isBatch ? 'batch' : 'normal');
+      const mediaType = item.mediaType || (category === 'tripo_h3_1' || category === 'tripo_p1' ? '3d' : 'image');
       toAdd.push({
         id: item.id,
         timestamp: item.timestamp || Date.now(),
         model,
         modelDisplayName: getStandardModelName(model),
-        category: getModelCategory(model),
+        category,
         aspectRatio: item.aspectRatio || '1:1',
         resolution: item.resolution,
         prompt: (item.prompt || '').slice(0, 500),
         promptLength: (item.prompt || '').length,
-        source: genMode === 'batch' ? 'batch_api' : 'image_generation',
+        source: mediaType === '3d' ? 'tripo_3d' : (genMode === 'batch' ? 'batch_api' : 'image_generation'),
         generationMode: genMode,
+        mediaType,
+        modelUrl: item.modelUrl,
       });
       existingMap.set(item.id, true);
       addedCount++;
@@ -443,7 +537,7 @@ export const exportStatsAsJSON = () => {
  */
 export const exportStatsAsCSV = () => {
   const records = getGenerationRecords();
-  const headers = ['ID', 'Date', 'Time', 'Timestamp', 'Mode', 'Model_ID', 'Model_Name', 'Category', 'Aspect_Ratio', 'Resolution', 'Prompt_Length', 'Prompt'];
+  const headers = ['ID', 'Date', 'Time', 'Timestamp', 'Mode', 'Media_Type', 'Model_ID', 'Model_Name', 'Category', 'Aspect_Ratio', 'Resolution', 'Prompt_Length', 'Prompt'];
   
   const rows = records.map(r => {
     const d = new Date(r.timestamp);
@@ -451,12 +545,14 @@ export const exportStatsAsCSV = () => {
     const timeStr = d.toLocaleTimeString();
     const cleanPrompt = (r.prompt || '').replace(/"/g, '""');
     const mode = (r.generationMode || (r.source === 'batch_api' ? 'batch' : 'normal')) === 'batch' ? 'Batch API' : 'Normal';
+    const mediaType = r.mediaType || 'image';
     return [
       r.id,
       `"${dateStr}"`,
       `"${timeStr}"`,
       r.timestamp,
       `"${mode}"`,
+      `"${mediaType}"`,
       `"${r.model}"`,
       `"${r.modelDisplayName}"`,
       `"${r.category}"`,
@@ -585,6 +681,8 @@ export const computeStatsSummary = (
     pro_3_0: 0,
     flash_3_1: 0,
     lite_3_1: 0,
+    tripo_h3_1: 0,
+    tripo_p1: 0,
     other: 0,
   };
   const ratioCounts = new Map<string, number>();
@@ -592,6 +690,11 @@ export const computeStatsSummary = (
   const hourCounts = new Array<number>(24).fill(0);
   const weekdayCounts = new Array<number>(7).fill(0);
   const activeDaysSet = new Set<string>();
+
+  // 3D Models Tally
+  let tripoH31Count = 0;
+  let tripoP1Count = 0;
+  let other3dCount = 0;
 
   // Daily timeline bucket map (YYYY-MM-DD -> stats)
   const dailyMap = new Map<string, {
@@ -616,6 +719,18 @@ export const computeStatsSummary = (
     // Category tally
     const cat: ModelCategory = r.category in categoryCounts ? r.category : 'other';
     categoryCounts[cat]++;
+
+    // 3D model specific tally
+    const is3D = r.mediaType === '3d' || r.source === 'tripo_3d' || r.category === 'tripo_h3_1' || r.category === 'tripo_p1' || r.model.toLowerCase().includes('tripo') || r.model.toLowerCase().startsWith('v3.') || r.model.toLowerCase().startsWith('v2.') || r.model.toLowerCase().startsWith('p1');
+    if (is3D) {
+      if (r.category === 'tripo_h3_1') {
+        tripoH31Count++;
+      } else if (r.category === 'tripo_p1') {
+        tripoP1Count++;
+      } else {
+        other3dCount++;
+      }
+    }
 
     // Ratio tally
     const ratio = r.aspectRatio || '1:1';
@@ -642,7 +757,7 @@ export const computeStatsSummary = (
         fullDate,
         timestamp: new Date(dateKey).getTime(),
         count: 0,
-        byCategory: { gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, other: 0 },
+        byCategory: { gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, tripo_h3_1: 0, tripo_p1: 0, other: 0 },
         byModel: {},
       };
       dailyMap.set(dateKey, dayEntry);
@@ -651,6 +766,50 @@ export const computeStatsSummary = (
     dayEntry.byCategory[cat] = (dayEntry.byCategory[cat] || 0) + 1;
     dayEntry.byModel[r.model] = (dayEntry.byModel[r.model] || 0) + 1;
   });
+
+  // Calculate 3D Summary
+  const total3dCount = tripoH31Count + tripoP1Count + other3dCount;
+  const threeDStats: ThreeDStatsSummary = {
+    totalCount: total3dCount,
+    tripoH31Count,
+    tripoP1Count,
+    other3dCount,
+    tripoH31Percentage: total3dCount > 0 ? Math.round((tripoH31Count / total3dCount) * 1000) / 10 : 0,
+    tripoP1Percentage: total3dCount > 0 ? Math.round((tripoP1Count / total3dCount) * 1000) / 10 : 0,
+    other3dPercentage: total3dCount > 0 ? Math.round((other3dCount / total3dCount) * 1000) / 10 : 0,
+    items: [
+      {
+        id: 'tripo_h3_1',
+        label: 'Tripo H3.1 (Flagship 3D)',
+        modelCode: 'v3.1-20260211',
+        count: tripoH31Count,
+        percentage: total3dCount > 0 ? Math.round((tripoH31Count / total3dCount) * 1000) / 10 : 0,
+        badgeClass: CATEGORY_METAS.tripo_h3_1.badgeClass,
+        barColor: CATEGORY_METAS.tripo_h3_1.barColor,
+        textColor: CATEGORY_METAS.tripo_h3_1.textColor,
+      },
+      {
+        id: 'tripo_p1',
+        label: 'Tripo P1 (Ultra Precision)',
+        modelCode: 'P1-20260311',
+        count: tripoP1Count,
+        percentage: total3dCount > 0 ? Math.round((tripoP1Count / total3dCount) * 1000) / 10 : 0,
+        badgeClass: CATEGORY_METAS.tripo_p1.badgeClass,
+        barColor: CATEGORY_METAS.tripo_p1.barColor,
+        textColor: CATEGORY_METAS.tripo_p1.textColor,
+      },
+      {
+        id: 'tripo_other',
+        label: 'Другие 3D (v3.0 / v2.5 / Turbo)',
+        modelCode: 'tripo-legacy',
+        count: other3dCount,
+        percentage: total3dCount > 0 ? Math.round((other3dCount / total3dCount) * 1000) / 10 : 0,
+        badgeClass: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+        barColor: '#06b6d4',
+        textColor: 'text-cyan-400',
+      },
+    ]
+  };
 
   // Prepare filled timeline (for 7d or 28d or custom, fill missing days with 0 for smooth charts)
   let dailyTimeline: Array<{
@@ -682,7 +841,7 @@ export const computeStatsSummary = (
           fullDate,
           timestamp: targetDate.getTime(),
           count: 0,
-          byCategory: { gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, other: 0 },
+          byCategory: { gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, tripo_h3_1: 0, tripo_p1: 0, other: 0 },
           byModel: {},
         });
       }
@@ -810,6 +969,7 @@ export const computeStatsSummary = (
     topResolution,
     peakHour: peakHourObj,
     peakDay: peakDayObj,
+    threeDStats,
     dailyTimeline,
     modelBreakdown,
     categoryBreakdown,

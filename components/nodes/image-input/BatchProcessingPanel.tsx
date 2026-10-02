@@ -118,8 +118,10 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
 
     useEffect(() => {
         if (!scrollContainerRef.current) return;
+        setContainerWidth(scrollContainerRef.current.clientWidth || 400);
+
         const observer = new ResizeObserver((entries) => {
-            if (entries[0]) {
+            if (entries[0] && entries[0].contentRect.width > 0) {
                 setContainerWidth(entries[0].contentRect.width);
             }
         });

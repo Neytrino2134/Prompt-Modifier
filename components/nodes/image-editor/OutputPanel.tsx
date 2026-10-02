@@ -15,6 +15,7 @@ import { setupImageDragData } from '../../../utils/imageUtils';
 import ConfirmDialog from '../../ConfirmDialog';
 import { useAppContext } from '../../../contexts/AppContext';
 import { isGptImage2Model, isOpenAiImageModel, resolveImageEditorModel } from '../../../services/modelConfig';
+import { OptimizedThumbnail } from './OptimizedThumbnail';
 
 // Helper component for input with stylish spinners
 
@@ -142,7 +143,7 @@ interface OutputPanelProps {
     onSendToNote?: () => void;
 }
 
-const ITEM_SIZE = 160;
+const ITEM_SIZE = 136;
 const GAP = 8; // gap-2 is 0.5rem = 8px
 
 export const OutputPanel: React.FC<OutputPanelProps> = ({
@@ -777,11 +778,13 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                     onClick={(e) => { e.stopPropagation(); onSequenceOutputClick(index, srcToView || ''); }}
                                 >
                                      {displaySrc ? (
-                                        <img 
+                                        <OptimizedThumbnail 
                                             src={fullSizeUrl || displaySrc} 
+                                            size={128}
                                             alt={`Output ${index + 1}`} 
                                             className={`w-full h-full object-contain ${isPreview ? 'opacity-60' : ''}`}
                                             draggable={true}
+                                            onMouseDown={(e) => e.stopPropagation()}
                                             onDragStart={(e) => {
                                                 const srcToDrag = fullSizeUrl || displaySrc;
                                                 if (srcToDrag) {

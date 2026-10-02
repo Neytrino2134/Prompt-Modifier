@@ -82,6 +82,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
     // Cache refs to avoid re-parsing JSON during layout updates (drags)
     const characterDataCache = useRef<{ signature: string, data: Map<string, any[]> }>({ signature: '', data: new Map() });
     const imageSourcesCache = useRef<{ signature: string, data: Map<string, (string | null)[]> }>({ signature: '', data: new Map() });
+    const upstreamValuesCache = useRef<Map<string, { signature: string, values: any[] }>>(new Map());
 
     const connectedInputs = useMemo(() => {
         const map = new Map<string, Set<string | undefined>>();
@@ -218,6 +219,22 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                     if (parsed.images[frameNum]) return parsed.images[frameNum];
                 }
                 return fullRes || null;
+            }
+            case NodeType.BATCH_PREPARE: {
+                const activeMultiview = parsed.multiview || parsed.activeViews || {};
+                const muted = parsed.mutedViews || {};
+                if (fromHandleId === 'front') return muted.front ? null : (activeMultiview.front || null);
+                if (fromHandleId === 'back') return muted.back ? null : (activeMultiview.back || null);
+                if (fromHandleId === 'left') return muted.left ? null : (activeMultiview.left || null);
+                if (fromHandleId === 'right') return muted.right ? null : (activeMultiview.right || null);
+                
+                return (
+                    (!muted.front && activeMultiview.front) ||
+                    (!muted.left && activeMultiview.left) ||
+                    (!muted.back && activeMultiview.back) ||
+                    (!muted.right && activeMultiview.right) ||
+                    null
+                );
             }
             case NodeType.NOTE: {
                 if (fromHandleId === 'all_images' || fromHandleId === undefined || fromHandleId === 'image') {
@@ -416,6 +433,19 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
             (c.toHandleId === 'image' && handleId === undefined)
         ));
         
+        if (inputConnections.length === 0) return [];
+
+        const sigParts = inputConnections.map(c => {
+            const fn = activeNodes.find(n => n.id === c.fromNodeId);
+            return `${c.id}:${c.fromHandleId || ''}:${c.toHandleId || ''}:${fn?.id || ''}:${generateSignature(fn?.value || '')}`;
+        });
+        const incomingSig = sigParts.join('|');
+        const cacheKey = `${nodeId}_${handleId || 'all'}_${optimizedForUI ? '1' : '0'}`;
+        const cached = upstreamValuesCache.current.get(cacheKey);
+        if (cached && cached.signature === incomingSig) {
+            return cached.values;
+        }
+
         const values: (string | any)[] = [];
         
         for (const conn of inputConnections) {
@@ -621,6 +651,21 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             }
                         } else {
                             // Normal / Full Mode or fallback
+                            if (Array.isArray(parsed.batchFiles) && parsed.batchFiles.length > 0) {
+                                let pushedAny = false;
+                                parsed.batchFiles.forEach((file: any, fileIdx: number) => {
+                                    const fullUrl = getFullSizeImage(fromNode.id, fileIdx);
+                                    const url = (optimizedForUI ? (file.thumbnailUrl || file.dataUrl) : (fullUrl || file.dataUrl));
+                                    if (url && url.startsWith('data:')) {
+                                        const parts = url.split(',');
+                                        const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                        values.push({ base64ImageData: parts[1], mimeType: mime });
+                                        pushedAny = true;
+                                    }
+                                });
+                                if (pushedAny) continue;
+                            }
+
                             const fullUrl = getFullSizeImage(fromNode.id, 0);
                             const thumbUrl = parsed.image;
                             const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
@@ -631,6 +676,69 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                                 continue;
                             }
                         }
+                    } catch {}
+                } else if (fromNode.type === NodeType.BATCH_PREPARE) {
+                    try {
+                        const parsed = JSON.parse(fromNode.value || '{}');
+                        const activeMultiview = parsed.multiview || parsed.activeViews || {};
+                        const muted = parsed.mutedViews || {};
+
+                        if (conn.fromHandleId === 'front') {
+                            if (!muted.front && activeMultiview.front) {
+                                const fullUrl = activeMultiview.front;
+                                const parts = fullUrl.split(',');
+                                const mime = fullUrl.match(/:(.*?);/)?.[1] || 'image/png';
+                                values.push({ base64ImageData: parts[1], mimeType: mime });
+                            }
+                            continue;
+                        } else if (conn.fromHandleId === 'back') {
+                            if (!muted.back && activeMultiview.back) {
+                                const fullUrl = activeMultiview.back;
+                                const parts = fullUrl.split(',');
+                                const mime = fullUrl.match(/:(.*?);/)?.[1] || 'image/png';
+                                values.push({ base64ImageData: parts[1], mimeType: mime });
+                            }
+                            continue;
+                        } else if (conn.fromHandleId === 'left') {
+                            if (!muted.left && activeMultiview.left) {
+                                const fullUrl = activeMultiview.left;
+                                const parts = fullUrl.split(',');
+                                const mime = fullUrl.match(/:(.*?);/)?.[1] || 'image/png';
+                                values.push({ base64ImageData: parts[1], mimeType: mime });
+                            }
+                            continue;
+                        } else if (conn.fromHandleId === 'right') {
+                            if (!muted.right && activeMultiview.right) {
+                                const fullUrl = activeMultiview.right;
+                                const parts = fullUrl.split(',');
+                                const mime = fullUrl.match(/:(.*?);/)?.[1] || 'image/png';
+                                values.push({ base64ImageData: parts[1], mimeType: mime });
+                            }
+                            continue;
+                        }
+
+                        // Generic handle: return exactly the 4 active views (front, back, left, right), respecting muted status
+                        const packViews = [
+                            muted.front ? null : (activeMultiview.front || null),
+                            muted.back ? null : (activeMultiview.back || null),
+                            muted.left ? null : (activeMultiview.left || null),
+                            muted.right ? null : (activeMultiview.right || null)
+                        ];
+
+                        let pushedAny = false;
+                        packViews.forEach((viewUrl) => {
+                            if (viewUrl && typeof viewUrl === 'string' && viewUrl.startsWith('data:')) {
+                                const parts = viewUrl.split(',');
+                                const mime = viewUrl.match(/:(.*?);/)?.[1] || 'image/png';
+                                values.push({ base64ImageData: parts[1], mimeType: mime });
+                                pushedAny = true;
+                            } else if (viewUrl && typeof viewUrl === 'string' && (viewUrl.startsWith('http') || viewUrl.startsWith('blob:'))) {
+                                values.push(viewUrl);
+                                pushedAny = true;
+                            }
+                        });
+
+                        if (pushedAny) continue;
                     } catch {}
                 } else if (fromNode.type === NodeType.IMAGE_OUTPUT) {
                     const fullUrl = getFullSizeImage(fromNode.id, 0);
@@ -722,6 +830,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                 values.push(fromNode.value);
             }
         }
+        upstreamValuesCache.current.set(cacheKey, { signature: incomingSig, values });
         return values;
     }, [nodes, connections, findImageDataSource, getFullSizeImage]);
 

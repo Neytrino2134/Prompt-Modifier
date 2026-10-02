@@ -11,6 +11,8 @@ export interface HistoryItem {
   model?: string;
   aspectRatio?: string;
   resolution?: string;
+  mediaType?: 'image' | 'video' | '3d';
+  modelUrl?: string; // Direct download link for 3D GLB model
 }
 
 const DB_NAME = 'GenerationHistoryDB';
@@ -128,16 +130,22 @@ export const useGenerationHistory = () => {
       skipStats?: boolean;
       generationMode?: 'normal' | 'batch';
       batchJobName?: string;
+      mediaType?: 'image' | 'video' | '3d';
+      modelUrl?: string;
+      thumbnailUrl?: string;
     } | string, 
     resolutionArg?: string
   ) => {
-    if (!url || !url.startsWith('data:image')) return; // Store only base64 data URLs
+    if (!url) return;
 
     let aspectRatio: string | undefined;
     let resolution: string | undefined;
     let isBatch = false;
     let skipStats = false;
     let generationMode: 'normal' | 'batch' = 'normal';
+    let mediaType: 'image' | 'video' | '3d' = 'image';
+    let modelUrl: string | undefined;
+    let explicitThumb: string | undefined;
 
     if (typeof metadataOrRatio === 'object' && metadataOrRatio !== null) {
       aspectRatio = metadataOrRatio.aspectRatio;
@@ -145,18 +153,32 @@ export const useGenerationHistory = () => {
       isBatch = !!metadataOrRatio.isBatch;
       skipStats = !!metadataOrRatio.skipStats || isBatch;
       generationMode = metadataOrRatio.generationMode || (isBatch ? 'batch' : 'normal');
+      mediaType = metadataOrRatio.mediaType || 'image';
+      modelUrl = metadataOrRatio.modelUrl;
+      explicitThumb = metadataOrRatio.thumbnailUrl;
     } else if (typeof metadataOrRatio === 'string') {
       aspectRatio = metadataOrRatio;
       resolution = resolutionArg;
     }
 
-    // Generate 128x128 compressed thumbnail for fast virtualized list rendering
-    let thumbnailUrl: string | undefined;
-    try {
-      thumbnailUrl = await generateThumbnail(url, 128, 128);
-    } catch (e) {
-      console.warn("Failed to generate history thumbnail:", e);
-      thumbnailUrl = url;
+    // If regular image, ensure it has a valid image URL / data URL
+    if (mediaType === 'image' && !url.startsWith('data:image') && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('blob:')) {
+      return;
+    }
+
+    // Generate 128x128 compressed thumbnail for fast virtualized list rendering if base64 data URL
+    let thumbnailUrl: string | undefined = explicitThumb;
+    if (!thumbnailUrl) {
+      if (url.startsWith('data:image')) {
+        try {
+          thumbnailUrl = await generateThumbnail(url, 128, 128);
+        } catch (e) {
+          console.warn("Failed to generate history thumbnail:", e);
+          thumbnailUrl = url;
+        }
+      } else {
+        thumbnailUrl = url;
+      }
     }
 
     const newItem: HistoryItem = {
@@ -168,6 +190,8 @@ export const useGenerationHistory = () => {
       model: model || undefined,
       aspectRatio: aspectRatio || undefined,
       resolution: resolution || undefined,
+      mediaType,
+      modelUrl,
     };
 
     // Record into persistent stats log ONLY if not skipped (Batch downloads are skipped since batch items are recorded on request submission)
@@ -179,6 +203,7 @@ export const useGenerationHistory = () => {
         aspectRatio: newItem.aspectRatio,
         resolution: newItem.resolution,
         prompt: newItem.prompt,
+        source: mediaType === '3d' ? 'tripo_3d' : (generationMode === 'batch' ? 'batch_api' : 'image_generation'),
         generationMode,
       });
     }

@@ -294,6 +294,8 @@ const HelpPanel: React.FC<HelpPanelProps> = ({ buttonClassName, iconClassName })
       { key: 'Shift+V', description: t('node.title.script_viewer') },
       { key: 'Shift+Q', description: t('node.title.image_sequence_generator') },
       { key: 'Shift+T', description: t('node.title.three_d_generator') },
+      { key: 'Shift+G', description: t('node.title.three_d_viewer') },
+      { key: 'Shift+D', description: t('node.title.batch_prepare') },
       { key: 'Ctrl+Shift+C', description: t('node.title.character_card') },
       { key: 'Ctrl+Shift+A', description: t('node.title.character_analyzer') },
     ],

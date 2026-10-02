@@ -9,7 +9,13 @@ import {
     isOpenAiEnabled, 
     setOpenAiEnabled, 
     getOpenAiApiKey, 
-    setOpenAiApiKey 
+    setOpenAiApiKey,
+    isTripoEnabled,
+    setTripoEnabled,
+    getTripoApiKey,
+    setTripoApiKey,
+    getTripoModelVersion,
+    setTripoModelVersion
 } from '../services/modelConfig';
 
 interface WelcomeScreenProps {
@@ -30,6 +36,10 @@ interface WelcomeContentProps {
     setOpenAiEnabledState: (enabled: boolean) => void;
     openAiApiKey: string;
     setOpenAiApiKeyState: (key: string) => void;
+    tripoEnabled: boolean;
+    setTripoEnabledState: (enabled: boolean) => void;
+    tripoApiKey: string;
+    setTripoApiKeyState: (key: string) => void;
     onSelectLanguage: (code: LanguageCode) => void;
     onStart: () => void;
     onStartNew?: () => void;
@@ -51,6 +61,10 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
     setOpenAiEnabledState,
     openAiApiKey,
     setOpenAiApiKeyState,
+    tripoEnabled,
+    setTripoEnabledState,
+    tripoApiKey,
+    setTripoApiKeyState,
     onSelectLanguage,
     onStart,
     onStartNew,
@@ -67,6 +81,7 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
     const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
     const [showGeminiKey, setShowGeminiKey] = useState(false);
     const [showOpenAiKey, setShowOpenAiKey] = useState(false);
+    const [showTripoKey, setShowTripoKey] = useState(false);
     const langMenuRef = useRef<HTMLDivElement>(null);
 
     const hasGeminiKey = Boolean(apiKey && apiKey.trim().length > 0);
@@ -292,10 +307,10 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
 
             {/* SCREEN 2: DEDICATED SETUP & PREFERENCES PANEL */}
             {screenMode === 'setup' && (
-                <div className="w-full max-w-xl animate-in fade-in zoom-in-95 duration-300 app-region-no-drag">
+                <div className="w-full max-w-xl animate-in fade-in zoom-in-95 duration-300 app-region-no-drag flex flex-col">
                     
                     {/* Compact Brand Header */}
-                    <div className="flex items-center justify-between mb-4 px-2">
+                    <div className="flex items-center justify-between mb-3 px-2 flex-shrink-0">
                         <button
                             type="button"
                             onClick={() => setScreenMode('hero')}
@@ -317,11 +332,11 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
                         </div>
                     </div>
 
-                    {/* Settings Panel Glass Card */}
-                    <div className="relative w-full bg-gray-800/90 backdrop-blur-2xl rounded-3xl border border-gray-700/90 shadow-2xl p-6 sm:p-8 space-y-6 text-left">
+                    {/* Settings Panel Glass Card (Fixed Size with Internal Scrolling) */}
+                    <div className="relative w-full bg-gray-800/90 backdrop-blur-2xl rounded-3xl border border-gray-700/90 shadow-2xl p-5 sm:p-7 flex flex-col h-[560px] max-h-[80vh] min-h-[440px] text-left overflow-hidden">
                         
-                        {/* Panel Title & Note */}
-                        <div className="space-y-1 pb-3 border-b border-gray-700/60">
+                        {/* Panel Title & Note (Fixed Header) */}
+                        <div className="space-y-1 pb-3 border-b border-gray-700/60 flex-shrink-0">
                             <h3 className="text-lg font-bold text-white tracking-tight">
                                 {t('welcome.setupAndLaunch')}
                             </h3>
@@ -330,239 +345,319 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
                             </p>
                         </div>
 
-                        {/* Language Selection */}
-                        <div className="space-y-2 relative z-50">
-                            <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider">
-                                {t('welcome.selectLanguage' as TranslationKey) || 'Language'}
-                            </label>
+                        {/* Scrollable Content Container */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar py-3 pr-1.5 space-y-4 min-h-0">
+                            {/* Language Selection */}
+                            <div className="space-y-2 relative z-50">
+                                <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider">
+                                    {t('welcome.selectLanguage' as TranslationKey) || 'Language'}
+                                </label>
 
-                            <div ref={langMenuRef} className="relative">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-                                    className="w-full py-2.5 px-3.5 rounded-xl bg-gray-900/80 border border-gray-600 hover:border-cyan-500 hover:bg-gray-800 transition-all duration-200 text-left flex items-center justify-between group outline-none focus:ring-2 focus:ring-cyan-500/50"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-xs font-bold text-gray-200 border border-gray-600 group-hover:border-cyan-400/50 transition-colors">
-                                            {selectedLangInfo.short}
-                                        </div>
-                                        <span className="text-sm font-medium text-white">
-                                            {selectedLangInfo.nativeName} <span className="text-gray-400 text-xs ml-1">({selectedLangInfo.name})</span>
-                                        </span>
-                                    </div>
-                                    <svg 
-                                        xmlns="http://www.w3.org/2000/svg" 
-                                        className={`h-4 w-4 text-gray-400 transition-transform duration-300 ${isLangMenuOpen ? 'rotate-180 text-cyan-400' : ''}`} 
-                                        fill="none" 
-                                        viewBox="0 0 24 24" 
-                                        stroke="currentColor" 
-                                        strokeWidth={2}
+                                <div ref={langMenuRef} className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                                        className="w-full py-2.5 px-3.5 rounded-xl bg-gray-900/80 border border-gray-600 hover:border-cyan-500 hover:bg-gray-800 transition-all duration-200 text-left flex items-center justify-between group outline-none focus:ring-2 focus:ring-cyan-500/50"
                                     >
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-xs font-bold text-gray-200 border border-gray-600 group-hover:border-cyan-400/50 transition-colors">
+                                                {selectedLangInfo.short}
+                                            </div>
+                                            <span className="text-sm font-medium text-white">
+                                                {selectedLangInfo.nativeName} <span className="text-gray-400 text-xs ml-1">({selectedLangInfo.name})</span>
+                                            </span>
+                                        </div>
+                                        <svg 
+                                            xmlns="http://www.w3.org/2000/svg" 
+                                            className={`h-4 w-4 text-gray-400 transition-transform duration-300 ${isLangMenuOpen ? 'rotate-180 text-cyan-400' : ''}`} 
+                                            fill="none" 
+                                            viewBox="0 0 24 24" 
+                                            stroke="currentColor" 
+                                            strokeWidth={2}
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
 
-                                {isLangMenuOpen && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 p-1.5 bg-gray-900/95 border border-gray-700 rounded-2xl shadow-2xl backdrop-blur-xl z-50 max-h-56 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-150">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                                            {(Object.keys(languages) as LanguageCode[]).map((code) => {
-                                                const lang = languages[code];
-                                                const isSelected = language === code;
-                                                return (
+                                    {isLangMenuOpen && (
+                                        <div className="absolute top-full left-0 right-0 mt-2 p-1.5 bg-gray-900/95 border border-gray-700 rounded-2xl shadow-2xl backdrop-blur-xl z-50 max-h-56 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-150">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                                {(Object.keys(languages) as LanguageCode[]).map((code) => {
+                                                    const lang = languages[code];
+                                                    const isSelected = language === code;
+                                                    return (
+                                                        <button
+                                                            key={code}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                onSelectLanguage(code);
+                                                                setIsLangMenuOpen(false);
+                                                            }}
+                                                            className={`w-full p-2 rounded-xl flex items-center gap-2.5 transition-all duration-150 text-left ${
+                                                                isSelected 
+                                                                    ? 'bg-gradient-to-r from-cyan-950 to-blue-950 border border-cyan-500/50 text-white shadow-sm' 
+                                                                    : 'hover:bg-gray-800/80 text-gray-300 hover:text-white border border-transparent'
+                                                            }`}
+                                                        >
+                                                            <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                                                                isSelected ? 'bg-cyan-500 text-black' : 'bg-gray-800 text-gray-400'
+                                                            }`}>
+                                                                {lang.short}
+                                                            </div>
+                                                            <div className="flex flex-col min-w-0 flex-1">
+                                                                <span className="text-xs font-semibold truncate leading-tight">{lang.nativeName}</span>
+                                                                <span className="text-[10px] text-gray-400 truncate leading-tight">{lang.name}</span>
+                                                            </div>
+                                                            {isSelected && (
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-cyan-400 ml-auto flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                                </svg>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Google Gemini API Key */}
+                            <div className="space-y-2.5 p-4 rounded-2xl bg-gray-900/80 border border-gray-700/80">
+                                <div className="flex items-center justify-between">
+                                    <label htmlFor="settings-gemini-key-input" className="text-xs font-bold text-gray-200 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                                        <span>{t('welcome.geminiProvider')}</span>
+                                        <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono">
+                                            Primary
+                                        </span>
+                                    </label>
+                                    <a 
+                                        href="https://aistudio.google.com/app/apikey" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 font-medium transition-colors"
+                                    >
+                                        <span>{t('welcome.getKeyLink')}</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                    </a>
+                                </div>
+
+                                <div className="relative">
+                                    <input
+                                        id="settings-gemini-key-input"
+                                        type={showGeminiKey ? 'text' : 'password'}
+                                        value={apiKey}
+                                        onChange={(e) => setApiKey(e.target.value)}
+                                        placeholder={t('welcome.apiKeyPlaceholder')}
+                                        autoFocus
+                                        className="w-full py-2.5 pl-3.5 pr-20 bg-gray-950/90 border border-gray-600 rounded-xl text-white text-sm outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all font-mono placeholder-gray-500 shadow-inner"
+                                    />
+                                    
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                        {apiKey && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setApiKey('')}
+                                                className="p-1 text-gray-400 hover:text-gray-200 transition-colors"
+                                                title="Clear"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowGeminiKey(!showGeminiKey)}
+                                            className="p-1 text-gray-400 hover:text-cyan-400 transition-colors"
+                                            title={showGeminiKey ? t('welcome.hideKey') : t('welcome.showKey')}
+                                        >
+                                            {showGeminiKey ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>{t('welcome.apiKeyHelp')}</span>
+                                </p>
+                            </div>
+
+                            {/* Optional OpenAI API */}
+                            <div className="space-y-3 p-4 rounded-2xl bg-gray-900/50 border border-gray-700/60">
+                                <div className="flex items-center justify-between">
+                                    <CustomCheckbox
+                                        checked={openAiEnabled}
+                                        onChange={(checked) => setOpenAiEnabledState(checked)}
+                                        label={t('welcome.openaiToggleLabel')}
+                                    />
+                                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700 font-mono">
+                                        Optional
+                                    </span>
+                                </div>
+
+                                {openAiEnabled && (
+                                    <div className="space-y-2 pt-2 border-t border-gray-800 animate-in fade-in slide-in-from-top-2 duration-150">
+                                        <div className="flex items-center justify-between">
+                                            <label htmlFor="settings-openai-key-input" className="text-xs font-semibold text-gray-300">
+                                                {t('welcome.openaiApiKeyLabel')}
+                                            </label>
+                                            <a 
+                                                href="https://platform.openai.com/api-keys" 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 font-medium transition-colors"
+                                            >
+                                                <span>{t('welcome.openaiGetKeyLink')}</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                            </a>
+                                        </div>
+
+                                        <div className="relative">
+                                            <input
+                                                id="settings-openai-key-input"
+                                                type={showOpenAiKey ? 'text' : 'password'}
+                                                value={openAiApiKey}
+                                                onChange={(e) => setOpenAiApiKeyState(e.target.value)}
+                                                placeholder={t('welcome.openaiApiKeyPlaceholder')}
+                                                className="w-full py-2.5 pl-3.5 pr-20 bg-gray-950/90 border border-gray-600 rounded-xl text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-mono placeholder-gray-500 shadow-inner"
+                                            />
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                                {openAiApiKey && (
                                                     <button
-                                                        key={code}
                                                         type="button"
-                                                        onClick={() => {
-                                                            onSelectLanguage(code);
-                                                            setIsLangMenuOpen(false);
-                                                        }}
-                                                        className={`w-full p-2 rounded-xl flex items-center gap-2.5 transition-all duration-150 text-left ${
-                                                            isSelected 
-                                                                ? 'bg-gradient-to-r from-cyan-950 to-blue-950 border border-cyan-500/50 text-white shadow-sm' 
-                                                                : 'hover:bg-gray-800/80 text-gray-300 hover:text-white border border-transparent'
-                                                        }`}
+                                                        onClick={() => setOpenAiApiKeyState('')}
+                                                        className="p-1 text-gray-400 hover:text-gray-200 transition-colors"
+                                                        title="Clear"
                                                     >
-                                                        <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                                                            isSelected ? 'bg-cyan-500 text-black' : 'bg-gray-800 text-gray-400'
-                                                        }`}>
-                                                            {lang.short}
-                                                        </div>
-                                                        <div className="flex flex-col min-w-0 flex-1">
-                                                            <span className="text-xs font-semibold truncate leading-tight">{lang.nativeName}</span>
-                                                            <span className="text-[10px] text-gray-400 truncate leading-tight">{lang.name}</span>
-                                                        </div>
-                                                        {isSelected && (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-cyan-400 ml-auto flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                            </svg>
-                                                        )}
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                        </svg>
                                                     </button>
-                                                );
-                                            })}
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowOpenAiKey(!showOpenAiKey)}
+                                                    className="p-1 text-gray-400 hover:text-emerald-400 transition-colors"
+                                                    title={showOpenAiKey ? t('welcome.hideKey') : t('welcome.showKey')}
+                                                >
+                                                    {showOpenAiKey ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Optional TRIPO AI API */}
+                            <div className="space-y-3 p-4 rounded-2xl bg-gray-900/50 border border-gray-700/60">
+                                <div className="flex items-center justify-between">
+                                    <CustomCheckbox
+                                        checked={tripoEnabled}
+                                        onChange={(checked) => setTripoEnabledState(checked)}
+                                        label={t('welcome.tripoToggleLabel')}
+                                    />
+                                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-950/70 text-purple-300 border border-purple-800 font-mono">
+                                        Optional (3D)
+                                    </span>
+                                </div>
+
+                                {tripoEnabled && (
+                                    <div className="space-y-2 pt-2 border-t border-gray-800 animate-in fade-in slide-in-from-top-2 duration-150">
+                                        <div className="flex items-center justify-between">
+                                            <label htmlFor="settings-tripo-key-input" className="text-xs font-semibold text-gray-300">
+                                                {t('welcome.tripoApiKeyLabel')}
+                                            </label>
+                                            <a 
+                                                href="https://platform.tripo3d.ai" 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-xs text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1 font-medium transition-colors"
+                                            >
+                                                <span>{t('welcome.tripoGetKeyLink')}</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                            </a>
+                                        </div>
+
+                                        <div className="relative">
+                                            <input
+                                                id="settings-tripo-key-input"
+                                                type={showTripoKey ? 'text' : 'password'}
+                                                value={tripoApiKey}
+                                                onChange={(e) => setTripoApiKeyState(e.target.value)}
+                                                placeholder={t('welcome.tripoApiKeyPlaceholder')}
+                                                className="w-full py-2.5 pl-3.5 pr-20 bg-gray-950/90 border border-gray-600 rounded-xl text-white text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all font-mono placeholder-gray-500 shadow-inner"
+                                            />
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                                {tripoApiKey && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setTripoApiKeyState('')}
+                                                        className="p-1 text-gray-400 hover:text-gray-200 transition-colors"
+                                                        title="Clear"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowTripoKey(!showTripoKey)}
+                                                    className="p-1 text-gray-400 hover:text-purple-400 transition-colors"
+                                                    title={showTripoKey ? t('welcome.hideKey') : t('welcome.showKey')}
+                                                >
+                                                    {showTripoKey ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* Google Gemini API Key */}
-                        <div className="space-y-2.5 p-4 rounded-2xl bg-gray-900/80 border border-gray-700/80">
-                            <div className="flex items-center justify-between">
-                                <label htmlFor="settings-gemini-key-input" className="text-xs font-bold text-gray-200 flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-                                    <span>{t('welcome.geminiProvider')}</span>
-                                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono">
-                                        Primary
-                                    </span>
-                                </label>
-                                <a 
-                                    href="https://aistudio.google.com/app/apikey" 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 font-medium transition-colors"
-                                >
-                                    <span>{t('welcome.getKeyLink')}</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
-                                </a>
-                            </div>
-
-                            <div className="relative">
-                                <input
-                                    id="settings-gemini-key-input"
-                                    type={showGeminiKey ? 'text' : 'password'}
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder={t('welcome.apiKeyPlaceholder')}
-                                    autoFocus
-                                    className="w-full py-2.5 pl-3.5 pr-20 bg-gray-950/90 border border-gray-600 rounded-xl text-white text-sm outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all font-mono placeholder-gray-500 shadow-inner"
-                                />
-                                
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                    {apiKey && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setApiKey('')}
-                                            className="p-1 text-gray-400 hover:text-gray-200 transition-colors"
-                                            title="Clear"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowGeminiKey(!showGeminiKey)}
-                                        className="p-1 text-gray-400 hover:text-cyan-400 transition-colors"
-                                        title={showGeminiKey ? t('welcome.hideKey') : t('welcome.showKey')}
-                                    >
-                                        {showGeminiKey ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                                            </svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                </svg>
-                                <span>{t('welcome.apiKeyHelp')}</span>
-                            </p>
-                        </div>
-
-                        {/* Optional OpenAI API */}
-                        <div className="space-y-3 p-4 rounded-2xl bg-gray-900/50 border border-gray-700/60">
-                            <div className="flex items-center justify-between">
-                                <CustomCheckbox
-                                    checked={openAiEnabled}
-                                    onChange={(checked) => setOpenAiEnabledState(checked)}
-                                    label={t('welcome.openaiToggleLabel')}
-                                />
-                                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700 font-mono">
-                                    Optional
-                                </span>
-                            </div>
-
-                            {openAiEnabled && (
-                                <div className="space-y-2 pt-2 border-t border-gray-800 animate-in fade-in slide-in-from-top-2 duration-150">
-                                    <div className="flex items-center justify-between">
-                                        <label htmlFor="settings-openai-key-input" className="text-xs font-semibold text-gray-300">
-                                            {t('welcome.openaiApiKeyLabel')}
-                                        </label>
-                                        <a 
-                                            href="https://platform.openai.com/api-keys" 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 font-medium transition-colors"
-                                        >
-                                            <span>{t('welcome.openaiGetKeyLink')}</span>
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                            </svg>
-                                        </a>
-                                    </div>
-
-                                    <div className="relative">
-                                        <input
-                                            id="settings-openai-key-input"
-                                            type={showOpenAiKey ? 'text' : 'password'}
-                                            value={openAiApiKey}
-                                            onChange={(e) => setOpenAiApiKeyState(e.target.value)}
-                                            placeholder={t('welcome.openaiApiKeyPlaceholder')}
-                                            className="w-full py-2.5 pl-3.5 pr-20 bg-gray-950/90 border border-gray-600 rounded-xl text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-mono placeholder-gray-500 shadow-inner"
-                                        />
-                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                            {openAiApiKey && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOpenAiApiKeyState('')}
-                                                    className="p-1 text-gray-400 hover:text-gray-200 transition-colors"
-                                                    title="Clear"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                                    </svg>
-                                                </button>
-                                            )}
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowOpenAiKey(!showOpenAiKey)}
-                                                className="p-1 text-gray-400 hover:text-emerald-400 transition-colors"
-                                                title={showOpenAiKey ? t('welcome.hideKey') : t('welcome.showKey')}
-                                            >
-                                                {showOpenAiKey ? (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                                                    </svg>
-                                                ) : (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                    </svg>
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                        {/* Action Buttons (Fixed Footer) */}
+                        <div className="pt-3 border-t border-gray-700/60 flex flex-col sm:flex-row gap-3 flex-shrink-0">
                             <button
                                 type="button"
                                 onClick={onStart}
-                                className="flex-1 py-3.5 px-6 text-base font-bold text-white btn-gradient-animated rounded-xl shadow-lg shadow-cyan-950/50 hover:shadow-cyan-500/20 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2 group border border-cyan-300/30"
+                                className="flex-1 py-3 px-6 text-base font-bold text-white btn-gradient-animated rounded-xl shadow-lg shadow-cyan-950/50 hover:shadow-cyan-500/20 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2 group border border-cyan-300/30"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-cyan-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -573,7 +668,7 @@ const WelcomeContent: React.FC<WelcomeContentProps> = ({
                             <button
                                 type="button"
                                 onClick={() => setScreenMode('hero')}
-                                className="py-3.5 px-5 border border-gray-600 hover:border-gray-400 bg-gray-900/50 hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-1.5"
+                                className="py-3 px-5 border border-gray-600 hover:border-gray-400 bg-gray-900/50 hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-1.5"
                             >
                                 <span>{t('welcome.back')}</span>
                             </button>
@@ -595,6 +690,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
   const [apiKey, setApiKey] = useState('');
   const [openAiEnabled, setOpenAiEnabledState] = useState<boolean>(() => isOpenAiEnabled());
   const [openAiApiKey, setOpenAiApiKeyState] = useState<string>(() => getOpenAiApiKey());
+  const [tripoEnabled, setTripoEnabledState] = useState<boolean>(() => isTripoEnabled());
+  const [tripoApiKey, setTripoApiKeyState] = useState<string>(() => getTripoApiKey());
 
   // Screen Mode: 'hero' (Big Animated Title + Clean Button) vs 'setup' (Panel)
   const [screenMode, setScreenMode] = useState<ScreenMode>('hero');
@@ -713,6 +810,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
     setOpenAiEnabled(openAiEnabled);
     if (openAiApiKey.trim()) {
       setOpenAiApiKey(openAiApiKey.trim());
+    }
+    setTripoEnabled(tripoEnabled);
+    if (tripoApiKey.trim()) {
+      setTripoApiKey(tripoApiKey.trim());
     }
 
     if (performReset && context) {
@@ -865,6 +966,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onClose, isResumable = fa
                     setOpenAiEnabledState={setOpenAiEnabledState}
                     openAiApiKey={openAiApiKey}
                     setOpenAiApiKeyState={setOpenAiApiKeyState}
+                    tripoEnabled={tripoEnabled}
+                    setTripoEnabledState={setTripoEnabledState}
+                    tripoApiKey={tripoApiKey}
+                    setTripoApiKeyState={setTripoApiKeyState}
                     onSelectLanguage={handleSelectLanguage}
                     onStart={handleStandardStart}
                     onStartNew={handleStartNew}

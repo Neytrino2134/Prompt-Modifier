@@ -252,6 +252,51 @@ export const StatisticsTab: React.FC<StatisticsTabProps> = ({ onOpenDetailedModa
         </div>
       </div>
 
+      {/* 3D Models Section (Tripo AI API) */}
+      <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-900/40 space-y-3 shadow-inner">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-1.5">
+            <span className="text-base">🧊</span>
+            <span className="text-xs font-semibold text-purple-200">
+              {t('stats.threeDModelsTitle') || '3D Модели (Tripo API)'}
+            </span>
+          </div>
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-purple-900/40 text-purple-300 border border-purple-800/60 font-bold">
+            {generalOverview.threeDStats?.totalCount ?? 0} {t('stats.modelsUnit') || 'моделей'}
+          </span>
+        </div>
+
+        {/* 3D Models Breakdown (Tripo H3.1, Tripo P1, Others) */}
+        <div className="space-y-2">
+          {(generalOverview.threeDStats?.items || []).map(item => (
+            <div key={item.id} className="space-y-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="w-2 h-2 rounded-full inline-block"
+                    style={{ backgroundColor: item.barColor }}
+                  />
+                  <span className="text-gray-300 font-medium">{item.label}</span>
+                </span>
+                <span className="font-mono text-gray-400 text-[11px]">
+                  <span className="text-white font-semibold">{item.count}</span>
+                  <span className="text-gray-500 ml-1">({item.percentage}%)</span>
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-gray-900 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.max(item.count > 0 ? 3 : 0, item.percentage)}%`,
+                    backgroundColor: item.barColor,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Model Categories Breakdown */}
       <div className="p-3.5 rounded-xl bg-gray-850 bg-gray-800/40 border border-gray-800 space-y-3">
         <div className="flex justify-between items-center">

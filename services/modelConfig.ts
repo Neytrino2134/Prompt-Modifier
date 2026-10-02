@@ -16,7 +16,11 @@ import {
     setTripoModelVersion,
     TRIPO_CONFIG_CHANGE_EVENT,
     notifyTripoConfigChanged,
-    useTripoEnabled
+    useTripoEnabled,
+    TRIPO_MODEL_OPTIONS,
+    type TripoModelOption,
+    getTripoModelOption,
+    DEFAULT_TRIPO_MODEL_VERSION
 } from './tripoService';
 
 export { 
@@ -34,7 +38,11 @@ export {
     setTripoModelVersion,
     TRIPO_CONFIG_CHANGE_EVENT,
     notifyTripoConfigChanged,
-    useTripoEnabled
+    useTripoEnabled,
+    TRIPO_MODEL_OPTIONS,
+    type TripoModelOption,
+    getTripoModelOption,
+    DEFAULT_TRIPO_MODEL_VERSION
 };
 
 export type LLMMode = 'flash' | 'pro';

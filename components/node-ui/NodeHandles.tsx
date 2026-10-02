@@ -152,6 +152,11 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
              handles = [{ handleId: 'prompt_data', type: 'text', title: 'Prompt Data Input' }];
         } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
              handles = [{ handleId: 'prompts_sequence', type: 'text', title: 'Prompts Sequence Input' }];
+        } else if (node.type === NodeType.THREE_D_GENERATOR || node.type === NodeType.THREE_D_VIEWER || node.type === NodeType.BATCH_PREPARE) {
+             handles = [
+                 { handleId: 'image', type: 'image', title: 'Image / 3D Model Input' },
+                 { handleId: 'text', type: 'text', title: 'Text / URL Input' }
+             ];
         } else if (node.type === NodeType.VIDEO_EDITOR) {
              handles = [
                  { handleId: 'video', type: 'video', title: 'Video Input' }, 
@@ -274,31 +279,13 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
         const y = HEADER_HEIGHT + 410;
         return renderHandle({ type: 'image', handleId: 'image', title: 'Image / Batch Input' }, `${y}px`, 'image');
     }
-    if (node.type === NodeType.THREE_D_GENERATOR) {
-        let mode = 'multiview_to_3d';
-        try {
-            const val = JSON.parse(node.value || '{}');
-            if (val.mode) mode = val.mode;
-        } catch {}
-
-        if (mode === 'image_to_3d') {
-            return (
-                <>
-                    {renderHandle({ type: 'image', handleId: 'image', title: 'Image Input (1 Slot)' }, '35%', 'threed_input_image')}
-                    {renderHandle({ type: 'text', handleId: 'text', title: 'Prompt / Guidance Text Input' }, '75%', 'threed_input_text')}
-                </>
-            );
-        } else {
-            return (
-                <>
-                    {renderHandle({ type: 'image', handleId: 'front', title: 'Front View Image (Required)' }, '20%', 'threed_front')}
-                    {renderHandle({ type: 'image', handleId: 'left', title: 'Left View Image' }, '38%', 'threed_left')}
-                    {renderHandle({ type: 'image', handleId: 'back', title: 'Back View Image' }, '56%', 'threed_back')}
-                    {renderHandle({ type: 'image', handleId: 'right', title: 'Right View Image' }, '74%', 'threed_right')}
-                    {renderHandle({ type: 'text', handleId: 'text', title: 'Prompt / Guidance Text Input' }, '90%', 'threed_text')}
-                </>
-            );
-        }
+    if (node.type === NodeType.THREE_D_GENERATOR || node.type === NodeType.THREE_D_VIEWER || node.type === NodeType.BATCH_PREPARE) {
+        return (
+            <>
+                {renderHandle({ type: 'image', handleId: 'image', title: 'Image / 3D Model Input' }, '35%', 'threed_input_image')}
+                {renderHandle({ type: 'text', handleId: 'text', title: 'Prompt / URL / Text Input' }, '75%', 'threed_input_text')}
+            </>
+        );
     }
 
     const inputType = getInputHandleType(node, undefined);
@@ -505,11 +492,29 @@ export const OutputHandles: React.FC<HandleProps> = ({ node, getHandleColor, han
          return renderHandle({ type: 'image', handleId: 'all_images', title: 'All Images' }, '50%', 'all_images');
     }
     
+    if (node.type === NodeType.THREE_D_VIEWER) {
+        return (
+            <>
+                {renderHandle({ type: 'text', handleId: 'text', title: '3D Model GLB Path / URL Output' }, '35%', 'threed_viewer_out_glb')}
+                {renderHandle({ type: 'image', handleId: 'image', title: 'Rendered Snapshot Image Output' }, '65%', 'threed_viewer_out_img')}
+            </>
+        );
+    }
+    
     if (node.type === NodeType.THREE_D_GENERATOR) {
         return (
             <>
                 {renderHandle({ type: 'text', handleId: 'text', title: '3D Model GLB URL Output' }, '35%', 'threed_out_glb')}
                 {renderHandle({ type: 'image', handleId: 'image', title: '2D Rendered Image / Thumbnail Output' }, '65%', 'threed_out_img')}
+            </>
+        );
+    }
+    
+    if (node.type === NodeType.BATCH_PREPARE) {
+        return (
+            <>
+                {renderHandle({ type: 'image', handleId: 'image', title: 'Active 4-View Multichannel Output (Front, Back, Left, Right)' }, '50%', 'batchprep_out_multiview')}
+                {renderHandle({ type: 'text', handleId: 'text', title: 'Pack Prompt & Name Output' }, '75%', 'batchprep_out_text')}
             </>
         );
     }

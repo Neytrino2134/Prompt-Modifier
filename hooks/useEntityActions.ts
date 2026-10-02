@@ -257,6 +257,8 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             [NodeType.DATA_PROTECTION]: t('node.title.data_protection'),
             [NodeType.POSE_CREATOR]: t('node.title.pose_creator'),
             [NodeType.THREE_D_GENERATOR]: t('node.title.three_d_generator' as any) || '3D Generation',
+            [NodeType.THREE_D_VIEWER]: t('node.title.three_d_viewer' as any) || '3D Viewer (GLB / glTF)',
+            [NodeType.BATCH_PREPARE]: t('node.title.batch_prepare' as any) || '3D Batch Prepare',
         };
 
         const newNode: Node = {
@@ -268,6 +270,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
 
         switch (type) {
             case NodeType.IMAGE_EDITOR: newNode.width = 1420; newNode.height = 920; break;
+            case NodeType.BATCH_PREPARE: newNode.width = 1420; newNode.height = 820; break;
             case NodeType.PROMPT_ANALYZER: newNode.width = 460; newNode.height = 1000; break;
             case NodeType.IMAGE_INPUT: newNode.width = 520; newNode.height = 920; break;
             case NodeType.IMAGE_ANALYZER: case NodeType.VIDEO_OUTPUT: newNode.width = 460; newNode.height = 680; break;
@@ -300,7 +303,8 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             case NodeType.DATA_PROTECTION: newNode.width = 800; newNode.height = 600; break;
             case NodeType.VIDEO_EDITOR: newNode.width = 920; newNode.height = 640; break;
             case NodeType.POSE_CREATOR: newNode.width = 600; newNode.height = 800; break;
-            case NodeType.THREE_D_GENERATOR: newNode.width = 780; newNode.height = 560; break;
+            case NodeType.THREE_D_GENERATOR: newNode.width = 1100; newNode.height = 820; break;
+            case NodeType.THREE_D_VIEWER: newNode.width = 560; newNode.height = 680; break;
             default: newNode.width = 460; newNode.height = 280;
         }
 

@@ -20,7 +20,9 @@ export const isRestrictedDockingNode = (type: NodeType): boolean => {
         NodeType.PROMPT_SEQUENCE_EDITOR,
         NodeType.IMAGE_SEQUENCE_GENERATOR,
         NodeType.POSE_CREATOR,
-        NodeType.THREE_D_GENERATOR
+        NodeType.THREE_D_GENERATOR,
+        NodeType.THREE_D_VIEWER,
+        NodeType.BATCH_PREPARE
     ].includes(type);
 };
 
@@ -160,6 +162,12 @@ export const getOutputHandleType = (node: Node, handleId?: string): 'text' | 'im
         case NodeType.THREE_D_GENERATOR:
             if (handleId === 'image') return 'image';
             return 'text';
+        case NodeType.THREE_D_VIEWER:
+            if (handleId === 'image') return 'image';
+            return 'text';
+        case NodeType.BATCH_PREPARE:
+            if (handleId === 'text') return 'text';
+            return 'image';
         default: return null;
     }
 };
@@ -213,6 +221,12 @@ export const getInputHandleType = (node: Node, handleId?: string): 'text' | 'ima
         case NodeType.THREE_D_GENERATOR:
             if (handleId === 'text') return 'text';
             return 'image';
+        case NodeType.THREE_D_VIEWER:
+            if (handleId === 'text') return 'text';
+            return 'image';
+        case NodeType.BATCH_PREPARE:
+            if (handleId === 'text') return 'text';
+            return 'image';
         default: return null;
     }
 };
@@ -220,15 +234,44 @@ export const getInputHandleType = (node: Node, handleId?: string): 'text' | 'ima
 export const getEmptyValueForNodeType = (node: Node): string => {
     const { type } = node;
     switch (type) {
+        case NodeType.BATCH_PREPARE:
+            return JSON.stringify({
+                inputImages: [],
+                selectedInputIndex: 0,
+                gridConfig: { preset: '1x4', cols: 4, rows: 1 },
+                slicedImages: [],
+                selectedSliceIndex: null,
+                activeViews: { front: null, back: null, left: null, right: null },
+                multiview: { front: null, back: null, left: null, right: null },
+                activePackId: null,
+                packs: []
+            });
+        case NodeType.THREE_D_VIEWER:
+            return JSON.stringify({
+                modelUrl: '',
+                modelName: 'Model.glb',
+                autoRotate: true,
+                autoRotateSpeed: 1.5,
+                cameraControls: true,
+                environmentImage: 'neutral',
+                shadowIntensity: 1,
+                exposure: 1,
+                backgroundColor: '#111827',
+                wireframe: false,
+                currentAnimation: '',
+                sourceNodeId: null,
+                previewScreenshot: null
+            });
         case NodeType.THREE_D_GENERATOR:
             return JSON.stringify({
                 mode: 'multiview_to_3d',
-                modelVersion: 'v2.5-20250123',
+                modelVersion: 'v3.1-20260211',
                 texture: true,
                 textureQuality: 'standard',
                 textureAlignment: 'original_image',
-                pbr: true,
+                pbr: false,
                 quadMesh: false,
+                faceLimit: 2000000,
                 prompt: '',
                 image: null,
                 multiview: { front: null, left: null, back: null, right: null },
@@ -320,16 +363,39 @@ export const getDuplicatedValueForNodeType = (node: Node): string => {
              case NodeType.PROMPT_SEQUENCE_EDITOR: return JSON.stringify({ ...parsedEmpty, targetLanguage: parsedOriginal.targetLanguage, modificationModel: parsedOriginal.modificationModel, leftPaneWidth: parsedOriginal.leftPaneWidth || 500 });
              case NodeType.MEDIA_VIEWER: return emptyValue; // Return empty value for Media Viewer duplication
              case NodeType.DATA_PROTECTION: return emptyValue; // Reset game state on duplicate
+             case NodeType.BATCH_PREPARE:
+                return JSON.stringify({
+                    ...parsedEmpty,
+                    gridConfig: parsedOriginal.gridConfig || parsedEmpty.gridConfig,
+                    activeViews: parsedOriginal.activeViews || parsedEmpty.activeViews,
+                    multiview: parsedOriginal.multiview || parsedEmpty.multiview,
+                    packs: parsedOriginal.packs || [],
+                    activePackId: parsedOriginal.activePackId || null
+                });
+             case NodeType.THREE_D_VIEWER:
+                return JSON.stringify({
+                    ...parsedEmpty,
+                    modelUrl: parsedOriginal.modelUrl || '',
+                    modelName: parsedOriginal.modelName || 'Model.glb',
+                    autoRotate: parsedOriginal.autoRotate !== undefined ? parsedOriginal.autoRotate : true,
+                    autoRotateSpeed: parsedOriginal.autoRotateSpeed || 1.5,
+                    environmentImage: parsedOriginal.environmentImage || 'neutral',
+                    shadowIntensity: parsedOriginal.shadowIntensity !== undefined ? parsedOriginal.shadowIntensity : 1,
+                    exposure: parsedOriginal.exposure !== undefined ? parsedOriginal.exposure : 1,
+                    backgroundColor: parsedOriginal.backgroundColor || '#111827',
+                    wireframe: parsedOriginal.wireframe || false,
+                });
              case NodeType.THREE_D_GENERATOR:
                 return JSON.stringify({
                     ...parsedEmpty,
                     mode: parsedOriginal.mode || 'multiview_to_3d',
-                    modelVersion: parsedOriginal.modelVersion || 'v2.5-20250123',
+                    modelVersion: parsedOriginal.modelVersion || 'v3.1-20260211',
                     texture: parsedOriginal.texture !== undefined ? parsedOriginal.texture : true,
                     textureQuality: parsedOriginal.textureQuality || 'standard',
                     textureAlignment: parsedOriginal.textureAlignment || 'original_image',
-                    pbr: parsedOriginal.pbr !== undefined ? parsedOriginal.pbr : true,
+                    pbr: parsedOriginal.pbr !== undefined ? parsedOriginal.pbr : false,
                     quadMesh: parsedOriginal.quadMesh !== undefined ? parsedOriginal.quadMesh : false,
+                    faceLimit: parsedOriginal.faceLimit !== undefined ? parsedOriginal.faceLimit : 2000000,
                     prompt: parsedOriginal.prompt || ''
                 });
             default: return emptyValue;
@@ -343,7 +409,9 @@ export const getDuplicatedValueForNodeType = (node: Node): string => {
 
 export const getMinNodeSize = (nodeType: NodeType): { minWidth: number, minHeight: number } => {
     switch (nodeType) {
-        case NodeType.THREE_D_GENERATOR: return { minWidth: 680, minHeight: 480 };
+        case NodeType.BATCH_PREPARE: return { minWidth: 1420, minHeight: 820 };
+        case NodeType.THREE_D_GENERATOR: return { minWidth: 1100, minHeight: 820 };
+        case NodeType.THREE_D_VIEWER: return { minWidth: 540, minHeight: 620 };
         case NodeType.POSE_CREATOR: return { minWidth: 600, minHeight: 800 };
         case NodeType.VIDEO_EDITOR: return { minWidth: 920, minHeight: 640 };
         case NodeType.TEXT_INPUT: return { minWidth: 460, minHeight: 300 };
@@ -423,6 +491,11 @@ export const getProxyHandles = (node: Node, isInput: boolean): ProxyHandleDefini
             ];
         } else if (node.type === NodeType.CHARACTER_CARD) {
             return [{ handleId: undefined, type: 'text', title: 'Input' }];
+        } else if (node.type === NodeType.THREE_D_GENERATOR || node.type === NodeType.THREE_D_VIEWER || node.type === NodeType.BATCH_PREPARE) {
+            return [
+                { handleId: 'image', type: 'image', title: 'Image' },
+                { handleId: 'text', type: 'text', title: 'Text' }
+            ];
         } else {
             const inputType = getInputHandleType(node, undefined);
             if (inputType !== null || node.type === NodeType.REROUTE_DOT || node.type === NodeType.DATA_READER) {
@@ -434,6 +507,11 @@ export const getProxyHandles = (node: Node, isInput: boolean): ProxyHandleDefini
         const outputType = getOutputHandleType(node, undefined);
         if (node.type === NodeType.IMAGE_EDITOR) {
             return [{ handleId: undefined, type: 'image', title: 'Output' }];
+        } else if (node.type === NodeType.THREE_D_VIEWER) {
+            return [
+                { handleId: 'image', type: 'image', title: 'Rendered Snapshot' },
+                { handleId: 'text', type: 'text', title: 'Model Path / Prompt' }
+            ];
         } else if (node.type === NodeType.IMAGE_INPUT || node.type === NodeType.IMAGE_ANALYZER) {
             return [
                 { handleId: 'image', type: 'image', title: 'Image Output' },
@@ -545,6 +623,14 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                     } else {
                         y = COLLAPSED_NODE_HEIGHT / 2;
                     }
+                } else {
+                    y = COLLAPSED_NODE_HEIGHT / 2;
+                }
+            } else if ((node.type === NodeType.THREE_D_GENERATOR || node.type === NodeType.THREE_D_VIEWER || node.type === NodeType.BATCH_PREPARE) && isInput) {
+                const ids = ['image', 'text'];
+                const handleIndex = ids.indexOf(handleId || 'image');
+                if (handleIndex !== -1) {
+                    y = (handleIndex + 1) * (COLLAPSED_NODE_HEIGHT / (ids.length + 1));
                 } else {
                     y = COLLAPSED_NODE_HEIGHT / 2;
                 }
@@ -702,6 +788,24 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                     }
                 } else {
                     y = h / 2;
+                }
+            } else if ((node.type === NodeType.THREE_D_GENERATOR || node.type === NodeType.THREE_D_VIEWER || node.type === NodeType.BATCH_PREPARE) && isInput) {
+                if (handleId === 'text') {
+                    y = h * 0.75;
+                } else {
+                    y = h * 0.35;
+                }
+            } else if ((node.type === NodeType.THREE_D_GENERATOR || node.type === NodeType.THREE_D_VIEWER) && !isInput) {
+                if (handleId === 'image') {
+                    y = h * 0.65;
+                } else {
+                    y = h * 0.35;
+                }
+            } else if (node.type === NodeType.BATCH_PREPARE && !isInput) {
+                if (handleId === 'text') {
+                    y = h * 0.75;
+                } else {
+                    y = h * 0.5;
                 }
             }
         }

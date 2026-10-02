@@ -187,6 +187,8 @@ export enum NodeType {
   DATA_PROTECTION = 'DATA_PROTECTION',
   POSE_CREATOR = 'POSE_CREATOR',
   THREE_D_GENERATOR = 'THREE_D_GENERATOR',
+  THREE_D_VIEWER = 'THREE_D_VIEWER',
+  BATCH_PREPARE = 'BATCH_PREPARE',
 }
 
 export type LogLevel = 'info' | 'warning' | 'error' | 'success';
@@ -432,7 +434,7 @@ export interface GenerationTask {
     nodeTitle?: string;
     frameIndex?: number;
     prompt: string;
-    type: 'image_edit' | 'image_gen' | 'sequence_frame' | 'character_gen' | 'video_gen';
+    type: 'image_edit' | 'image_gen' | 'sequence_frame' | 'character_gen' | 'video_gen' | 'three_d_gen';
     status: TaskStatus;
     createdAt: number;
     startedAt?: number;

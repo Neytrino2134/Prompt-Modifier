@@ -31,6 +31,16 @@ export const useGlobalState = (currentNodes: Node[]) => {
 
     // Sync buffer to state periodically as a safety fallback
     useEffect(() => {
+        const handleTripoLog = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (customEvent?.detail) {
+                const { level, message, details } = customEvent.detail;
+                addLog(level, `[Tripo 3D] ${message}`, details);
+            }
+        };
+
+        window.addEventListener('tripo-log-event', handleTripoLog);
+
         const interval = setInterval(() => {
             if (logBuffer.current.length > 0) {
                 setLogs(prev => {
@@ -43,8 +53,11 @@ export const useGlobalState = (currentNodes: Node[]) => {
                 });
             }
         }, 1000);
-        return () => clearInterval(interval);
-    }, []);
+        return () => {
+            window.removeEventListener('tripo-log-event', handleTripoLog);
+            clearInterval(interval);
+        };
+    }, [addLog]);
 
     const clearLogs = useCallback(() => {
         logBuffer.current = [];

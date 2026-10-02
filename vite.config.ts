@@ -16,6 +16,26 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 3000,
       strictPort: true,
+      proxy: {
+        '/api/tripo-v3': {
+          target: 'https://openapi.tripo3d.ai/v3',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/tripo-v3/, ''),
+          secure: false,
+          headers: {
+            'Origin': 'https://openapi.tripo3d.ai',
+          },
+        },
+        '/api/tripo': {
+          target: 'https://api.tripo3d.ai/v2/openapi',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/tripo/, ''),
+          secure: false,
+          headers: {
+            'Origin': 'https://api.tripo3d.ai',
+          },
+        },
+      },
     },
     build: {
       outDir: 'dist',

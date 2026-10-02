@@ -443,6 +443,16 @@ export const ThreeDModelIcon = ({ className = "h-5 w-5" }: { className?: string 
     </svg>
 );
 
+export const BatchPrepareIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="9" height="8" rx="1.5" />
+        <rect x="13" y="3" width="9" height="8" rx="1.5" />
+        <rect x="2" y="13" width="9" height="8" rx="1.5" />
+        <rect x="13" y="13" width="9" height="8" rx="1.5" />
+        <path d="M6.5 7h.01M17.5 7h.01M6.5 17h.01M17.5 17h.01" strokeWidth={2.5} />
+    </svg>
+);
+
 export const MonitorIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l2 1h2l2-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -473,6 +483,56 @@ export const SoundMuteIcon = ({ className = "h-5 w-5" }: { className?: string })
 export const BellNotificationIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+    </svg>
+);
+
+export const HeadFrontIcon = ({ className = "h-8 w-8" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 13v2.5C10 18.5 12.5 21 16 21s6-2.5 6-5.5V13" />
+        <path d="M10 13C10 8.5 12.2 6 16 6s6 2.5 6 7" />
+        <path d="M10.5 11.5c2 1 4.5-0.5 5.5-2.5 1.5 2 4.5 2.5 5.5 1" />
+        <path d="M9.5 12.5C8.6 12.5 8 13.2 8 14.2s0.6 1.8 1.5 1.8" />
+        <path d="M22.5 12.5c0.9 0 1.5 0.7 1.5 1.7s-0.6 1.8-1.5 1.8" />
+        <path d="M13 20.8v2.7" />
+        <path d="M19 20.8v2.7" />
+        <path d="M6 28c0-3.5 3.5-4.5 7-4.5h6c3.5 0 7 1 7 4.5" />
+        <path d="M13.5 23.5c1 1.2 3.5 1.2 4.5 0" />
+    </svg>
+);
+
+export const HeadLeftIcon = ({ className = "h-8 w-8" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 6c4 0 6 2.5 6 7 0 3-1.5 5.5-3.5 7.5" />
+        <path d="M14.5 6.5C11 7 9 9.5 9 11.5c0 0.8 0.6 1.2-0.5 2-1 0.7-0.8 2 0.8 2.5 0.8 0.3 1.2 1.5 2.5 2.5 1.5 1.2 3.2 2 4.7 2" />
+        <path d="M10 10.5c2 1 4.5 0 6-1.5" />
+        <path d="M17.5 12.5c0.9 0 1.5 0.7 1.5 1.7s-0.6 1.8-1.5 1.8" />
+        <path d="M12.5 20.5V23.5" />
+        <path d="M18 20.5V23.5" />
+        <path d="M6 28c0-3.5 3.5-4.5 6.5-4.5h6.5c3.5 0 7 1 7 4.5" />
+    </svg>
+);
+
+export const HeadRightIcon = ({ className = "h-8 w-8" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 6c-4 0-6 2.5-6 7 0 3 1.5 5.5 3.5 7.5" />
+        <path d="M17.5 6.5C21 7 23 9.5 23 11.5c0 0.8-0.6 1.2 0.5 2 1 0.7 0.8 2-0.8 2.5-0.8 0.3-1.2 1.5-2.5 2.5-1.5 1.2-3.2 2-4.7 2" />
+        <path d="M22 10.5c-2 1-4.5 0-6-1.5" />
+        <path d="M14.5 12.5c-0.9 0-1.5 0.7-1.5 1.7s0.6 1.8 1.5 1.8" />
+        <path d="M19.5 20.5V23.5" />
+        <path d="M14 20.5V23.5" />
+        <path d="M26 28c0-3.5-3.5-4.5-6.5-4.5h-6.5C9.5 23.5 6 24.5 6 28" />
+    </svg>
+);
+
+export const HeadBackIcon = ({ className = "h-8 w-8" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 14.5C10 8.5 12.2 6 16 6s6 2.5 6 8.5" />
+        <path d="M10.5 14.5C11.5 17.5 13.5 19 16 19s4.5-1.5 5.5-4.5" />
+        <path d="M9.5 12.5C8.6 12.5 8 13.2 8 14.2s0.6 1.8 1.5 1.8" />
+        <path d="M22.5 12.5c0.9 0 1.5 0.7 1.5 1.7s-0.6 1.8-1.5 1.8" />
+        <path d="M12.5 18.5V23.5" />
+        <path d="M19.5 18.5V23.5" />
+        <path d="M6 28c0-3.5 3.5-4.5 6.5-4.5h7c3.5 0 6.5 1 6.5 4.5" />
     </svg>
 );
 

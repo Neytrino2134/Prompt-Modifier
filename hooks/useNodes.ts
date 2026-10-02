@@ -557,8 +557,8 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                             } else if (node.type !== NodeType.TRANSLATOR) {
                                 // Image Input / Analyzer
                                 if (node.type === NodeType.IMAGE_INPUT) {
-                                    if (parsed.mode === 'batch') {
-                                        const existingBatch = Array.isArray(parsed.batchFiles) ? parsed.batchFiles : [];
+                                    const existingBatch = Array.isArray(parsed.batchFiles) ? parsed.batchFiles : [];
+                                    if (parsed.mode === 'batch' || existingBatch.length > 0) {
                                         const nextIdx = existingBatch.length;
                                         const newBatchItem = {
                                             id: `batch-${Date.now()}-${nextIdx}-${Math.random().toString(36).substring(2, 7)}`,
@@ -568,6 +568,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
                                             size: Math.round(dataUrl.length * 0.75)
                                         };
                                         const mergedBatch = [...existingBatch, newBatchItem];
+                                        setFullSizeImage(nodeId, nextIdx, dataUrl);
                                         if (existingBatch.length === 0 || !parsed.image) {
                                             setFullSizeImage(nodeId, 0, dataUrl);
                                             newValue = JSON.stringify({

@@ -45,6 +45,15 @@ export const getNodeIcon = (type: NodeType | null) => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 6a2 2 0 012-2h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6z" />
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
         </svg>;
+      case NodeType.BATCH_PREPARE: return <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="9" height="8" rx="1.5" />
+          <rect x="13" y="3" width="9" height="8" rx="1.5" />
+          <rect x="2" y="13" width="9" height="8" rx="1.5" />
+          <rect x="13" y="13" width="9" height="8" rx="1.5" />
+        </svg>;
+      case NodeType.THREE_D_GENERATOR: return <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+        </svg>;
       default: return <div className="w-3 h-3 rounded-full bg-gray-500"></div>;
     }
 };

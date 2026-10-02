@@ -3,7 +3,7 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { NodeType, Tool } from '../types';
 import { useLanguage, TranslationKey } from '../localization';
 import { useAppContext } from '../contexts/AppContext';
-import { PinIcon, ThreeDModelIcon } from './icons/AppIcons';
+import { PinIcon, ThreeDModelIcon, BatchPrepareIcon } from './icons/AppIcons';
 
 interface QuickAddMenuProps {
   isOpen: boolean;
@@ -244,6 +244,8 @@ const QuickAddMenu: React.FC<QuickAddMenuProps> = ({ isOpen, position, onClose, 
       },
       threed: {
         items: [
+          { type: 'node', id: NodeType.THREE_D_VIEWER, title: t('search.node.three_d_viewer.title' as any) || '3D Viewer (GLB / glTF)', icon: <ThreeDModelIcon className="h-5 w-5 text-cyan-400" /> },
+          { type: 'node', id: NodeType.BATCH_PREPARE, title: t('search.node.batch_prepare.title' as any) || '3D Batch Prepare', icon: <BatchPrepareIcon className="h-5 w-5" /> },
           { type: 'node', id: NodeType.THREE_D_GENERATOR, title: t('search.node.three_d_generator.title' as any) || '3D Generation (Tripo)', icon: <ThreeDModelIcon className="h-5 w-5" /> },
         ]
       },

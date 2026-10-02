@@ -449,8 +449,8 @@ export const sliceImageGrid = (
                             const fullData = canvas.toDataURL('image/png');
                             slices.push(fullData);
 
-                            // Create small thumbnail for UI
-                            const thumb = await generateThumbnail(fullData, 200, 200);
+                            // Create 64x64 thumbnail for lightweight UI preview
+                            const thumb = await generateThumbnail(fullData, 64, 64);
                             thumbs.push(thumb);
                         }
                     }

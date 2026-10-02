@@ -4,7 +4,7 @@ import { NodeType, ToolbarViewMode } from '../types';
 import { useLanguage } from '../localization';
 import { useAppContext } from '../contexts/AppContext';
 import { TutorialTooltip } from './TutorialTooltip';
-import { GoogleDriveIcon, ThreeDModelIcon, GamepadIcon } from './icons/AppIcons'; // Import Drive, 3D, and Gamepad Icon
+import { GoogleDriveIcon, ThreeDModelIcon, GamepadIcon, BatchPrepareIcon } from './icons/AppIcons'; // Import Drive, 3D, Gamepad, and BatchPrepare Icon
 
 interface ToolbarProps {
   onAddNode: (type: NodeType, e: React.MouseEvent) => void;
@@ -332,6 +332,12 @@ const Toolbar: React.FC<ToolbarProps> = ({ onAddNode, onOpenSearch, onToggleCata
 
       {isGroupVisible('threed', viewMode) && (
         <ToolGroup title={t('toolbar.group.threed') || '3D'} isDetached={isDetached} isCompact={isCompact} isModern={isModern}>
+          <ToolButton title={t('toolbar.addThreeDViewer') || '3D GLB Viewer (Shift+G)'} onClick={(e) => onAddNode(NodeType.THREE_D_VIEWER, e)}>
+            <ThreeDModelIcon className="w-5 h-5 text-cyan-400" />
+          </ToolButton>
+          <ToolButton title={t('toolbar.addBatchPrepare') || '3D Batch Prepare (Shift+D)'} onClick={(e) => onAddNode(NodeType.BATCH_PREPARE, e)}>
+            <BatchPrepareIcon className="w-5 h-5" />
+          </ToolButton>
           <ToolButton title={t('toolbar.addThreeDGenerator') || 'Add 3D Generation Tripo (Shift+T)'} onClick={(e) => onAddNode(NodeType.THREE_D_GENERATOR, e)}>
             <ThreeDModelIcon className="w-5 h-5" />
           </ToolButton>

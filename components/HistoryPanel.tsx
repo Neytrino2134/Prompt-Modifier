@@ -327,7 +327,15 @@ export const HistoryPanel: React.FC = () => {
                     >
                       {/* Card Header */}
                       <div className="px-3 pt-2 pb-1 bg-gray-800 flex justify-between items-center text-xs text-gray-400 gap-1.5 min-w-0 shrink-0 h-8">
-                         <span className="truncate text-gray-400 text-[11px] shrink min-w-0">{formatTimestamp(item.timestamp)}</span>
+                         <div className="flex items-center gap-1.5 min-w-0 shrink">
+                           <span className="truncate text-gray-400 text-[11px] min-w-0">{formatTimestamp(item.timestamp)}</span>
+                           {(item.mediaType === '3d' || item.modelUrl) && (
+                             <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-950/90 text-purple-300 border border-purple-700/60 flex items-center gap-0.5 shrink-0">
+                               <span>🧊</span>
+                               <span>3D</span>
+                             </span>
+                           )}
+                         </div>
                          {item.model && (
                            <span 
                              className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 truncate max-w-[130px] shrink-0" 
@@ -385,6 +393,19 @@ export const HistoryPanel: React.FC = () => {
                         {/* Floating Actions on Image */}
                         {!isSelectMode && (
                           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 backdrop-blur-sm p-1 rounded-md z-10">
+                            {item.modelUrl && (
+                              <a
+                                href={item.modelUrl}
+                                download={`model_${item.id}.glb`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-purple-300 hover:text-white p-1 rounded hover:bg-purple-900/50 transition-colors flex items-center"
+                                title="Download .GLB Model"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                              </a>
+                            )}
                             <button 
                               onClick={(e) => { e.stopPropagation(); toggleSelection(item.id); setIsSelectMode(true); }}
                               className="text-gray-300 hover:text-white p-1 rounded hover:bg-white/20 transition-colors"

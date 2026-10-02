@@ -105,6 +105,12 @@ const RadialMenu: React.FC<RadialMenuProps> = ({
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
         </svg>, hotkey: 'E' },
       ]},
+      // 8. 3D (Indigo)
+      { name: t('toolbar.group.threed' as any) || '3D', color: 'bg-indigo-600', textColor: 'text-indigo-400', options: [
+        { type: NodeType.THREE_D_VIEWER, title: t('search.node.three_d_viewer.title' as any) || '3D Viewer (GLB)', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>, hotkey: 'Shift + G' },
+        { type: NodeType.BATCH_PREPARE, title: t('search.node.batch_prepare.title' as any) || '3D Batch Prepare', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="9" height="8" rx="1.5" /><rect x="13" y="3" width="9" height="8" rx="1.5" /><rect x="2" y="13" width="9" height="8" rx="1.5" /><rect x="13" y="13" width="9" height="8" rx="1.5" /></svg>, hotkey: 'Shift + D' },
+        { type: NodeType.THREE_D_GENERATOR, title: t('search.node.three_d_generator.title' as any) || '3D Generation', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>, hotkey: 'Shift + T' },
+      ]},
     ], [t]);
 
     const allNodeOptions: NodeOptionWithColor[] = useMemo(() => nodeGroups.flatMap(g => 

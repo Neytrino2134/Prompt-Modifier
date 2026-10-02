@@ -138,11 +138,13 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
 
   const categoryOptions: Array<{ id: 'all' | ModelCategory; label: string; badge?: string }> = [
     { id: 'all', label: t('stats.categoryAll') || 'Все категории' },
+    { id: 'tripo_h3_1', label: 'Tripo H3.1 (3D)', badge: 'text-indigo-400' },
+    { id: 'tripo_p1', label: 'Tripo P1 (3D)', badge: 'text-fuchsia-400' },
     { id: 'gpt_image_2', label: 'GPT-Image-2', badge: 'text-teal-400' },
     { id: 'pro_3_0', label: '3.0 Pro', badge: 'text-purple-400' },
     { id: 'flash_3_1', label: '3.1 Flash', badge: 'text-amber-400' },
     { id: 'lite_3_1', label: '3.1 Lite', badge: 'text-emerald-400' },
-    { id: 'other', label: 'Другие (DALL-E / Imagen)', badge: 'text-blue-400' },
+    { id: 'other', label: 'Другие (Imagen / DALL-E / 3D)', badge: 'text-blue-400' },
   ];
 
   return (
@@ -553,6 +555,12 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs select-none">
+                    <span className="flex items-center gap-1.5 text-indigo-400">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500" /> Tripo H3.1 (3D)
+                    </span>
+                    <span className="flex items-center gap-1.5 text-fuchsia-400">
+                      <span className="w-2 h-2 rounded-full bg-fuchsia-500" /> Tripo P1 (3D)
+                    </span>
                     <span className="flex items-center gap-1.5 text-teal-400">
                       <span className="w-2 h-2 rounded-full bg-teal-500" /> GPT-Image-2
                     </span>
@@ -600,6 +608,16 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                                 <span>Всего:</span>
                                 <span>{item.count}</span>
                               </div>
+                              {item.byCategory.tripo_h3_1 > 0 && (
+                                <div className="text-indigo-400 flex justify-between text-[10px]">
+                                  <span>Tripo H3.1 (3D):</span> <span>{item.byCategory.tripo_h3_1}</span>
+                                </div>
+                              )}
+                              {item.byCategory.tripo_p1 > 0 && (
+                                <div className="text-fuchsia-400 flex justify-between text-[10px]">
+                                  <span>Tripo P1 (3D):</span> <span>{item.byCategory.tripo_p1}</span>
+                                </div>
+                              )}
                               {item.byCategory.gpt_image_2 > 0 && (
                                 <div className="text-teal-400 flex justify-between text-[10px]">
                                   <span>GPT-Image-2:</span> <span>{item.byCategory.gpt_image_2}</span>
@@ -637,6 +655,18 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                               <div className="w-full h-full bg-gray-800/40 rounded-t" />
                             ) : (
                               <>
+                                {item.byCategory.tripo_h3_1 > 0 && (
+                                  <div
+                                    style={{ height: `${(item.byCategory.tripo_h3_1 / item.count) * 100}%` }}
+                                    className="bg-indigo-500 hover:bg-indigo-400 transition-colors"
+                                  />
+                                )}
+                                {item.byCategory.tripo_p1 > 0 && (
+                                  <div
+                                    style={{ height: `${(item.byCategory.tripo_p1 / item.count) * 100}%` }}
+                                    className="bg-fuchsia-500 hover:bg-fuchsia-400 transition-colors"
+                                  />
+                                )}
                                 {item.byCategory.gpt_image_2 > 0 && (
                                   <div
                                     style={{ height: `${(item.byCategory.gpt_image_2 / item.count) * 100}%` }}
@@ -680,6 +710,52 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                     })}
                   </div>
                 )}
+              </div>
+
+              {/* 3D Models Section (Tripo AI API) */}
+              <div className="p-5 rounded-2xl bg-purple-950/20 border border-purple-900/40 space-y-4 shadow-inner">
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🧊</span>
+                    <div>
+                      <h4 className="text-sm font-bold text-purple-200">
+                        {t('stats.threeDModelsTitle') || '3D Модели (Tripo API)'}
+                      </h4>
+                      <p className="text-xs text-purple-300/70">
+                        {t('stats.threeDModelsSubtitle') || 'Флагманские и специализированные 3D модели генерации'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-purple-900/60 text-purple-200 border border-purple-700/60 font-bold text-xs font-mono">
+                    {summary.threeDStats?.totalCount ?? 0} {t('stats.modelsUnit') || 'моделей всего'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {(summary.threeDStats?.items || []).map(item => (
+                    <div key={item.id} className="p-3 rounded-xl bg-gray-900/80 border border-gray-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-200">{item.label}</span>
+                        <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${item.badgeClass}`}>
+                          {item.modelCode}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xl font-extrabold text-white font-mono">{item.count}</span>
+                        <span className="text-xs text-gray-400 font-mono">{item.percentage}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${Math.max(item.count > 0 ? 3 : 0, item.percentage)}%`,
+                            backgroundColor: item.barColor,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* 3-Column Distribution Grid: Categories, Aspect Ratios, Resolutions */}

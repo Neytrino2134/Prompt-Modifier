@@ -286,7 +286,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
       }`}
     >
       <div
-        className="absolute bg-gray-800 rounded-xl shadow-2xl w-[calc(100vw-32px)] sm:w-[620px] max-w-[620px] flex flex-col cursor-default max-h-[82vh] overflow-hidden pointer-events-auto border border-gray-700 transition-transform duration-200 ease-out app-region-no-drag"
+        className="absolute bg-gray-800 rounded-xl shadow-2xl w-[calc(100vw-32px)] sm:w-[620px] max-w-[620px] h-[600px] max-h-[85vh] flex flex-col cursor-default overflow-hidden pointer-events-auto border border-gray-700 transition-transform duration-200 ease-out app-region-no-drag"
         style={{
           left: position.x,
           top: position.y,
@@ -296,7 +296,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
       >
         {/* Header (Draggable) */}
         <div
-          className="px-5 py-3.5 flex justify-between items-center bg-[#18202f] cursor-move border-b border-gray-700 select-none"
+          className="px-5 py-3.5 flex justify-between items-center bg-[#18202f] cursor-move border-b border-gray-700 select-none flex-shrink-0"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -329,7 +329,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-4 sm:p-5 space-y-3.5 overflow-y-auto custom-scrollbar bg-gray-800 flex-1">
+        <div className="p-4 sm:p-5 space-y-3.5 overflow-y-auto custom-scrollbar bg-gray-800 flex-1 min-h-0">
           <p className="text-xs text-gray-400 mb-1 leading-normal">
             {t('dialog.settings.description')}
           </p>
@@ -590,7 +590,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 bg-gray-900 border-t border-gray-700/80 flex justify-between items-center">
+        <div className="px-5 py-3 bg-gray-900 border-t border-gray-700/80 flex justify-between items-center flex-shrink-0">
           <button
             type="button"
             onClick={handleReloadApp}

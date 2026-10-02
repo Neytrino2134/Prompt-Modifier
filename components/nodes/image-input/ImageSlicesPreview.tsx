@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import JSZip from 'jszip';
 import { StickyNote } from 'lucide-react';
 import { setupImageDragData, getImageTimestampString } from '../../../utils/imageUtils';
@@ -39,6 +39,25 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
     const [isZipping, setIsZipping] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [scrollLeft, setScrollLeft] = useState(0);
+    const [containerWidth, setContainerWidth] = useState(400);
+
+    const ITEM_SIZE = 72;
+    const ITEM_GAP = 8;
+    const SLOT_WIDTH = ITEM_SIZE + ITEM_GAP;
+
+    useEffect(() => {
+        if (!scrollContainerRef.current) return;
+        setContainerWidth(scrollContainerRef.current.clientWidth || 400);
+
+        const observer = new ResizeObserver((entries) => {
+            if (entries[0] && entries[0].contentRect.width > 0) {
+                setContainerWidth(entries[0].contentRect.width);
+            }
+        });
+        observer.observe(scrollContainerRef.current);
+        return () => observer.disconnect();
+    }, [slices.length]);
 
     const handleWheelScroll = (e: React.WheelEvent<HTMLDivElement>) => {
         e.stopPropagation();
@@ -47,6 +66,33 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
             scrollContainerRef.current.scrollLeft += delta;
         }
     };
+
+    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        setScrollLeft(e.currentTarget.scrollLeft);
+    }, []);
+
+    const totalContentWidth = slices.length * SLOT_WIDTH - ITEM_GAP;
+
+    // Virtualization buffer
+    const visibleSlices = useMemo(() => {
+        if (slices.length === 0) return [];
+        const buffer = 200;
+        const visibleStart = Math.max(0, scrollLeft - buffer);
+        const visibleEnd = scrollLeft + containerWidth + buffer;
+
+        const startIndex = Math.max(0, Math.floor(visibleStart / SLOT_WIDTH));
+        const endIndex = Math.min(slices.length - 1, Math.ceil(visibleEnd / SLOT_WIDTH));
+
+        const items = [];
+        for (let i = startIndex; i <= endIndex; i++) {
+            items.push({
+                url: slices[i],
+                index: i,
+                left: i * SLOT_WIDTH
+            });
+        }
+        return items;
+    }, [slices, scrollLeft, containerWidth, SLOT_WIDTH]);
 
     const handleDownloadAllZip = async () => {
         if (!slices || slices.length === 0) return;
@@ -73,9 +119,8 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
                 }
             }
 
-            // 2. Add all slices
+            // 2. Add all slices in original full resolution
             for (let i = 0; i < slices.length; i++) {
-                // Get full resolution image if available, fallback to slice
                 const fullRes = getFullSizeImage ? getFullSizeImage(nodeId, i + 1) : null;
                 const src = fullRes || slices[i];
                 if (src && src.startsWith('data:')) {
@@ -231,67 +276,80 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
                 </div>
             </div>
 
-            {/* Slices Carousel / Grid */}
+            {/* Slices Virtual Carousel Strip */}
             <div 
                 ref={scrollContainerRef}
                 onWheel={handleWheelScroll}
-                className="w-full flex gap-2 overflow-x-auto p-1 bg-gray-950/70 border border-gray-800 rounded-md custom-scrollbar max-h-32"
+                onScroll={handleScroll}
+                className="w-full overflow-x-auto overflow-y-hidden p-1.5 bg-gray-950/70 border border-gray-800 rounded-md custom-scrollbar h-[88px] relative"
             >
-                {slices.map((sliceUrl, idx) => {
-                    const row = Math.floor(idx / cols) + 1;
-                    const col = (idx % cols) + 1;
-                    return (
-                        <div
-                            key={idx}
-                            draggable={true}
-                            onDragStart={(e) => handleSliceDragStart(idx, e)}
-                            className="relative flex-shrink-0 w-20 h-20 bg-gray-900 border border-gray-700/70 rounded overflow-hidden group/cell hover:border-cyan-400 transition-all cursor-grab active:cursor-grabbing shadow-sm"
-                            title={`Ассет #${idx + 1} — Потяните мышью для вытаскивания на холст или в ноды`}
-                        >
-                            <img
-                                src={sliceUrl}
-                                alt={`Asset ${idx + 1}`}
-                                className="w-full h-full object-cover pointer-events-none"
-                            />
+                <div style={{ width: `${Math.max(totalContentWidth, 200)}px`, height: `${ITEM_SIZE}px`, position: 'relative' }}>
+                    {visibleSlices.map(({ url: sliceUrl, index: idx, left }) => {
+                        const row = Math.floor(idx / cols) + 1;
+                        const col = (idx % cols) + 1;
+                        return (
+                            <div
+                                key={idx}
+                                draggable={true}
+                                onDragStart={(e) => handleSliceDragStart(idx, e)}
+                                style={{
+                                    position: 'absolute',
+                                    left: `${left}px`,
+                                    top: 0,
+                                    width: `${ITEM_SIZE}px`,
+                                    height: `${ITEM_SIZE}px`,
+                                }}
+                                className="bg-gray-900 border border-gray-700/70 rounded overflow-hidden group/cell hover:border-cyan-400 transition-all cursor-grab active:cursor-grabbing shadow-sm"
+                                title={`Ассет #${idx + 1} — Потяните мышью для вытаскивания на холст или в ноды`}
+                            >
+                                <img
+                                    src={sliceUrl}
+                                    alt={`Asset ${idx + 1}`}
+                                    loading="lazy"
+                                    width={64}
+                                    height={64}
+                                    className="w-full h-full object-cover pointer-events-none select-none"
+                                />
 
-                            {/* Badge */}
-                            <div className="absolute top-0.5 left-0.5 bg-black/80 text-cyan-300 text-[9px] font-mono px-1 rounded flex items-center gap-0.5">
-                                <span>#{idx + 1}</span>
-                            </div>
-                            
-                            <div className="absolute bottom-0.5 left-0.5 bg-black/80 text-gray-400 text-[8px] font-mono px-1 rounded">
-                                r{row}c{col}
-                            </div>
+                                {/* Badge */}
+                                <div className="absolute top-0.5 left-0.5 bg-black/80 text-cyan-300 text-[9px] font-mono px-1 rounded flex items-center gap-0.5 z-10">
+                                    <span>#{idx + 1}</span>
+                                </div>
+                                
+                                <div className="absolute bottom-0.5 left-0.5 bg-black/80 text-gray-400 text-[8px] font-mono px-1 rounded z-10">
+                                    r{row}c{col}
+                                </div>
 
-                            {/* Hover Actions */}
-                            <div className="absolute inset-0 bg-black/75 opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                                <ActionButton
-                                    title="Скопировать в буфер"
-                                    onClick={(e) => handleCopy(idx, e)}
-                                >
-                                    {copiedIndex === idx ? (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                        </svg>
-                                    ) : (
+                                {/* Hover Actions */}
+                                <div className="absolute inset-0 bg-black/75 opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center gap-1 z-20">
+                                    <ActionButton
+                                        title="Скопировать в буфер"
+                                        onClick={(e) => handleCopy(idx, e)}
+                                    >
+                                        {copiedIndex === idx ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                        )}
+                                    </ActionButton>
+
+                                    <ActionButton
+                                        title="Скачать PNG в полном разрешении"
+                                        onClick={(e) => handleDownloadSingle(idx, e)}
+                                    >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                         </svg>
-                                    )}
-                                </ActionButton>
-
-                                <ActionButton
-                                    title="Скачать PNG в полном разрешении"
-                                    onClick={(e) => handleDownloadSingle(idx, e)}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                </ActionButton>
+                                    </ActionButton>
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

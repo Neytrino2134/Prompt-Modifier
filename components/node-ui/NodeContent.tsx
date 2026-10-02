@@ -30,6 +30,8 @@ import { PoseCreatorNode } from '../nodes/PoseCreatorNode';
 import { ImageSequenceGeneratorNode } from '../nodes/ImageSequenceGeneratorNode';
 import { PromptSequenceEditorNode } from '../nodes/PromptSequenceEditorNode';
 import { ThreeDGenerationNode } from '../nodes/ThreeDGenerationNode';
+import { ThreeDViewerNode } from '../nodes/ThreeDViewerNode';
+import { BatchPrepareNode } from '../nodes/BatchPrepareNode';
 
 interface NodeContentWrapperProps {
     node: Node;
@@ -65,6 +67,8 @@ export const NodeContent: React.FC<NodeContentWrapperProps> = React.memo(({ node
         case NodeType.DATA_PROTECTION: return <DataProtectionNode {...contentProps} />;
         case NodeType.POSE_CREATOR: return <PoseCreatorNode {...contentProps} />;
         case NodeType.THREE_D_GENERATOR: return <ThreeDGenerationNode {...contentProps} />;
+        case NodeType.THREE_D_VIEWER: return <ThreeDViewerNode {...contentProps} />;
+        case NodeType.BATCH_PREPARE: return <BatchPrepareNode {...contentProps} />;
         default: return null;
     }
 });

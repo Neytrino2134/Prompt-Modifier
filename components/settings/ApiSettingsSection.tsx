@@ -13,6 +13,8 @@ import {
   setTripoApiKey,
   getTripoModelVersion,
   setTripoModelVersion,
+  TRIPO_MODEL_OPTIONS,
+  getTripoModelOption,
 } from '../../services/modelConfig';
 
 interface ApiSettingsSectionProps {
@@ -298,19 +300,30 @@ export const ApiSettingsSection: React.FC<ApiSettingsSectionProps> = ({ isOpen, 
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-medium text-gray-400">
-                    {t('settings.tripoModelVersionLabel')}
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-medium text-gray-400">
+                      {t('settings.tripoModelVersionLabel')}
+                    </label>
+                    {getTripoModelOption(tripoModelVersion)?.badge && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 border border-purple-600/40 font-semibold">
+                        {getTripoModelOption(tripoModelVersion).badge}
+                      </span>
+                    )}
+                  </div>
                   <CustomSelect
                     value={tripoModelVersion}
                     onChange={handleTripoModelVersionChange}
-                    options={[
-                      { value: 'v2.5-20250123', label: 'Tripo v2.5 (20250123 - Multiview + Standard Texture)' },
-                      { value: 'v2.0-20240919', label: 'Tripo v2.0 (20240919)' },
-                      { value: 'default', label: 'Tripo Default' },
-                    ]}
+                    options={TRIPO_MODEL_OPTIONS.map((m) => ({
+                      value: m.value,
+                      label: m.label,
+                    }))}
                     className="w-full text-xs"
                   />
+                  {getTripoModelOption(tripoModelVersion)?.description && (
+                    <p className="text-[10px] text-gray-400 italic pt-0.5 leading-tight">
+                      {getTripoModelOption(tripoModelVersion).description}
+                    </p>
+                  )}
                 </div>
               </div>
             )}

@@ -25,6 +25,11 @@ import {
   VideoModelOption,
   ImageModelOption,
   isOpenAiEnabled,
+  isTripoEnabled,
+  getTripoModelVersion,
+  setTripoModelVersion,
+  TRIPO_MODEL_OPTIONS,
+  getTripoModelOption,
 } from '../../services/modelConfig';
 
 interface ModelsSettingsSectionProps {
@@ -46,6 +51,8 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
   const [videoModel, setVideoModel] = useState<string>(getConfiguredVideoModel);
   const [imageModel, setImageModel] = useState<string>(getConfiguredImageModel);
   const [imageEditorModel, setImageEditorModel] = useState<string>(getConfiguredImageEditorModel);
+  const [tripoModel, setTripoModel] = useState<string>(getTripoModelVersion);
+  const [tripoActive, setTripoActive] = useState<boolean>(isTripoEnabled);
 
   const [availableFlash, setAvailableFlash] = useState<ModelOption[]>(getAvailableFlashModels);
   const [availablePro, setAvailablePro] = useState<ModelOption[]>(getAvailableProModels);
@@ -65,6 +72,8 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
       setVideoModel(getConfiguredVideoModel());
       setImageModel(getConfiguredImageModel());
       setImageEditorModel(getConfiguredImageEditorModel());
+      setTripoModel(getTripoModelVersion());
+      setTripoActive(isTripoEnabled());
       setAvailableFlash(getAvailableFlashModels());
       setAvailablePro(getAvailableProModels());
       setAvailableTranscribe(getAvailableTranscribeModels());
@@ -274,6 +283,43 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
             label: `${m.name} (${m.id})`,
           }))}
         />
+      </div>
+
+      {/* 3D Generation Model Selection (Tripo 3D) */}
+      <div className="space-y-1 pt-2 border-t border-gray-800">
+        <div className="flex items-center justify-between">
+          <label className="block text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+            <span className="text-purple-400">🧊</span>
+            {t('settings.tripoModelVersionLabel')}
+          </label>
+          <div className="flex items-center gap-1.5">
+            {getTripoModelOption(tripoModel)?.badge && (
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-900/60 text-purple-300 border border-purple-600/40 font-semibold">
+                {getTripoModelOption(tripoModel).badge}
+              </span>
+            )}
+            <span className="text-[10px] text-purple-400/80 font-mono">{tripoModel}</span>
+          </div>
+        </div>
+        <p className="text-[11px] text-gray-400 leading-tight">
+          {t('settings.tripoModelVersionDesc')}
+        </p>
+        <CustomSelect
+          value={tripoModel}
+          onChange={(val) => {
+            setTripoModel(val);
+            setTripoModelVersion(val);
+          }}
+          options={TRIPO_MODEL_OPTIONS.map((m) => ({
+            value: m.value,
+            label: m.label,
+          }))}
+        />
+        {getTripoModelOption(tripoModel)?.description && (
+          <p className="text-[10px] text-gray-400 italic pt-0.5 leading-tight">
+            {getTripoModelOption(tripoModel).description}
+          </p>
+        )}
       </div>
 
       {/* Add Custom Model to Pool */}

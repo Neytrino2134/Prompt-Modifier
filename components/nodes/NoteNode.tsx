@@ -172,7 +172,7 @@ export const NoteNode: React.FC<NodeContentProps> = ({ node, onValueChange, t, d
 
         for (let i = 0; i < resolvedInputs.length; i++) {
             const { image: fullRes, caption } = resolvedInputs[i];
-            const thumbnail = await generateThumbnail(fullRes, 256, 256);
+            const thumbnail = await generateThumbnail(fullRes, 128, 128);
             newRefs.push({
                 id: `ref-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
                 image: thumbnail, 

@@ -255,6 +255,8 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
         [NodeType.DATA_PROTECTION]: t('node.help.data_protection'),
         [NodeType.POSE_CREATOR]: t('node.help.pose_creator'),
         [NodeType.THREE_D_GENERATOR]: t('node.help.three_d_generator' as any) || 'Generate 3D models using Tripo AI (Single Image or Multiview)',
+        [NodeType.THREE_D_VIEWER]: t('node.help.three_d_viewer' as any) || 'Interactive 3D model viewport for inspecting, rotating, lighting, snapshots & wireframe preview for .glb and .gltf files',
+        [NodeType.BATCH_PREPARE]: t('node.help.batch_prepare' as any) || 'Multichannel multiview preparation & slicing (Front, Back, Left, Right) for 3D generation',
     }), [t]);
 
     const nodeTypeTitleMap: Record<NodeType, string> = React.useMemo(() => ({
@@ -285,6 +287,8 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
         [NodeType.DATA_PROTECTION]: 'node.title.data_protection',
         [NodeType.POSE_CREATOR]: 'node.title.pose_creator',
         [NodeType.THREE_D_GENERATOR]: 'node.title.three_d_generator',
+        [NodeType.THREE_D_VIEWER]: 'node.title.three_d_viewer',
+        [NodeType.BATCH_PREPARE]: 'node.title.batch_prepare',
     }), []);
 
     const displayTitle = React.useMemo(() => {
@@ -323,6 +327,8 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
             [NodeType.DATA_PROTECTION]: ['Data Protection', 'Защита данных'],
             [NodeType.POSE_CREATOR]: ['Pose Creator', 'Создание поз', 'Конструктор поз'],
             [NodeType.THREE_D_GENERATOR]: ['3D Generation', '3D Генерация', '3D Generation (Tripo)', '3D Моделирование', '3D Генератор'],
+            [NodeType.THREE_D_VIEWER]: ['3D Viewer (GLB / glTF)', '3D Просмотрщик (GLB / glTF)', '3D Viewer (GLB)', '3D GLB Viewer', '3D GLB Просмотрщик', '3D Просмотрщик'],
+            [NodeType.BATCH_PREPARE]: ['3D Batch Prepare', '3D Multiview Batch Prepare', '3D Batch Prepare (Мультиканальная подготовка)', 'Подготовка 3D / Batch Prepare', '3D Batch Prepare (Подготовка ракурсов)'],
         };
         const defaults = defaultTitles[node.type];
         if (defaults && defaults.includes(node.title.trim())) {

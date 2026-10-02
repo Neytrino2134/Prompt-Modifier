@@ -17,6 +17,7 @@ import { ImageSlicesPreview } from './image-input/ImageSlicesPreview';
 import { SingleCropPreview } from './image-input/SingleCropPreview';
 import { ImageFramesPreview } from './image-input/ImageFramesPreview';
 import { BatchProcessingPanel } from './image-input/BatchProcessingPanel';
+import { ImageBatchThumbnailsBar } from './image-input/ImageBatchThumbnailsBar';
 import { ArchiveFolderModal } from './image-input/ArchiveFolderModal';
 import { BatchResultData, BatchResultFolder, BatchResultFileItem, ImageBatchItem, ImageBatchSubMode, ImageInputCropRect, ImageInputGridConfig, ImageInputMode, ImageInputValue, ImageInputFramesConfig, ImageInputFrameItem } from './image-input/types';
 
@@ -642,28 +643,41 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         const isInitialBatch = batchFiles.length === 0;
         const updatedFiles = [...batchFiles, ...newItems];
         setBatchFiles(updatedFiles);
+        batchFilesRef.current = updatedFiles;
+
+        // Populate full size cache slots for each item in the batch
+        updatedFiles.forEach((item, idx) => {
+            if (item.dataUrl) {
+                setFullSizeImage(node.id, idx, item.dataUrl);
+            }
+        });
 
         // If batch was empty or no image yet, configure the first file as the active reference template
         if (isInitialBatch || !image) {
             setSelectedRefIndex(0);
+            selectedRefIndexRef.current = 0;
             const firstItem = newItems[0];
             setFullSizeImage(node.id, 0, firstItem.dataUrl);
             const thumb = await generateThumbnail(firstItem.dataUrl, 256, 256);
             
-            if (batchSubMode === 'crop') {
-                const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
-                updateSingleCropSlice(activeCrop, 'batch', firstItem.dataUrl);
+            if (mode === 'batch') {
+                if (batchSubMode === 'crop') {
+                    const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
+                    updateSingleCropSlice(activeCrop, 'batch', firstItem.dataUrl);
+                } else {
+                    const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
+                    updateGridSlices(activeGrid, 'batch', firstItem.dataUrl);
+                }
+                handleValueUpdate({ image: thumb, mode: 'batch', batchFiles: updatedFiles });
             } else {
-                const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
-                updateGridSlices(activeGrid, 'batch', firstItem.dataUrl);
+                handleValueUpdate({ image: thumb, batchFiles: updatedFiles });
             }
-            handleValueUpdate({ image: thumb, mode: 'batch', batchFiles: updatedFiles });
         } else {
             handleValueUpdate({ batchFiles: updatedFiles });
         }
 
         if (addToast) {
-            addToast(`Загружено ${newItems.length} изображений для пакетной обработки`, 'success');
+            addToast(`Загружено ${newItems.length} изображений`, 'success');
         }
     };
 
@@ -682,7 +696,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 }
             }
             if (imageFiles.length > 0) {
-                if (mode === 'batch') {
+                if (mode === 'batch' || mode === 'full' || imageFiles.length > 1 || batchFilesRef.current.length > 0) {
                     await loadMultipleFiles(imageFiles);
                 } else {
                     onPasteImage(node.id, imageFiles[0]);
@@ -695,7 +709,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 const res = await fetch(text);
                 const blob = await res.blob();
                 const file = new File([blob], `pasted_data_${Date.now()}.png`, { type: blob.type || 'image/png' });
-                if (mode === 'batch') {
+                if (mode === 'batch' || mode === 'full' || batchFilesRef.current.length > 0) {
                     await loadMultipleFiles([file]);
                 } else {
                     onPasteImage(node.id, file);
@@ -718,6 +732,14 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
         setFullSizeImage(node.id, 0, item.dataUrl);
         const thumb = await generateThumbnail(item.dataUrl, 256, 256);
+
+        if (mode === 'full') {
+            handleValueUpdate({
+                image: thumb,
+                batchFiles: batchFilesRef.current
+            });
+            return;
+        }
 
         const currentRootGrid = parsedValueRef.current.grid || grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
         const globalCols = currentRootGrid.cols || 2;
@@ -758,9 +780,9 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         handleSelectReferenceIndex(nextIndex);
     }, []);
 
-    // Keyboard Arrow navigation (Left / Right arrow keys) for batch images
+    // Keyboard Arrow navigation (Left / Right arrow keys) for batch images in both Batch and Full modes
     useEffect(() => {
-        if (mode !== 'batch' || batchFiles.length <= 1) return;
+        if ((mode !== 'batch' && mode !== 'full') || batchFiles.length <= 1) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
             // Ignore if typing inside text fields, textareas, or contentEditable elements
@@ -797,19 +819,32 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
     const handleRemoveBatchFile = (index: number) => {
         const updated = batchFiles.filter((_, i) => i !== index);
         setBatchFiles(updated);
-        handleValueUpdate({ batchFiles: updated });
+        batchFilesRef.current = updated;
         if (updated.length === 0) {
             setSelectedRefIndex(0);
-        } else if (selectedRefIndex >= updated.length) {
-            const nextIdx = updated.length - 1;
+            selectedRefIndexRef.current = 0;
+            handleValueUpdate({ batchFiles: [] });
+        } else {
+            const nextIdx = selectedRefIndex >= updated.length ? updated.length - 1 : selectedRefIndex;
             setSelectedRefIndex(nextIdx);
-            handleSelectReferenceIndex(nextIdx);
+            selectedRefIndexRef.current = nextIdx;
+            const activeItem = updated[nextIdx];
+            if (activeItem) {
+                setFullSizeImage(node.id, 0, activeItem.dataUrl);
+                generateThumbnail(activeItem.dataUrl, 256, 256).then(thumb => {
+                    handleValueUpdate({ image: thumb, batchFiles: updated });
+                });
+            } else {
+                handleValueUpdate({ batchFiles: updated });
+            }
         }
     };
 
     const handleClearBatch = () => {
         setBatchFiles([]);
+        batchFilesRef.current = [];
         setSelectedRefIndex(0);
+        selectedRefIndexRef.current = 0;
         setBatchResult(null);
         setBatchProgress(null);
         handleValueUpdate({ batchFiles: [] });
@@ -1270,7 +1305,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
               .then(res => res.blob())
               .then(blob => {
                   const file = new File([blob], "dragged_image.png", { type: blob.type });
-                  if (mode === 'batch') {
+                  if (mode === 'batch' || (mode === 'full' && batchFilesRef.current.length > 0)) {
                       loadMultipleFiles([file]);
                   } else {
                       onPasteImage(node.id, file);
@@ -1286,7 +1321,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
         const file = e.dataTransfer.files?.[0];
         if (file && file.type.startsWith('image/')) {
-            if (mode === 'batch') {
+            if (mode === 'batch' || (mode === 'full' && batchFilesRef.current.length > 0)) {
                 loadMultipleFiles([file]);
             } else {
                 onPasteImage(node.id, file);
@@ -1745,7 +1780,19 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         // Update mode atomically
         handleValueUpdate({ mode: newMode });
 
-        if (newMode === 'single') {
+        if (newMode === 'full') {
+            if (batchFiles.length > 0) {
+                const activeItem = batchFiles[selectedRefIndex] || batchFiles[0];
+                if (activeItem) {
+                    setFullSizeImage(node.id, 0, activeItem.dataUrl);
+                    handleValueUpdate({
+                        mode: 'full',
+                        image: activeItem.thumbnailUrl || activeItem.dataUrl,
+                        batchFiles
+                    });
+                }
+            }
+        } else if (newMode === 'single') {
             const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
             updateSingleCropSlice(activeCrop, 'single');
         } else if (newMode === 'grid') {
@@ -2256,7 +2303,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
                 {/* Mode Status Pill */}
                 <div className="text-[10px] text-gray-400 font-mono pr-1 truncate max-w-[140px]">
-                    {mode === 'full' && 'Full image'}
+                    {mode === 'full' && (batchFiles.length > 0 ? `${batchFiles.length} files in pack` : 'Full image')}
                     {mode === 'single' && 'Active selection -> output'}
                     {mode === 'grid' && `${(grid?.cols || 2) * (grid?.rows || 1)} assets pack`}
                     {mode === 'frames' && `${framesConfig?.frames?.length || 0} frames pack`}
@@ -2981,8 +3028,8 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                                     />
                                 )}
 
-                                {/* Batch Mode Preview Navigation Arrows */}
-                                {mode === 'batch' && batchFiles.length > 1 && (
+                                {/* Batch / Multi-image Mode Preview Navigation Arrows */}
+                                {(mode === 'batch' || mode === 'full') && batchFiles.length > 1 && (
                                     <>
                                         <button
                                             type="button"
@@ -3114,6 +3161,21 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                     </Tooltip>
                 </div>
             </div>
+
+            {/* Multi-Image Thumbnails Strip in Full (Normal) Mode */}
+            {mode === 'full' && batchFiles.length > 0 && (
+                <ImageBatchThumbnailsBar
+                    batchFiles={batchFiles}
+                    selectedIndex={selectedRefIndex}
+                    onSelectIndex={handleSelectReferenceIndex}
+                    onRemoveFile={handleRemoveBatchFile}
+                    onClearBatch={handleClearBatch}
+                    onAddFiles={(files) => loadMultipleFiles(files)}
+                    onPasteClipboard={handlePasteFromClipboard}
+                    onNavigatePrev={() => handleNavigateBatch('prev')}
+                    onNavigateNext={() => handleNavigateBatch('next')}
+                />
+            )}
 
             {/* Slices Drawer in Single Crop Mode */}
             {image && mode === 'single' && (croppedImage || getFullSizeImage(node.id, 1)) && (

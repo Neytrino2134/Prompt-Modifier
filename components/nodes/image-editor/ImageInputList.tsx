@@ -1,9 +1,9 @@
-
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { StickyNote } from 'lucide-react';
 import { ImageSlot } from './types';
 import { setupImageDragData } from '../../../utils/imageUtils';
+import { OptimizedThumbnail } from './OptimizedThumbnail';
 
 // Helper component for input with stylish spinners
 const InputWithSpinners: React.FC<{
@@ -76,7 +76,6 @@ interface ImageInputListProps {
     onSelectNone: () => void;
     onClear: () => void;
     onClick: (index: number) => void;
-    // New signature for onReorder
     onReorder: (fromIndex: number, toIndex: number) => void;
     onRemove: (index: number) => void;
     onMoveToB?: (index: number) => void;
@@ -91,9 +90,9 @@ interface ImageInputListProps {
     onSendToNote?: () => void;
 }
 
-// Updated Item Size to accommodate header
-const ITEM_WIDTH = 120;
-const ITEM_HEIGHT = 150; // Header ~24px + Image area
+// 64x64 item sizing with compact header for virtual buffering
+const ITEM_WIDTH = 76;
+const ITEM_HEIGHT = 96; // Header ~22px + 64x64 Image preview area + border/padding
 const GAP = 4;
 
 export const ImageInputList: React.FC<ImageInputListProps> = ({
@@ -127,7 +126,7 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
     const [rangeEnd, setRangeEnd] = useState('');
     
     // Drag Reorder State
-    const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+    const [, setDraggingIndex] = useState<number | null>(null);
 
     // Virtualization State
     const containerRef = useRef<HTMLDivElement>(null);
@@ -143,9 +142,9 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
         return () => observer.disconnect();
     }, []);
 
-    // Layout Calculations
+    // Layout Calculations for Virtual Buffering
     const layout = useMemo(() => {
-        // Effective width inside padding
+        // Effective width inside container padding
         const effectiveWidth = Math.max(0, containerWidth - 8); 
         const columns = Math.max(1, Math.floor((effectiveWidth + GAP) / (ITEM_WIDTH + GAP)));
         const totalItems = slots.length + 1; // +1 for the drop placeholder
@@ -156,11 +155,11 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
 
     const getVisibleItems = () => {
         const { columns, totalItems } = layout;
-        const buffer = 400; // pixels to render offscreen
+        const buffer = 400; // pixels to render offscreen for smooth scrolling
         const visibleStart = Math.max(0, scrollTop - buffer);
         const visibleEnd = scrollTop + (containerRef.current?.clientHeight || 500) + buffer;
 
-        const startRow = Math.floor(visibleStart / (ITEM_HEIGHT + GAP));
+        const startRow = Math.max(0, Math.floor(visibleStart / (ITEM_HEIGHT + GAP)));
         const endRow = Math.ceil(visibleEnd / (ITEM_HEIGHT + GAP));
         
         const visibleIndices = [];
@@ -199,7 +198,6 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
         if (reorderData) {
             const sourceIndex = parseInt(reorderData, 10);
             if (!isNaN(sourceIndex)) {
-                // If dropped on container but not specific slot, move to end
                 onReorder(sourceIndex, slots.length);
             }
             setDraggingIndex(null);
@@ -218,7 +216,7 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
         e.preventDefault(); e.stopPropagation(); setDragOverSlotIndex(index);
     };
     
-    const handleSlotDragLeave = (e: React.DragEvent, index: number) => { 
+    const handleSlotDragLeave = (e: React.DragEvent) => { 
         e.preventDefault(); e.stopPropagation(); setDragOverSlotIndex(null); 
     };
     
@@ -253,8 +251,6 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
         setDraggingIndex(index);
         e.dataTransfer.setData('image-input-reorder-index', index.toString());
         e.dataTransfer.effectAllowed = 'move';
-        
-        // Create custom drag image ghost? Browser default usually OK.
     };
 
     const handleSelectRange = () => {
@@ -395,7 +391,7 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                  </div>
              </div>
              
-             {/* Virtualized Grid */}
+             {/* Virtualized Grid with 64x64 Preview Thumbnails */}
              <div
                 ref={containerRef}
                 className="bg-gray-900/50 rounded-md overflow-y-auto p-1 min-h-0 flex-grow custom-scrollbar relative"
@@ -415,11 +411,11 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                     onDragOver={handleDragOver}
                                     onDragLeave={handleDragLeave}
                                     onDrop={handleDrop}
-                                    className={`bg-transparent rounded-md flex items-center justify-center cursor-pointer border-2 border-dashed transition-colors ${isDragOver ? 'border-cyan-500 bg-gray-700/50' : 'border-gray-600 hover:border-cyan-500 hover:bg-gray-700/50'} ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`bg-transparent rounded-md flex items-center justify-center cursor-pointer border border-dashed transition-colors ${isDragOver ? 'border-cyan-500 bg-gray-700/50' : 'border-gray-600 hover:border-cyan-500 hover:bg-gray-700/50'} ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
-                                    <div className="text-center text-gray-500">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                                        <span className="text-[10px] mt-1 block">{t('node.content.dropOrClick')}</span>
+                                    <div className="text-center text-gray-500 p-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                        <span className="text-[9px] mt-0.5 block leading-tight">{t('node.content.dropOrClick')}</span>
                                     </div>
                                 </div>
                              );
@@ -428,23 +424,23 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                         const slot = slots[index];
                         const isChecked = !isB ? (!checkedIndices || checkedIndices.includes(index)) : true;
                         const cacheIndex = (isB ? 2000 : 0) + slot.index + 1;
+                        // Always maintain original full-res reference for click viewing, drag-and-drop, and transmission down chain
                         const fullRes = slot.type === 'local' ? getFullSizeImage(cacheIndex) : slot.src;
 
-                        // Unified Rendering for Local & Connected (Similar UI for dragging connected images if supported)
                         const isOver = dragOverSlotIndex === slot.index && (!isB || slot.type === 'local');
                         
                         return (
                             <div 
                                 key={`${slot.type}-${isB ? 'b' : 'a'}-${slot.index}`} 
                                 style={{ position: 'absolute', top, left, width: ITEM_WIDTH, height: ITEM_HEIGHT }}
-                                className={`relative group border-2 flex flex-col rounded-md overflow-visible bg-gray-800 transition-colors ${isOver ? 'border-cyan-500 z-10' : 'border-gray-700 hover:border-gray-600'}`}
+                                className={`relative group border flex flex-col rounded-md overflow-hidden bg-gray-800 transition-colors ${isOver ? 'border-cyan-500 z-10' : 'border-gray-700 hover:border-gray-600'}`}
                                 onDragOver={(e) => handleSlotDragOver(e, slot.index)}
-                                onDragLeave={(e) => handleSlotDragLeave(e, slot.index)}
+                                onDragLeave={handleSlotDragLeave}
                                 onDrop={(e) => handleSlotDrop(e, slot.index)}
                             >
                                 {/* Header / Handle */}
                                 <div 
-                                    className={`h-6 bg-gray-900/80 border-b border-gray-700 flex items-center justify-between px-1 cursor-grab active:cursor-grabbing`}
+                                    className="h-[22px] bg-gray-900/90 border-b border-gray-700 flex items-center justify-between px-1 cursor-grab active:cursor-grabbing flex-shrink-0"
                                     draggable={slot.type === 'local' && !isEditing}
                                     onDragStart={(e) => slot.type === 'local' ? handleItemDragStart(e, index) : e.preventDefault()}
                                 >
@@ -456,46 +452,40 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                                 disabled={isEditing}
                                                 readOnly
                                                 onClick={(e) => { e.stopPropagation(); onCheck(index); }}
-                                                className="h-3 w-3 rounded bg-gray-900 border-gray-500 text-accent focus:ring-0 cursor-pointer disabled:opacity-50"
+                                                className="h-2.5 w-2.5 rounded bg-gray-900 border-gray-500 text-accent focus:ring-0 cursor-pointer disabled:opacity-50"
                                             />
                                         )}
-                                        <span className="text-[10px] font-mono text-gray-400">#{index + 1}</span>
+                                        <span className="text-[9px] font-mono text-gray-400">#{index + 1}</span>
                                      </div>
                                      
                                      {slot.type === 'local' && !isEditing && (
-                                         <div className="flex items-center gap-0.5">
-                                             <button onClick={(e) => { e.stopPropagation(); onReorder(index, 0); }} className="text-gray-500 hover:text-white p-0.5" title="Top">
-                                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 11l7-7 7 7M5 19l7-7 7 7" /></svg>
-                                             </button>
+                                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                              <button onClick={(e) => { e.stopPropagation(); onReorder(index, index - 1); }} className="text-gray-500 hover:text-white p-0.5" title="Up">
-                                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 15l7-7 7 7" /></svg>
+                                                <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M5 15l7-7 7 7" /></svg>
                                              </button>
                                              <button onClick={(e) => { e.stopPropagation(); onReorder(index, index + 1); }} className="text-gray-500 hover:text-white p-0.5" title="Down">
-                                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 9l-7 7-7-7" /></svg>
+                                                <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M19 9l-7 7-7-7" /></svg>
                                              </button>
-                                             <button onClick={(e) => { e.stopPropagation(); onReorder(index, slots.length); }} className="text-gray-500 hover:text-white p-0.5" title="Bottom">
-                                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 13l-7 7-7-7m14-8l-7 7-7-7" /></svg>
-                                             </button>
-                                             <div className="w-px h-3 bg-gray-700 mx-0.5"></div>
                                              <button onClick={(e) => { e.stopPropagation(); onRemove(slot.index); }} className="text-gray-500 hover:text-red-400 p-0.5" title="Remove">
-                                                 <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                                                 <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M18 6L6 18M6 6l12 12" /></svg>
                                              </button>
                                          </div>
                                      )}
                                 </div>
 
-                                {/* Image Content */}
+                                {/* 64x64 Thumbnail Image Content (Original full-res preserved for click/drag/chain) */}
                                 <div 
-                                    className="flex-grow relative cursor-pointer overflow-hidden bg-black/40"
+                                    className="flex-grow relative cursor-pointer overflow-hidden bg-black/40 flex items-center justify-center p-0.5"
                                     onClick={() => onClick(index)} 
                                 >
                                     {slot.src ? (
-                                        <img 
-                                            src={fullRes || slot.src || ''} 
+                                        <OptimizedThumbnail 
+                                            src={fullRes || slot.src} 
+                                            size={64}
                                             alt={`Input ${index + 1}`} 
-                                            className={`object-contain w-full h-full ${!isChecked ? 'opacity-50' : ''}`}
-                                            onMouseDown={(e) => e.stopPropagation()} 
+                                            className={`object-contain w-full h-full max-w-[64px] max-h-[64px] ${!isChecked ? 'opacity-50' : ''}`}
                                             draggable={true} 
+                                            onMouseDown={(e) => e.stopPropagation()}
                                             onDragStart={(e) => { 
                                                 const dragSrc = fullRes || slot.src;
                                                 if (dragSrc) {
@@ -505,13 +495,13 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                             }} 
                                         />
                                     ) : (
-                                        <div className="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600 text-xs">No Image</div>
+                                        <div className="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600 text-[9px]">No Image</div>
                                     )}
                                     
-                                    {/* Additional Overlays for Connected type if needed */}
+                                    {/* Additional Overlays for Connected type */}
                                     {slot.type === 'connected' && (
-                                         <div className="absolute top-1 right-1 pointer-events-none">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-400 drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                         <div className="absolute top-0.5 right-0.5 pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-cyan-400 drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                                         </div>
                                     )}
 
@@ -519,10 +509,10 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); onMoveToB(slot.index); }} 
                                             disabled={isEditing} 
-                                            className="absolute bottom-1 right-1 p-1 bg-gray-900/80 rounded text-gray-300 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity" 
+                                            className="absolute bottom-0.5 right-0.5 p-0.5 bg-gray-900/80 rounded text-gray-300 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity" 
                                             title="Move to Input B"
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 13l-7 7-7-7m14-8l-7 7-7-7" /></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 13l-7 7-7-7m14-8l-7 7-7-7" /></svg>
                                         </button>
                                     )}
                                 </div>

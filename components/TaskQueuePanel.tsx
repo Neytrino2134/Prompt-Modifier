@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import JSZip from 'jszip';
 import { useAppContext } from '../contexts/AppContext';
 import { TaskStatus, BatchJobRecord, BatchJobState, NodeType } from '../types';
@@ -18,12 +18,35 @@ import {
     getDeviceFilterMode, 
     setDeviceFilterMode as fallbackSetDeviceFilterMode 
 } from '../utils/deviceId';
+import { 
+    useTripoBalance, 
+    useTripoEnabled, 
+    getTripoRecentTasks, 
+    removeTripoRecentTask, 
+    clearTripoRecentTasks, 
+    fetchTripoRecentTasks, 
+    importTripoTaskById,
+    queryTripoTasksBatch,
+    parseTaskJsonFiles,
+    exportAllTasksToJson,
+    downloadTaskMetadataJson,
+    TripoRecentTask, 
+    TRIPO_TASKS_CHANGE_EVENT 
+} from '../services/tripoService';
+import { OptimizedThumbnail } from './nodes/image-editor/OptimizedThumbnail';
+import { 
+    Box, Sparkles, Zap, Download, RefreshCw, Trash2, ExternalLink, Eye, X, Layers, 
+    Loader2, Image as ImageIcon, Plus, Copy, Check, FileJson, UploadCloud, ArrowDownCircle, 
+    FileText, ListFilter, FolderDown
+} from 'lucide-react';
 
 export const TaskQueuePanel: React.FC = () => {
     const context = useAppContext();
     if (!context) return null;
 
     const {
+        nodes,
+        selectedNodeIds,
         tasks,
         isTaskQueuePanelOpen,
         setIsTaskQueuePanelOpen,
@@ -71,8 +94,23 @@ export const TaskQueuePanel: React.FC = () => {
         t
     } = context;
 
-    const [activeTab, setActiveTab] = useState<'queue' | 'batch'>('queue');
+    const [activeTab, setActiveTab] = useState<'queue' | 'batch' | 'threed'>('queue');
     const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'failed'>('all');
+    const [queueTypeFilter, setQueueTypeFilter] = useState<'all' | 'images' | 'threed'>('all');
+    const [threedStatusFilter, setThreedStatusFilter] = useState<'all' | 'success' | 'running' | 'failed'>('all');
+    const [fetchingTasksLimit, setFetchingTasksLimit] = useState<number | null>(null);
+    const [recent3dTasks, setRecent3dTasks] = useState<TripoRecentTask[]>(() => getTripoRecentTasks());
+    const [manualTaskId, setManualTaskId] = useState('');
+    const [isImportingTaskId, setIsImportingTaskId] = useState(false);
+    const [showManualImport, setShowManualImport] = useState(false);
+    const [showBatchPasteModal, setShowBatchPasteModal] = useState(false);
+    const [batchPasteText, setBatchPasteText] = useState('');
+    const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+    const singleJsonInputRef = React.useRef<HTMLInputElement>(null);
+    const batchJsonInputRef = React.useRef<HTMLInputElement>(null);
+    const { balance: tripoBalance, loading: isTripoBalanceLoading, refreshBalance: refreshTripoBalance } = useTripoBalance();
+    const isTripoConfigured = useTripoEnabled();
+
     const [batchSortOrder, setBatchSortOrder] = useState<'desc' | 'asc'>('desc');
     const [checkingJobId, setCheckingJobId] = useState<string | null>(null);
     const [expandedBatchJobIds, setExpandedBatchJobIds] = useState<Record<string, boolean>>({});
@@ -80,6 +118,19 @@ export const TaskQueuePanel: React.FC = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [viewingJsonl, setViewingJsonl] = useState<{ id: string; content: string; name: string } | null>(null);
     const [copiedJsonl, setCopiedJsonl] = useState(false);
+
+    // Sync recent 3D tasks with event updates
+    useEffect(() => {
+        const handleTasksUpdate = (e: any) => {
+            if (Array.isArray(e.detail)) {
+                setRecent3dTasks(e.detail);
+            } else {
+                setRecent3dTasks(getTripoRecentTasks());
+            }
+        };
+        window.addEventListener(TRIPO_TASKS_CHANGE_EVENT, handleTasksUpdate);
+        return () => window.removeEventListener(TRIPO_TASKS_CHANGE_EVENT, handleTasksUpdate);
+    }, []);
 
     const effectiveDeviceId = deviceId || getDeviceId();
     const effectiveDeviceName = deviceName ?? getDeviceName();
@@ -133,10 +184,10 @@ export const TaskQueuePanel: React.FC = () => {
         return Array.from(set);
     }, [batchJobs]);
 
-    // Listen for custom open-task-queue event to select the specific tab (queue or batch)
-    React.useEffect(() => {
+    // Listen for custom open-task-queue event to select the specific tab (queue, batch, or threed)
+    useEffect(() => {
         const handler = (e: any) => {
-            if (e.detail?.tab && (e.detail.tab === 'queue' || e.detail.tab === 'batch')) {
+            if (e.detail?.tab && (e.detail.tab === 'queue' || e.detail.tab === 'batch' || e.detail.tab === 'threed')) {
                 setActiveTab(e.detail.tab);
             }
         };
@@ -343,10 +394,469 @@ export const TaskQueuePanel: React.FC = () => {
         }
     };
 
+    const handleSendToNoteReferences = async (job: BatchJobRecord) => {
+        const itemsWithImages = (job.items || []).filter(it => !!it.resultUrl);
+        if (itemsWithImages.length === 0) {
+            addToast?.(t('batch.noImages') || 'Нет сгенерированных изображений для отправки', 'info');
+            return;
+        }
+
+        // Find target Note node (prefer currently selected Note node, or first existing Note node)
+        const noteNodes = (nodes || []).filter(n => n.type === NodeType.NOTE);
+        const selectedNoteNode = noteNodes.find(n => (selectedNodeIds || []).includes(n.id));
+        const targetNoteNode = selectedNoteNode || noteNodes[0];
+
+        const newRefItems = await Promise.all(itemsWithImages.map(async (it, idx) => {
+            const frameNum = it.frameIndex !== undefined ? it.frameIndex + 1 : idx + 1;
+            let thumb = it.resultUrl!;
+            try {
+                thumb = await generateThumbnail(it.resultUrl!, 128, 128);
+            } catch {}
+            return {
+                id: `ref-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+                image: thumb,
+                fullImage: it.resultUrl!,
+                caption: it.prompt || `Batch #${frameNum}`
+            };
+        }));
+
+        if (targetNoteNode) {
+            // Append to existing Note node
+            let existingData: any = { text: '', references: [], activeTab: 'reference', isMinimal: false, style: {} };
+            try {
+                const parsed = JSON.parse(targetNoteNode.value || '{}');
+                if (typeof parsed === 'object' && parsed !== null) {
+                    existingData = {
+                        ...existingData,
+                        ...parsed,
+                        references: Array.isArray(parsed.references) ? parsed.references : []
+                    };
+                }
+            } catch { }
+
+            const cleanRefItems = newRefItems.map(({ fullImage, ...r }) => r);
+            const updatedReferences = [...existingData.references, ...cleanRefItems];
+            const updatedValue = JSON.stringify({
+                ...existingData,
+                references: updatedReferences,
+                activeTab: 'reference'
+            });
+
+            if (handleValueChange) {
+                handleValueChange(targetNoteNode.id, updatedValue);
+            }
+
+            if (setFullSizeImage) {
+                // Set full size image for existing and new references
+                const startIndex = existingData.references.length;
+                newRefItems.forEach((ref, idx) => {
+                    if (ref.fullImage) {
+                        setFullSizeImage(targetNoteNode.id, startIndex + idx, ref.fullImage);
+                    }
+                });
+            }
+
+            if (selectNode) selectNode(targetNoteNode.id);
+            if (handleNavigateToNodeFrame) handleNavigateToNodeFrame(targetNoteNode.id, 0);
+
+            const msg = `Добавлено ${newRefItems.length} изображений в референсы узла "${targetNoteNode.title || 'Заметка'}"`;
+            addToast?.(msg, 'success');
+        } else {
+            // Create a new Note Node centered on canvas
+            const cleanRefItems = newRefItems.map(({ fullImage, ...r }) => r);
+            const initialValue = JSON.stringify({
+                text: '',
+                references: cleanRefItems,
+                activeTab: 'reference',
+                isMinimal: false,
+                style: {
+                    fontSize: 14,
+                    color: '#ffffff',
+                    isBold: false,
+                    isItalic: false,
+                    textAlign: 'left'
+                }
+            });
+
+            const scale = viewTransform?.scale || 1;
+            const centerPos = {
+                x: (- (viewTransform?.translate?.x || 0) + window.innerWidth / 2) / scale,
+                y: (- (viewTransform?.translate?.y || 0) + window.innerHeight / 2) / scale
+            };
+
+            if (onAddNode) {
+                const newNodeId = onAddNode(
+                    NodeType.NOTE,
+                    centerPos,
+                    `${job.displayName || 'Batch'} - Референсы`,
+                    { centerNode: true, initialValue }
+                );
+
+                if (handleValueChange && newNodeId) {
+                    handleValueChange(newNodeId, initialValue);
+                }
+
+                if (setFullSizeImage && newNodeId) {
+                    newRefItems.forEach((ref, idx) => {
+                        if (ref.fullImage) {
+                            setFullSizeImage(newNodeId, idx, ref.fullImage);
+                        }
+                    });
+                }
+
+                if (newNodeId) {
+                    if (selectNode) selectNode(newNodeId);
+                    if (handleNavigateToNodeFrame) handleNavigateToNodeFrame(newNodeId, 0);
+                }
+
+                const msg = `Создан узел Заметка с ${newRefItems.length} референсами из пакета`;
+                addToast?.(msg, 'success');
+            }
+        }
+    };
+
+    const handleSendTo3DBatchPrepare = async (job: BatchJobRecord) => {
+        const itemsWithImages = (job.items || []).filter(it => !!it.resultUrl);
+        if (itemsWithImages.length === 0) {
+            addToast?.(t('batch.noImages') || 'Нет сгенерированных изображений для отправки', 'info');
+            return;
+        }
+
+        const newImageUrls = itemsWithImages.map(it => it.resultUrl!);
+
+        // Find target BatchPrepare node (prefer currently selected, or first existing)
+        const batchPrepNodes = (nodes || []).filter(n => n.type === NodeType.BATCH_PREPARE);
+        const selectedBatchPrepNode = batchPrepNodes.find(n => (selectedNodeIds || []).includes(n.id));
+        const targetBatchPrepNode = selectedBatchPrepNode || batchPrepNodes[0];
+
+        if (targetBatchPrepNode) {
+            // Append to existing BatchPrepare node
+            let existingState: any = {
+                inputImages: [],
+                selectedInputIndex: 0,
+                gridConfig: { preset: '1x4', cols: 4, rows: 1, borderWidth: 0, borderMode: 'inner', enableBorder: false, bounds: { x: 0, y: 0, width: 1, height: 1 }, customDividers: true },
+                slicedImages: [],
+                selectedSliceIndex: null,
+                activeViews: { front: null, back: null, left: null, right: null },
+                mutedViews: { front: false, back: false, left: false, right: false },
+                autoSendToViews: true,
+                activePackId: null,
+                packs: []
+            };
+
+            try {
+                const parsed = JSON.parse(targetBatchPrepNode.value || '{}');
+                if (typeof parsed === 'object' && parsed !== null) {
+                    existingState = {
+                        ...existingState,
+                        ...parsed,
+                        inputImages: Array.isArray(parsed.inputImages) ? parsed.inputImages : []
+                    };
+                }
+            } catch { }
+
+            const updatedInputImages = [...newImageUrls, ...existingState.inputImages];
+            const updatedValue = JSON.stringify({
+                ...existingState,
+                inputImages: updatedInputImages,
+                selectedInputIndex: 0
+            });
+
+            if (handleValueChange) {
+                handleValueChange(targetBatchPrepNode.id, updatedValue);
+            }
+
+            if (selectNode) selectNode(targetBatchPrepNode.id);
+            if (handleNavigateToNodeFrame) handleNavigateToNodeFrame(targetBatchPrepNode.id, 0);
+
+            const msg = `Добавлено ${newImageUrls.length} изображений во вход узла "${targetBatchPrepNode.title || '3D Batch Prepare'}"`;
+            addToast?.(msg, 'success');
+        } else {
+            // Create a new 3D Batch Prepare node centered on canvas
+            const initialValue = JSON.stringify({
+                inputImages: newImageUrls,
+                selectedInputIndex: 0,
+                gridConfig: {
+                    preset: '1x4',
+                    cols: 4,
+                    rows: 1,
+                    borderWidth: 0,
+                    borderMode: 'inner',
+                    enableBorder: false,
+                    bounds: { x: 0, y: 0, width: 1, height: 1 },
+                    customDividers: true
+                },
+                slicedImages: [],
+                selectedSliceIndex: null,
+                activeViews: {
+                    front: newImageUrls[0] || null,
+                    back: newImageUrls[1] || null,
+                    left: newImageUrls[2] || null,
+                    right: newImageUrls[3] || null
+                },
+                mutedViews: {
+                    front: false,
+                    back: false,
+                    left: false,
+                    right: false
+                },
+                autoSendToViews: true,
+                activePackId: null,
+                packs: []
+            });
+
+            const scale = viewTransform?.scale || 1;
+            const centerPos = {
+                x: (- (viewTransform?.translate?.x || 0) + window.innerWidth / 2) / scale,
+                y: (- (viewTransform?.translate?.y || 0) + window.innerHeight / 2) / scale
+            };
+
+            if (onAddNode) {
+                const newNodeId = onAddNode(
+                    NodeType.BATCH_PREPARE,
+                    centerPos,
+                    `${job.displayName || 'Batch'} - 3D Prepare`,
+                    { centerNode: true, initialValue }
+                );
+
+                if (handleValueChange && newNodeId) {
+                    handleValueChange(newNodeId, initialValue);
+                }
+
+                if (newNodeId) {
+                    if (selectNode) selectNode(newNodeId);
+                    if (handleNavigateToNodeFrame) handleNavigateToNodeFrame(newNodeId, 0);
+                }
+
+                const msg = `Создан узел 3D Batch Prepare с ${newImageUrls.length} изображениями на входе`;
+                addToast?.(msg, 'success');
+            }
+        }
+    };
+
+    const handleFetchRecentGenerations = async (limit: number) => {
+        setFetchingTasksLimit(limit);
+        try {
+            const list = await fetchTripoRecentTasks(limit);
+            setRecent3dTasks(list);
+            if (list.length > 0) {
+                addToast?.(`Загружено ${list.length} недавних 3D генераций`, 'success');
+            } else {
+                addToast?.(`В локальном журнале пока нет 3D генераций. Создайте модель в узле 3D Generation или импортируйте по Task ID`, 'info');
+            }
+        } catch (err: any) {
+            addToast?.(`Ошибка загрузки генераций: ${err?.message || err}`, 'error');
+        } finally {
+            setFetchingTasksLimit(null);
+        }
+    };
+
+    const handleImportTask = async (customId?: string) => {
+        const id = (customId || manualTaskId).trim();
+        if (!id) return;
+        setIsImportingTaskId(true);
+        try {
+            const task = await importTripoTaskById(id);
+            if (task) {
+                setRecent3dTasks(getTripoRecentTasks());
+                if (!customId) {
+                    setManualTaskId('');
+                    setShowManualImport(false);
+                }
+                addToast?.(`3D модель с Task ID "${id.slice(0, 12)}..." успешно импортирована!`, 'success');
+            }
+        } catch (err: any) {
+            addToast?.(`Ошибка импорта Task ID: ${err?.message || err}`, 'error');
+        } finally {
+            setIsImportingTaskId(false);
+        }
+    };
+
+    const handleUploadSingleJson = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsBatchProcessing(true);
+        try {
+            const results = await parseTaskJsonFiles([file]);
+            setRecent3dTasks(getTripoRecentTasks());
+            if (results.length > 0) {
+                addToast?.(`JSON файл задачи "${file.name}" загружен! Получено моделей: ${results.length}`, 'success');
+            } else {
+                addToast?.(`В файле "${file.name}" не обнаружен task_id`, 'error');
+            }
+        } catch (err: any) {
+            addToast?.(`Ошибка чтения JSON: ${err?.message || err}`, 'error');
+        } finally {
+            setIsBatchProcessing(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleUploadBatchJsons = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setIsBatchProcessing(true);
+        try {
+            const fileCount = files.length;
+            const results = await parseTaskJsonFiles(files);
+            setRecent3dTasks(getTripoRecentTasks());
+            addToast?.(`Пакетная обработка: прочитано ${fileCount} файлов, загружено ${results.length} задач`, 'success');
+        } catch (err: any) {
+            addToast?.(`Ошибка пакетной загрузки JSON: ${err?.message || err}`, 'error');
+        } finally {
+            setIsBatchProcessing(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleBatchPasteSubmit = async () => {
+        const raw = batchPasteText.trim();
+        if (!raw) return;
+
+        // Split by whitespace, commas, semicolons, newlines
+        const ids = raw.split(/[\s,;\n\r]+/).map(s => s.trim()).filter(Boolean);
+        if (ids.length === 0) {
+            addToast?.('Не найдено корректных Task ID в тексте', 'info');
+            return;
+        }
+
+        setIsBatchProcessing(true);
+        try {
+            const results = await queryTripoTasksBatch(ids);
+            setRecent3dTasks(getTripoRecentTasks());
+            setBatchPasteText('');
+            setShowBatchPasteModal(false);
+            addToast?.(`Пакетный запрос завершён: получено ${results.length} из ${ids.length} задач`, 'success');
+        } catch (err: any) {
+            addToast?.(`Ошибка пакетного запроса Task IDs: ${err?.message || err}`, 'error');
+        } finally {
+            setIsBatchProcessing(false);
+        }
+    };
+
+    const handleRefreshSingleTask = async (taskId: string) => {
+        try {
+            const updated = await importTripoTaskById(taskId);
+            if (updated) {
+                setRecent3dTasks(getTripoRecentTasks());
+                addToast?.(`Статус задачи "${taskId.slice(0, 10)}..." обновлен: ${updated.status}`, 'success');
+            }
+        } catch (err: any) {
+            addToast?.(`Ошибка обновления задачи: ${err?.message || err}`, 'error');
+        }
+    };
+
+    const handleDownloadTaskJson = (task: TripoRecentTask) => {
+        const filename = downloadTaskMetadataJson(task, task.prompt, task.taskId);
+        if (filename) {
+            addToast?.(`JSON метаданные скачаны: ${filename}`, 'info');
+        }
+    };
+
+    const handleExportAll3dTasks = () => {
+        if (recent3dTasks.length === 0) {
+            addToast?.('Нет сохранённых 3D задач для экспорта', 'info');
+            return;
+        }
+        exportAllTasksToJson();
+        addToast?.(`Экспортировано ${recent3dTasks.length} 3D задач в файл бэкапа JSON`, 'success');
+    };
+
+    const handleDownload3dModel = (modelUrl: string, prompt?: string, taskId?: string) => {
+        const filename = `${(prompt || 'model').slice(0, 30).replace(/[^a-zA-Z0-9_-]/g, '_')}_${taskId ? taskId.slice(0, 8) : Date.now()}.glb`;
+        const a = document.createElement('a');
+        a.href = modelUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        addToast?.(`Скачивание 3D модели: ${filename}`, 'info');
+    };
+
+    const handleDownload3dPreview = (previewUrl: string, prompt?: string, taskId?: string) => {
+        const filename = `${(prompt || 'render').slice(0, 30).replace(/[^a-zA-Z0-9_-]/g, '_')}_${taskId ? taskId.slice(0, 8) : Date.now()}.png`;
+        const a = document.createElement('a');
+        a.href = previewUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        addToast?.(`Скачивание превью: ${filename}`, 'info');
+    };
+
+    const handleLoadModelIntoNode = (modelItem: TripoRecentTask) => {
+        const target3dNode = nodes.find(n => n.type === NodeType.THREE_D_GENERATOR && selectedNodeIds.includes(n.id)) ||
+                             nodes.find(n => n.type === NodeType.THREE_D_GENERATOR);
+
+        if (target3dNode) {
+            let existingState: any = {};
+            try {
+                existingState = JSON.parse(target3dNode.value || '{}');
+            } catch {}
+            const updatedValue = JSON.stringify({
+                ...existingState,
+                modelUrl: modelItem.modelUrl,
+                thumbnailUrl: modelItem.thumbnailUrl,
+                renderedImageUrl: modelItem.renderedImageUrl,
+                prompt: modelItem.prompt || existingState.prompt,
+                status: 'success',
+                progress: 100
+            });
+            if (handleValueChange) {
+                handleValueChange(target3dNode.id, updatedValue);
+            }
+            if (selectNode) selectNode(target3dNode.id);
+            addToast?.(`3D модель загружена в узел "${target3dNode.title || '3D Generation'}"`, 'success');
+        } else {
+            const initialValue = JSON.stringify({
+                mode: 'multiview_to_3d',
+                modelUrl: modelItem.modelUrl,
+                thumbnailUrl: modelItem.thumbnailUrl,
+                renderedImageUrl: modelItem.renderedImageUrl,
+                prompt: modelItem.prompt || '',
+                status: 'success',
+                progress: 100,
+                activeTab: 'preview3d',
+                multiview: { front: null, left: null, back: null, right: null },
+                image: null
+            });
+            const scale = viewTransform?.scale || 1;
+            const centerPos = {
+                x: (- (viewTransform?.translate?.x || 0) + window.innerWidth / 2) / scale,
+                y: (- (viewTransform?.translate?.y || 0) + window.innerHeight / 2) / scale
+            };
+            if (onAddNode) {
+                const newNodeId = onAddNode(
+                    NodeType.THREE_D_GENERATOR,
+                    centerPos,
+                    modelItem.prompt ? `3D - ${modelItem.prompt.slice(0, 20)}` : '3D Generation',
+                    { centerNode: true, initialValue }
+                );
+                if (handleValueChange && newNodeId) {
+                    handleValueChange(newNodeId, initialValue);
+                }
+                if (newNodeId && selectNode) selectNode(newNodeId);
+                addToast?.('Создан узел 3D Generation с загруженной моделью', 'success');
+            }
+        }
+    };
+
     const filteredTasks = tasks.filter(task => {
-        if (filter === 'active') return task.status === 'running' || task.status === 'queued';
-        if (filter === 'completed') return task.status === 'completed';
-        if (filter === 'failed') return task.status === 'failed' || task.status === 'cancelled';
+        if (filter === 'active' && task.status !== 'running' && task.status !== 'queued') return false;
+        if (filter === 'completed' && task.status !== 'completed') return false;
+        if (filter === 'failed' && task.status !== 'failed' && task.status !== 'cancelled') return false;
+
+        if (queueTypeFilter === 'images' && task.type === 'three_d_gen') return false;
+        if (queueTypeFilter === 'threed' && task.type !== 'three_d_gen') return false;
+        return true;
+    });
+
+    const filtered3dTasks = recent3dTasks.filter(task => {
+        if (threedStatusFilter === 'success') return task.status === 'success';
+        if (threedStatusFilter === 'running') return task.status === 'running' || task.status === 'queued';
+        if (threedStatusFilter === 'failed') return task.status === 'failed' || task.status === 'cancelled';
         return true;
     });
 
@@ -678,11 +1188,11 @@ export const TaskQueuePanel: React.FC = () => {
                 </div>
             </div>
 
-            {/* Main Tabs Navigation (Queue vs Batch Jobs) */}
+            {/* Main Tabs Navigation (Queue vs Batch Jobs vs 3D Models) */}
             <div className="flex border-b border-gray-800 bg-gray-950/80 px-2 pt-1 gap-1 select-none">
                 <button
                     onClick={() => setActiveTab('queue')}
-                    className={`flex-1 py-2 px-3 text-xs font-semibold rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 ${
+                    className={`flex-1 py-2 px-2.5 text-xs font-semibold rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 ${
                         activeTab === 'queue'
                             ? 'border-accent text-white bg-gray-900'
                             : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-900/50'
@@ -699,7 +1209,7 @@ export const TaskQueuePanel: React.FC = () => {
 
                 <button
                     onClick={() => setActiveTab('batch')}
-                    className={`flex-1 py-2 px-3 text-xs font-semibold rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 ${
+                    className={`flex-1 py-2 px-2.5 text-xs font-semibold rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 ${
                         activeTab === 'batch'
                             ? 'border-accent-secondary text-white bg-gray-900'
                             : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-900/50'
@@ -708,13 +1218,28 @@ export const TaskQueuePanel: React.FC = () => {
                     <svg className="w-3.5 h-3.5 text-accent-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    <span>{t('batch.panelTitle') || 'Batch Jobs'}</span>
+                    <span>{t('batch.panelTitle') || 'Batch'}</span>
                     <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-gray-800 text-gray-300">
                         {sortedBatchJobs.length}
                     </span>
                     {activeBatchJobsCount > 0 && (
                         <span className="w-2 h-2 rounded-full bg-accent-secondary animate-pulse"></span>
                     )}
+                </button>
+
+                <button
+                    onClick={() => setActiveTab('threed')}
+                    className={`flex-1 py-2 px-2.5 text-xs font-semibold rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 ${
+                        activeTab === 'threed'
+                            ? 'border-purple-500 text-white bg-gray-900'
+                            : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-900/50'
+                    }`}
+                >
+                    <Box className="w-3.5 h-3.5 text-purple-400" />
+                    <span>3D Models</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-gray-800 text-gray-300">
+                        {recent3dTasks.length}
+                    </span>
                 </button>
             </div>
 
@@ -741,38 +1266,67 @@ export const TaskQueuePanel: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Filter Tabs & Toolbar */}
-                    <div className="p-2 border-b border-gray-800 bg-gray-900/60 flex flex-wrap gap-1.5 items-center justify-between">
-                        <div className="flex gap-1 bg-gray-950 p-0.5 rounded-lg border border-gray-800 text-xs">
-                            <button
-                                onClick={() => setFilter('all')}
-                                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${filter === 'all' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                            >
-                                {t('queue.filter_all') || 'All'} ({tasks.length})
-                            </button>
-                            <button
-                                onClick={() => setFilter('active')}
-                                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${filter === 'active' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                            >
-                                {t('queue.filter_active') || 'Active'} ({runningCount + queuedCount})
-                            </button>
-                            <button
-                                onClick={() => setFilter('completed')}
-                                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${filter === 'completed' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                            >
-                                {t('queue.filter_completed') || 'Done'} ({completedCount})
-                            </button>
+                    {/* Filter Tabs & Type Selector Toolbar */}
+                    <div className="p-2 border-b border-gray-800 bg-gray-900/60 flex flex-col gap-2">
+                        <div className="flex flex-wrap gap-1.5 items-center justify-between">
+                            <div className="flex gap-1 bg-gray-950 p-0.5 rounded-lg border border-gray-800 text-xs">
+                                <button
+                                    onClick={() => setFilter('all')}
+                                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${filter === 'all' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                                >
+                                    {t('queue.filter_all') || 'All'} ({tasks.length})
+                                </button>
+                                <button
+                                    onClick={() => setFilter('active')}
+                                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${filter === 'active' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                                >
+                                    {t('queue.filter_active') || 'Active'} ({runningCount + queuedCount})
+                                </button>
+                                <button
+                                    onClick={() => setFilter('completed')}
+                                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${filter === 'completed' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                                >
+                                    {t('queue.filter_completed') || 'Done'} ({completedCount})
+                                </button>
+                            </div>
+
+                            {completedCount + failedCount > 0 && (
+                                <button
+                                    onClick={clearCompletedTasks}
+                                    className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-800 transition-colors"
+                                    title={t('queue.clear_completed') || 'Clear finished tasks'}
+                                >
+                                    {t('queue.clear') || 'Clear Finished'}
+                                </button>
+                            )}
                         </div>
 
-                        {completedCount + failedCount > 0 && (
-                            <button
-                                onClick={clearCompletedTasks}
-                                className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-800 transition-colors"
-                                title={t('queue.clear_completed') || 'Clear finished tasks'}
-                            >
-                                {t('queue.clear') || 'Clear Finished'}
-                            </button>
-                        )}
+                        {/* Queue Item Type Filter: All vs Images vs 3D Models */}
+                        <div className="flex items-center justify-between gap-1 text-xs pt-1 border-t border-gray-800/60">
+                            <span className="text-[10px] text-gray-400 font-medium">Тип задач:</span>
+                            <div className="flex gap-1 bg-gray-950 p-0.5 rounded-md border border-gray-800 text-[11px]">
+                                <button
+                                    onClick={() => setQueueTypeFilter('all')}
+                                    className={`px-2 py-0.5 rounded font-medium transition-colors ${queueTypeFilter === 'all' ? 'bg-gray-700 text-white shadow-xs' : 'text-gray-400 hover:text-gray-200'}`}
+                                >
+                                    Все ({tasks.length})
+                                </button>
+                                <button
+                                    onClick={() => setQueueTypeFilter('images')}
+                                    className={`px-2 py-0.5 rounded font-medium transition-colors flex items-center gap-1 ${queueTypeFilter === 'images' ? 'bg-cyan-700 text-white shadow-xs' : 'text-gray-400 hover:text-gray-200'}`}
+                                >
+                                    <ImageIcon className="w-3 h-3" />
+                                    <span>Изображения</span>
+                                </button>
+                                <button
+                                    onClick={() => setQueueTypeFilter('threed')}
+                                    className={`px-2 py-0.5 rounded font-medium transition-colors flex items-center gap-1 ${queueTypeFilter === 'threed' ? 'bg-purple-700 text-white shadow-xs' : 'text-gray-400 hover:text-gray-200'}`}
+                                >
+                                    <Box className="w-3 h-3" />
+                                    <span>3D Модели</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Task List */}
@@ -808,8 +1362,14 @@ export const TaskQueuePanel: React.FC = () => {
                                             <svg className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
                                             </svg>
-                                            <span className="truncate">{task.nodeTitle || 'Image Editor'}</span>
-                                            {task.frameIndex !== undefined && !task.isBatch && (
+                                            <span className="truncate">{task.nodeTitle || (task.type === 'three_d_gen' ? '3D Generation' : 'Image Editor')}</span>
+                                            {task.type === 'three_d_gen' && (
+                                                <span className="px-1.5 py-0.2 rounded bg-purple-950/80 text-purple-300 border border-purple-700/60 font-semibold text-[10px] uppercase flex items-center gap-1">
+                                                    <span>🧊</span>
+                                                    <span>Tripo 3D</span>
+                                                </span>
+                                            )}
+                                            {task.frameIndex !== undefined && !task.isBatch && task.type !== 'three_d_gen' && (
                                                 <span className="px-1.5 py-0.2 bg-gray-800 text-gray-300 rounded font-mono text-[10px]">
                                                     #{task.frameIndex + 1}
                                                 </span>
@@ -832,24 +1392,47 @@ export const TaskQueuePanel: React.FC = () => {
                                     </p>
 
                                     {/* Result Preview or Error Message */}
-                                    {task.status === 'completed' && task.resultUrl && (
-                                        <div
-                                            className="mt-2 relative rounded overflow-hidden aspect-video bg-black flex items-center justify-center border border-emerald-900/50 cursor-pointer group"
-                                            onClick={() => setImageViewer && setImageViewer({
-                                                sources: [{ src: task.resultUrl!, frameNumber: (task.frameIndex ?? 0) + 1, prompt: task.prompt }],
-                                                initialIndex: 0
-                                            })}
-                                        >
-                                            <img src={task.resultUrl} alt="Result" className="w-full h-full object-contain" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                <span className="text-xs text-white bg-black/60 px-2.5 py-1 rounded-md shadow flex items-center gap-1 font-sans">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                                        <circle cx="12" cy="12" r="3"></circle>
-                                                    </svg>
-                                                    {t('ui.preview') || 'Preview'}
-                                                </span>
-                                            </div>
+                                    {task.status === 'completed' && (task.thumbnailUrl || task.resultUrl) && (
+                                        <div className="mt-2 space-y-1.5">
+                                            {(task.thumbnailUrl || (task.resultUrl && (task.resultUrl.startsWith('data:image') || task.resultUrl.startsWith('http')) && !task.resultUrl.endsWith('.glb'))) && (
+                                                <div
+                                                    className="relative rounded overflow-hidden aspect-video bg-black flex items-center justify-center border border-emerald-900/50 cursor-pointer group"
+                                                    onClick={() => setImageViewer && setImageViewer({
+                                                        sources: [{ src: task.thumbnailUrl || task.resultUrl!, frameNumber: (task.frameIndex ?? 0) + 1, prompt: task.prompt }],
+                                                        initialIndex: 0
+                                                    })}
+                                                >
+                                                    <img src={task.thumbnailUrl || task.resultUrl} alt="Result" className="w-full h-full object-contain" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                        <span className="text-xs text-white bg-black/60 px-2.5 py-1 rounded-md shadow flex items-center gap-1 font-sans">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                                <circle cx="12" cy="12" r="3"></circle>
+                                                            </svg>
+                                                            {t('ui.preview') || 'Preview'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {task.type === 'three_d_gen' && task.resultUrl && (
+                                                <div className="flex items-center justify-between p-2 rounded bg-purple-950/40 border border-purple-900/50">
+                                                    <div className="flex items-center gap-1.5 text-xs text-purple-300 font-medium">
+                                                        <span>🧊</span>
+                                                        <span>3D Model Ready (.GLB)</span>
+                                                    </div>
+                                                    <a
+                                                        href={task.resultUrl}
+                                                        download={`model_${task.id}.glb`}
+                                                        className="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs shadow-sm flex items-center gap-1 transition-colors"
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                        </svg>
+                                                        <span>Download .GLB</span>
+                                                    </a>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -1158,6 +1741,28 @@ export const TaskQueuePanel: React.FC = () => {
                                             </button>
 
                                             <button
+                                                onClick={() => handleSendToNoteReferences({ ...job, id: jobId, items: jobItems })}
+                                                className="px-2 py-1 rounded bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[11px] font-medium flex items-center gap-1 transition-colors"
+                                                title={t('batch.sendToNoteRefTooltip') || 'Отправить сгенерированные изображения в референсы ноды Заметка'}
+                                            >
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                                <span>{t('batch.sendToNoteRef') || 'В референсы Заметки'}</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleSendTo3DBatchPrepare({ ...job, id: jobId, items: jobItems })}
+                                                className="px-2 py-1 rounded bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-[11px] font-medium flex items-center gap-1 transition-colors"
+                                                title={t('batch.sendTo3DPrepareTooltip') || 'Отправить сгенерированные изображения во вход ноды 3D Batch Prepare'}
+                                            >
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                </svg>
+                                                <span>{t('batch.sendTo3DPrepare') || 'В 3D Prepare'}</span>
+                                            </button>
+
+                                            <button
                                                 onClick={() => toggleExpandBatchJob(jobId)}
                                                 className="ml-auto px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[11px] font-medium flex items-center gap-1 transition-colors"
                                             >
@@ -1329,6 +1934,457 @@ export const TaskQueuePanel: React.FC = () => {
                 </div>
             )}
 
+            {/* TAB CONTENT: 3D MODELS (TRIPO 3D) */}
+            {activeTab === 'threed' && (
+                <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-950">
+                    {/* Top Credit Balance Card (Positioned Above Tripo AI 3D Title) */}
+                    <div className="p-3 rounded-lg bg-gray-900 border border-yellow-700/40 text-xs text-gray-200 shadow-sm flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 rounded-md bg-yellow-950/80 border border-yellow-700/60 text-yellow-400 flex items-center justify-center">
+                                <Zap className={`w-4 h-4 text-yellow-400 ${isTripoBalanceLoading ? 'animate-spin' : ''}`} />
+                            </div>
+                            <div>
+                                <div className="text-[10px] uppercase font-semibold text-yellow-500 tracking-wider">
+                                    Баланс Tripo AI
+                                </div>
+                                <div className="flex items-baseline gap-1.5 mt-0.5">
+                                    <span className="text-base font-bold text-yellow-300 font-mono tracking-tight">
+                                        {tripoBalance !== null ? tripoBalance : (isTripoBalanceLoading ? '...' : '—')}
+                                    </span>
+                                    <span className="text-xs text-yellow-400/90 font-medium">кредитов</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => refreshTripoBalance()}
+                                disabled={isTripoBalanceLoading}
+                                className="px-2.5 py-1.5 rounded-md bg-yellow-950/60 hover:bg-yellow-900/80 text-yellow-300 border border-yellow-700/60 hover:border-yellow-500 transition-all text-xs font-medium flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                                title="Обновить баланс кредитов Tripo 3D"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${isTripoBalanceLoading ? 'animate-spin' : ''}`} />
+                                <span>Обновить</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tripo AI 3D Models Title Header & Fetch/Import Banner */}
+                    <div className="p-3 rounded-lg bg-gray-900 border border-purple-900/40 text-xs text-gray-200 shadow-sm space-y-2.5">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 rounded-md bg-purple-950/80 border border-purple-800/60 text-purple-300 flex items-center justify-center">
+                                    <Box className="w-4 h-4 text-purple-400" />
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-100 flex items-center gap-1.5">
+                                        <span>Tripo AI • 3D Модели</span>
+                                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-800/50">
+                                            v3.1 / v2.5
+                                        </span>
+                                    </h4>
+                                    <p className="text-[10px] text-gray-400">
+                                        Запрос моделей по Task ID, пакетный импорт JSON и скачивание .GLB
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Global Actions */}
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={handleExportAll3dTasks}
+                                    disabled={recent3dTasks.length === 0}
+                                    className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 text-[11px] font-medium flex items-center gap-1 transition-colors disabled:opacity-40"
+                                    title="Экспортировать все сохранённые 3D задачи в файл бэкапа JSON"
+                                >
+                                    <FolderDown className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Экспорт в JSON</span>
+                                </button>
+                                <button
+                                    onClick={() => handleFetchRecentGenerations(100)}
+                                    disabled={fetchingTasksLimit !== null}
+                                    className="px-2 py-1 rounded bg-purple-950/70 hover:bg-purple-900 text-purple-200 border border-purple-800/60 text-[11px] font-medium flex items-center gap-1 transition-colors disabled:opacity-50"
+                                    title="Обновить статусы и ссылки для всех задач"
+                                >
+                                    <RefreshCw className={`w-3.5 h-3.5 ${fetchingTasksLimit !== null ? 'animate-spin' : ''}`} />
+                                    <span>Обновить все</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Hidden File Inputs for JSON Import */}
+                        <input
+                            ref={singleJsonInputRef}
+                            type="file"
+                            accept=".json"
+                            onChange={handleUploadSingleJson}
+                            className="hidden"
+                        />
+                        <input
+                            ref={batchJsonInputRef}
+                            type="file"
+                            accept=".json"
+                            multiple
+                            onChange={handleUploadBatchJsons}
+                            className="hidden"
+                        />
+
+                        {/* Action Buttons Toolbar: By ID, Single JSON, Batch JSON, Paste IDs */}
+                        <div className="pt-2 border-t border-gray-800/80 flex flex-wrap items-center gap-1.5">
+                            <button
+                                onClick={() => setShowManualImport(prev => !prev)}
+                                className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 border shadow-sm ${
+                                    showManualImport 
+                                        ? 'bg-purple-800 text-white border-purple-400' 
+                                        : 'bg-purple-950/80 hover:bg-purple-900 text-purple-200 border-purple-800/80'
+                                }`}
+                                title="Запросить готовую модель по конкретному Task ID из Tripo API"
+                            >
+                                <ArrowDownCircle className="w-3.5 h-3.5 text-purple-300" />
+                                <span>Запрос по Task ID</span>
+                            </button>
+
+                            <button
+                                onClick={() => singleJsonInputRef.current?.click()}
+                                disabled={isBatchProcessing}
+                                className="px-2.5 py-1.5 rounded text-xs font-medium bg-amber-950/60 hover:bg-amber-900/80 text-amber-200 border border-amber-700/60 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                                title="Выбрать сохранённый JSON файл задачи (3D_Model_...json)"
+                            >
+                                <FileJson className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Выбрать JSON задачи</span>
+                            </button>
+
+                            <button
+                                onClick={() => batchJsonInputRef.current?.click()}
+                                disabled={isBatchProcessing}
+                                className="px-2.5 py-1.5 rounded text-xs font-medium bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-200 border border-indigo-700/60 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                                title="Пакетная загрузка: выбрать сразу несколько сохранённых JSON файлов задач"
+                            >
+                                <UploadCloud className="w-3.5 h-3.5 text-indigo-300" />
+                                <span>Пакетная загрузка JSON</span>
+                            </button>
+
+                            <button
+                                onClick={() => setShowBatchPasteModal(true)}
+                                className="px-2.5 py-1.5 rounded text-xs font-medium bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-200 border border-cyan-700/60 transition-all flex items-center gap-1.5 shadow-sm"
+                                title="Вставить список из нескольких Task IDs для массового запроса"
+                            >
+                                <FileText className="w-3.5 h-3.5 text-cyan-300" />
+                                <span>Вставить список ID</span>
+                            </button>
+                        </div>
+
+                        {/* Collapsible Manual Task ID Input */}
+                        {showManualImport && (
+                            <div className="p-2.5 rounded-lg bg-gray-950 border border-purple-700/60 flex items-center gap-2 animate-fadeIn">
+                                <input
+                                    type="text"
+                                    placeholder="Вставьте Task ID (напр. task_xxxxxxxx или tripo_...)..."
+                                    value={manualTaskId}
+                                    onChange={(e) => setManualTaskId(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleImportTask();
+                                    }}
+                                    className="flex-1 bg-gray-900 border border-gray-700 text-xs px-2.5 py-1.5 rounded text-gray-100 placeholder-gray-500 focus:outline-none focus:border-purple-500 font-mono"
+                                />
+                                <button
+                                    onClick={() => handleImportTask()}
+                                    disabled={isImportingTaskId || !manualTaskId.trim()}
+                                    className="px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-sm"
+                                >
+                                    {isImportingTaskId ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                                    <span>Запросить модель</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Filter Pills & Toolbar for 3D Models */}
+                    <div className="p-2 border-b border-gray-800 bg-gray-900/60 flex flex-wrap gap-1.5 items-center justify-between">
+                        <div className="flex gap-1 bg-gray-950 p-0.5 rounded-lg border border-gray-800 text-xs">
+                            <button
+                                onClick={() => setThreedStatusFilter('all')}
+                                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                                    threedStatusFilter === 'all' ? 'bg-purple-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                            >
+                                Все ({recent3dTasks.length})
+                            </button>
+                            <button
+                                onClick={() => setThreedStatusFilter('success')}
+                                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                                    threedStatusFilter === 'success' ? 'bg-emerald-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                            >
+                                Готовые ({recent3dTasks.filter(t => t.status === 'success').length})
+                            </button>
+                            <button
+                                onClick={() => setThreedStatusFilter('running')}
+                                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                                    threedStatusFilter === 'running' ? 'bg-blue-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                            >
+                                В процессе ({recent3dTasks.filter(t => t.status === 'running' || t.status === 'queued').length})
+                            </button>
+                            <button
+                                onClick={() => setThreedStatusFilter('failed')}
+                                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                                    threedStatusFilter === 'failed' ? 'bg-red-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                            >
+                                Ошибки ({recent3dTasks.filter(t => t.status === 'failed' || t.status === 'cancelled').length})
+                            </button>
+                        </div>
+
+                        {recent3dTasks.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('Очистить локальный список недавних 3D генераций?')) {
+                                        clearTripoRecentTasks();
+                                        setRecent3dTasks([]);
+                                    }
+                                }}
+                                className="text-xs text-gray-400 hover:text-red-300 px-2 py-1 rounded hover:bg-gray-800 transition-colors flex items-center gap-1"
+                                title="Очистить локальный список"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Очистить список</span>
+                            </button>
+                        )}
+                    </div>
+
+                    {/* 3D Models Cards List */}
+                    <div className="space-y-3">
+                        {filtered3dTasks.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-48 text-gray-500 text-center px-4 rounded-lg border border-dashed border-gray-800 bg-gray-950/40">
+                                <Box className="w-10 h-10 mb-2 opacity-30 text-purple-400" />
+                                <p className="text-sm font-medium text-gray-400">Нет сохраненных 3D моделей</p>
+                                <p className="text-xs text-gray-600 mt-1 max-w-xs">
+                                    Нажмите кнопку "Запросить 5 / 10 / 15 последних" выше или создайте новую модель в узле 3D Generation.
+                                </p>
+                            </div>
+                        ) : (
+                            filtered3dTasks.map(task => {
+                                const previewSrc = task.renderedImageUrl || task.thumbnailUrl;
+                                const isSuccess = task.status === 'success';
+                                const isRunning = task.status === 'running' || task.status === 'queued';
+                                const isFailed = task.status === 'failed' || task.status === 'cancelled';
+
+                                return (
+                                    <div
+                                        key={task.taskId}
+                                        className={`p-3 rounded-lg bg-gray-900 border transition-all ${
+                                            isSuccess
+                                                ? 'border-purple-900/50 shadow-md shadow-purple-950/20'
+                                                : isRunning
+                                                ? 'border-blue-700/60 animate-pulse'
+                                                : isFailed
+                                                ? 'border-red-900/50 opacity-80'
+                                                : 'border-gray-800'
+                                        }`}
+                                    >
+                                         {/* Card Header */}
+                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                            <div className="flex flex-col truncate">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span className="px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-800/60 font-semibold text-[10px] flex items-center gap-1">
+                                                        <span>🧊</span>
+                                                        <span>{task.type === 'texture_model' ? 'Retexture' : '3D Model'}</span>
+                                                    </span>
+                                                    <div className="flex items-center gap-1 bg-gray-950 px-1.5 py-0.5 rounded border border-gray-800 text-[10px] font-mono text-gray-300">
+                                                        <span className="truncate max-w-[130px]" title={task.taskId}>
+                                                            {task.taskId}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText(task.taskId);
+                                                                addToast?.(`Task ID "${task.taskId}" скопирован!`, 'success');
+                                                            }}
+                                                            className="text-gray-400 hover:text-white transition-colors"
+                                                            title="Скопировать Task ID"
+                                                        >
+                                                            <Copy className="w-2.5 h-2.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <span className="text-xs font-medium text-gray-200 mt-1 line-clamp-2">
+                                                    {task.prompt || '3D generation without prompt'}
+                                                </span>
+                                            </div>
+
+                                            {/* Status Badge & Actions */}
+                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                {isSuccess && (
+                                                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1">
+                                                        <span>✓</span>
+                                                        <span>Готово</span>
+                                                    </span>
+                                                )}
+                                                {isRunning && (
+                                                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-950/80 text-blue-300 border border-blue-800/60 flex items-center gap-1">
+                                                        <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                                                        <span>{task.progress ? `${task.progress}%` : 'Генерация...'}</span>
+                                                    </span>
+                                                )}
+                                                {isFailed && (
+                                                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-red-950/80 text-red-300 border border-red-800/60 flex items-center gap-1">
+                                                        <span>✕</span>
+                                                        <span>Ошибка</span>
+                                                    </span>
+                                                )}
+
+                                                <button
+                                                    onClick={() => handleRefreshSingleTask(task.taskId)}
+                                                    className="p-1 rounded text-gray-400 hover:text-cyan-300 hover:bg-gray-800 transition-colors"
+                                                    title="Запросить свежий статус из Tripo API"
+                                                >
+                                                    <RefreshCw className="w-3.5 h-3.5" />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => {
+                                                        removeTripoRecentTask(task.taskId);
+                                                        setRecent3dTasks(prev => prev.filter(t => t.taskId !== task.taskId));
+                                                    }}
+                                                    className="p-1 rounded text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+                                                    title="Закрыть / Удалить панель модели"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Preview Thumbnail and Model Info */}
+                                        <div className="flex gap-3 my-2 bg-gray-950/70 p-2 rounded-lg border border-gray-800/80">
+                                            {/* Preview Box */}
+                                            <div
+                                                className="w-24 h-24 rounded-md bg-black/80 border border-purple-900/40 overflow-hidden flex items-center justify-center flex-shrink-0 relative group cursor-pointer"
+                                                onClick={() => {
+                                                    if (previewSrc && setImageViewer) {
+                                                        setImageViewer({
+                                                             sources: [{ src: previewSrc, frameNumber: 1, prompt: task.prompt, model: 'Tripo 3D' }],
+                                                            initialIndex: 0
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                {previewSrc ? (
+                                                    <>
+                                                        <img
+                                                            src={previewSrc}
+                                                            alt="3D Preview"
+                                                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
+                                                            loading="lazy"
+                                                            referrerPolicy="no-referrer"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                            <Eye className="w-4 h-4 text-white" />
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center text-gray-600 gap-1">
+                                                        <Box className="w-6 h-6 text-purple-400/50" />
+                                                        <span className="text-[9px] text-gray-500">3D Asset</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Meta details */}
+                                            <div className="flex-1 flex flex-col justify-between text-[11px] text-gray-300">
+                                                <div className="space-y-1 font-mono text-[10px]">
+                                                    <div className="flex justify-between text-gray-400">
+                                                        <span>Дата создания:</span>
+                                                        <span className="text-gray-200">{new Date(task.createdAt).toLocaleString()}</span>
+                                                    </div>
+                                                    {task.creditsConsumed !== undefined && (
+                                                        <div className="flex justify-between text-gray-400">
+                                                            <span>Потрачено:</span>
+                                                            <span className="text-yellow-400 font-semibold">{task.creditsConsumed} кр.</span>
+                                                        </div>
+                                                    )}
+                                                    {task.modelUrl && (
+                                                        <div className="flex justify-between text-gray-400">
+                                                            <span>Формат файла:</span>
+                                                            <span className="text-purple-300 font-semibold">glTF / .GLB</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {task.error && (
+                                                    <div className="p-1 rounded bg-red-950/60 border border-red-900/60 text-[10px] text-red-300">
+                                                        {task.error}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons for this 3D Model */}
+                                        <div className="mt-2.5 pt-2 border-t border-gray-800/80 flex flex-wrap items-center justify-between gap-1.5">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {task.modelUrl && (
+                                                    <button
+                                                        onClick={() => handleDownload3dModel(task.modelUrl!, task.prompt, task.taskId)}
+                                                        className="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs shadow-sm flex items-center gap-1 transition-colors"
+                                                        title="Скачать файл 3D модели (.GLB)"
+                                                    >
+                                                        <Download className="w-3.5 h-3.5" />
+                                                        <span>Скачать .GLB</span>
+                                                    </button>
+                                                )}
+
+                                                {previewSrc && (
+                                                    <button
+                                                        onClick={() => handleDownload3dPreview(previewSrc, task.prompt, task.taskId)}
+                                                        className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-medium flex items-center gap-1 transition-colors"
+                                                        title="Скачать изображение превью"
+                                                    >
+                                                        <Download className="w-3 h-3 text-cyan-400" />
+                                                        <span>Превью</span>
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    onClick={() => handleDownloadTaskJson(task)}
+                                                    className="px-2 py-1 rounded bg-amber-950/60 hover:bg-amber-900 text-amber-200 border border-amber-700/60 text-xs font-medium flex items-center gap-1 transition-colors"
+                                                    title="Скачать JSON метаданные и Task ID этой генерации"
+                                                >
+                                                    <FileJson className="w-3 h-3 text-amber-400" />
+                                                    <span>JSON</span>
+                                                </button>
+
+                                                {task.modelUrl && (
+                                                    <button
+                                                        onClick={() => handleLoadModelIntoNode(task)}
+                                                        className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs font-medium flex items-center gap-1 transition-colors"
+                                                        title="Загрузить эту 3D модель в узел 3D Generation на холсте"
+                                                    >
+                                                        <Box className="w-3 h-3" />
+                                                        <span>В узел 3D</span>
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Close Button */}
+                                            <button
+                                                onClick={() => {
+                                                    removeTripoRecentTask(task.taskId);
+                                                    setRecent3dTasks(prev => prev.filter(t => t.taskId !== task.taskId));
+                                                }}
+                                                className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 text-xs transition-colors flex items-center gap-1 ml-auto"
+                                                title="Закрыть эту карточку"
+                                            >
+                                                <X className="w-3 h-3" />
+                                                <span>Закрыть</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* JSONL Inspector Modal */}
             {viewingJsonl && (
                 <div 
@@ -1414,6 +2470,87 @@ export const TaskQueuePanel: React.FC = () => {
                                     Закрыть
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Batch Task IDs Paste Modal */}
+            {showBatchPasteModal && (
+                <div 
+                    className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => setShowBatchPasteModal(false)}
+                >
+                    <div 
+                        className="bg-gray-900 border border-purple-800/80 rounded-xl shadow-2xl max-w-lg w-full flex flex-col overflow-hidden text-gray-200 animate-fadeIn"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-950/80">
+                            <div className="flex items-center gap-2">
+                                <span className="p-1 rounded bg-purple-950 text-purple-300 border border-purple-800">
+                                    <FileText className="w-4 h-4" />
+                                </span>
+                                <div>
+                                    <h3 className="text-sm font-semibold text-gray-100">
+                                        Массовый запрос моделей по Task IDs
+                                    </h3>
+                                    <p className="text-[10px] text-gray-400">
+                                        Вставьте список Task ID через перевод строки, пробел или запятую
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowBatchPasteModal(false)}
+                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-4 space-y-3">
+                            <textarea
+                                value={batchPasteText}
+                                onChange={(e) => setBatchPasteText(e.target.value)}
+                                placeholder="task_8708c9f0-c5b5-4b19-b6eb-95fb31336bb3&#10;task_12345678-abcd-ef01-2345-6789abcdef01&#10;..."
+                                rows={6}
+                                className="w-full bg-gray-950 border border-gray-700 rounded-lg p-3 text-xs font-mono text-gray-100 placeholder-gray-600 focus:outline-none focus:border-purple-500 resize-none leading-relaxed"
+                            />
+                            <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                                <span>API Endpoint: <code className="text-purple-300">POST /v3/tasks/list</code></span>
+                                <span>Распознано: {batchPasteText.split(/[\s,;\n\r]+/).filter(Boolean).length} ID</span>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800 bg-gray-950/60">
+                            <button
+                                onClick={() => {
+                                    setBatchPasteText('');
+                                    setShowBatchPasteModal(false);
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium transition-colors"
+                            >
+                                Отмена
+                            </button>
+
+                            <button
+                                onClick={handleBatchPasteSubmit}
+                                disabled={isBatchProcessing || !batchPasteText.trim()}
+                                className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
+                            >
+                                {isBatchProcessing ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        <span>Запрос...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>Запросить все модели</span>
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
