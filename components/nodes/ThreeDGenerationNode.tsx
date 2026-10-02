@@ -27,7 +27,8 @@ import {
     useTripoBalance,
     downloadTaskMetadataJson,
     importTripoTaskById,
-    getTripoTaskStatus
+    getTripoTaskStatus,
+    getTripoFaceLimitRange
 } from '../../services/tripoService';
 import { Copy, Check, FileJson, RefreshCw, KeyRound, ArrowDownCircle } from 'lucide-react';
 import { OptimizedThumbnail } from './image-editor/OptimizedThumbnail';
@@ -76,7 +77,7 @@ const DEFAULT_STATE: ThreeDNodeState = {
     textureAlignment: 'original_image',
     pbr: false,
     quadMesh: false,
-    faceLimit: 2000000,
+    faceLimit: undefined,
     modelSeed: undefined,
     textureSeed: undefined,
     prompt: '',
@@ -140,6 +141,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
     const allNodes: Node[] = context?.nodes || [];
     const isTripoConfigured = useTripoEnabled();
     const { balance: tripoBalance, loading: isBalanceLoading, refreshBalance } = useTripoBalance();
+    const queueTaskIdRef = useRef<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const fileInputSingleRef = useRef<HTMLInputElement>(null);
     const fileInputFrontRef = useRef<HTMLInputElement>(null);
@@ -163,6 +165,10 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
     const state = useMemo<ThreeDNodeState>(() => {
         try {
             const parsed = JSON.parse(node.value || '{}');
+            const model = parsed.modelVersion === 'default' ? DEFAULT_TRIPO_MODEL_VERSION : parsed.modelVersion || DEFAULT_TRIPO_MODEL_VERSION;
+            const range = getTripoFaceLimitRange(model, parsed.quadMesh);
+            // Old nodes defaulted to 2M even without Ultra mode. Migrate incompatible limits to Auto.
+            if (parsed.faceLimit !== undefined && (parsed.faceLimit < range.min || parsed.faceLimit > range.max)) parsed.faceLimit = undefined;
             return {
                 ...DEFAULT_STATE,
                 ...parsed,
@@ -183,10 +189,15 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
     const [localStatusMsg, setLocalStatusMsg] = useState<string>(state.statusMessage || '');
     const [isGenerating, setIsGenerating] = useState<boolean>(state.status === 'running' || state.status === 'uploading' || state.status === 'queued');
 
+    // Async callbacks must merge against the latest state, including the issued API task ID.
+    const stateRef = useRef(state);
+    stateRef.current = state;
+
     // Persistence helper
     const updateState = (updater: Partial<ThreeDNodeState> | ((prev: ThreeDNodeState) => Partial<ThreeDNodeState>)) => {
-        const partial = typeof updater === 'function' ? updater(state) : updater;
-        const next = { ...state, ...partial };
+        const partial = typeof updater === 'function' ? updater(stateRef.current) : updater;
+        const next = { ...stateRef.current, ...partial };
+        stateRef.current = next;
         onValueChange(node.id, JSON.stringify(next));
     };
 
@@ -303,13 +314,13 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
 
     const handlePrevModel = () => {
         if (modelIndex > 0) {
-            updateState({ modelVersion: TRIPO_MODEL_OPTIONS[modelIndex - 1].value });
+            updateState({ modelVersion: TRIPO_MODEL_OPTIONS[modelIndex - 1].value, faceLimit: undefined, quadMesh: false });
         }
     };
 
     const handleNextModel = () => {
         if (modelIndex !== -1 && modelIndex < TRIPO_MODEL_OPTIONS.length - 1) {
-            updateState({ modelVersion: TRIPO_MODEL_OPTIONS[modelIndex + 1].value });
+            updateState({ modelVersion: TRIPO_MODEL_OPTIONS[modelIndex + 1].value, faceLimit: undefined, quadMesh: false });
         }
     };
 
@@ -399,6 +410,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
 
     // Generation Execution with Task Manager, History, and Auto-Save Integration
     const handleGenerate = async () => {
+        if (isGenerating) return;
         const apiKey = getTripoApiKey();
         if (!isTripoEnabled() || !apiKey) {
             if (addToast) addToast('Tripo AI API key is not configured or disabled. Please enable it in Settings.', 'error');
@@ -432,7 +444,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
         setIsGenerating(true);
         setLocalProgress(5);
         setLocalStatusMsg('Initializing task & uploading assets...');
-        updateState({ status: 'uploading', progress: 5, statusMessage: 'Initializing task...', errorMessage: undefined });
+        updateState({ status: 'uploading', progress: 5, statusMessage: 'Initializing task...', errorMessage: undefined, taskId: undefined });
 
         abortControllerRef.current = new AbortController();
         const currentAbortController = abortControllerRef.current;
@@ -466,7 +478,9 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
         };
 
         // Core Generation Worker
-        const executeGeneration = async (signal: AbortSignal) => {
+        const executeGeneration = async (queueSignal: AbortSignal) => {
+            const signal = AbortSignal.any([queueSignal, currentAbortController.signal]);
+            signal.throwIfAborted();
             let result;
             if (state.mode === 'image_to_3d') {
                 result = await generateImageTo3D({
@@ -484,7 +498,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                 }, (progress, statusText) => {
                     setLocalProgress(progress);
                     setLocalStatusMsg(`Status: ${statusText} (${progress}%)`);
-                    updateState({ status: 'running', progress, statusMessage: `${statusText} (${progress}%)` });
+                    updateState({ status: statusText === 'uploading' ? 'uploading' : statusText === 'queued' ? 'queued' : 'running', progress, statusMessage: `${statusText} (${progress}%)` });
                 }, signal, handleOnTaskCreated);
             } else {
                 result = await generateMultiviewTo3D({
@@ -507,7 +521,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                 }, (progress, statusText) => {
                     setLocalProgress(progress);
                     setLocalStatusMsg(`Status: ${statusText} (${progress}%)`);
-                    updateState({ status: 'running', progress, statusMessage: `${statusText} (${progress}%)` });
+                    updateState({ status: statusText === 'uploading' ? 'uploading' : statusText === 'queued' ? 'queued' : 'running', progress, statusMessage: `${statusText} (${progress}%)` });
                 }, signal, handleOnTaskCreated);
             }
 
@@ -551,11 +565,11 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                     try {
                         const a = document.createElement('a');
                         a.href = result.modelUrl;
-                        a.download = `3D_Model_${cleanName}_${currentIdx}_${dateStr}_${timeStr}.glb`;
+                        a.download = `3D_Model_${cleanName}_${currentIdx}_${dateStr}_${timeStr}.${modelExtension(result.modelUrl)}`;
                         document.body.appendChild(a);
                         a.click();
                         document.body.removeChild(a);
-                        if (addToast) addToast(t('threed.autoSavedGlb') || `3D модель 3D_Model_${cleanName}_${currentIdx}_...glb сохранена`, 'success');
+                        if (addToast) addToast('Downloading 3D model (' + modelExtension(result.modelUrl).toUpperCase() + ')', 'info');
                     } catch (saveErr) {
                         console.warn('Auto-save GLB failed:', saveErr);
                     }
@@ -586,6 +600,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                 if (addToast) addToast('3D Model generated and saved to History!', 'success');
                 return result.modelUrl;
             } else {
+                if (result.status === 'cancelled') throw new DOMException(result.error || 'Task cancelled', 'AbortError');
                 throw new Error(result.error || 'Generation failed without output model.');
             }
         };
@@ -620,7 +635,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                     }
                 });
 
-                updateState({ taskId: queuedTaskId });
+                queueTaskIdRef.current = queuedTaskId;
             } catch (queueErr) {
                 console.warn('Task queue enqueue error, falling back to direct run:', queueErr);
                 // Fallback direct execution
@@ -629,8 +644,9 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                 } catch (err: any) {
                     const msg = err?.message || 'Failed to generate 3D model';
                     setLocalStatusMsg(`Error: ${msg}`);
-                    updateState({ status: 'failed', errorMessage: msg, statusMessage: msg });
-                    if (addToast) addToast(`Tripo 3D Error: ${msg}`, 'error');
+                    const isAbort = err?.name === 'AbortError' || currentAbortController.signal.aborted;
+                    updateState({ status: isAbort ? 'cancelled' : 'failed', errorMessage: isAbort ? undefined : msg, statusMessage: isAbort ? 'Cancelled' : msg });
+                    if (err?.name !== 'AbortError' && !currentAbortController.signal.aborted && addToast) addToast(`Tripo 3D Error: ${msg}`, 'error');
                 } finally {
                     setIsGenerating(false);
                     abortControllerRef.current = null;
@@ -643,8 +659,9 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
             } catch (err: any) {
                 const msg = err?.message || 'Failed to generate 3D model';
                 setLocalStatusMsg(`Error: ${msg}`);
-                updateState({ status: 'failed', errorMessage: msg, statusMessage: msg });
-                if (addToast) addToast(`Tripo 3D Error: ${msg}`, 'error');
+                const isAbort = err?.name === 'AbortError' || currentAbortController.signal.aborted;
+                    updateState({ status: isAbort ? 'cancelled' : 'failed', errorMessage: isAbort ? undefined : msg, statusMessage: isAbort ? 'Cancelled' : msg });
+                if (err?.name !== 'AbortError' && !currentAbortController.signal.aborted && addToast) addToast(`Tripo 3D Error: ${msg}`, 'error');
             } finally {
                 setIsGenerating(false);
                 abortControllerRef.current = null;
@@ -761,23 +778,27 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
         }
-        if (state.taskId && context?.cancelTask) {
-            context.cancelTask(state.taskId);
+        if (queueTaskIdRef.current && context?.cancelTask) {
+            context.cancelTask(queueTaskIdRef.current);
+            queueTaskIdRef.current = null;
         }
         setIsGenerating(false);
         updateState({ status: 'cancelled', statusMessage: 'Generation cancelled' });
         if (addToast) addToast('3D Generation cancelled', 'info');
     };
 
+    const modelExtension = (url: string) => /\.(fbx|obj|stl|gltf)(?:[?#]|$)/i.exec(url)?.[1]?.toLowerCase() || 'glb';
+    const canPreviewModel = !state.modelUrl || ['glb', 'gltf'].includes(modelExtension(state.modelUrl));
+
     const handleDownloadGlb = () => {
         if (!state.modelUrl) return;
         const a = document.createElement('a');
         a.href = state.modelUrl;
-        a.download = `model_${state.taskId || Date.now()}.glb`;
+        a.download = `model_${state.taskId || Date.now()}.${modelExtension(state.modelUrl)}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        if (addToast) addToast('Downloading GLB file...', 'info');
+        if (addToast) addToast('Downloading 3D model...', 'info');
     };
 
     const handleCopyGlbUrl = () => {
@@ -1299,7 +1320,9 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                     {/* Tab 1: 3D Interactive View */}
                     {activeTab === 'preview3d' && (
                         <div className="flex-1 flex flex-col min-h-[200px] bg-slate-900 rounded-lg border border-gray-700 relative overflow-hidden">
-                            {state.modelUrl ? (
+                            {state.modelUrl && !canPreviewModel ? (
+                                <div className="p-4 text-sm text-gray-300">This model uses {modelExtension(state.modelUrl).toUpperCase()}. Download it to open in a 3D editor; the preview supports GLB/GLTF.</div>
+                            ) : state.modelUrl ? (
                                 <>
                                     {/* Web Component <model-viewer> */}
                                     {/* @ts-ignore */}
@@ -1463,7 +1486,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                             <div className="flex-1 min-w-0 overflow-visible">
                                 <CustomSelect
                                     value={state.modelVersion}
-                                    onChange={(val) => updateState({ modelVersion: val })}
+                                    onChange={(val) => updateState({ modelVersion: val, faceLimit: undefined, quadMesh: false })}
                                     disabled={isGenerating}
                                     direction="down"
                                     title={currentModelOption?.description}
@@ -1521,20 +1544,21 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                                 <span className="text-xs font-semibold text-gray-300 truncate">{t('threed.faceLimit') || 'Mesh Density'}</span>
                             </div>
                             <CustomSelect
-                                value={state.faceLimit ? String(state.faceLimit) : '2000000'}
+                                value={state.faceLimit ? String(state.faceLimit) : ''}
                                 onChange={(val) => updateState({ faceLimit: val ? Number(val) : undefined })}
                                 disabled={isGenerating}
                                 direction="down"
                                 options={[
-                                    { value: '2000000', label: '2M (2M Poly • Max H3.1)' },
+                                    { value: '1500000', label: '1.5M (H3.1 Standard)' },
                                     { value: '1000000', label: '1M (1M Poly • Master)' },
                                     { value: '500000', label: '500K (500K Poly • Ultra)' },
                                     { value: '100000', label: '100K (100K Poly • High-Res)' },
                                     { value: '50000', label: '50K (50K Poly • Detailed)' },
                                     { value: '25000', label: '25K (25K Poly • Standard)' },
+                                    { value: '20000', label: '20K (P1 Max)' },
                                     { value: '10000', label: '10K (10K Poly • Low Poly)' },
                                     { value: '', label: 'Auto (Default Tripo)' }
-                                ]}
+                                ].filter(option => !option.value || Number(option.value) <= getTripoFaceLimitRange(state.modelVersion === 'default' ? DEFAULT_TRIPO_MODEL_VERSION : state.modelVersion, state.quadMesh).max)}
                             />
                         </div>
                     </div>
@@ -1561,7 +1585,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                     <CustomToggle
                         id={`node-${node.id}-texture`}
                         checked={state.texture}
-                        onChange={(checked) => updateState({ texture: checked })}
+                        onChange={(checked) => updateState({ texture: checked, pbr: checked ? state.pbr : false })}
                         label={t('threed.texture') || 'Textures'}
                         tooltip={t('threed.textureTooltip') || 'Генерация диффузных текстур и UV-развёртки'}
                         icon={<Layers className="w-3.5 h-3.5" />}
@@ -1570,7 +1594,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                         id={`node-${node.id}-pbr`}
                         checked={state.pbr && state.texture}
                         disabled={!state.texture}
-                        onChange={(checked) => updateState({ pbr: checked })}
+                        onChange={(checked) => updateState({ pbr: checked, texture: checked ? true : state.texture })}
                         label={t('threed.pbr') || 'PBR Materials'}
                         tooltip={t('threed.pbrTooltip') || 'Генерация карт шероховатости и металличности (Roughness / Metallic)'}
                         icon={<Sparkles className="w-3.5 h-3.5" />}
@@ -1578,7 +1602,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                     <CustomToggle
                         id={`node-${node.id}-quadmesh`}
                         checked={state.quadMesh}
-                        onChange={(checked) => updateState({ quadMesh: checked })}
+                        onChange={(checked) => updateState({ quadMesh: checked, faceLimit: undefined })}
                         label={t('threed.quadMesh') || 'Quad Mesh'}
                         tooltip={t('threed.quadMeshTooltip') || 'Преобразование сетки в чистую четырёхугольную топологию (Quads)'}
                         icon={<Box className="w-3.5 h-3.5" />}

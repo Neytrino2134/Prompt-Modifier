@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { useState, useEffect, useCallback } from 'react';
 
 export const STORAGE_KEY_TRIPO_ENABLED = 'settings_tripo_enabled';
@@ -188,7 +189,7 @@ export const getTripoApiKey = (): string => {
             return key.trim();
         }
     } catch {}
-    return (process.env.TRIPO_API_KEY || '').trim();
+    return typeof process !== 'undefined' ? (process.env.TRIPO_API_KEY || '').trim() : '';
 };
 
 /**
@@ -319,7 +320,7 @@ export interface TripoMultiviewTo3DParams {
     modelSeed?: number;
     faceLimit?: number;
     quadMesh?: boolean;
-    modelVersion?: string; // Default: 'v2.5-20250123'
+    modelVersion?: string; // Defaults to configured model
     prompt?: string;
 }
 
@@ -347,7 +348,10 @@ export interface TripoUploadResponse {
 }
 
 export interface TripoTaskOutput {
-    model?: string; // GLB model URL
+    model_url?: string;
+    rendered_image_url?: string;
+    thumbnail_url?: string;
+    model?: string; // Legacy model URL
     base_model?: string;
     pbr_model?: string;
     rendered_image?: string;
@@ -372,7 +376,10 @@ export interface TripoTaskData {
         code?: string | number;
         message?: string;
     } | string;
-    created_at?: number;
+    error_code?: number;
+    error_message?: string;
+    credits_consumed?: number;
+    created_at?: number | string;
     updated_at?: number;
 }
 
@@ -418,176 +425,80 @@ const extractHtmlTitle = (html: string): string | null => {
  * Execute request to Tripo API with automatic proxying, direct fallback,
  * safe response handling, and rich logging.
  */
+class TripoApiError extends Error {
+    constructor(message: string, public code?: number, public httpStatus?: number) {
+        super(message);
+        this.name = 'TripoApiError';
+    }
+}
+
+/** Use one API contract; only fall back when a dev proxy is demonstrably absent.
+ * A lost POST response may already have created a paid task: never replay it.
+ */
 async function tripoApiRequest<T = any>(
-    endpoint: string, // e.g. '/files' or '/upload' or '/task' or `/task/${id}` or '/account/balance'
+    endpoint: string,
     options: RequestInit,
-    description: string
+    description: string,
+    legacy = false
 ): Promise<T> {
     const apiKey = getTripoApiKey();
-    if (!apiKey) {
-        const err = 'TRIPO AI API Key is missing. Please enter your API key in Settings.';
-        logTripo('error', err);
-        throw new Error(err);
-    }
-
-    const headers = new Headers(options.headers || {});
-    if (!headers.has('Authorization')) {
-        headers.set('Authorization', `Bearer ${apiKey}`);
-    }
-
-    let clean = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    clean = clean.replace(/^\/v3/, '').replace(/^\/v2\/openapi/, '');
-
-    // Map endpoints according to Tripo API v3 and legacy v2
-    let v3Path = clean;
-    let v2Path = clean;
-
-    if (clean === '/upload' || clean === '/files') {
-        v3Path = '/files';
-        v2Path = '/upload';
-    } else if (clean === '/user/balance' || clean === '/account/balance') {
-        v3Path = '/account/balance';
-        v2Path = '/user/balance';
-    } else if (clean === '/tasks/list' || clean === '/task/list') {
-        v3Path = '/tasks/list';
-        v2Path = '/tasks/list';
-    }
-
-    let endpointsToTry: { url: string; isProxy: boolean; isV3: boolean }[];
-
-    if (clean === '/task' || clean.startsWith('/task/')) {
-        // Standard Tripo task creation & status endpoints on v2/openapi
-        endpointsToTry = [
-            { url: `${TRIPO_PROXY_API_BASE}${v2Path}`, isProxy: true, isV3: false },
-            { url: `${DEFAULT_TRIPO_API_BASE}${v2Path}`, isProxy: false, isV3: false },
-            { url: `${TRIPO_PROXY_V3_API_BASE}${v3Path}`, isProxy: true, isV3: true },
-            { url: `${DEFAULT_TRIPO_V3_API_BASE}${v3Path}`, isProxy: false, isV3: true }
-        ];
-    } else {
-        endpointsToTry = [
-            { url: `${TRIPO_PROXY_V3_API_BASE}${v3Path}`, isProxy: true, isV3: true },
-            { url: `${DEFAULT_TRIPO_V3_API_BASE}${v3Path}`, isProxy: false, isV3: true },
-            { url: `${TRIPO_PROXY_API_BASE}${v2Path}`, isProxy: true, isV3: false },
-            { url: `${DEFAULT_TRIPO_API_BASE}${v2Path}`, isProxy: false, isV3: false }
-        ];
-    }
-
-    let lastError: Error | null = null;
-    const maskedKey = `${'*'.repeat(Math.max(0, apiKey.length - 4))}${apiKey.slice(-4)}`;
-
-    for (let i = 0; i < endpointsToTry.length; i++) {
-        const { url, isProxy } = endpointsToTry[i];
-        const hasMoreCandidates = i < endpointsToTry.length - 1;
-        
+    if (!apiKey) throw new Error('TRIPO AI API Key is missing. Please enter your API key in Settings.');
+    const headers = new Headers(options.headers);
+    headers.set('Authorization', 'Bearer ' + apiKey);
+    const clean = endpoint.replace(/^\/v3(?=\/)/, '').replace(/^\/v2\/openapi(?=\/)/, '');
+    const base = legacy ? DEFAULT_TRIPO_API_BASE : DEFAULT_TRIPO_V3_API_BASE;
+    const proxy = legacy ? TRIPO_PROXY_API_BASE : TRIPO_PROXY_V3_API_BASE;
+    // Vite proxies do not exist on GitHub Pages or Electron file:// builds.
+    const urls = import.meta.env?.DEV ? [proxy + clean, base + clean] : [base + clean];
+    for (let i = 0; i < urls.length; i++) {
+        options.signal?.throwIfAborted();
+        const url = urls[i];
+        const isProxy = url.startsWith('/');
+        logTripo('info', '[' + description + '] Requesting: ' + url, { method: options.method || 'GET' });
+        const controller = new AbortController();
+        const abort = () => controller.abort(options.signal?.reason);
+        options.signal?.addEventListener('abort', abort, { once: true });
+        const timer = setTimeout(() => controller.abort(new DOMException('Tripo request timed out', 'TimeoutError')), 60000);
         try {
-            logTripo('info', `[${description}] Requesting ${isProxy ? 'Proxy' : 'Direct API'}: ${url}`, {
-                method: options.method || 'GET',
-                endpoint,
-                key: maskedKey
-            });
-
-            const response = await fetch(url, {
-                ...options,
-                headers
-            });
-
-            // Read response as raw text first for safe inspection
-            const rawText = await response.text();
-
-            // Check for HTML response
-            const isHtml = rawText.trim().startsWith('<') || rawText.includes('<!DOCTYPE html') || rawText.includes('<html');
-
-            if (isHtml) {
-                const title = extractHtmlTitle(rawText) || 'HTML Error Page';
-                const preview = rawText.slice(0, 300).replace(/\s+/g, ' ');
-                
-                logTripo('warning', `[${description}] Endpoint ${url} returned HTML (${response.status} ${response.statusText}): "${title}"`, {
-                    status: response.status,
-                    statusText: response.statusText,
-                    preview
-                });
-
-                // If proxy returned 404/502/500 and candidates remain, try next
-                if (hasMoreCandidates && (response.status === 404 || response.status >= 500)) {
-                    continue;
-                }
-
-                // Format comprehensive, user-actionable error
-                let hint = '';
-                if (response.status === 401 || response.status === 403) {
-                    hint = 'Probable cause: Invalid or expired Tripo API key, or origin restriction.';
-                } else if (response.status === 429) {
-                    hint = 'Rate limit exceeded on Tripo API. Please wait a few moments.';
-                } else if (response.status >= 500) {
-                    hint = 'Tripo 3D cloud server error or maintenance.';
-                }
-
-                const errMsg = `Tripo API Error (${response.status} ${response.statusText}): ${title}. ${hint}`;
-                lastError = new Error(errMsg);
-                
-                if (!hasMoreCandidates) {
-                    logTripo('error', errMsg, { status: response.status, title, url, preview });
-                    throw lastError;
-                }
-                continue;
-            }
-
-            // Safe JSON parse
-            let json: any;
+            let response: Response;
+            let rawText: string;
             try {
-                json = JSON.parse(rawText);
-            } catch (jsonErr: any) {
-                const parseErrMsg = `Failed to parse Tripo API response: ${jsonErr.message}. Response preview: ${rawText.slice(0, 150)}`;
-                logTripo('warning', parseErrMsg, { rawText: rawText.slice(0, 500) });
-                lastError = new Error(parseErrMsg);
-                if (!hasMoreCandidates) throw lastError;
-                continue;
-            }
-
-            // Check for endpoint-not-found codes like 4001 or 404 where fallback might succeed
-            const isEndpointNotFound = json.code === 4001 || json.code === 404 || response.status === 404 ||
-                (typeof json.message === 'string' && json.message.toLowerCase().includes('no endpoint found'));
-
-            if (isEndpointNotFound && hasMoreCandidates) {
-                logTripo('warning', `[${description}] Endpoint ${url} not found (code ${json.code}): "${json.message || ''}", trying alternative endpoint...`);
-                continue;
-            }
-
-            // Check HTTP status or Tripo API code
-            if (!response.ok || (json.code !== undefined && json.code !== 0)) {
-                const apiMsg = json.message || json.error?.message || json.msg || `HTTP Error ${response.status}`;
-                const fullErrMsg = `Tripo API [code ${json.code ?? response.status}]: ${apiMsg}`;
-
-                // If authentication error or bad request on current endpoint and we have candidates, check if we should try next
-                if (hasMoreCandidates && (response.status >= 500 || response.status === 404)) {
-                    logTripo('warning', `[${description}] Candidate ${url} failed with ${fullErrMsg}, trying next candidate...`);
+                response = await fetch(url, { ...options, headers, signal: controller.signal });
+                rawText = await response.text();
+            } catch (error) {
+                if (isProxy && i + 1 < urls.length && (!options.method || options.method === 'GET') && !controller.signal.aborted) {
+                    logTripo('warning', 'Dev proxy unavailable; querying Tripo directly.');
                     continue;
                 }
-
-                logTripo('error', fullErrMsg, { endpoint, response: json });
-                throw new Error(fullErrMsg);
+                if (controller.signal.aborted) throw controller.signal.reason;
+                throw new TripoApiError('Tripo network request failed. Check connectivity/CORS.' + (options.method === 'POST' ? ' Check task history before retrying: the server may have accepted the request.' : ''), undefined, 0);
             }
-
-            logTripo('info', `[${description}] Success (code ${json.code ?? 0})`, {
-                taskId: json.data?.task_id || json.data?.taskId,
-                status: json.data?.status,
-                progress: json.data?.progress
-            });
-
-            return json as T;
-        } catch (fetchErr: any) {
-            lastError = fetchErr;
-            // If proxy failed with network error, try direct / next candidate
-            if (hasMoreCandidates) {
-                logTripo('warning', `Request failed on ${url} (${fetchErr.message}), falling back to next candidate...`);
+            const isHtml = rawText.trim().startsWith('<');
+            // A SPA index or missing dev route cannot have submitted the task upstream.
+            if (isProxy && i + 1 < urls.length && (response.status === 404 || (response.ok && isHtml))) {
+                logTripo('warning', 'Dev proxy route missing; using the same Tripo API directly.');
                 continue;
             }
-            logTripo('error', `[${description}] Request failed: ${fetchErr.message}`);
-            throw fetchErr;
+            if (isHtml) throw new TripoApiError('Tripo HTTP ' + response.status + ': ' + (extractHtmlTitle(rawText) || 'HTML response'), undefined, response.status);
+            let json: any;
+            try { json = JSON.parse(rawText); }
+            catch { throw new TripoApiError('Tripo returned invalid JSON (HTTP ' + response.status + ').', undefined, response.status); }
+            if (!json || typeof json !== 'object' || Array.isArray(json)) throw new TripoApiError('Invalid Tripo response.', undefined, response.status);
+            if (!response.ok || json.code !== 0) {
+                const message = json.message || json.error?.message || json.msg || 'HTTP ' + response.status;
+                const suggestion = json.suggestion ? ' Suggestion: ' + json.suggestion : '';
+                throw new TripoApiError('Tripo API [code ' + (json.code ?? response.status) + ']: ' + message + suggestion, json.code, response.status);
+            }
+            return json as T;
+        } catch (error: any) {
+            logTripo('error', '[' + description + '] ' + error.message, { endpoint, code: error.code });
+            throw error;
+        } finally {
+            clearTimeout(timer);
+            options.signal?.removeEventListener('abort', abort);
         }
     }
-
-    throw lastError || new Error('Tripo API request failed unexpectedly.');
+    throw new Error('Tripo API request failed.');
 }
 
 // ==========================================
@@ -627,10 +538,12 @@ export const detectImageFileExtension = (input: File | Blob | string): 'png' | '
  */
 export const uploadTripoFile = async (
     fileInput: File | Blob | string,
-    filename: string = 'input_image.png'
+    filename: string = 'input_image.png',
+    signal?: AbortSignal
 ): Promise<string> => {
+    signal?.throwIfAborted();
     // If input is already a Tripo file_token
-    if (typeof fileInput === 'string' && !fileInput.startsWith('data:') && !fileInput.startsWith('http://') && !fileInput.startsWith('https://') && !fileInput.startsWith('blob:')) {
+    if (typeof fileInput === 'string' && /^(file_[a-zA-Z0-9_-]+|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/i.test(fileInput.trim())) {
         logTripo('info', `Using existing Tripo file_token: ${fileInput}`);
         return fileInput.trim();
     }
@@ -639,6 +552,9 @@ export const uploadTripoFile = async (
     let ext = detectImageFileExtension(fileInput);
 
     if (typeof fileInput === 'string') {
+        if (!fileInput.startsWith('data:') && /^[A-Za-z0-9+/\s]+={0,2}$/.test(fileInput) && fileInput.replace(/\s/g, '').length >= 32) {
+            fileInput = 'data:image/png;base64,' + fileInput.replace(/\s/g, '');
+        }
         if (fileInput.startsWith('data:')) {
             const parts = fileInput.split(',');
             if (parts.length < 2 || !parts[1] || parts[1].trim() === '') {
@@ -657,7 +573,7 @@ export const uploadTripoFile = async (
             blobToSend = new Blob([byteArrays], { type: mime });
         } else if (fileInput.startsWith('http://') || fileInput.startsWith('https://') || fileInput.startsWith('blob:')) {
             logTripo('info', `Fetching image asset from URL: ${fileInput}`);
-            const res = await fetch(fileInput);
+            const res = await fetch(fileInput, { signal });
             if (!res.ok) {
                 throw new Error(`Failed to fetch image from URL: ${fileInput} (HTTP ${res.status})`);
             }
@@ -673,8 +589,17 @@ export const uploadTripoFile = async (
         throw new Error('Image file is empty (0 bytes). Please upload a valid image.');
     }
 
+    const prefix = new Uint8Array(await blobToSend.slice(0, 12).arrayBuffer());
+    const mime = prefix[0] === 0x89 && prefix[1] === 0x50 && prefix[2] === 0x4e && prefix[3] === 0x47 ? 'image/png'
+        : prefix[0] === 0xff && prefix[1] === 0xd8 && prefix[2] === 0xff ? 'image/jpeg'
+        : String.fromCharCode(...prefix.slice(0, 4)) === 'RIFF' && String.fromCharCode(...prefix.slice(8, 12)) === 'WEBP' ? 'image/webp' : '';
+    if (!mime) throw new Error('Image bytes are not PNG, JPEG or WebP. The file may be corrupted or a URL may have returned an error page.');
+    if (blobToSend.type !== mime) blobToSend = new Blob([blobToSend], { type: mime });
+    if (blobToSend.size > 20 * 1024 * 1024) throw new Error('Tripo images must be at most 20 MB.');
+    if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(blobToSend.type.toLowerCase())) throw new Error('Tripo requires a PNG, JPEG or WebP image.');
+    ext = detectImageFileExtension(blobToSend);
     const sizeKb = Math.round(blobToSend.size / 1024);
-    const targetFilename = filename.includes('.') ? filename : `${filename}.${ext}`;
+    const targetFilename = filename.includes('.') ? filename.replace(/\.[^.]+$/, '.' + ext) : `${filename}.${ext}`;
     logTripo('info', `Uploading asset "${targetFilename}" (${sizeKb} KB) to Tripo 3D...`);
 
     const formData = new FormData();
@@ -684,28 +609,72 @@ export const uploadTripoFile = async (
         '/files',
         {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal
         },
         `Upload Asset (${targetFilename})`
     );
 
     const token = data.data?.file_token || data.data?.image_token || (data as any).file_token || (data as any).image_token;
-    if (!token) {
+    if (typeof token !== 'string' || !token.trim()) {
         throw new Error('Tripo API did not return a valid file_token after upload.');
     }
 
     logTripo('success', `Asset "${targetFilename}" uploaded successfully. Token: ${token}`);
-    return token;
+    return token.trim();
+};
+
+/** Validate options before uploading any images. */
+export const getTripoFaceLimitRange = (model: string, quad = false): { min: number; max: number } => {
+    if (model === 'P1-20260311') return { min: 50, max: 20000 };
+    if (model === 'P2-20260801') return { min: 48, max: quad ? 25000 : 50000 };
+    if (quad) return { min: 1, max: 150000 };
+    if (model.startsWith('v3.1')) return { min: 1, max: 1500000 };
+    if (model.startsWith('v3.0')) return { min: 1, max: 1000000 };
+    return { min: 1, max: 500000 };
+};
+
+const generationOptions = (params: TripoImageTo3DParams | TripoMultiviewTo3DParams): Record<string, any> => {
+    const selected = params.modelVersion || getTripoModelVersion();
+    const model = selected === 'default' ? DEFAULT_TRIPO_MODEL_VERSION : selected;
+    const texture = params.texture !== false;
+    const body: Record<string, any> = { model, texture, pbr: texture && params.pbr !== false };
+    if (texture) {
+        if (model.startsWith('v3.') || model.startsWith('P')) {
+            body.texture_quality = params.textureQuality || 'standard';
+        } else if (params.textureQuality && params.textureQuality !== 'standard') {
+            throw new Error('Texture quality selection requires Tripo v3 or P series. Use standard for this legacy model.');
+        }
+        body.texture_alignment = params.textureAlignment || 'original_image';
+        if (params.textureSeed !== undefined) body.texture_seed = params.textureSeed;
+    }
+    if (params.modelSeed !== undefined) body.model_seed = params.modelSeed;
+    if (params.quadMesh) {
+        if (model === 'P1-20260311' || (!model.startsWith('v3.') && model !== 'P2-20260801')) throw new Error('Quad mesh is not supported by this Tripo model.');
+        body.quad = true;
+    }
+    if (params.faceLimit !== undefined) {
+        const range = getTripoFaceLimitRange(model, params.quadMesh);
+        if (!Number.isInteger(params.faceLimit) || params.faceLimit < range.min || params.faceLimit > range.max) throw new Error('Face limit for ' + model + ' must be ' + range.min + '–' + range.max + '. Select Auto or a supported density.');
+        body.face_limit = params.faceLimit;
+    }
+    for (const seed of [params.modelSeed, params.textureSeed]) {
+        if (seed !== undefined && (!Number.isInteger(seed) || seed < 0)) throw new Error('Tripo seeds must be non-negative integers.');
+    }
+    return body;
 };
 
 /**
  * Creates a Multiview to 3D task with Standard Texture on Tripo 3D
  */
 export const createMultiviewTo3DTask = async (
-    params: TripoMultiviewTo3DParams
+    params: TripoMultiviewTo3DParams,
+    signal?: AbortSignal
 ): Promise<TripoTaskCreateResult> => {
-    if (!params.views) {
-        throw new Error('Views object is required for Multiview to 3D generation.');
+    signal?.throwIfAborted();
+    const options = generationOptions(params);
+    if (!params.views?.front) {
+        throw new Error('Front view is required for Multiview to 3D generation.');
     }
 
     const viewsOrder: (keyof TripoMultiviewViews)[] = ['front', 'left', 'back', 'right'];
@@ -732,13 +701,13 @@ export const createMultiviewTo3DTask = async (
             quadMesh: params.quadMesh,
             modelVersion: params.modelVersion,
             prompt: params.prompt
-        });
+        }, signal);
     }
 
     logTripo('info', `Preparing Multiview to 3D task with ${activeViewKeys.length} views: [${activeViewKeys.map(k => k.toUpperCase()).join(', ')}]...`);
 
     // Upload only the provided views and build valid TripoFileInput entries
-    const filesPayload: TripoFileInput[] = [];
+    const filesPayload: Record<string, string>[] = [];
 
     for (const viewKey of viewsOrder) {
         const viewData = params.views[viewKey];
@@ -746,59 +715,27 @@ export const createMultiviewTo3DTask = async (
             const ext = detectImageFileExtension(viewData);
             if (typeof viewData === 'string' && (viewData.startsWith('http://') || viewData.startsWith('https://'))) {
                 logTripo('info', `View "${viewKey.toUpperCase()}" using direct URL`);
-                filesPayload.push({
-                    type: ext,
-                    url: viewData
-                });
+                filesPayload.push({ [viewKey]: viewData });
             } else {
                 logTripo('info', `Uploading "${viewKey.toUpperCase()}" view...`);
-                const token = await uploadTripoFile(viewData, `${viewKey}_view.${ext}`);
-                filesPayload.push({
-                    type: ext,
-                    file_token: token
-                });
+                const token = await uploadTripoFile(viewData, `${viewKey}_view.${ext}`, signal);
+                filesPayload.push({ [viewKey]: token });
             }
         }
     }
 
-    const modelVer = params.modelVersion || getTripoModelVersion() || DEFAULT_TRIPO_MODEL_VERSION;
-
-    const requestBody: Record<string, any> = {
-        type: 'multiview_to_model',
-        files: filesPayload,
-        texture: params.texture !== false,
-        texture_quality: params.textureQuality || 'standard',
-        texture_alignment: params.textureAlignment || 'original_image',
-        pbr: params.pbr !== false,
-        model_version: modelVer
-    };
-
-    if (params.textureSeed !== undefined) {
-        requestBody.texture_seed = params.textureSeed;
-    }
-    if (params.modelSeed !== undefined) {
-        requestBody.model_seed = params.modelSeed;
-    }
-    if (params.faceLimit !== undefined) {
-        requestBody.face_limit = params.faceLimit;
-    }
-    if (params.quadMesh !== undefined) {
-        requestBody.quad = params.quadMesh;
-    }
-    if (params.prompt && params.prompt.trim()) {
-        requestBody.prompt = params.prompt.trim();
-    }
-
-    logTripo('info', `Creating Multiview 3D Task with model "${modelVer}" (${filesPayload.length} images)...`, requestBody);
+    const requestBody = { ...options, inputs: filesPayload };
+    logTripo('info', 'Creating Multiview 3D Task...', requestBody);
 
     const data = await tripoApiRequest<any>(
-        '/task',
+        '/generation/multiview-to-model',
         {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
+            signal
         },
         'Create Multiview 3D Task'
     );
@@ -831,16 +768,33 @@ export const createMultiviewTo3DTask = async (
  * Query the status and output of a Tripo task
  */
 export const getTripoTaskStatus = async (
-    taskId: string
+    taskId: string,
+    signal?: AbortSignal
 ): Promise<TripoTaskStatusResponse> => {
-    return await tripoApiRequest<TripoTaskStatusResponse>(
-        `/task/${taskId}`,
-        {
-            method: 'GET'
-        },
-        `Task Status (${taskId})`
-    );
+    try {
+        return await tripoApiRequest<TripoTaskStatusResponse>(
+            '/tasks/' + encodeURIComponent(taskId), { method: 'GET', signal }, 'Task Status (' + taskId + ')'
+        );
+    } catch (error) {
+        if (!(error instanceof TripoApiError) || !(error.httpStatus === 404 || [4001, 404].includes(error.code ?? 0))) throw error;
+        return await tripoApiRequest<TripoTaskStatusResponse>(
+            '/task/' + encodeURIComponent(taskId), { method: 'GET', signal }, 'Legacy Task Status (' + taskId + ')', true
+        );
+    }
 };
+
+const waitForTripoPoll = (delay: number, signal?: AbortSignal): Promise<void> => new Promise((resolve, reject) => {
+    const abort = () => {
+        clearTimeout(timer);
+        reject(new DOMException('Tripo task polling aborted', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', abort);
+        resolve();
+    }, delay);
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
+});
 
 /**
  * Poll a Tripo task until completion or failure
@@ -855,13 +809,14 @@ export const pollTripoTask = async (
     const startTime = Date.now();
     let lastReportedProgress = -1;
     let lastReportedStatus = '';
+    let consecutiveErrors = 0;
 
     logTripo('info', `Started polling for task ${taskId}...`);
 
     while (true) {
         if (signal?.aborted) {
             logTripo('warning', `Polling aborted by user for task ${taskId}`);
-            throw new Error('Tripo task generation was cancelled by user.');
+            throw new DOMException('Tripo task generation was cancelled by user.', 'AbortError');
         }
 
         if (Date.now() - startTime > maxTimeoutMs) {
@@ -870,7 +825,19 @@ export const pollTripoTask = async (
             throw new Error(timeoutMsg);
         }
 
-        const res = await getTripoTaskStatus(taskId);
+        let res: TripoTaskStatusResponse;
+        try {
+            const remaining = Math.max(1, maxTimeoutMs - (Date.now() - startTime));
+            const deadline = AbortSignal.timeout(Math.min(remaining, 60000));
+            res = await getTripoTaskStatus(taskId, signal ? AbortSignal.any([signal, deadline]) : deadline);
+            consecutiveErrors = 0;
+        } catch (error) {
+            const retryable = error instanceof TripoApiError && (error.httpStatus === 0 || error.httpStatus === 429 || (error.httpStatus ?? 0) >= 500 || error.code === 2000);
+            if (!retryable || ++consecutiveErrors > 3) throw error;
+            logTripo('warning', 'Temporary task query failure; retrying the status query for ' + taskId);
+            await waitForTripoPoll(Math.min(intervalMs * 2 ** (consecutiveErrors - 1), Math.max(1, maxTimeoutMs - (Date.now() - startTime))), signal);
+            continue;
+        }
         const taskData = res.data;
         const status = (taskData.status?.toLowerCase() || 'unknown') as TripoTaskStatus;
         const progress = taskData.progress || 0;
@@ -887,12 +854,13 @@ export const pollTripoTask = async (
 
         if (status === 'success') {
             const output = taskData.output || taskData.result || {};
-            const modelUrl = output.model || output.pbr_model || output.base_model;
-            const thumbnailUrl = output.thumbnail || output.rendered_image;
-            const renderedImageUrl = output.rendered_image;
+            const modelUrl = output.model_url || output.pbr_model || output.model || output.base_model;
+            if (!modelUrl) throw new Error('Tripo reported success but returned no model URL. Task ID: ' + taskId);
+            const thumbnailUrl = output.thumbnail_url || output.thumbnail || output.rendered_image_url || output.rendered_image;
+            const renderedImageUrl = output.rendered_image_url || output.rendered_image;
 
             const durationSec = Math.round((Date.now() - startTime) / 1000);
-            logTripo('success', `Task ${taskId} completed in ${durationSec}s! Model GLB ready.`, {
+            logTripo('success', `Task ${taskId} completed in ${durationSec}s! Model ready.`, {
                 modelUrl,
                 thumbnailUrl
             });
@@ -903,7 +871,8 @@ export const pollTripoTask = async (
                 progress: 100,
                 modelUrl,
                 thumbnailUrl,
-                renderedImageUrl
+                renderedImageUrl,
+                creditsConsumed: taskData.credits_consumed
             });
 
             return {
@@ -917,7 +886,7 @@ export const pollTripoTask = async (
         }
 
         if (status === 'failed') {
-            let errorMsg = 'Unknown Tripo generation error';
+            let errorMsg = taskData.error_message || 'Unknown Tripo generation error';
             if (typeof taskData.error === 'string') {
                 errorMsg = taskData.error;
             } else if (taskData.error && typeof taskData.error === 'object') {
@@ -939,6 +908,7 @@ export const pollTripoTask = async (
         }
 
         if (status === 'cancelled') {
+            saveTripoRecentTask({ taskId, status: 'cancelled', progress });
             logTripo('warning', `Task ${taskId} was cancelled on server`);
             return {
                 taskId,
@@ -947,16 +917,7 @@ export const pollTripoTask = async (
             };
         }
 
-        // Wait before next poll
-        await new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(resolve, intervalMs);
-            if (signal) {
-                signal.addEventListener('abort', () => {
-                    clearTimeout(timeoutId);
-                    reject(new Error('Tripo task polling aborted'));
-                }, { once: true });
-            }
-        });
+        await waitForTripoPoll(Math.min(intervalMs, Math.max(1, maxTimeoutMs - (Date.now() - startTime))), signal);
     }
 };
 
@@ -964,67 +925,27 @@ export const pollTripoTask = async (
  * Creates an Image to 3D task with Standard Texture on Tripo 3D
  */
 export const createImageTo3DTask = async (
-    params: TripoImageTo3DParams
+    params: TripoImageTo3DParams,
+    signal?: AbortSignal
 ): Promise<TripoTaskCreateResult> => {
-    if (!params.image) {
-        throw new Error('Input image is required for Image to 3D generation.');
-    }
-
-    logTripo('info', 'Preparing single image for Image to 3D...');
-
+    signal?.throwIfAborted();
+    const options = generationOptions(params);
+    if (!params.image) throw new Error('Input image is required for Image to 3D generation.');
     const ext = detectImageFileExtension(params.image);
-    let filePayload: TripoFileInput;
-    if (typeof params.image === 'string' && (params.image.startsWith('http://') || params.image.startsWith('https://'))) {
-        filePayload = {
-            type: ext,
-            url: params.image
-        };
-    } else {
-        const token = await uploadTripoFile(params.image, `image_to_3d.${ext}`);
-        filePayload = {
-            type: ext,
-            file_token: token
-        };
-    }
-
-    const modelVer = params.modelVersion || getTripoModelVersion() || DEFAULT_TRIPO_MODEL_VERSION;
-
-    const requestBody: Record<string, any> = {
-        type: 'image_to_model',
-        file: filePayload,
-        texture: params.texture !== false,
-        texture_quality: params.textureQuality || 'standard',
-        texture_alignment: params.textureAlignment || 'original_image',
-        pbr: params.pbr !== false,
-        model_version: modelVer
-    };
-
-    if (params.textureSeed !== undefined) {
-        requestBody.texture_seed = params.textureSeed;
-    }
-    if (params.modelSeed !== undefined) {
-        requestBody.model_seed = params.modelSeed;
-    }
-    if (params.faceLimit !== undefined) {
-        requestBody.face_limit = params.faceLimit;
-    }
-    if (params.quadMesh !== undefined) {
-        requestBody.quad = params.quadMesh;
-    }
-    if (params.prompt && params.prompt.trim()) {
-        requestBody.prompt = params.prompt.trim();
-    }
-
-    logTripo('info', `Creating Image 3D Task with model "${modelVer}"...`, requestBody);
+    const input = typeof params.image === 'string' && /^https?:\/\//.test(params.image)
+        ? params.image : await uploadTripoFile(params.image, 'image_to_3d.' + ext, signal);
+    const requestBody = { ...options, input };
+    logTripo('info', 'Creating Image 3D Task...', requestBody);
 
     const data = await tripoApiRequest<any>(
-        '/task',
+        '/generation/image-to-model',
         {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
+            signal
         },
         'Create Image to 3D Task'
     );
@@ -1063,7 +984,7 @@ export const generateImageTo3D = async (
     onTaskCreated?: (taskId: string) => void
 ): Promise<TripoTaskResult> => {
     if (onProgress) onProgress(5, 'uploading');
-    const { taskId } = await createImageTo3DTask(params);
+    const { taskId } = await createImageTo3DTask(params, signal);
     if (onTaskCreated) onTaskCreated(taskId);
     if (onProgress) onProgress(15, 'queued');
     return await pollTripoTask(taskId, onProgress, signal);
@@ -1079,7 +1000,7 @@ export const generateMultiviewTo3D = async (
     onTaskCreated?: (taskId: string) => void
 ): Promise<TripoTaskResult> => {
     if (onProgress) onProgress(5, 'uploading');
-    const { taskId } = await createMultiviewTo3DTask(params);
+    const { taskId } = await createMultiviewTo3DTask(params, signal);
     if (onTaskCreated) onTaskCreated(taskId);
     if (onProgress) onProgress(15, 'queued');
     return await pollTripoTask(taskId, onProgress, signal);
@@ -1099,8 +1020,8 @@ export const textureExistingModel = async (
     logTripo('info', `Starting re-texture task for original model ${originalTaskId}...`);
 
     const requestBody: Record<string, any> = {
-        type: 'texture_model',
-        original_model_task_id: originalTaskId,
+        input: originalTaskId,
+        model: 'v3.0-20250812',
         texture_quality: options.textureQuality || 'standard',
         pbr: true
     };
@@ -1109,11 +1030,11 @@ export const textureExistingModel = async (
         requestBody.texture_seed = options.textureSeed;
     }
     if (options.prompt) {
-        requestBody.prompt = options.prompt;
+        requestBody.texture_prompt = { text: options.prompt };
     }
 
     const data = await tripoApiRequest<any>(
-        '/task',
+        '/models/texture',
         {
             method: 'POST',
             headers: {
@@ -1125,6 +1046,7 @@ export const textureExistingModel = async (
     );
 
     const taskId = data.data?.task_id || data.data?.taskId;
+    if (!taskId) throw new Error('Tripo API did not return a valid task_id.');
     const status = data.data?.status || 'queued';
     logTripo('success', `Retexture task created: ${taskId}`);
 
@@ -1468,9 +1390,9 @@ export const downloadTaskMetadataJson = (taskData: any, assetName?: string, inde
             prompt: taskData.prompt || '',
             status: taskData.status || 'unknown',
             progress: taskData.progress ?? (taskData.status === 'success' ? 100 : 0),
-            modelUrl: taskData.modelUrl || taskData.output?.model || taskData.output?.pbr_model || taskData.output?.base_model,
-            thumbnailUrl: taskData.thumbnailUrl || taskData.output?.thumbnail || taskData.output?.rendered_image,
-            renderedImageUrl: taskData.renderedImageUrl || taskData.output?.rendered_image,
+            modelUrl: taskData.modelUrl || taskData.output?.model_url || taskData.output?.model || taskData.output?.pbr_model || taskData.output?.base_model,
+            thumbnailUrl: taskData.thumbnailUrl || taskData.output?.thumbnail || taskData.output?.rendered_image_url || taskData.output?.rendered_image,
+            renderedImageUrl: taskData.renderedImageUrl || taskData.output?.rendered_image_url || taskData.output?.rendered_image,
             creditsConsumed: taskData.creditsConsumed,
             createdAt: taskData.createdAt || Date.now(),
             index: index !== undefined ? index : undefined,
@@ -1502,6 +1424,11 @@ export const downloadTaskMetadataJson = (taskData: any, assetName?: string, inde
 export const queryTripoTasksBatch = async (taskIds: string[]): Promise<TripoRecentTask[]> => {
     const cleanIds = Array.from(new Set(taskIds.map(id => id.trim()).filter(Boolean)));
     if (cleanIds.length === 0) return [];
+    if (cleanIds.length > 100) {
+        const chunks: TripoRecentTask[] = [];
+        for (let i = 0; i < cleanIds.length; i += 100) chunks.push(...await queryTripoTasksBatch(cleanIds.slice(i, i + 100)));
+        return chunks;
+    }
 
     logTripo('info', `Batch querying ${cleanIds.length} tasks from Tripo API...`);
 
@@ -1518,13 +1445,14 @@ export const queryTripoTasksBatch = async (taskIds: string[]): Promise<TripoRece
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ task_ids: cleanIds, tasks: cleanIds })
+                    body: JSON.stringify({ task_ids: cleanIds })
                 },
                 'Batch Tasks Query'
             );
 
-            if (listRes && (Array.isArray(listRes.data) || Array.isArray(listRes.tasks) || Array.isArray(listRes.data?.tasks))) {
-                const items = Array.isArray(listRes.data) ? listRes.data : (listRes.tasks || listRes.data?.tasks || []);
+            if (listRes && (listRes.data?.tasks || listRes.tasks || Array.isArray(listRes.data))) {
+                const rawItems = listRes.data?.tasks || listRes.tasks || listRes.data;
+                const items = Array.isArray(rawItems) ? rawItems : Object.entries(rawItems).map(([id, task]) => ({ ...(task as any), task_id: (task as any).task_id || id }));
                 items.forEach((d: any) => {
                     const id = d.task_id || d.taskId || d.id;
                     if (!id) return;
@@ -1533,13 +1461,13 @@ export const queryTripoTasksBatch = async (taskIds: string[]): Promise<TripoRece
                         taskId: id,
                         type: d.type || '3d_generation',
                         prompt: d.prompt || d.input?.prompt || '',
-                        createdAt: d.created_at ? (typeof d.created_at === 'number' && d.created_at < 1e11 ? d.created_at * 1000 : d.created_at) : Date.now(),
-                        status: (d.status?.toLowerCase() || 'success') as TripoTaskStatus,
+                        createdAt: d.created_at ? (typeof d.created_at === 'string' ? Date.parse(d.created_at) : d.created_at < 1e11 ? d.created_at * 1000 : d.created_at) : Date.now(),
+                        status: (d.status?.toLowerCase() || 'unknown') as TripoTaskStatus,
                         progress: d.progress ?? (d.status === 'success' ? 100 : 0),
                         modelUrl: out.model || out.pbr_model || out.base_model || out.model_url,
                         thumbnailUrl: out.thumbnail || out.rendered_image || out.thumbnail_url || out.rendered_image_url,
                         renderedImageUrl: out.rendered_image || out.thumbnail || out.rendered_image_url,
-                        creditsConsumed: d.credits_consumed || d.consumed_credit
+                        creditsConsumed: d.credits_consumed ?? d.consumed_credit
                     };
                     saveTripoRecentTask(tItem);
                     results.push(tItem);
@@ -1551,10 +1479,11 @@ export const queryTripoTasksBatch = async (taskIds: string[]): Promise<TripoRece
         }
     }
 
-    if (!batchSucceeded) {
-        // Query individually in parallel
+    const missingIds = cleanIds.filter(id => !results.some(task => task.taskId === id));
+    if (!batchSucceeded || missingIds.length) {
+        // Recover missed IDs individually, including legacy tasks.
         await Promise.all(
-            cleanIds.map(async (id) => {
+            missingIds.map(async (id) => {
                 try {
                     const t = await importTripoTaskById(id);
                     if (t) results.push(t);
@@ -1675,8 +1604,8 @@ export const importTripoTaskById = async (taskId: string): Promise<TripoRecentTa
                 taskId: cleanId,
                 type: d.type || '3d_generation',
                 prompt: (d as any).prompt || (d as any).input?.prompt || 'Imported 3D Generation',
-                createdAt: d.created_at ? (typeof d.created_at === 'number' && d.created_at < 1e11 ? d.created_at * 1000 : d.created_at) : Date.now(),
-                status: (d.status?.toLowerCase() || 'success') as TripoTaskStatus,
+                createdAt: d.created_at ? (typeof d.created_at === 'string' ? Date.parse(d.created_at) : d.created_at < 1e11 ? d.created_at * 1000 : d.created_at) : Date.now(),
+                status: (d.status?.toLowerCase() || 'unknown') as TripoTaskStatus,
                 progress: d.progress ?? (d.status === 'success' ? 100 : 0),
                 modelUrl: out.model || out.pbr_model || out.base_model || out.model_url,
                 thumbnailUrl: out.thumbnail || out.rendered_image || out.thumbnail_url || out.rendered_image_url,
@@ -1735,10 +1664,10 @@ export const fetchTripoRecentTasks = async (limit: number = 10): Promise<TripoRe
                             item.status = (d.status?.toLowerCase() || item.status) as TripoTaskStatus;
                             item.progress = d.progress ?? item.progress;
                             item.modelUrl = out.model || out.pbr_model || out.base_model || out.model_url || item.modelUrl;
-                            item.thumbnailUrl = out.thumbnail || out.rendered_image || out.thumbnail_url || item.thumbnailUrl;
+                            item.thumbnailUrl = out.thumbnail_url || out.thumbnail || out.rendered_image_url || out.rendered_image || item.thumbnailUrl;
                             item.renderedImageUrl = out.rendered_image || out.thumbnail || out.rendered_image_url || item.renderedImageUrl;
                             if (d.created_at) {
-                                item.createdAt = typeof d.created_at === 'number' && d.created_at < 1e11 ? d.created_at * 1000 : d.created_at;
+                                item.createdAt = typeof d.created_at === 'string' ? Date.parse(d.created_at) : d.created_at < 1e11 ? d.created_at * 1000 : d.created_at;
                             }
                             saveTripoRecentTask(item);
                         }
