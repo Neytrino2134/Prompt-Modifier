@@ -1,8 +1,24 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useLanguage } from '../../../localization';
-import { Plus, Trash2, Folder, ChevronLeft, ChevronRight, Copy, Download, EyeOff } from 'lucide-react';
+import { 
+    Plus, 
+    Trash2, 
+    Folder, 
+    ChevronLeft, 
+    ChevronRight, 
+    Copy, 
+    Download, 
+    EyeOff, 
+    Zap, 
+    Square, 
+    Check, 
+    Loader2, 
+    FileJson 
+} from 'lucide-react';
 import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
 import { BatchPreparePack, ViewSlotKey } from './types';
+import { download3DModelFromUrl, format3DAssetFilename } from '../../../services/tripoBatchService';
+import { downloadTaskMetadataJson } from '../../../services/tripoService';
 
 interface BatchPreparePacksColumnProps {
     packs: BatchPreparePack[];
@@ -15,6 +31,10 @@ interface BatchPreparePacksColumnProps {
     onDuplicatePack: (pack: BatchPreparePack) => void;
     onDownloadPackZip: (pack: BatchPreparePack) => void;
     onDeletePack: (packId: string) => void;
+    isBatchRunning?: boolean;
+    onStart3DBatch?: () => void;
+    onStop3DBatch?: () => void;
+    addToast?: (message: string, type?: 'success' | 'info' | 'error' | 'warning') => void;
 }
 
 export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = ({
@@ -28,8 +48,13 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
     onDuplicatePack,
     onDownloadPackZip,
     onDeletePack,
+    isBatchRunning = false,
+    onStart3DBatch,
+    onStop3DBatch,
+    addToast
 }) => {
     const { t } = useLanguage();
+    const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
 
     // Virtual Scroll Buffering for Packs Buffer (Column 4)
     const packsContainerRef = useRef<HTMLDivElement>(null);
@@ -51,7 +76,7 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
         return () => ro.disconnect();
     }, []);
 
-    const PACK_ITEM_HEIGHT = 148; // card height + gap
+    const PACK_ITEM_HEIGHT = 162; // card height + gap
     const PACK_OVERSCAN = 2;
 
     const { visiblePackItems, packTopSpacerHeight, packBottomSpacerHeight } = useMemo(() => {
@@ -78,8 +103,39 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
         };
     }, [packs, packsScrollTop, packsViewportHeight]);
 
+    const handleCopyId = (taskId: string) => {
+        navigator.clipboard.writeText(taskId);
+        setCopiedTaskId(taskId);
+        if (addToast) addToast(`Task ID "${taskId}" скопирован!`, 'success');
+        setTimeout(() => setCopiedTaskId(null), 2000);
+    };
+
+    const handleDownloadGlb = (pack: BatchPreparePack, index: number) => {
+        if (!pack.modelUrl) return;
+        const filename = format3DAssetFilename(pack.name || assetBaseName, index + 1, 'glb', Date.now());
+        download3DModelFromUrl(pack.modelUrl, filename);
+        if (addToast) addToast(`Скачивание модели: ${filename}`, 'info');
+    };
+
+    const handleDownloadJson = (pack: BatchPreparePack, index: number) => {
+        if (!pack.taskId) return;
+        const filename = downloadTaskMetadataJson({
+            taskId: pack.taskId,
+            type: 'multiview_to_3d',
+            prompt: pack.name,
+            status: pack.status || 'success',
+            progress: pack.progress || 100,
+            modelUrl: pack.modelUrl,
+            thumbnailUrl: pack.thumbnailUrl,
+            renderedImageUrl: pack.renderedImageUrl,
+            createdAt: pack.createdAt
+        }, pack.name, index + 1);
+        if (addToast && filename) addToast(`Метаданные сохранены: ${filename}`, 'success');
+    };
+
     return (
         <div className="flex flex-col h-full bg-gray-900/70 rounded-lg border border-gray-800 overflow-hidden">
+            {/* Header with Title and Counter */}
             <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-gray-800 bg-gray-900/90 shrink-0">
                 <div className="flex items-center space-x-1.5">
                     <span className="text-[11px] font-bold text-gray-300 tracking-wider uppercase">
@@ -109,16 +165,43 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                 </div>
             </div>
 
-            {/* Common Asset Name Field */}
-            <div className="px-2 py-1.5 bg-gray-950/80 border-b border-gray-800/80 flex items-center space-x-1.5 shrink-0">
-                <span className="text-[10px] font-semibold text-gray-400 shrink-0">Asset Name:</span>
-                <input
-                    type="text"
-                    value={assetBaseName}
-                    placeholder="Asset_Name"
-                    onChange={(e) => onBaseNameChange(e.target.value)}
-                    className="flex-1 min-w-0 text-xs font-semibold text-cyan-200 bg-gray-900 border border-gray-700 hover:border-gray-600 focus:border-cyan-400 focus:bg-gray-850 px-2 py-0.5 rounded outline-none shadow-inner"
-                />
+            {/* Asset Base Name Field & Batch Start Button */}
+            <div className="p-2 bg-gray-950/80 border-b border-gray-800/80 flex flex-col gap-1.5 shrink-0">
+                <div className="flex items-center space-x-1.5">
+                    <span className="text-[10px] font-semibold text-gray-400 shrink-0">Asset Name:</span>
+                    <input
+                        type="text"
+                        value={assetBaseName}
+                        placeholder="Asset_Name"
+                        onChange={(e) => onBaseNameChange(e.target.value)}
+                        className="flex-1 min-w-0 text-xs font-semibold text-cyan-200 bg-gray-900 border border-gray-700 hover:border-gray-600 focus:border-cyan-400 focus:bg-gray-850 px-2 py-0.5 rounded outline-none shadow-inner"
+                    />
+                </div>
+
+                {/* Prominent Start/Stop 3D Batch Button */}
+                {isBatchRunning ? (
+                    <button
+                        onClick={onStop3DBatch}
+                        className="w-full py-1 px-2 text-xs font-bold rounded bg-red-700 hover:bg-red-600 text-white flex items-center justify-center gap-1.5 shadow transition-all border border-red-500/50 animate-pulse"
+                    >
+                        <Square className="w-3 h-3 fill-current" />
+                        <span>Остановить 3D Batch</span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={onStart3DBatch}
+                        disabled={packs.length === 0}
+                        className={`w-full py-1 px-2 text-xs font-bold rounded text-white flex items-center justify-center gap-1.5 shadow transition-all border ${
+                            packs.length > 0 
+                                ? 'bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 border-cyan-400/50 shadow-cyan-950/40' 
+                                : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'
+                        }`}
+                        title="Отправить все паки в 3D генерацию с сохранением Task ID и авто-скачиванием GLB"
+                    >
+                        <Zap className={`w-3.5 h-3.5 ${packs.length > 0 ? 'text-yellow-300 fill-current' : 'text-gray-500'}`} />
+                        <span>Запустить 3D Batch ({packs.length})</span>
+                    </button>
+                )}
             </div>
 
             {/* Pack switcher ribbon */}
@@ -163,7 +246,7 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                         <Folder className="w-6 h-6 mb-1 text-gray-600" />
                         <span className="text-xs font-medium text-gray-400">Буфер паков пуст</span>
                         <span className="text-[10px] text-gray-600 mt-0.5">
-                            Нажмите "⚡ Нарезать ВСЕ в Пак Буфер" во 2-й колонке или настройте ракурсы вручную
+                            Нажмите "⚡ Нарезать ВСЕ в Пак Буфер" во 2-й колонке или сохраните ракурсы вручную
                         </span>
                     </div>
                 ) : (
@@ -175,6 +258,9 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
 
                         {visiblePackItems.map(({ pack, index: idx }) => {
                             const isActive = activePackId === pack.id;
+                            const isSuccess = pack.status === 'success' || Boolean(pack.modelUrl);
+                            const isRunning = pack.status === 'running' || pack.status === 'uploading';
+
                             return (
                                 <div
                                     key={pack.id}
@@ -182,13 +268,17 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                                     className={`relative flex flex-col p-2 rounded-lg border cursor-pointer transition-all ${
                                         isActive 
                                             ? 'bg-cyan-950/50 border-cyan-500 shadow-md shadow-cyan-950/80 ring-1 ring-cyan-500/50' 
-                                            : 'bg-gray-800/60 border-gray-700/70 hover:border-gray-600 hover:bg-gray-800'
+                                            : isSuccess
+                                                ? 'bg-emerald-950/20 border-emerald-800/60 hover:bg-emerald-950/40'
+                                                : isRunning
+                                                    ? 'bg-blue-950/30 border-blue-600/60 animate-pulse'
+                                                    : 'bg-gray-800/60 border-gray-700/70 hover:border-gray-600 hover:bg-gray-800'
                                     }`}
                                 >
                                     {/* Pack Header */}
-                                    <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center justify-between mb-1">
                                         <div className="flex items-center space-x-1.5 flex-1 min-w-0 mr-1">
-                                            <span className="text-[10px] font-bold text-gray-400 shrink-0">
+                                            <span className="text-[10px] font-bold text-gray-400 font-mono shrink-0">
                                                 #{idx + 1}
                                             </span>
                                             <span className="text-[11px] font-bold text-gray-100 truncate" title={pack.name}>
@@ -197,11 +287,35 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                                         </div>
 
                                         {isActive && (
-                                            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-cyan-500 text-black shrink-0 animate-pulse">
-                                                ACTIVE OUTPUT
+                                            <span className="text-[8px] px-1.5 py-0.2 rounded font-bold bg-cyan-500 text-black shrink-0">
+                                                ACTIVE
+                                            </span>
+                                        )}
+                                        {isSuccess && !isActive && (
+                                            <span className="text-[8px] px-1.5 py-0.2 rounded font-bold bg-emerald-950 text-emerald-300 border border-emerald-700/60 shrink-0">
+                                                3D READY
                                             </span>
                                         )}
                                     </div>
+
+                                    {/* Task ID Pill (if generated/assigned) */}
+                                    {pack.taskId && (
+                                        <div className="flex items-center justify-between px-1.5 py-0.5 rounded bg-black/60 border border-gray-800 text-[9px] font-mono text-cyan-300 mb-1">
+                                            <span className="truncate max-w-[130px]" title={pack.taskId}>
+                                                ID: {pack.taskId}
+                                            </span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleCopyId(pack.taskId!);
+                                                }}
+                                                className="text-gray-400 hover:text-white transition-colors"
+                                                title="Скопировать Task ID"
+                                            >
+                                                {copiedTaskId === pack.taskId ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5" />}
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {/* 4 Mini 64x64 View Thumbnails Strip */}
                                     <div className="grid grid-cols-4 gap-1 p-1 bg-black/50 rounded border border-gray-800/80">
@@ -241,23 +355,47 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                                     </div>
 
                                     {/* Pack Toolbar Actions */}
-                                    <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-800/60">
+                                    <div className="flex items-center justify-between mt-1 pt-1 border-t border-gray-800/60">
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 onSelectActivePack(pack.id);
                                             }}
-                                            className={`text-[9px] px-2 py-0.5 rounded font-medium transition-colors ${
+                                            className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${
                                                 isActive 
                                                     ? 'bg-cyan-700 text-white' 
                                                     : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
                                             }`}
                                             title="Выбрать и настроить в редакторе ракурсов (Колонка 3)"
                                         >
-                                            {isActive ? '✓ В редакторе' : 'Настроить виды'}
+                                            {isActive ? '✓ В редакторе' : 'Настроить'}
                                         </button>
 
                                         <div className="flex items-center space-x-1">
+                                            {pack.modelUrl && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDownloadGlb(pack, idx);
+                                                    }}
+                                                    className="p-1 text-emerald-400 hover:text-emerald-200 rounded hover:bg-emerald-950/60 transition-colors"
+                                                    title="Скачать готовую .GLB 3D модель"
+                                                >
+                                                    <Download className="w-3 h-3" />
+                                                </button>
+                                            )}
+                                            {pack.taskId && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDownloadJson(pack, idx);
+                                                    }}
+                                                    className="p-1 text-amber-400 hover:text-amber-200 rounded hover:bg-amber-950/60 transition-colors"
+                                                    title="Скачать JSON метаданные задачи"
+                                                >
+                                                    <FileJson className="w-3 h-3" />
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -274,7 +412,7 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                                                     onDownloadPackZip(pack);
                                                 }}
                                                 className="p-1 text-gray-400 hover:text-cyan-300 rounded hover:bg-gray-700"
-                                                title="Скачать ZIP пака"
+                                                title="Скачать ZIP ракурсов пака"
                                             >
                                                 <Download className="w-3 h-3" />
                                             </button>

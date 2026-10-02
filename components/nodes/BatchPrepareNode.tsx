@@ -10,6 +10,9 @@ import { BatchPrepareInputColumn } from './batch-prepare/BatchPrepareInputColumn
 import { BatchPrepareSliceColumn } from './batch-prepare/BatchPrepareSliceColumn';
 import { BatchPrepareViewsColumn } from './batch-prepare/BatchPrepareViewsColumn';
 import { BatchPreparePacksColumn } from './batch-prepare/BatchPreparePacksColumn';
+import { run3DBatchGeneration } from '../../services/tripoBatchService';
+import { isTripoEnabled, getTripoApiKey, getTripoModelVersion } from '../../services/tripoService';
+import { NodeType } from '../../types';
 
 export type { BatchPreparePack, BatchPrepareNodeState };
 
@@ -875,6 +878,177 @@ export const BatchPrepareNode: React.FC<NodeContentProps> = memo(({
         state.mutedViews?.right ? null : state.activeViews.right
     ].filter(Boolean).length;
 
+    // 3D Batch Generation Orchestration
+    const batchAbortControllerRef = useRef<AbortController | null>(null);
+
+    const handleStop3DBatch = useCallback(() => {
+        if (batchAbortControllerRef.current) {
+            batchAbortControllerRef.current.abort();
+            batchAbortControllerRef.current = null;
+        }
+        updateState({ isBatchRunning: false });
+        addToast('3D Batch остановлен пользователем', 'warning');
+    }, [updateState, addToast]);
+
+    const handleStart3DBatch = useCallback(async () => {
+        const currentPacks = stateRef.current.packs;
+        if (!currentPacks || currentPacks.length === 0) {
+            addToast('В буфере нет паков для 3D Batch генерации', 'warning');
+            return;
+        }
+
+        const apiKey = getTripoApiKey();
+        if (!isTripoEnabled() || !apiKey) {
+            addToast('Необходимо включить Tripo AI и указать API ключ в Настройках', 'error');
+            return;
+        }
+
+        // Find target downstream 3D Generation node or any 3D node on canvas
+        const downstream3DNodes = (context?.nodes || []).filter(n => {
+            if (n.type !== NodeType.THREE_D_GENERATOR) return false;
+            return context?.connections?.some(c => c.fromNodeId === node.id && c.toNodeId === n.id);
+        });
+        const target3DNode = downstream3DNodes[0] || (context?.nodes || []).find(n => n.type === NodeType.THREE_D_GENERATOR);
+
+        let tripoParams: any = {
+            modelVersion: getTripoModelVersion(),
+            texture: true,
+            textureQuality: 'standard',
+            textureAlignment: 'original_image',
+            pbr: true,
+            quadMesh: false,
+            autoSave3d: true,
+            autoSaveJson: true,
+            concurrencyLimit: 5
+        };
+
+        if (target3DNode) {
+            try {
+                const parsed = JSON.parse(target3DNode.value || '{}');
+                tripoParams = {
+                    ...tripoParams,
+                    modelVersion: parsed.modelVersion || tripoParams.modelVersion,
+                    texture: parsed.texture !== undefined ? parsed.texture : tripoParams.texture,
+                    textureQuality: parsed.textureQuality || tripoParams.textureQuality,
+                    textureAlignment: parsed.textureAlignment || tripoParams.textureAlignment,
+                    pbr: parsed.pbr !== undefined ? parsed.pbr : tripoParams.pbr,
+                    quadMesh: parsed.quadMesh || false,
+                    faceLimit: parsed.faceLimit,
+                    modelSeed: parsed.modelSeed,
+                    textureSeed: parsed.textureSeed,
+                    autoSave3d: parsed.autoSave3d !== false,
+                    autoSaveJson: parsed.autoSaveJson !== false,
+                    concurrencyLimit: parsed.concurrencyLimit || 5
+                };
+            } catch {}
+        }
+
+        batchAbortControllerRef.current = new AbortController();
+        const signal = batchAbortControllerRef.current.signal;
+
+        updateState({
+            isBatchRunning: true,
+            batchProgress: {
+                completed: 0,
+                total: currentPacks.length,
+                percent: 0
+            }
+        });
+
+        addToast(`🚀 Запущен 3D Batch для ${currentPacks.length} паков!`, 'success');
+
+        try {
+            await run3DBatchGeneration({
+                packs: currentPacks,
+                assetBaseName: (stateRef.current.assetBaseName || 'Asset_Name').trim(),
+                nodeId: target3DNode?.id || node.id,
+                tabId: context?.activeTabId,
+                tripoParams,
+                signal,
+                onJobUpdated: (job) => {
+                    // Sync pack states in BatchPrepareNode
+                    updateState(prev => {
+                        const updatedPacks = prev.packs.map(p => {
+                            const jobItem = job.items.find(it => it.id === p.id || it.packName === p.name);
+                            if (jobItem) {
+                                return {
+                                    ...p,
+                                    taskId: jobItem.taskId || p.taskId,
+                                    status: jobItem.status,
+                                    progress: jobItem.progress,
+                                    modelUrl: jobItem.modelUrl || p.modelUrl,
+                                    thumbnailUrl: jobItem.thumbnailUrl || p.thumbnailUrl,
+                                    renderedImageUrl: jobItem.renderedImageUrl || p.renderedImageUrl,
+                                    error: jobItem.error
+                                };
+                            }
+                            return p;
+                        });
+
+                        return {
+                            ...prev,
+                            packs: updatedPacks,
+                            batchProgress: {
+                                completed: job.completedCount,
+                                total: job.totalCount,
+                                percent: job.progressPercent
+                            }
+                        };
+                    });
+
+                    // Sync state into target 3D Generation node if exists
+                    if (target3DNode && context?.handleValueChange) {
+                        try {
+                            const current3d = JSON.parse(target3DNode.value || '{}');
+                            const next3d = {
+                                ...current3d,
+                                isBatchMode: true,
+                                batchJob: job,
+                                status: job.status === 'completed' ? 'success' : job.status === 'failed' ? 'failed' : 'running',
+                                progress: job.progressPercent,
+                                statusMessage: `3D Batch: ${job.completedCount}/${job.totalCount} (${job.progressPercent}%)`
+                            };
+                            context.handleValueChange(target3DNode.id, JSON.stringify(next3d));
+                        } catch {}
+                    }
+                },
+                onItemTaskCreated: (item, jsonFile) => {
+                    if (jsonFile) {
+                        addToast(`[Task ID: ${item.taskId?.slice(0, 10)}...] сохранён в JSON`, 'info');
+                    }
+                },
+                onItemCompleted: (item, modelFile) => {
+                    if (modelFile) {
+                        addToast(`✓ 3D Модель #${item.packIndex} "${item.packName}" скачана!`, 'success');
+                    }
+                },
+                onItemFailed: (item, err) => {
+                    addToast(`Ошибка пака #${item.packIndex}: ${err}`, 'error');
+                },
+                onBatchFinished: (finalJob) => {
+                    updateState({
+                        isBatchRunning: false,
+                        batchProgress: {
+                            completed: finalJob.completedCount,
+                            total: finalJob.totalCount,
+                            percent: 100
+                        }
+                    });
+                    addToast(`🎉 3D Batch успешно завершён: ${finalJob.completedCount}/${finalJob.totalCount} готово!`, 'success');
+                },
+                addToHistory: context?.addToHistory
+            });
+        } catch (err: any) {
+            if (err?.name !== 'AbortError') {
+                console.error('3D Batch error', err);
+                addToast(`Ошибка 3D Batch: ${err?.message}`, 'error');
+            }
+        } finally {
+            updateState({ isBatchRunning: false });
+            batchAbortControllerRef.current = null;
+        }
+    }, [addToast, context, node.id, updateState]);
+
     return (
         <div className="flex flex-col w-full h-full text-gray-200 select-none overflow-hidden bg-gray-950/90 font-sans">
             {/* Main Header / Status Ribbon */}
@@ -884,6 +1058,10 @@ export const BatchPrepareNode: React.FC<NodeContentProps> = memo(({
                 packsCount={state.packs.length}
                 onSaveCurrentToPack={handleSaveCurrentToPack}
                 onDownloadAllPacksZip={handleDownloadAllPacksZip}
+                isBatchRunning={Boolean(state.isBatchRunning)}
+                batchProgress={state.batchProgress}
+                onStart3DBatch={handleStart3DBatch}
+                onStop3DBatch={handleStop3DBatch}
             />
 
             {/* 4-Column Layout */}
@@ -1033,6 +1211,10 @@ export const BatchPrepareNode: React.FC<NodeContentProps> = memo(({
                     onDuplicatePack={handleDuplicatePack}
                     onDownloadPackZip={handleDownloadPackZip}
                     onDeletePack={handleDeletePack}
+                    isBatchRunning={Boolean(state.isBatchRunning)}
+                    onStart3DBatch={handleStart3DBatch}
+                    onStop3DBatch={handleStop3DBatch}
+                    addToast={addToast}
                 />
             </div>
         </div>

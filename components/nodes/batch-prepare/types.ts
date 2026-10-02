@@ -14,6 +14,13 @@ export interface BatchPreparePack {
         left?: boolean;
         right?: boolean;
     };
+    taskId?: string;
+    status?: 'queued' | 'uploading' | 'running' | 'success' | 'failed' | 'cancelled';
+    progress?: number;
+    modelUrl?: string;
+    thumbnailUrl?: string;
+    renderedImageUrl?: string;
+    error?: string;
 }
 
 export type GridPreset = '1x2' | '1x3' | '1x4' | '2x2' | '2x1' | '3x1' | 'custom';
@@ -51,6 +58,12 @@ export interface BatchPrepareNodeState {
     autoSendToViews?: boolean;
     activePackId: string | null;
     packs: BatchPreparePack[];
+    isBatchRunning?: boolean;
+    batchProgress?: {
+        completed: number;
+        total: number;
+        percent: number;
+    };
 }
 
 export const DEFAULT_STATE: BatchPrepareNodeState = {
@@ -84,6 +97,7 @@ export const DEFAULT_STATE: BatchPrepareNodeState = {
     autoSendToViews: true,
     activePackId: null,
     packs: [],
+    isBatchRunning: false,
 };
 
 export type ViewSlotKey = 'front' | 'back' | 'left' | 'right';

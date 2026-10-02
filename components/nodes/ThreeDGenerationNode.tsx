@@ -21,6 +21,15 @@ import { ThreeDInputSlots } from './three-d/ThreeDInputSlots';
 import { ThreeDViewport } from './three-d/ThreeDViewport';
 import { ThreeDParametersPanel } from './three-d/ThreeDParametersPanel';
 import { ThreeDFooter } from './three-d/ThreeDFooter';
+import { ThreeDBatchDashboard } from './three-d/ThreeDBatchDashboard';
+import { 
+    run3DBatchGeneration, 
+    getStored3DBatchJobs, 
+    ThreeDBatchJob, 
+    THREED_BATCH_CHANGE_EVENT 
+} from '../../services/tripoBatchService';
+import { BatchPreparePack } from './batch-prepare/types';
+import { NodeType } from '../../types';
 
 export type { ThreeDNodeState };
 
@@ -719,6 +728,122 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
     const apiKey = getTripoApiKey();
     const isApiKeyMissing = !isTripoEnabled() || !apiKey;
 
+    // Direct Batch Handler from 3D Node
+    const handleStartNodeBatch = async () => {
+        // Collect packs from connected BatchPrepare node or batchJob
+        const upstreamPrepNodes = (context?.nodes || []).filter(n => {
+            if (n.type !== NodeType.BATCH_PREPARE) return false;
+            return context?.connections?.some(c => c.fromNodeId === n.id && c.toNodeId === node.id);
+        });
+
+        let targetPacks: BatchPreparePack[] = [];
+        let baseName = 'Asset_Name';
+
+        if (upstreamPrepNodes.length > 0) {
+            try {
+                const parsed = JSON.parse(upstreamPrepNodes[0].value || '{}');
+                if (Array.isArray(parsed.packs) && parsed.packs.length > 0) {
+                    targetPacks = parsed.packs;
+                    baseName = parsed.assetBaseName || 'Asset_Name';
+                }
+            } catch {}
+        }
+
+        if (targetPacks.length === 0 && state.batchJob?.items) {
+            targetPacks = state.batchJob.items.map(it => ({
+                id: it.id,
+                name: it.packName,
+                createdAt: it.createdAt,
+                views: it.views,
+                mutedViews: it.mutedViews,
+                taskId: it.taskId,
+                status: it.status,
+                progress: it.progress,
+                modelUrl: it.modelUrl,
+                thumbnailUrl: it.thumbnailUrl,
+                renderedImageUrl: it.renderedImageUrl
+            }));
+        }
+
+        if (targetPacks.length === 0) {
+            if (addToast) addToast('Подключите ноду 3D Batch Prepare с паками или создайте паки в буфере', 'warning');
+            return;
+        }
+
+        if (!isTripoEnabled() || !apiKey) {
+            if (addToast) addToast('Tripo AI API key is not configured or disabled in Settings.', 'error');
+            return;
+        }
+
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
+
+        setIsGenerating(true);
+        updateState({
+            isBatchMode: true,
+            status: 'running',
+            statusMessage: `3D Batch: 0/${targetPacks.length} (0%)`
+        });
+
+        try {
+            await run3DBatchGeneration({
+                packs: targetPacks,
+                assetBaseName: baseName,
+                nodeId: node.id,
+                tabId: context?.activeTabId,
+                tripoParams: {
+                    modelVersion: state.modelVersion,
+                    texture: state.texture,
+                    textureQuality: state.textureQuality,
+                    textureAlignment: state.textureAlignment,
+                    pbr: state.pbr,
+                    quadMesh: state.quadMesh,
+                    faceLimit: state.faceLimit,
+                    modelSeed: state.modelSeed,
+                    textureSeed: state.textureSeed,
+                    autoSave3d: state.autoSave3d !== false,
+                    autoSaveJson: state.autoSaveJson !== false,
+                    concurrencyLimit: state.concurrencyLimit || 5
+                },
+                signal,
+                onJobUpdated: (job) => {
+                    updateState({
+                        isBatchMode: true,
+                        batchJob: job,
+                        status: job.status === 'completed' ? 'success' : job.status === 'failed' ? 'failed' : 'running',
+                        progress: job.progressPercent,
+                        statusMessage: `3D Batch: ${job.completedCount}/${job.totalCount} (${job.progressPercent}%)`
+                    });
+                },
+                onItemCompleted: (item, modelFile) => {
+                    if (addToast && modelFile) {
+                        addToast(`✓ 3D Модель "${item.packName}" скачана!`, 'success');
+                    }
+                },
+                onBatchFinished: (finalJob) => {
+                    setIsGenerating(false);
+                    updateState({
+                        isBatchMode: true,
+                        batchJob: finalJob,
+                        status: 'success',
+                        progress: 100,
+                        statusMessage: `3D Batch: Завершено (${finalJob.completedCount}/${finalJob.totalCount})`
+                    });
+                    if (addToast) addToast(`🎉 3D Batch завершён: ${finalJob.completedCount}/${finalJob.totalCount} готово!`, 'success');
+                },
+                addToHistory: context?.addToHistory
+            });
+        } catch (err: any) {
+            if (err?.name !== 'AbortError') {
+                console.error('Batch run error', err);
+                if (addToast) addToast(`Ошибка 3D Batch: ${err?.message}`, 'error');
+            }
+        } finally {
+            setIsGenerating(false);
+            abortControllerRef.current = null;
+        }
+    };
+
     return (
         <div className="flex flex-col h-full w-full bg-gray-900/90 text-gray-200 text-xs overflow-visible select-none relative">
             {/* Header: Modes, Connections Bake, Tripo Balance, Tab selector */}
@@ -736,49 +861,66 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
                 onOpenDebugConsole={() => context?.setIsDebugConsoleOpen(true)}
+                isBatchMode={Boolean(state.isBatchMode)}
+                onToggleBatchMode={(isBatch) => updateState({ isBatchMode: isBatch })}
+                isBatchRunning={isGenerating && Boolean(state.isBatchMode)}
             />
 
-            {/* Main Content: Left Slots Pane + Right 3D Viewport Pane */}
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
-                <ThreeDInputSlots
-                    mode={state.mode}
-                    hasUpstreamImages={hasUpstreamImages}
-                    upstreamImagesCount={upstreamImages.length}
-                    hasIncomingConnections={hasIncomingConnections}
-                    canBake={canBake}
-                    onBakeAndDisconnect={handleBakeAndDisconnectInput}
-                    effectiveSingleImage={effectiveSingleImage}
-                    effectiveFrontImage={effectiveFrontImage}
-                    effectiveBackImage={effectiveBackImage}
-                    effectiveLeftImage={effectiveLeftImage}
-                    effectiveRightImage={effectiveRightImage}
-                    isSingleConnected={isSingleConnected}
-                    isFrontConnected={isFrontConnected}
-                    isBackConnected={isBackConnected}
-                    isLeftConnected={isLeftConnected}
-                    isRightConnected={isRightConnected}
-                    onFileUpload={handleFileUpload}
-                    onDrop={handleDrop}
-                    onClearSlot={handleClearSlot}
-                    onOpenImageViewer={handleOpenImageViewer}
-                    prompt={state.prompt}
-                    onPromptChange={(prompt) => updateState({ prompt })}
-                />
+            {/* Main Content: Render ThreeDBatchDashboard in Batch mode, or Standard Slots & Viewport */}
+            {state.isBatchMode ? (
+                <div className="flex-1 p-2 overflow-hidden min-h-0 flex flex-col">
+                    <ThreeDBatchDashboard
+                        batchJob={state.batchJob || null}
+                        isBatchRunning={isGenerating}
+                        onStopBatch={handleCancel}
+                        onStartBatch={handleStartNodeBatch}
+                        onExitBatchMode={() => updateState({ isBatchMode: false })}
+                        onOpenImageViewer={handleOpenImageViewer}
+                        addToast={addToast}
+                    />
+                </div>
+            ) : (
+                <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+                    <ThreeDInputSlots
+                        mode={state.mode}
+                        hasUpstreamImages={hasUpstreamImages}
+                        upstreamImagesCount={upstreamImages.length}
+                        hasIncomingConnections={hasIncomingConnections}
+                        canBake={canBake}
+                        onBakeAndDisconnect={handleBakeAndDisconnectInput}
+                        effectiveSingleImage={effectiveSingleImage}
+                        effectiveFrontImage={effectiveFrontImage}
+                        effectiveBackImage={effectiveBackImage}
+                        effectiveLeftImage={effectiveLeftImage}
+                        effectiveRightImage={effectiveRightImage}
+                        isSingleConnected={isSingleConnected}
+                        isFrontConnected={isFrontConnected}
+                        isBackConnected={isBackConnected}
+                        isLeftConnected={isLeftConnected}
+                        isRightConnected={isRightConnected}
+                        onFileUpload={handleFileUpload}
+                        onDrop={handleDrop}
+                        onClearSlot={handleClearSlot}
+                        onOpenImageViewer={handleOpenImageViewer}
+                        prompt={state.prompt}
+                        onPromptChange={(prompt) => updateState({ prompt })}
+                    />
 
-                <ThreeDViewport
-                    activeTab={activeTab}
-                    modelUrl={state.modelUrl}
-                    thumbnailUrl={state.thumbnailUrl}
-                    renderedImageUrl={state.renderedImageUrl}
-                    autoRotate={state.autoRotate}
-                    modelBg={state.modelBg}
-                    taskId={state.taskId}
-                    onToggleAutoRotate={() => updateState(prev => ({ autoRotate: !prev.autoRotate }))}
-                    onDownloadGlb={handleDownloadGlb}
-                    onCopyGlbUrl={handleCopyGlbUrl}
-                    onUnloadModel={handleUnloadModel}
-                />
-            </div>
+                    <ThreeDViewport
+                        activeTab={activeTab}
+                        modelUrl={state.modelUrl}
+                        thumbnailUrl={state.thumbnailUrl}
+                        renderedImageUrl={state.renderedImageUrl}
+                        autoRotate={state.autoRotate}
+                        modelBg={state.modelBg}
+                        taskId={state.taskId}
+                        onToggleAutoRotate={() => updateState(prev => ({ autoRotate: !prev.autoRotate }))}
+                        onDownloadGlb={handleDownloadGlb}
+                        onCopyGlbUrl={handleCopyGlbUrl}
+                        onUnloadModel={handleUnloadModel}
+                    />
+                </div>
+            )}
 
             {/* Dedicated Parameters Panel: Model Select, Texture & Mesh Quality, Toggles, Task ID / JSON Safety */}
             <ThreeDParametersPanel
@@ -798,20 +940,22 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
             />
 
             {/* Bottom Actions & Status Footer */}
-            <ThreeDFooter
-                isGenerating={isGenerating}
-                localStatusMsg={localStatusMsg}
-                localProgress={localProgress}
-                errorMessage={state.errorMessage}
-                onDismissError={() => updateState({ errorMessage: undefined })}
-                onOpenDebugConsole={() => context?.setIsDebugConsoleOpen(true)}
-                modelUrl={state.modelUrl}
-                taskId={state.taskId}
-                isApiKeyMissing={isApiKeyMissing}
-                onDownloadGlb={handleDownloadGlb}
-                onCancel={handleCancel}
-                onGenerate={handleGenerate}
-            />
+            {!state.isBatchMode && (
+                <ThreeDFooter
+                    isGenerating={isGenerating}
+                    localStatusMsg={localStatusMsg}
+                    localProgress={localProgress}
+                    errorMessage={state.errorMessage}
+                    onDismissError={() => updateState({ errorMessage: undefined })}
+                    onOpenDebugConsole={() => context?.setIsDebugConsoleOpen(true)}
+                    modelUrl={state.modelUrl}
+                    taskId={state.taskId}
+                    isApiKeyMissing={isApiKeyMissing}
+                    onDownloadGlb={handleDownloadGlb}
+                    onCancel={handleCancel}
+                    onGenerate={handleGenerate}
+                />
+            )}
         </div>
     );
 });

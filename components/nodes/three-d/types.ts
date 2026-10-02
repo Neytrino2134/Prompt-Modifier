@@ -1,4 +1,5 @@
 import { TripoTextureQuality, TripoTextureAlignment, DEFAULT_TRIPO_MODEL_VERSION } from '../../../services/tripoService';
+import { ThreeDBatchJob } from '../../../services/tripoBatchService';
 
 export interface ThreeDNodeState {
     mode: 'image_to_3d' | 'multiview_to_3d';
@@ -34,6 +35,10 @@ export interface ThreeDNodeState {
     modelBg: string;
     autoSave3d: boolean;
     autoSaveJson: boolean;
+    // Batch Mode Properties
+    isBatchMode?: boolean;
+    batchJob?: ThreeDBatchJob | null;
+    concurrencyLimit?: number;
 }
 
 export const DEFAULT_STATE: ThreeDNodeState = {
@@ -63,7 +68,10 @@ export const DEFAULT_STATE: ThreeDNodeState = {
     wireframe: false,
     modelBg: '#1e293b',
     autoSave3d: true,
-    autoSaveJson: true
+    autoSaveJson: true,
+    isBatchMode: false,
+    batchJob: null,
+    concurrencyLimit: 5
 };
 
 export type ThreeDSlotType = 'image' | 'front' | 'back' | 'left' | 'right';

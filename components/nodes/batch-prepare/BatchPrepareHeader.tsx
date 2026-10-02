@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../../../localization';
 import { BatchPrepareIcon } from '../../icons/AppIcons';
-import { FolderPlus, Download, Sparkles } from 'lucide-react';
+import { FolderPlus, Download, Sparkles, Zap, Square, Loader2 } from 'lucide-react';
 import { BatchPreparePack } from './types';
 
 interface BatchPrepareHeaderProps {
@@ -10,6 +10,14 @@ interface BatchPrepareHeaderProps {
     packsCount: number;
     onSaveCurrentToPack: () => void;
     onDownloadAllPacksZip: () => void;
+    isBatchRunning?: boolean;
+    batchProgress?: {
+        completed: number;
+        total: number;
+        percent: number;
+    } | null;
+    onStart3DBatch?: () => void;
+    onStop3DBatch?: () => void;
 }
 
 export const BatchPrepareHeader: React.FC<BatchPrepareHeaderProps> = ({
@@ -18,6 +26,10 @@ export const BatchPrepareHeader: React.FC<BatchPrepareHeaderProps> = ({
     packsCount,
     onSaveCurrentToPack,
     onDownloadAllPacksZip,
+    isBatchRunning = false,
+    batchProgress,
+    onStart3DBatch,
+    onStop3DBatch,
 }) => {
     const { t } = useLanguage();
 
@@ -56,6 +68,36 @@ export const BatchPrepareHeader: React.FC<BatchPrepareHeaderProps> = ({
             </div>
 
             <div className="flex items-center space-x-1.5">
+                {/* 3D Batch Generation Start / Stop Button */}
+                {isBatchRunning ? (
+                    <button
+                        onClick={onStop3DBatch}
+                        className="px-3 py-1 text-xs font-bold rounded-md bg-red-700 hover:bg-red-600 active:bg-red-800 text-white flex items-center space-x-1.5 shadow-md transition-all border border-red-500/50 animate-pulse"
+                        title="Остановить пакетную генерацию 3D моделей"
+                    >
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                        <span>
+                            {batchProgress 
+                                ? `Остановить 3D Batch (${batchProgress.completed}/${batchProgress.total})` 
+                                : 'Остановить 3D Batch'}
+                        </span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={onStart3DBatch}
+                        disabled={packsCount === 0}
+                        className={`px-3 py-1 text-xs font-bold rounded-md text-white flex items-center space-x-1.5 shadow-md transition-all border ${
+                            packsCount > 0
+                                ? 'bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:via-indigo-500 hover:to-purple-500 border-cyan-400/50 shadow-cyan-900/30'
+                                : 'bg-gray-800 text-gray-500 border-gray-700/60 cursor-not-allowed'
+                        }`}
+                        title="Запустить пакетную генерацию 3D моделей для всех паков в буфере через Tripo 3D и Task Queue"
+                    >
+                        <Zap className={`w-3.5 h-3.5 ${packsCount > 0 ? 'text-yellow-300 fill-current' : 'text-gray-500'}`} />
+                        <span>🚀 Запустить 3D Batch ({packsCount})</span>
+                    </button>
+                )}
+
                 <button
                     onClick={onSaveCurrentToPack}
                     className="px-2.5 py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white flex items-center space-x-1 shadow-sm transition-all border border-indigo-400/30"
@@ -68,7 +110,7 @@ export const BatchPrepareHeader: React.FC<BatchPrepareHeaderProps> = ({
                     <button
                         onClick={onDownloadAllPacksZip}
                         className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 active:bg-gray-900 text-gray-300 hover:text-white border border-gray-700/60 transition-colors"
-                        title="Скачать все паки архивом ZIP"
+                        title="Скачать все паки ракурсов архивом ZIP"
                     >
                         <Download className="w-3.5 h-3.5" />
                     </button>

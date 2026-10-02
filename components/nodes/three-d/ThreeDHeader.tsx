@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../../localization';
-import { Zap, Terminal, Link, Unlink } from 'lucide-react';
+import { Zap, Terminal, Link, Unlink, Layers, Box, Square } from 'lucide-react';
 
 interface ThreeDHeaderProps {
     isApiKeyMissing: boolean;
@@ -16,6 +16,10 @@ interface ThreeDHeaderProps {
     activeTab: 'preview3d' | 'rendered';
     onTabChange: (tab: 'preview3d' | 'rendered') => void;
     onOpenDebugConsole?: () => void;
+    // Batch Mode Toggle
+    isBatchMode?: boolean;
+    onToggleBatchMode?: (isBatch: boolean) => void;
+    isBatchRunning?: boolean;
 }
 
 export const ThreeDHeader: React.FC<ThreeDHeaderProps> = ({
@@ -31,7 +35,10 @@ export const ThreeDHeader: React.FC<ThreeDHeaderProps> = ({
     onRefreshBalance,
     activeTab,
     onTabChange,
-    onOpenDebugConsole
+    onOpenDebugConsole,
+    isBatchMode = false,
+    onToggleBatchMode,
+    isBatchRunning = false,
 }) => {
     const { t } = useLanguage();
 
@@ -50,7 +57,7 @@ export const ThreeDHeader: React.FC<ThreeDHeaderProps> = ({
             )}
 
             {/* Mode & Navigation Header */}
-            <div className="flex items-center justify-between px-3 py-2 bg-gray-800/80 border-b border-gray-700/60">
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-800/80 border-b border-gray-700/60 flex-wrap gap-2">
                 {/* Mode Selector & Chain Link/Disconnect button */}
                 <div className="flex items-center space-x-2">
                     <div className="flex items-center space-x-1 bg-gray-900/90 p-0.5 rounded-md border border-gray-700/50">
@@ -98,8 +105,28 @@ export const ThreeDHeader: React.FC<ThreeDHeaderProps> = ({
                     </button>
                 </div>
 
-                {/* View Switcher: 3D Interactive Preview vs 2D Render */}
+                {/* View Switcher: 3D Single View vs 3D Batch Dashboard vs 2D Render */}
                 <div className="flex items-center space-x-1">
+                    {/* Batch Mode Switcher Button */}
+                    {onToggleBatchMode && (
+                        <button
+                            type="button"
+                            onClick={() => onToggleBatchMode(!isBatchMode)}
+                            className={`px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center space-x-1.5 border ${
+                                isBatchMode 
+                                    ? 'bg-purple-700 text-white border-purple-500 shadow-md shadow-purple-950/50' 
+                                    : 'bg-gray-900/80 text-gray-300 hover:text-white hover:bg-gray-800 border-gray-700/60'
+                            }`}
+                            title={isBatchMode ? "Выйти из Batch режима в обычный просмотр" : "Переключить в режим пакетной генерации 3D (Batch)"}
+                        >
+                            <Layers className={`w-3.5 h-3.5 ${isBatchMode ? 'text-yellow-300' : 'text-purple-400'}`} />
+                            <span>3D Batch Mode</span>
+                            {isBatchRunning && (
+                                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                            )}
+                        </button>
+                    )}
+
                     {/* Tripo Token / Credit Balance Badge */}
                     {isTripoConfigured && tripoBalance !== null && (
                         <button
@@ -115,34 +142,36 @@ export const ThreeDHeader: React.FC<ThreeDHeaderProps> = ({
                         </button>
                     )}
 
-                    <button
-                        onClick={() => onTabChange('preview3d')}
-                        className={`px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center space-x-1 ${
-                            activeTab === 'preview3d'
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
-                        }`}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-                        </svg>
-                        <span>{t('threed.tab.preview3d') || '3D Preview'}</span>
-                    </button>
-                    <button
-                        onClick={() => onTabChange('rendered')}
-                        className={`px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center space-x-1 ${
-                            activeTab === 'rendered'
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
-                        }`}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeWidth={2}></rect>
-                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                            <path d="M21 15l-5-5L5 21" strokeWidth={2}></path>
-                        </svg>
-                        <span>{t('threed.tab.rendered') || 'Render 2D'}</span>
-                    </button>
+                    {!isBatchMode && (
+                        <>
+                            <button
+                                onClick={() => onTabChange('preview3d')}
+                                className={`px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center space-x-1 ${
+                                    activeTab === 'preview3d'
+                                        ? 'bg-indigo-600 text-white shadow-sm'
+                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+                                }`}
+                            >
+                                <Box className="h-3.5 w-3.5" />
+                                <span>{t('threed.tab.preview3d') || '3D Preview'}</span>
+                            </button>
+                            <button
+                                onClick={() => onTabChange('rendered')}
+                                className={`px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center space-x-1 ${
+                                    activeTab === 'rendered'
+                                        ? 'bg-indigo-600 text-white shadow-sm'
+                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+                                }`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeWidth={2}></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <path d="M21 15l-5-5L5 21" strokeWidth={2}></path>
+                                </svg>
+                                <span>{t('threed.tab.rendered') || 'Render 2D'}</span>
+                            </button>
+                        </>
+                    )}
 
                     {/* Logs & Diagnostics Console Button */}
                     {onOpenDebugConsole && (
