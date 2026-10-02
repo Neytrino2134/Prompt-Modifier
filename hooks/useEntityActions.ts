@@ -272,7 +272,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             case NodeType.IMAGE_EDITOR: newNode.width = 1420; newNode.height = 920; break;
             case NodeType.BATCH_PREPARE: newNode.width = 1420; newNode.height = 820; break;
             case NodeType.PROMPT_ANALYZER: newNode.width = 460; newNode.height = 1000; break;
-            case NodeType.IMAGE_INPUT: newNode.width = 520; newNode.height = 920; break;
+            case NodeType.IMAGE_INPUT: newNode.width = 600; newNode.height = 940; break;
             case NodeType.IMAGE_ANALYZER: case NodeType.VIDEO_OUTPUT: newNode.width = 460; newNode.height = 680; break;
             case NodeType.PROMPT_PROCESSOR: newNode.width = 460; newNode.height = 410; break;
             case NodeType.VIDEO_PROMPT_PROCESSOR: newNode.width = 460; newNode.height = 410; break;

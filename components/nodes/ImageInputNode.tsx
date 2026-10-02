@@ -3,23 +3,36 @@ import JSZip from 'jszip';
 import type { NodeContentProps } from '../../types';
 import { NodeType } from '../../types';
 import { readPromptFromPNG } from '../../utils/pngMetadata';
-import { ActionButton } from '../ActionButton';
-import { Tooltip } from '../Tooltip';
 import ImageEditorModal from '../ImageEditorModal';
-import { generateThumbnail, cropImageNormalized, sliceImageGrid, setupImageDragData, getImageTimestampString, getIntervalsFromDividers, getEffectiveDividers } from '../../utils/imageUtils';
+import { generateThumbnail, cropImageNormalized, sliceImageGrid, getImageTimestampString, getIntervalsFromDividers, getEffectiveDividers } from '../../utils/imageUtils';
 import { useAppContext } from '../../contexts/AppContext';
 import { expandImageAspectRatio } from '../../services/imageActions';
-import { CopyIcon } from '../../components/icons/AppIcons';
-import { ImageCropOverlay } from './image-input/ImageCropOverlay';
-import { ImageGridOverlay } from './image-input/ImageGridOverlay';
-import { ImageFramesOverlay } from './image-input/ImageFramesOverlay';
 import { ImageSlicesPreview } from './image-input/ImageSlicesPreview';
 import { SingleCropPreview } from './image-input/SingleCropPreview';
 import { ImageFramesPreview } from './image-input/ImageFramesPreview';
 import { BatchProcessingPanel } from './image-input/BatchProcessingPanel';
 import { ImageBatchThumbnailsBar } from './image-input/ImageBatchThumbnailsBar';
 import { ArchiveFolderModal } from './image-input/ArchiveFolderModal';
-import { BatchResultData, BatchResultFolder, BatchResultFileItem, ImageBatchItem, ImageBatchSubMode, ImageInputCropRect, ImageInputGridConfig, ImageInputMode, ImageInputValue, ImageInputFramesConfig, ImageInputFrameItem } from './image-input/types';
+import { ModeSelectorBar } from './image-input/ModeSelectorBar';
+import { BatchSubModeSelector } from './image-input/BatchSubModeSelector';
+import { CropPresetsBar } from './image-input/CropPresetsBar';
+import { FramesToolbar } from './image-input/FramesToolbar';
+import { GridToolbar } from './image-input/GridToolbar';
+import { ImageControlsSection } from './image-input/ImageControlsSection';
+import { ImageCanvasContainer } from './image-input/ImageCanvasContainer';
+import { 
+    BatchResultData, 
+    BatchResultFolder, 
+    BatchResultFileItem, 
+    ImageBatchItem, 
+    ImageBatchSubMode, 
+    ImageInputCropRect, 
+    ImageInputGridConfig, 
+    ImageInputMode, 
+    ImageInputValue, 
+    ImageInputFramesConfig, 
+    ImageInputFrameItem 
+} from './image-input/types';
 
 export const ImageInputNode: React.FC<NodeContentProps> = ({ 
     node, 
@@ -100,7 +113,6 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         batchConfig,
         batchFiles: initialBatchFiles = [],
         extractedImages = [],
-        showSlicesDrawer = true,
         showControls = false
     } = parsedValue;
 
@@ -1416,7 +1428,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         if (!e.shiftKey) {
              const GAP = 50;
              newPosition = { 
-                 x: node.position.x + (node.width || 380) + GAP, 
+                 x: node.position.x + (node.width || 600) + GAP, 
                  y: node.position.y 
              };
         }
@@ -1594,7 +1606,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
         const GAP = 50;
         const position = {
-            x: node.position.x + (node.width || 380) + GAP,
+            x: node.position.x + (node.width || 600) + GAP,
             y: node.position.y
         };
 
@@ -1681,7 +1693,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
         const GAP = 50;
         const position = {
-            x: node.position.x + (node.width || 380) + GAP,
+            x: node.position.x + (node.width || 600) + GAP,
             y: node.position.y
         };
 
@@ -1725,7 +1737,7 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
         const GAP = 50;
         const position = {
-            x: node.position.x + (node.width || 380) + GAP,
+            x: node.position.x + (node.width || 600) + GAP,
             y: node.position.y
         };
 
@@ -2227,940 +2239,140 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
             <input ref={batchFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleBatchFileInputChange} />
             
             {/* Top Mode Selector Bar */}
-            <div className="flex items-center justify-between bg-gray-900/90 border border-gray-700/80 p-1 rounded-md text-xs">
-                <div className="flex items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setMode('full');
-                        }}
-                        className={`px-2 py-1 rounded font-medium transition-all ${
-                            mode === 'full' 
-                                ? 'bg-accent text-white shadow-sm font-semibold' 
-                                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
-                        }`}
-                    >
-                        Обычный
-                    </button>
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setMode('single');
-                        }}
-                        className={`px-2 py-1 rounded font-medium transition-all flex items-center gap-1 ${
-                            mode === 'single' 
-                                ? 'bg-cyan-600 text-white shadow-sm font-semibold ring-1 ring-cyan-400' 
-                                : 'text-gray-400 hover:text-cyan-300 hover:bg-gray-800'
-                        }`}
-                    >
-                        <span>✂ Single Crop</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setMode('frames');
-                        }}
-                        className={`px-2 py-1 rounded font-medium transition-all flex items-center gap-1 ${
-                            mode === 'frames' 
-                                ? 'bg-cyan-600 text-white shadow-sm font-semibold ring-1 ring-cyan-400' 
-                                : 'text-gray-400 hover:text-cyan-300 hover:bg-gray-800'
-                        }`}
-                    >
-                        <span>⬚ Multiple Frames</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setMode('grid');
-                        }}
-                        className={`px-2 py-1 rounded font-medium transition-all flex items-center gap-1 ${
-                            mode === 'grid' 
-                                ? 'bg-cyan-600 text-white shadow-sm font-semibold ring-1 ring-cyan-400' 
-                                : 'text-gray-400 hover:text-cyan-300 hover:bg-gray-800'
-                        }`}
-                    >
-                        <span>▦ Multiple Grid</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setMode('batch');
-                        }}
-                        className={`px-2 py-1 rounded font-medium transition-all flex items-center gap-1 ${
-                            mode === 'batch' 
-                                ? 'bg-cyan-600 text-white shadow-sm font-semibold ring-1 ring-cyan-400' 
-                                : 'text-gray-400 hover:text-cyan-300 hover:bg-gray-800'
-                        }`}
-                    >
-                        <span>📦 Batch</span>
-                    </button>
-                </div>
-
-                {/* Mode Status Pill */}
-                <div className="text-[10px] text-gray-400 font-mono pr-1 truncate max-w-[140px]">
-                    {mode === 'full' && (batchFiles.length > 0 ? `${batchFiles.length} files in pack` : 'Full image')}
-                    {mode === 'single' && 'Active selection -> output'}
-                    {mode === 'grid' && `${(grid?.cols || 2) * (grid?.rows || 1)} assets pack`}
-                    {mode === 'frames' && `${framesConfig?.frames?.length || 0} frames pack`}
-                    {mode === 'batch' && (batchFiles.length > 0 ? `${batchFiles.length} files (${batchSubMode})` : 'Batch mode')}
-                </div>
-            </div>
+            <ModeSelectorBar
+                mode={mode}
+                onSetMode={setMode}
+                batchFiles={batchFiles}
+                batchSubMode={batchSubMode}
+                grid={grid}
+                framesConfig={framesConfig}
+            />
 
             {/* Batch Sub-Mode Selector: Placed directly under Batch tab */}
             {mode === 'batch' && (
-                <div className="flex items-center justify-between bg-cyan-950/60 border border-cyan-700/60 px-2 py-1.5 rounded-md text-xs animate-fadeIn">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-cyan-300 font-semibold text-[11px] mr-1">Режим обработки:</span>
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleBatchSubModeChange('crop');
-                            }}
-                            className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all flex items-center gap-1 ${
-                                batchSubMode === 'crop'
-                                    ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
-                                    : 'bg-gray-800/90 text-gray-300 hover:bg-gray-700 hover:text-white'
-                            }`}
-                        >
-                            <span>✂ Кадрирование (Crop)</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleBatchSubModeChange('grid');
-                            }}
-                            className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all flex items-center gap-1 ${
-                                batchSubMode === 'grid'
-                                    ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
-                                    : 'bg-gray-800/90 text-gray-300 hover:bg-gray-700 hover:text-white'
-                            }`}
-                        >
-                            <span>▦ Сетка ({grid?.cols || 2}×{grid?.rows || 1})</span>
-                        </button>
-                    </div>
-
-                    <div className="text-[10px] text-cyan-400 font-mono hidden sm:inline">
-                        {batchFiles.length > 0 ? `Файлов: ${batchFiles.length}` : 'Пакетный режим'}
-                    </div>
-                </div>
+                <BatchSubModeSelector
+                    batchSubMode={batchSubMode}
+                    onChangeSubMode={handleBatchSubModeChange}
+                    batchFiles={batchFiles}
+                    grid={grid}
+                />
             )}
 
             {/* Mode-Specific Quick Sub-Toolbar: Crop Presets */}
             {image && (mode === 'single' || (mode === 'batch' && batchSubMode === 'crop')) && (
-                <div className="flex items-center justify-between bg-cyan-950/40 border border-cyan-800/40 px-2 py-1 rounded-md text-[11px] text-cyan-200 animate-fadeIn">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold text-cyan-300">Пресеты {mode === 'batch' ? 'для пакета' : ''}:</span>
-                        <button onClick={() => applyAspectCrop('1:1')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono">1:1</button>
-                        <button onClick={() => applyAspectCrop('16:9')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono">16:9</button>
-                        <button onClick={() => applyAspectCrop('9:16')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono">9:16</button>
-                        <button onClick={() => applyAspectCrop('4:3')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono">4:3</button>
-                        <button onClick={() => applyAspectCrop('3:4')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono">3:4</button>
-                        <button onClick={handleResetCrop} className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded">Весь кадр</button>
-                    </div>
-                    <span className="text-[10px] text-cyan-400/80 font-mono hidden sm:inline">Качество 100% (Без сжатия)</span>
-                </div>
+                <CropPresetsBar
+                    mode={mode}
+                    onApplyAspectCrop={applyAspectCrop}
+                    onResetCrop={handleResetCrop}
+                />
             )}
 
             {/* Mode-Specific Quick Sub-Toolbar: Multiple Frames Controls */}
             {image && mode === 'frames' && (
-                <div className="flex flex-col gap-1.5 bg-cyan-950/50 border border-cyan-800/50 p-2 rounded-md text-xs text-cyan-200 animate-fadeIn">
-                    {/* Row 1: Actions: Add Frame, Duplicate, Delete, Clear & Presets */}
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                            <button
-                                type="button"
-                                onClick={handleAddFrame}
-                                className="px-2 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded flex items-center gap-1 shadow-sm transition-colors text-[11px]"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
-                                <span>Добавить рамку</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={handleDuplicateFrame}
-                                className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded border border-cyan-700/50 text-[11px] transition-colors"
-                                title="Дублировать выбранную рамку"
-                            >
-                                Дублировать
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => handleDeleteSelectedFrame()}
-                                disabled={!framesConfig?.frames?.length}
-                                className="px-2 py-1 bg-gray-800 hover:bg-red-950/80 hover:border-red-600/60 text-red-300 rounded border border-gray-700 text-[11px] transition-colors disabled:opacity-40"
-                                title="Удалить выбранную рамку"
-                            >
-                                Удалить
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={handleClearAllFrames}
-                                disabled={!framesConfig?.frames?.length}
-                                className="px-1.5 py-1 text-gray-400 hover:text-gray-200 hover:bg-gray-800/80 rounded text-[11px] transition-colors disabled:opacity-40"
-                                title="Очистить все рамки"
-                            >
-                                Очистить
-                            </button>
-                        </div>
-
-                        {/* Layout Presets */}
-                        <div className="flex items-center gap-1">
-                            <span className="text-gray-400 text-[10px]">Шаблоны:</span>
-                            {[
-                                { label: '1×2', r: 1, c: 2 },
-                                { label: '1×3', r: 1, c: 3 },
-                                { label: '2×1', r: 2, c: 1 },
-                                { label: '2×2', r: 2, c: 2 },
-                                { label: '3×3', r: 3, c: 3 }
-                            ].map((preset) => (
-                                <button
-                                    key={preset.label}
-                                    type="button"
-                                    onClick={() => applyFramesPresetLayout(preset.r, preset.c)}
-                                    className="px-1.5 py-0.5 bg-gray-900/80 hover:bg-cyan-800 text-cyan-300 rounded text-[10px] font-mono border border-cyan-800/40"
-                                >
-                                    {preset.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Row 2: Aspect Ratio Presets for Selected Frame & Width/Height Editing */}
-                    {framesConfig?.frames && framesConfig.frames.length > 0 && (() => {
-                        const targetFrame = framesConfig.frames[selectedFrameIndex] || framesConfig.frames[0];
-                        const curW = originalDimensions ? Math.round(targetFrame.rect.width * originalDimensions.width) : Math.round(targetFrame.rect.width * 100);
-                        const curH = originalDimensions ? Math.round(targetFrame.rect.height * originalDimensions.height) : Math.round(targetFrame.rect.height * 100);
-                        const step = originalDimensions ? 10 : 2;
-
-                        return (
-                            <div className="flex items-center justify-between border-t border-cyan-800/30 pt-1.5 flex-wrap gap-2 text-[11px]">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-cyan-300 font-semibold text-[10px]">Размер #{selectedFrameIndex + 1}:</span>
-                                    
-                                    {/* Width Stepper & Input */}
-                                    <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
-                                        <span className="px-1 text-cyan-400 font-bold select-none text-[9px]" title="Ширина рамки">Ш:</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => updateSelectedFrameDimensions(curW - step, curH)}
-                                            className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                            title="Уменьшить ширину"
-                                        >
-                                            -
-                                        </button>
-                                        <input
-                                            type="number"
-                                            value={curW}
-                                            onChange={(e) => {
-                                                const val = parseInt(e.target.value, 10);
-                                                if (!isNaN(val) && val > 0) updateSelectedFrameDimensions(val, curH);
-                                            }}
-                                            className="w-12 bg-transparent text-center font-mono font-bold text-cyan-200 text-xs focus:outline-none focus:bg-cyan-950/60"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => updateSelectedFrameDimensions(curW + step, curH)}
-                                            className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                            title="Увеличить ширину"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-
-                                    {/* Height Stepper & Input */}
-                                    <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
-                                        <span className="px-1 text-cyan-400 font-bold select-none text-[9px]" title="Высота рамки">В:</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => updateSelectedFrameDimensions(curW, curH - step)}
-                                            className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                            title="Уменьшить высоту"
-                                        >
-                                            -
-                                        </button>
-                                        <input
-                                            type="number"
-                                            value={curH}
-                                            onChange={(e) => {
-                                                const val = parseInt(e.target.value, 10);
-                                                if (!isNaN(val) && val > 0) updateSelectedFrameDimensions(curW, val);
-                                            }}
-                                            className="w-12 bg-transparent text-center font-mono font-bold text-cyan-200 text-xs focus:outline-none focus:bg-cyan-950/60"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => updateSelectedFrameDimensions(curW, curH + step)}
-                                            className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                            title="Увеличить высоту"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-
-                                    {/* Aspect Ratio Presets */}
-                                    <div className="flex items-center gap-1 font-mono text-[10px]">
-                                        <button onClick={() => applyAspectToSelectedFrame('1:1')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">1:1</button>
-                                        <button onClick={() => applyAspectToSelectedFrame('16:9')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">16:9</button>
-                                        <button onClick={() => applyAspectToSelectedFrame('9:16')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">9:16</button>
-                                        <button onClick={() => applyAspectToSelectedFrame('4:3')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">4:3</button>
-                                        <button onClick={() => applyAspectToSelectedFrame('3:4')} className="px-1.5 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 rounded font-mono text-[10px] text-cyan-200">3:4</button>
-                                        <button onClick={() => applyAspectToSelectedFrame('full')} className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]">Весь кадр</button>
-                                    </div>
-                                </div>
-
-                                <div className="text-[10px] text-gray-400 font-mono">
-                                    Рамок: <span className="text-cyan-300 font-bold">{framesConfig?.frames?.length || 0}</span> | Перетаскивайте и масштабируйте рамки на холсте
-                                </div>
-                            </div>
-                        );
-                    })()}
-
-                    {/* Row 3: Sub-Grid Division for Selected Frame (+/- Horiz & Vert) */}
-                    {framesConfig?.frames && framesConfig.frames.length > 0 && (() => {
-                        const targetFrame = framesConfig.frames[selectedFrameIndex] || framesConfig.frames[0];
-                        const targetCols = Math.max(1, targetFrame?.cols || 1);
-                        const targetRows = Math.max(1, targetFrame?.rows || 1);
-                        const hasSub = targetCols > 1 || targetRows > 1;
-                        const hasCustomDivs = Boolean(targetFrame?.colDividers?.length || targetFrame?.rowDividers?.length);
-
-                        return (
-                            <div className="flex items-center justify-between border-t border-cyan-800/30 pt-1.5 flex-wrap gap-2 text-[11px]">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-cyan-300 font-semibold text-[10px] flex items-center gap-1">
-                                        <span>Сетка рамки #{selectedFrameIndex + 1}:</span>
-                                        {hasSub && (
-                                            <span className="text-cyan-300 font-bold bg-cyan-900/60 px-1 py-0.2 rounded border border-cyan-500/40 text-[9px]">
-                                                {targetCols}×{targetRows} ({targetCols * targetRows} ассет.)
-                                            </span>
-                                        )}
-                                    </span>
-
-                                    {/* Horizontal Stepper (X/Cols) */}
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-gray-400 text-[10px]">По гор. (X):</span>
-                                        <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
-                                            <button
-                                                type="button"
-                                                disabled={targetCols <= 1}
-                                                onClick={() => updateSelectedFrameGrid(targetCols - 1, targetRows)}
-                                                className="px-1.5 py-0.5 hover:bg-cyan-800/60 disabled:opacity-30 text-cyan-300 font-bold"
-                                                title="Уменьшить колонки по горизонтали"
-                                            >
-                                                -
-                                            </button>
-                                            <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
-                                                {targetCols}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                disabled={targetCols >= 20}
-                                                onClick={() => updateSelectedFrameGrid(targetCols + 1, targetRows)}
-                                                className="px-1.5 py-0.5 hover:bg-cyan-800/60 disabled:opacity-30 text-cyan-300 font-bold"
-                                                title="Разделить рамку по горизонтали"
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Vertical Stepper (Y/Rows) */}
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-gray-400 text-[10px]">По верт. (Y):</span>
-                                        <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
-                                            <button
-                                                type="button"
-                                                disabled={targetRows <= 1}
-                                                onClick={() => updateSelectedFrameGrid(targetCols, targetRows - 1)}
-                                                className="px-1.5 py-0.5 hover:bg-cyan-800/60 disabled:opacity-30 text-cyan-300 font-bold"
-                                                title="Уменьшить строки по вертикали"
-                                            >
-                                                -
-                                            </button>
-                                            <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
-                                                {targetRows}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                disabled={targetRows >= 20}
-                                                onClick={() => updateSelectedFrameGrid(targetCols, targetRows + 1)}
-                                                className="px-1.5 py-0.5 hover:bg-cyan-800/60 disabled:opacity-30 text-cyan-300 font-bold"
-                                                title="Разделить рамку по вертикали"
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Frame Grid Presets */}
-                                    <div className="flex items-center gap-1 font-mono text-[10px]">
-                                        {[
-                                            { label: '1×1', c: 1, r: 1 },
-                                            { label: '1×2', c: 2, r: 1 },
-                                            { label: '2×1', c: 1, r: 2 },
-                                            { label: '2×2', c: 2, r: 2 },
-                                            { label: '3×3', c: 3, r: 3 },
-                                        ].map((p) => {
-                                            const isActive = targetCols === p.c && targetRows === p.r;
-                                            return (
-                                                <button
-                                                    key={p.label}
-                                                    type="button"
-                                                    onClick={() => updateSelectedFrameGrid(p.c, p.r)}
-                                                    className={`px-1.5 py-0.5 rounded transition-colors ${
-                                                        isActive
-                                                            ? 'bg-cyan-600 text-white font-bold ring-1 ring-cyan-400'
-                                                            : 'bg-gray-900 hover:bg-cyan-800/60 text-cyan-300 border border-cyan-800/40'
-                                                    }`}
-                                                >
-                                                    {p.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Reset custom dividers button */}
-                                    {hasSub && hasCustomDivs && (
-                                        <button
-                                            type="button"
-                                            onClick={resetSelectedFrameDividers}
-                                            className="px-1.5 py-0.5 bg-amber-950 hover:bg-amber-700 text-amber-200 rounded border border-amber-600/70 text-[10px] font-mono whitespace-nowrap transition-colors"
-                                            title="Сбросить линии разделения сетки к равномерным"
-                                        >
-                                            Сброс
-                                        </button>
-                                    )}
-                                </div>
-
-                                {hasSub && (
-                                    <button
-                                        type="button"
-                                        onClick={() => updateSelectedFrameGrid(1, 1)}
-                                        className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]"
-                                        title="Сбросить деление рамки к 1×1"
-                                    >
-                                        Сброс сетки рамки
-                                    </button>
-                                )}
-                            </div>
-                        );
-                    })()}
-                </div>
+                <FramesToolbar
+                    framesConfig={framesConfig}
+                    selectedFrameIndex={selectedFrameIndex}
+                    originalDimensions={originalDimensions}
+                    onAddFrame={handleAddFrame}
+                    onDuplicateFrame={handleDuplicateFrame}
+                    onDeleteSelectedFrame={() => handleDeleteSelectedFrame()}
+                    onClearAllFrames={handleClearAllFrames}
+                    onApplyFramesPresetLayout={applyFramesPresetLayout}
+                    onUpdateSelectedFrameDimensions={updateSelectedFrameDimensions}
+                    onApplyAspectToSelectedFrame={applyAspectToSelectedFrame}
+                    onUpdateSelectedFrameGrid={updateSelectedFrameGrid}
+                    onResetSelectedFrameDividers={resetSelectedFrameDividers}
+                />
             )}
 
             {/* Mode-Specific Quick Sub-Toolbar: Grid Settings */}
             {image && (mode === 'grid' || (mode === 'batch' && batchSubMode === 'grid')) && (
-                <div className="flex flex-col gap-1.5 bg-cyan-950/40 border border-cyan-800/40 p-2 rounded-md text-xs text-cyan-200 animate-fadeIn">
-                    {/* Row 1: Grid Dimensions (Rows/Cols) and Presets */}
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {/* Rows (Y) */}
-                            <div className="flex items-center gap-1">
-                                <span className="font-semibold text-cyan-300 text-[11px]">Строки (Y):</span>
-                                <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
-                                    <button
-                                        type="button"
-                                        onClick={() => updateGridDims(grid?.cols || 2, (grid?.rows || 1) - 1)}
-                                        className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                    >
-                                        -
-                                    </button>
-                                    <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
-                                        {grid?.rows || 1}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateGridDims(grid?.cols || 2, (grid?.rows || 1) + 1)}
-                                        className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Columns (X) */}
-                            <div className="flex items-center gap-1">
-                                <span className="font-semibold text-cyan-300 text-[11px]">Столбцы (X):</span>
-                                <div className="flex items-center bg-gray-900 border border-cyan-700/50 rounded overflow-hidden">
-                                    <button
-                                        type="button"
-                                        onClick={() => updateGridDims((grid?.cols || 2) - 1, grid?.rows || 1)}
-                                        className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                    >
-                                        -
-                                    </button>
-                                    <span className="px-2 py-0.5 text-center font-mono font-bold text-cyan-200 text-xs">
-                                        {grid?.cols || 2}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateGridDims((grid?.cols || 2) + 1, grid?.rows || 1)}
-                                        className="px-1.5 py-0.5 hover:bg-cyan-800/60 text-cyan-300 font-bold"
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Quick Presets (Sorted Ascending, Row×Col) */}
-                        <div className="flex items-center gap-1 text-[11px] flex-wrap">
-                            {[
-                                { rows: 1, cols: 2, label: '1×2' },
-                                { rows: 1, cols: 3, label: '1×3' },
-                                { rows: 2, cols: 1, label: '2×1' },
-                                { rows: 2, cols: 2, label: '2×2' },
-                                { rows: 3, cols: 3, label: '3×3' },
-                                { rows: 3, cols: 4, label: '3×4' },
-                                { rows: 4, cols: 3, label: '4×3' },
-                                { rows: 4, cols: 4, label: '4×4' },
-                                { rows: 4, cols: 5, label: '4×5' },
-                                { rows: 5, cols: 4, label: '5×4' },
-                                { rows: 5, cols: 5, label: '5×5' },
-                            ].map((preset) => {
-                                const isActive = (grid?.rows || 1) === preset.rows && (grid?.cols || 2) === preset.cols;
-                                return (
-                                    <button
-                                        key={preset.label}
-                                        type="button"
-                                        onClick={() => updateGridDims(preset.cols, preset.rows)}
-                                        className={`px-1.5 py-0.5 font-mono rounded transition-colors ${
-                                            isActive
-                                                ? 'bg-cyan-600 text-white font-bold shadow-sm ring-1 ring-cyan-400'
-                                                : 'bg-cyan-900/60 hover:bg-cyan-700 text-cyan-200'
-                                        }`}
-                                    >
-                                        {preset.label}
-                                    </button>
-                                );
-                            })}
-                            <button 
-                                onClick={() => updateGridSlices({ ...(grid || { cols: 2, rows: 1 }), bounds: { x: 0, y: 0, width: 1, height: 1 } })} 
-                                className="px-1.5 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]"
-                                title="Сбросить внешние границы сетки"
-                            >
-                                Сброс границ
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Row 2: Border Thickness & Border Mode Controls */}
-                    <div className="flex items-center justify-between border-t border-cyan-800/30 pt-1.5 flex-wrap gap-2 text-[11px]">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {/* Toggle Enable Border */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const nextEnable = !grid?.enableBorder;
-                                    updateGridBorderConfig({
-                                        enableBorder: nextEnable,
-                                        borderWidth: grid?.borderWidth ?? 24,
-                                        borderMode: grid?.borderMode ?? 'inner'
-                                    });
-                                }}
-                                className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-medium transition-colors ${
-                                    grid?.enableBorder
-                                        ? 'bg-cyan-500 text-black font-semibold shadow-sm'
-                                        : 'bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-700'
-                                    }`}
-                            >
-                                <span className="w-3.5 h-3.5 flex items-center justify-center rounded border border-current text-[10px] font-bold">
-                                    {grid?.enableBorder ? '✓' : ''}
-                                </span>
-                                <span>Толщина границы</span>
-                            </button>
-
-                            {/* When Border Enabled: Pixel Thickness Stepper & Presets */}
-                            {grid?.enableBorder && (
-                                <div className="flex items-center gap-1.5 bg-gray-900/90 border border-cyan-700/60 px-1.5 py-0.5 rounded">
-                                    <span className="text-cyan-300 text-[10px] font-semibold">px:</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (borderDebounceTimerRef.current) clearTimeout(borderDebounceTimerRef.current);
-                                            const current = grid?.borderWidth ?? 24;
-                                            const next = Math.max(0, current - 4);
-                                            updateGridBorderConfig({ borderWidth: next });
-                                        }}
-                                        className="px-1.5 py-0.2 hover:bg-cyan-800/70 text-cyan-300 font-bold rounded"
-                                        title="-4 px"
-                                    >
-                                        -
-                                    </button>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        max={300}
-                                        value={localBorderWidth}
-                                        onChange={(e) => handleBorderWidthInputChange(e.target.value)}
-                                        onBlur={handleBorderWidthInputCommit}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                handleBorderWidthInputCommit();
-                                                (e.target as HTMLInputElement).blur();
-                                            }
-                                        }}
-                                        className="w-10 text-center font-mono font-bold bg-transparent text-cyan-200 focus:outline-none focus:bg-gray-800 rounded text-[11px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (borderDebounceTimerRef.current) clearTimeout(borderDebounceTimerRef.current);
-                                            const current = grid?.borderWidth ?? 24;
-                                            const next = Math.min(300, current + 4);
-                                            updateGridBorderConfig({ borderWidth: next });
-                                        }}
-                                        className="px-1.5 py-0.2 hover:bg-cyan-800/70 text-cyan-300 font-bold rounded"
-                                        title="+4 px"
-                                    >
-                                        +
-                                    </button>
-
-                                    <div className="flex items-center gap-0.5 pl-1 border-l border-gray-700 font-mono text-[10px]">
-                                        {[24, 32, 48, 64, 96].map((px) => (
-                                             <button
-                                                key={px}
-                                                type="button"
-                                                onClick={() => {
-                                                    if (borderDebounceTimerRef.current) clearTimeout(borderDebounceTimerRef.current);
-                                                    updateGridBorderConfig({ borderWidth: px });
-                                                }}
-                                                className={`px-1 py-0.2 rounded hover:bg-cyan-800/70 ${
-                                                    (grid?.borderWidth ?? 24) === px
-                                                        ? 'bg-cyan-700 text-white font-bold'
-                                                        : 'text-gray-400'
-                                                }`}
-                                            >
-                                                {px}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Border Scope Mode (Inner Only vs All Borders) */}
-                        {grid?.enableBorder && (
-                            <div className="flex items-center bg-gray-900/90 border border-cyan-700/60 p-0.5 rounded gap-0.5">
-                                <button
-                                    type="button"
-                                    onClick={() => updateGridBorderConfig({ borderMode: 'inner' })}
-                                    className={`px-2 py-0.5 rounded transition-all ${
-                                        (grid?.borderMode || 'inner') === 'inner'
-                                            ? 'bg-cyan-600 text-white font-semibold shadow-sm'
-                                            : 'text-gray-400 hover:text-gray-200'
-                                    }`}
-                                    title="Обрезать только внутренние разделители между ячейками"
-                                >
-                                    Только центральные
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => updateGridBorderConfig({ borderMode: 'all' })}
-                                    className={`px-2 py-0.5 rounded transition-all ${
-                                        grid?.borderMode === 'all'
-                                            ? 'bg-cyan-600 text-white font-semibold shadow-sm'
-                                            : 'text-gray-400 hover:text-gray-200'
-                                    }`}
-                                    title="Обрезать все границы: внутренние рамки и внешнюю окантовку"
-                                >
-                                    Все границы
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Row 3: Custom / Editable Table Boundaries */}
-                    <div className="flex items-center justify-between border-t border-cyan-800/30 pt-1.5 flex-wrap gap-2 text-[11px]">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const nextCustom = !grid?.customDividers;
-                                    updateGridSlices({
-                                        ...(grid || { cols: 2, rows: 1 }),
-                                        customDividers: nextCustom
-                                    });
-                                }}
-                                className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-medium transition-colors ${
-                                    grid?.customDividers
-                                        ? 'bg-accent-secondary text-white font-semibold shadow-sm'
-                                        : 'bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-700'
-                                }`}
-                                title="Включить ручное перемещение внутренних линий колонок и строк мышкой"
-                            >
-                                <span className="w-3.5 h-3.5 flex items-center justify-center rounded border border-current text-[10px] font-bold">
-                                    {grid?.customDividers ? '✓' : ''}
-                                </span>
-                                <span>Редактируемые границы (Таблица)</span>
-                            </button>
-
-                            {(grid?.customDividers || (grid?.colDividers && grid.colDividers.length > 0) || (grid?.rowDividers && grid.rowDividers.length > 0)) && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        updateGridSlices({
-                                            ...(grid || { cols: 2, rows: 1 }),
-                                            colDividers: undefined,
-                                            rowDividers: undefined
-                                        });
-                                    }}
-                                    className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded text-[10px] border border-gray-700 font-mono transition-colors"
-                                    title="Выровнять все столбцы и строки до одинаковой ширины и высоты"
-                                >
-                                    ⟲ Выровнять ячейки
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="text-[10px] text-gray-400 font-mono">
-                            {grid?.customDividers ? (
-                                <span className="text-accent-secondary/90 font-sans">
-                                    Потяните линии <span className="font-mono text-accent-secondary font-bold">⇿ ⇳</span> между ячейками мышкой
-                                </span>
-                            ) : (
-                                <span>Линии можно двигать в любой момент</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
+                <GridToolbar
+                    grid={grid}
+                    localBorderWidth={localBorderWidth}
+                    onUpdateGridDims={updateGridDims}
+                    onResetGridBounds={() => updateGridSlices({ ...(grid || { cols: 2, rows: 1 }), bounds: { x: 0, y: 0, width: 1, height: 1 } })}
+                    onToggleBorder={() => {
+                        const nextEnable = !grid?.enableBorder;
+                        updateGridBorderConfig({
+                            enableBorder: nextEnable,
+                            borderWidth: grid?.borderWidth ?? 24,
+                            borderMode: grid?.borderMode ?? 'inner'
+                        });
+                    }}
+                    onBorderWidthChange={handleBorderWidthInputChange}
+                    onBorderWidthCommit={handleBorderWidthInputCommit}
+                    onSetBorderWidthQuick={(px) => {
+                        if (borderDebounceTimerRef.current) clearTimeout(borderDebounceTimerRef.current);
+                        updateGridBorderConfig({ borderWidth: px });
+                    }}
+                    onSetBorderMode={(mode) => updateGridBorderConfig({ borderMode: mode })}
+                    onToggleCustomDividers={() => {
+                        const nextCustom = !grid?.customDividers;
+                        updateGridSlices({
+                            ...(grid || { cols: 2, rows: 1 }),
+                            customDividers: nextCustom
+                        });
+                    }}
+                    onResetDividers={() => {
+                        updateGridSlices({
+                            ...(grid || { cols: 2, rows: 1 }),
+                            colDividers: undefined,
+                            rowDividers: undefined
+                        });
+                    }}
+                />
             )}
             
-            {/* Image Container - Grows to fill space */}
-            <div className="flex-grow min-h-0 relative group rounded-md overflow-hidden bg-gray-800 border border-gray-700/60 flex flex-col">
-                <div
-                    onClick={() => {
-                        if (!image) {
-                            if (mode === 'batch') {
-                                batchFileInputRef.current?.click();
-                            } else {
-                                fileInputRef.current?.click();
-                            }
+            {/* Image Container - Canvas, Overlays, Navigation, Dropzone */}
+            <ImageCanvasContainer
+                nodeId={node.id}
+                image={image}
+                mode={mode}
+                batchSubMode={batchSubMode}
+                batchFiles={batchFiles}
+                isDragOver={isDragOver}
+                originalDimensions={originalDimensions}
+                getFullSizeImage={getFullSizeImage}
+                metadataPrompt={metadataPrompt}
+                prompt={prompt}
+                croppedImage={croppedImage}
+                extractedImages={extractedImages}
+                frameImages={frameImages}
+                activeCropRect={activeCropRect}
+                activeGridConfig={activeGridConfig}
+                framesConfig={framesConfig}
+                selectedFrameIndex={selectedFrameIndex}
+                showControls={showControls}
+                isAnalyzingImage={isAnalyzingImage}
+                t={t}
+                onDrop={handleDrop}
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClickContainer={() => {
+                    if (!image) {
+                        if (mode === 'batch') {
+                            batchFileInputRef.current?.click();
+                        } else {
+                            fileInputRef.current?.click();
                         }
-                    }}
-                    onDragEnter={handleDragEnter}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    className={`w-full h-full flex items-center justify-center transition-all relative ${isDragOver ? 'bg-gray-700 ring-2 ring-accent' : 'hover:bg-gray-750'}`}
-                >
-                    {image ? (
-                        <div className="relative w-full h-full flex items-center justify-center overflow-visible p-1">
-                            <div 
-                                className="relative max-w-full max-h-full flex items-center justify-center"
-                                style={originalDimensions ? {
-                                    aspectRatio: `${originalDimensions.width} / ${originalDimensions.height}`,
-                                    width: 'auto',
-                                    height: 'auto',
-                                    maxWidth: '100%',
-                                    maxHeight: '100%'
-                                } : { width: '100%', height: '100%' }}
-                            >
-                                <img
-                                    src={getFullSizeImage(node.id, 0) || image}
-                                    alt="Input"
-                                    className="w-full h-full object-contain pointer-events-auto block"
-                                    draggable={mode === 'full'}
-                                    onMouseDown={(e) => {
-                                        if (mode !== 'full') e.stopPropagation();
-                                    }}
-                                    onClick={handleImageClick}
-                                    onDragStart={(e) => {
-                                        const imageToDrag = (mode === 'single' ? getFullSizeImage(node.id, 1) : null) || getFullSizeImage(node.id, 0) || image;
-                                        if (imageToDrag) {
-                                            const filename = `Input_Image_${Date.now()}.png`;
-                                            setupImageDragData(e, imageToDrag, filename, metadataPrompt || undefined);
-                                            e.stopPropagation();
-                                        }
-                                    }}
-                                />
-
-                                {/* Interactive Overlays: Crop */}
-                                {(mode === 'single' || (mode === 'batch' && batchSubMode === 'crop')) && (
-                                    <ImageCropOverlay
-                                        cropRect={activeCropRect}
-                                        onChangeCropRect={(newRect) => {
-                                            updateSingleCropSlice(newRect, mode);
-                                        }}
-                                        imageNaturalSize={originalDimensions}
-                                        nodeId={node.id}
-                                        getFullSizeImage={getFullSizeImage}
-                                        croppedImageSrc={croppedImage}
-                                    />
-                                )}
-
-                                {/* Interactive Overlays: Grid */}
-                                {(mode === 'grid' || (mode === 'batch' && batchSubMode === 'grid')) && (
-                                    <ImageGridOverlay
-                                        gridConfig={activeGridConfig}
-                                        onChangeGridConfig={(newConfig) => {
-                                            updateGridSlices(newConfig, mode);
-                                        }}
-                                        imageNaturalSize={originalDimensions}
-                                        onGetCellImage={(cellIdx) => getFullSizeImage(node.id, cellIdx + 1) || extractedImages?.[cellIdx]}
-                                    />
-                                )}
-
-                                {/* Interactive Overlays: Multiple Frames */}
-                                {mode === 'frames' && (
-                                    <ImageFramesOverlay
-                                        framesConfig={framesConfig || { frames: [], selectedFrameIndex: 0 }}
-                                        onChangeFramesConfig={(newConfig) => {
-                                            updateMultipleFramesSlices(newConfig, mode);
-                                        }}
-                                        selectedFrameIndex={selectedFrameIndex}
-                                        onSelectFrame={setSelectedFrameIndex}
-                                        imageNaturalSize={originalDimensions}
-                                        nodeId={node.id}
-                                        getFullSizeImage={getFullSizeImage}
-                                        frameThumbnails={frameImages || []}
-                                    />
-                                )}
-
-                                {/* Batch / Multi-image Mode Preview Navigation Arrows */}
-                                {(mode === 'batch' || mode === 'full') && batchFiles.length > 1 && (
-                                    <>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleNavigateBatch('prev');
-                                            }}
-                                            className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/70 hover:bg-cyan-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg border border-cyan-500/40 hover:scale-110 active:scale-95"
-                                            title="Предыдущее изображение (клавиша ←)"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleNavigateBatch('next');
-                                            }}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/70 hover:bg-cyan-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg border border-cyan-500/40 hover:scale-110 active:scale-95"
-                                            title="Следующее изображение (клавиша →)"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                            </svg>
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                            
-                            {/* Original Resolution Info */}
-                            {originalDimensions && (
-                                <div className="absolute bottom-2 left-2 z-20 bg-black/70 text-gray-300 text-[10px] px-1.5 py-0.5 rounded pointer-events-none backdrop-blur-sm font-mono border border-gray-700/50">
-                                    {originalDimensions.width}×{originalDimensions.height} px
-                                </div>
-                            )}
-
-                            {/* Quick Top Right Action Buttons */}
-                            <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-40 bg-black/75 backdrop-blur-sm p-1 rounded-md border border-gray-700/70">
-                                <ActionButton title={t('node.action.download')} onClick={handleDownload}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                </ActionButton>
-                                <ActionButton title={t('node.action.copy')} onClick={handleCopyImage}>
-                                    <CopyIcon className="h-4 w-4" />
-                                </ActionButton>
-                                <ActionButton title={t('node.action.clear')} onClick={handleClearImage}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                </ActionButton>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center p-6 text-center text-gray-400 pointer-events-none space-y-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 opacity-60 text-accent">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                            </svg>
-                            <span className="text-sm font-medium">
-                                {mode === 'batch' ? 'Перетащите несколько изображений для пакета' : t('node.content.dropImage')}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                                {mode === 'batch' ? 'Или нажмите, чтобы выбрать файлы' : 'Поддерживает одиночные изображения и сетки ассетов (4x5)'}
-                            </span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Compact View Toggle - Bottom Right */}
-                <div className="absolute bottom-2 right-2 z-40 flex gap-1 items-center">
-                    {!showControls && image && (
-                        <>
-                             {/* Image to Text */}
-                             <Tooltip content={t('node.content.imageToText')}>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onImageToText && onImageToText(node.id); }}
-                                    disabled={isAnalyzingImage || !onImageToText}
-                                    className="p-1 bg-gray-900/80 hover:bg-gray-700 text-gray-400 hover:text-white rounded transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {isAnalyzingImage ? (
-                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    ) : (
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                                        </svg>
-                                    )}
-                                </button>
-                            </Tooltip>
-
-                            {/* Raster Editor */}
-                            <Tooltip content={t('node.action.rasterEditor')}>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setIsEditorOpen(true); }}
-                                    className="p-1 bg-gray-900/80 hover:bg-gray-700 text-gray-400 hover:text-white rounded transition-colors shadow-sm"
-                                >
-                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
-                                </button>
-                            </Tooltip>
-
-                            {/* Open in AI Editor */}
-                            <Tooltip content={mode === 'grid' ? "Открыть всю сетку в AI Editor" : t('node.action.openInAIEditor')}>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleOpenInNode(e, NodeType.IMAGE_EDITOR); }}
-                                    className={`p-1 rounded transition-colors shadow-sm ${mode === 'grid' ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'bg-gray-900/80 hover:bg-gray-700 text-gray-400 hover:text-white'}`}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.562L16.25 22.5l-.648-1.938a3.375 3.375 0 00-2.672-2.672L11.25 18l1.938-.648a3.375 3.375 0 002.672 2.672L16.25 13l.648 1.938a3.375 3.375 0 002.672 2.672L21.75 18l-1.938.648a3.375 3.375 0 00-2.672 2.672z" />
-                                    </svg>
-                                </button>
-                            </Tooltip>
-                        </>
-                    )}
-
-                    <Tooltip content={showControls ? "Свернуть панель" : "Развернуть панель"}>
-                        <button
-                            onClick={handleToggleControls}
-                            className="p-1 bg-gray-900/80 hover:bg-gray-700 text-gray-400 hover:text-white rounded transition-colors shadow-sm"
-                        >
-                            {showControls ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                                </svg>
-                            )}
-                        </button>
-                    </Tooltip>
-                </div>
-            </div>
+                    }
+                }}
+                onImageClick={handleImageClick}
+                onCopyImage={handleCopyImage}
+                onDownload={handleDownload}
+                onClearImage={handleClearImage}
+                onImageToText={() => onImageToText && onImageToText(node.id)}
+                onOpenRasterEditor={() => setIsEditorOpen(true)}
+                onOpenInNode={handleOpenInNode}
+                onToggleControls={handleToggleControls}
+                onNavigateBatch={handleNavigateBatch}
+                onChangeCropRect={(newRect) => updateSingleCropSlice(newRect, mode)}
+                onChangeGridConfig={(newConfig) => updateGridSlices(newConfig, mode)}
+                onChangeFramesConfig={(newConfig) => updateMultipleFramesSlices(newConfig, mode)}
+                onSelectFrame={setSelectedFrameIndex}
+            />
 
             {/* Multi-Image Thumbnails Strip in Full (Normal) Mode */}
             {mode === 'full' && batchFiles.length > 0 && (
@@ -3294,192 +2506,31 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 />
             )}
             
-            {/* Controls Section - Slides smoothly down when collapsed without changing node size */}
-            <div 
-                className={`flex-shrink-0 flex flex-col space-y-2 overflow-hidden transition-all duration-300 ease-in-out ${
-                    showControls 
-                        ? 'max-h-[300px] opacity-100 translate-y-0' 
-                        : 'max-h-0 opacity-0 translate-y-8 pointer-events-none'
-                }`}
-            >
-                {/* Batch API Synchronized Mode Toggle & Status Indicator */}
-                <div 
-                    onClick={() => {
-                        if (setIsBatchMode) {
-                            setIsBatchMode(!isBatchMode);
-                        }
-                    }}
-                    className={`p-2 rounded-md border cursor-pointer select-none transition-all ${
-                        isBatchMode 
-                            ? 'bg-gray-900 border-gray-700 text-gray-200' 
-                            : 'bg-gray-800/40 border-gray-700/50 hover:border-gray-600 text-gray-300'
-                    }`}
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs font-medium">
-                            <span className={`w-2 h-2 rounded-full ${isBatchMode ? 'bg-accent-secondary animate-pulse' : 'bg-gray-500'}`}></span>
-                            <span>{t('batch.mode') || 'Batch API Mode'}</span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-accent-secondary border border-gray-700 font-mono font-semibold">
-                                -50% Cost
-                            </span>
-                        </div>
-                        <div className={`w-8 h-4 rounded-full relative transition-colors flex-shrink-0 ${isBatchMode ? 'bg-accent-secondary' : 'bg-gray-600'}`}>
-                            <div className={`absolute top-0.5 bottom-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 ${isBatchMode ? 'translate-x-[16px]' : 'translate-x-[2px]'}`}></div>
-                        </div>
-                    </div>
-                    <div className={`mt-1.5 text-[11px] leading-tight flex items-start gap-1 transition-colors ${
-                        isBatchMode ? 'text-accent-secondary font-medium' : 'text-gray-400'
-                    }`}>
-                        <span className={isBatchMode ? '' : 'opacity-70'}>⏳</span>
-                        <span>{t('batch.statusDelayed') || 'Batch API Active (Delayed ~24h, -50% cost)'}</span>
-                    </div>
-                </div>
-                
-                {/* Top Controls Grid */}
-                <div className="flex gap-2 shrink-0 h-[80px]">
-                    
-                    {/* LEFT COLUMN (Process + Small Tools) */}
-                    <div className="flex-[1.2] flex flex-col gap-2 min-w-0">
-                        {/* Process Button */}
-                        <Tooltip content={t('node.action.processImageTitle')} className="w-full">
-                            <button
-                                onClick={() => onProcessImage(node.id)}
-                                disabled={isProcessingImage || !image || !!transformingRatio}
-                                className="w-full h-9 px-3 text-sm font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 truncate flex items-center justify-center gap-2"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.562L16.25 22.5l-.648-1.938a3.375 3.375 0 00-2.672-2.672L11.25 18l1.938-.648a3.375 3.375 0 002.672 2.672L16.25 13l.648 1.938a3.375 3.375 0 002.672 2.672L21.75 18l-1.938.648a3.375 3.375 0 00-2.672 2.672z" /></svg>
-                                <span className="truncate">{isProcessingImage ? t('node.content.processing') : t('node.action.processImage')}</span>
-                            </button>
-                        </Tooltip>
-
-                         {/* 4-Button Grid */}
-                         <div className="grid grid-cols-4 gap-1 h-9">
-                            {/* Analyzer Icon */}
-                            <Tooltip content={t('node.action.openInAnalyzer')}>
-                                <button
-                                    onClick={(e) => handleOpenInNode(e, NodeType.IMAGE_ANALYZER)}
-                                    disabled={!image}
-                                    className="w-full h-full flex items-center justify-center bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.792V5.25a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 5.25v13.5A2.25 2.25 0 005.25 21h7.55" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 15.75a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 18.375L21 21" />
-                                    </svg>
-                                </button>
-                            </Tooltip>
-                            
-                            {/* Image to Text Icon */}
-                            <Tooltip content={t('node.content.imageToText')}>
-                                <button
-                                    onClick={() => onImageToText && onImageToText(node.id)}
-                                    disabled={!image || isAnalyzingImage || !onImageToText}
-                                    className="w-full h-full flex items-center justify-center bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
-                                >
-                                    {isAnalyzingImage ? (
-                                        <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    ) : (
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                                        </svg>
-                                    )}
-                                </button>
-                            </Tooltip>
-
-                            {/* 16:9 Button */}
-                            <Tooltip content={t('node.action.expand169')}>
-                                <button
-                                    onClick={() => handleRatioExpand('16:9')}
-                                    disabled={!image || isProcessingImage || !!transformingRatio}
-                                    className="w-full h-full px-1 text-[10px] font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1"
-                                >
-                                    {transformingRatio === '16:9' ? <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : (
-                                        <>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 hidden sm:block"><rect x="2" y="6" width="20" height="12" rx="2" /></svg>
-                                            <span>16:9</span>
-                                        </>
-                                    )}
-                                </button>
-                            </Tooltip>
-                            
-                            {/* 9:16 Button */}
-                            <Tooltip content={t('node.action.expand916')}>
-                                <button
-                                    onClick={() => handleRatioExpand('9:16')}
-                                    disabled={!image || isProcessingImage || !!transformingRatio}
-                                    className="w-full h-full px-1 text-[10px] font-bold text-white bg-accent rounded-md hover:bg-accent-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1"
-                                >
-                                    {transformingRatio === '9:16' ? <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : (
-                                        <>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 hidden sm:block"><rect x="6" y="2" width="12" height="20" rx="2" /></svg>
-                                            <span>9:16</span>
-                                        </>
-                                    )}
-                                </button>
-                            </Tooltip>
-                         </div>
-                    </div>
-
-                    {/* RIGHT COLUMN (Editors) */}
-                    <div className="flex-1 flex flex-col gap-2 min-w-0">
-                        {/* Raster Editor */}
-                        <Tooltip content={t('node.action.rasterEditor')} className="w-full">
-                            <button
-                                onClick={() => setIsEditorOpen(true)}
-                                disabled={!image}
-                                className="w-full h-9 px-2 text-xs font-bold text-white bg-accent-secondary rounded-md hover:bg-accent-secondary-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-1.5"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
-                                <span className="truncate">{t('node.action.rasterEditor')}</span>
-                            </button>
-                        </Tooltip>
-
-                        {/* Open in AI Editor Button */}
-                        <Tooltip content={mode === 'grid' ? "Открыть все ассеты сетки в AI Editor" : t('node.action.openInAIEditor')} className="w-full">
-                            <button
-                                onClick={(e) => handleOpenInNode(e, NodeType.IMAGE_EDITOR)}
-                                disabled={!image}
-                                className={`w-full h-9 px-2 text-xs font-bold text-white rounded-md transition-colors duration-200 flex items-center justify-center gap-1.5 disabled:bg-gray-500 disabled:cursor-not-allowed ${
-                                    mode === 'grid' ? 'bg-cyan-600 hover:bg-cyan-500 shadow-md ring-1 ring-cyan-400/50' : 'bg-accent hover:bg-accent-hover'
-                                }`}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.562L16.25 22.5l-.648-1.938a3.375 3.375 0 00-2.672-2.672L11.25 18l1.938-.648a3.375 3.375 0 002.672 2.672L16.25 13l.648 1.938a3.375 3.375 0 002.672 2.672L21.75 18l-1.938.648a3.375 3.375 0 00-2.672 2.672z" />
-                                </svg>
-                                <span className="truncate">{mode === 'grid' ? 'В AI Editor (Сетка)' : t('node.action.openInAIEditor')}</span>
-                            </button>
-                        </Tooltip>
-                    </div>
-                </div>
-
-                {metadataPrompt && (
-                    <div className="flex-shrink-0 relative">
-                         <div className="absolute top-0 right-0 z-10">
-                            <button onClick={() => { handleValueUpdate({ prompt: `${prompt ? prompt + ', ' : ''}${metadataPrompt}` }); setMetadataPrompt(null); }} className="px-2 py-0.5 text-[10px] font-bold bg-accent hover:bg-accent-hover text-white rounded shadow-sm" title={t('node.action.copyPrompt')}>
-                                Use
-                            </button>
-                         </div>
-                        <textarea readOnly value={metadataPrompt} placeholder={t('node.content.metadataPromptPlaceholder')} className="w-full p-2 text-xs bg-input/50 rounded-md resize-none focus:outline-none text-gray-400 italic border border-gray-600/50" rows={2} onWheel={e => e.stopPropagation()} onFocus={deselectAllNodes} />
-                    </div>
-                )}
-                
-                <div className="flex-grow min-h-0 flex flex-col relative">
-                    <textarea
-                        value={prompt || ''}
-                        onChange={(e) => handleValueUpdate({ prompt: e.target.value })}
-                        placeholder={t('node.content.prompt')}
-                        className="w-full h-full p-2 bg-[#18202f] border border-gray-600 rounded-md resize-none focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none custom-scrollbar text-sm"
-                        onWheel={e => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onFocus={deselectAllNodes}
-                    />
-                     <div className="absolute bottom-2 right-2 opacity-50 hover:opacity-100 transition-opacity">
-                        <ActionButton title={t('node.action.copy')} onClick={() => navigator.clipboard.writeText(prompt || '')}>
-                            <CopyIcon className="h-4 w-4" />
-                        </ActionButton>
-                     </div>
-                </div>
-            </div>
+            {/* Controls Section - Slides smoothly down when collapsed */}
+            <ImageControlsSection
+                showControls={showControls}
+                isBatchMode={isBatchMode}
+                setIsBatchMode={setIsBatchMode}
+                t={t}
+                onProcessImage={() => onProcessImage(node.id)}
+                isProcessingImage={isProcessingImage}
+                image={image}
+                transformingRatio={transformingRatio}
+                onOpenInNode={handleOpenInNode}
+                onImageToText={() => onImageToText && onImageToText(node.id)}
+                isAnalyzingImage={isAnalyzingImage}
+                onRatioExpand={handleRatioExpand}
+                onOpenRasterEditor={() => setIsEditorOpen(true)}
+                mode={mode}
+                metadataPrompt={metadataPrompt}
+                onUseMetadataPrompt={() => {
+                    handleValueUpdate({ prompt: `${prompt ? prompt + ', ' : ''}${metadataPrompt}` });
+                    setMetadataPrompt(null);
+                }}
+                deselectAllNodes={deselectAllNodes}
+                prompt={prompt || ''}
+                onPromptChange={(val) => handleValueUpdate({ prompt: val })}
+            />
 
             {/* Archive Folder Inspector Modal */}
             <ArchiveFolderModal
