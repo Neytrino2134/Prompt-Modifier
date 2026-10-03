@@ -142,6 +142,7 @@ const CanvasLayer: React.FC = () => {
     const [isBottomToolbarHovered, setIsBottomToolbarHovered] = useState(false);
     const [isBottomToolbarPinned, setIsBottomToolbarPinned] = useState(false);
     const [isViewControlsHovered, setIsViewControlsHovered] = useState(false);
+    const [isViewControlsPinned, setIsViewControlsPinned] = useState(false);
 
     const bottomToolbarTimerRef = useRef<NodeJS.Timeout | null>(null);
     const viewControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -829,82 +830,131 @@ const CanvasLayer: React.FC = () => {
                 </div>
             )}
 
-            {!focusedNodeId && (
-                <div 
-                    className={`absolute z-20 pointer-events-auto transition-all duration-300 ease-in-out ${
-                        isModern ? 'bottom-0 left-0' : 'bottom-2 left-2'
-                    }`}
-                    style={isModern ? {
-                        transform: (!isViewControlsCollapsed && isPanelAutoHide && !isViewControlsHovered)
-                            ? (isVerticalViewControls ? 'translateX(calc(-100% + 36px))' : 'translateX(calc(-100% + 36px))')
-                            : 'translate(0, 0)'
-                    } : undefined}
-                    onMouseEnter={handleViewControlsMouseEnter}
-                    onMouseLeave={handleViewControlsMouseLeave}
-                    onMouseDown={e => e.stopPropagation()}
-                >
-                    <div className={isModern
-                        ? "bg-gray-900/60 backdrop-blur-md p-1 rounded-none rounded-tr-xl border border-b-0 border-l-0 border-gray-700/40 shadow-xl"
-                        : "bg-gray-900/50 backdrop-blur-md p-1 rounded-lg border border-gray-700 shadow-lg"
-                    }>
-                        <div className={`flex ${isVerticalViewControls ? 'flex-col-reverse items-start gap-1.5' : 'flex-row items-center space-x-1.5'}`}>
-                            <TopTooltipWrapper title={isViewControlsCollapsed ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')} align="left">
-                                <button
-                                    onClick={() => setIsViewControlsCollapsed(p => !p)}
-                                    className={isModern
-                                        ? "p-1.5 rounded-lg transition-all duration-200 focus:outline-none flex items-center justify-center h-8.5 w-8.5 bg-gray-800/60 hover:bg-accent hover:text-white text-gray-300 border border-gray-700/40"
-                                        : "p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-accent hover:text-white text-gray-300"
-                                    }
-                                >
-                                    {isModern ? (
-                                        isVerticalViewControls ? (
-                                            isViewControlsCollapsed ? (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
-                                            ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                                            )
-                                        ) : (
-                                            isViewControlsCollapsed ? (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                                            ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                                            )
-                                        )
-                                    ) : (
-                                        isViewControlsCollapsed ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                                        )
+            {!focusedNodeId && (() => {
+                const isViewControlsHidden = isModern 
+                    ? (isViewControlsCollapsed || (isPanelAutoHide && !isViewControlsPinned && !isViewControlsHovered))
+                    : isViewControlsCollapsed;
+
+                const handleToggleViewControls = () => {
+                    if (isModern) {
+                        if (isViewControlsHidden) {
+                            setIsViewControlsCollapsed(false);
+                            setIsViewControlsPinned(true);
+                        } else {
+                            setIsViewControlsCollapsed(true);
+                            setIsViewControlsPinned(false);
+                        }
+                    } else {
+                        setIsViewControlsCollapsed(p => !p);
+                    }
+                };
+
+                return (
+                    <div 
+                        className={`absolute z-20 pointer-events-auto transition-transform duration-300 ease-in-out ${
+                            isModern ? 'bottom-0 left-0' : 'bottom-2 left-2'
+                        }`}
+                        style={isModern ? {
+                            transform: isViewControlsHidden
+                                ? (isVerticalViewControls ? 'translateY(calc(100% - 44px))' : 'translateX(calc(-100% + 44px))')
+                                : 'translate(0, 0)'
+                        } : undefined}
+                        onMouseEnter={handleViewControlsMouseEnter}
+                        onMouseLeave={handleViewControlsMouseLeave}
+                        onMouseDown={e => e.stopPropagation()}
+                    >
+                        <div className={isModern
+                            ? "bg-gray-900/60 backdrop-blur-md p-1 rounded-none rounded-tr-xl border border-b-0 border-l-0 border-gray-700/40 shadow-xl"
+                            : "bg-gray-900/50 backdrop-blur-md p-1 rounded-lg border border-gray-700 shadow-lg"
+                        }>
+                            <div className={`flex ${
+                                isModern 
+                                    ? (isVerticalViewControls ? 'flex-col items-center gap-1.5' : 'flex-row-reverse items-center gap-1.5')
+                                    : (isVerticalViewControls ? 'flex-col-reverse items-start gap-1.5' : 'flex-row items-center space-x-1.5')
+                            }`}>
+                                <div className={`flex items-center ${isVerticalViewControls ? 'flex-col-reverse' : 'flex-row'} gap-1`}>
+                                    {isModern && (
+                                        <TopTooltipWrapper title={isViewControlsPinned ? (t('toolbar.unpinPanel') || 'Unpin') : (t('toolbar.pinPanel') || 'Pin')} align="left">
+                                            <button
+                                                type="button"
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => {
+                                                    setIsViewControlsPinned(p => !p);
+                                                    if (!isViewControlsPinned) setIsViewControlsCollapsed(false);
+                                                }}
+                                                className={`p-1.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-0 outline-none select-none flex items-center justify-center h-8.5 w-8.5 ${
+                                                    isViewControlsPinned 
+                                                        ? 'bg-accent/20 text-accent shadow-sm' 
+                                                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                                                }`}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                                </svg>
+                                            </button>
+                                        </TopTooltipWrapper>
                                     )}
-                                </button>
-                            </TopTooltipWrapper>
-                            {!isViewControlsCollapsed && (
-                                <ViewControlsToolbar
-                                    isSnapToGrid={isSnapToGrid}
-                                    onSnapToGridChange={() => setIsSnapToGrid(p => !p)}
-                                    lineStyle={lineStyle}
-                                    onLineStyleChange={setLineStyle}
-                                    zoom={viewTransform.scale}
-                                    onZoomChange={handleZoomChange}
-                                    scaleToSliderValue={scaleToSliderValue}
-                                    sliderValueToScale={sliderValueToScale}
-                                    onClearCanvas={handleClearCanvas}
-                                    onSaveCanvas={handleSaveCanvas}
-                                    onLoadCanvas={handleLoadCanvas}
-                                    activeTool={effectiveTool}
-                                    onToolChange={setActiveTool}
-                                    isSmartGuidesEnabled={isSmartGuidesEnabled}
-                                    onSmartGuidesChange={() => setIsSmartGuidesEnabled(p => !p)}
-                                    onResetView={resetView}
-                                    vertical={isVerticalViewControls}
-                                    isModern={isModern}
-                                />
-                            )}
+                                    <TopTooltipWrapper title={isViewControlsHidden ? t('toolbar.expandPanel') : t('toolbar.collapsePanel')} align="left">
+                                        <button
+                                            type="button"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={handleToggleViewControls}
+                                            className={isModern
+                                                ? "p-1.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-0 outline-none select-none flex items-center justify-center h-8.5 w-8.5 bg-gray-800/60 hover:bg-accent hover:text-white text-gray-300 border border-gray-700/40"
+                                                : "p-2 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-9 w-9 bg-gray-700 hover:bg-accent hover:text-white text-gray-300"
+                                            }
+                                        >
+                                            {isModern ? (
+                                                isVerticalViewControls ? (
+                                                    isViewControlsHidden ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                                    )
+                                                ) : (
+                                                    isViewControlsHidden ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                                    )
+                                                )
+                                            ) : (
+                                                isViewControlsCollapsed ? (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                                ) : (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                                )
+                                            )}
+                                        </button>
+                                    </TopTooltipWrapper>
+                                </div>
+                                {(isModern || !isViewControlsCollapsed) && (
+                                    <ViewControlsToolbar
+                                        isSnapToGrid={isSnapToGrid}
+                                        onSnapToGridChange={() => setIsSnapToGrid(p => !p)}
+                                        lineStyle={lineStyle}
+                                        onLineStyleChange={setLineStyle}
+                                        zoom={viewTransform.scale}
+                                        onZoomChange={handleZoomChange}
+                                        scaleToSliderValue={scaleToSliderValue}
+                                        sliderValueToScale={sliderValueToScale}
+                                        onClearCanvas={handleClearCanvas}
+                                        onSaveCanvas={handleSaveCanvas}
+                                        onLoadCanvas={handleLoadCanvas}
+                                        activeTool={effectiveTool}
+                                        onToolChange={setActiveTool}
+                                        isSmartGuidesEnabled={isSmartGuidesEnabled}
+                                        onSmartGuidesChange={() => setIsSmartGuidesEnabled(p => !p)}
+                                        onResetView={resetView}
+                                        vertical={isVerticalViewControls}
+                                        isModern={isModern}
+                                    />
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
             
             {tutorialStep === 'tutorial_success_message' && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">

@@ -103,11 +103,11 @@ const ViewControlsToolbar: React.FC<ViewControlsToolbarProps> = ({
     };
 
     const containerClasses = vertical 
-        ? "flex flex-col-reverse items-center gap-1.5 select-none" 
+        ? (isModern ? "flex flex-col items-center gap-1.5 select-none" : "flex flex-col-reverse items-center gap-1.5 select-none")
         : "flex items-center gap-1.5 select-none";
 
     const groupClasses = vertical
-        ? "flex flex-col-reverse items-center gap-1"
+        ? (isModern ? "flex flex-col items-center gap-1" : "flex flex-col-reverse items-center gap-1")
         : "flex items-center gap-1";
 
     return (
