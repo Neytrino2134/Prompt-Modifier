@@ -2,6 +2,7 @@ export interface BatchPreparePack {
     id: string;
     name: string;
     createdAt: number;
+    enabled?: boolean;
     views: {
         front: string | null;
         back: string | null;
@@ -71,12 +72,12 @@ export const DEFAULT_STATE: BatchPrepareNodeState = {
     selectedInputIndex: 0,
     assetBaseName: 'Asset_Name',
     gridConfig: {
-        preset: '1x4',
-        cols: 4,
-        rows: 1,
-        borderWidth: 0,
+        preset: '2x2',
+        cols: 2,
+        rows: 2,
+        borderWidth: 20,
         borderMode: 'inner',
-        enableBorder: false,
+        enableBorder: true,
         bounds: { x: 0, y: 0, width: 1, height: 1 },
         customDividers: true,
     },

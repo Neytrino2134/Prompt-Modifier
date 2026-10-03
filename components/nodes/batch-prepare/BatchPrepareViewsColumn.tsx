@@ -17,7 +17,7 @@ import {
     Maximize2, 
     X, 
     Plus, 
-    FolderPlus 
+    Folder 
 } from 'lucide-react';
 import { setupImageDragData } from '../../../utils/imageUtils';
 import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
@@ -266,8 +266,8 @@ export const BatchPrepareViewsColumn: React.FC<BatchPrepareViewsColumnProps> = (
                     onClick={onSaveCurrentToPack}
                     className="w-full py-1.5 text-xs font-bold rounded-md bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white flex items-center justify-center space-x-1.5 shadow-md shadow-indigo-950/50 transition-all border border-indigo-400/40"
                 >
-                    <FolderPlus className="w-3.5 h-3.5" />
-                    <span>💾 {t('batchprep.savePackBtn') || 'Сохранить как новый пак в буфер (Col 4)'}</span>
+                    <Folder className="w-3.5 h-3.5" />
+                    <span>{t('batchprep.savePackBtn') || 'Save to Pack Buffer'}</span>
                 </button>
             </div>
         </div>

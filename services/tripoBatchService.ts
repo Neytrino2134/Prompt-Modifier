@@ -356,8 +356,9 @@ export const run3DBatchGeneration = async (options: Start3DBatchOptions): Promis
         signal
     } = options;
 
-    if (!packs || packs.length === 0) {
-        throw new Error('No packs provided in the Pack Buffer for 3D Batch Generation.');
+    const activePacks = (packs || []).filter(p => p.enabled !== false);
+    if (!activePacks || activePacks.length === 0) {
+        throw new Error('No active packs provided in the Pack Buffer for 3D Batch Generation.');
     }
 
     const apiKey = getTripoApiKey();
@@ -374,7 +375,7 @@ export const run3DBatchGeneration = async (options: Start3DBatchOptions): Promis
     const batchName = `3D_Batch_${assetBaseName}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
 
     // Initialize Batch Job State with all items queued
-    const initialItems: ThreeDBatchItemState[] = packs.map((pack, idx) => ({
+    const initialItems: ThreeDBatchItemState[] = activePacks.map((pack, idx) => ({
         id: pack.id || `pack-${idx + 1}`,
         packIndex: idx + 1,
         packName: pack.name || `${assetBaseName}_${String(idx + 1).padStart(2, '0')}`,

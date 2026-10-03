@@ -105,8 +105,12 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
         return connections.filter((c: Connection) => c.toNodeId === node.id);
     }, [connections, node.id]);
 
+    const isImageHandleConnected = useMemo(() => {
+        return incomingConnections.some((c: Connection) => !c.toHandleId || c.toHandleId === 'image');
+    }, [incomingConnections]);
+
     // Upstream Multi-Channel Images Resolution (from Batch Prepare Active Pack, Image Input, AI Editor, Note References)
-    const upstreamImages = useMemo<string[]>(() => {
+    const upstreamImages = useMemo<(string | null)[]>(() => {
         const rawResults: any[] = [];
         
         if (getUpstreamNodeValues) {
@@ -116,18 +120,20 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
             }
         }
 
-        const formatted: string[] = [];
+        const formatted: (string | null)[] = [];
         rawResults.forEach((item: any) => {
+            if (item === null || item === undefined) {
+                formatted.push(null);
+                return;
+            }
             if (typeof item === 'string') {
                 if (item.startsWith('data:image') || item.startsWith('http://') || item.startsWith('https://') || item.startsWith('blob:')) {
                     formatted.push(item);
+                } else {
+                    formatted.push(null);
                 }
-            } else if (typeof item === 'object' && item !== null) {
-                if (Array.isArray(item.multiview) && item.multiview.length > 0) {
-                    formatted.push(...item.multiview.filter(Boolean));
-                } else if (Array.isArray(item.activeViews) && item.activeViews.length > 0) {
-                    formatted.push(...item.activeViews.filter(Boolean));
-                } else if (item.base64ImageData) {
+            } else if (typeof item === 'object') {
+                if (item.base64ImageData) {
                     formatted.push(`data:${item.mimeType || 'image/png'};base64,${item.base64ImageData}`);
                 } else if (item.url) {
                     formatted.push(item.url);
@@ -137,12 +143,14 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                     formatted.push(item.outputImage);
                 } else if (item.renderedImage) {
                     formatted.push(item.renderedImage);
+                } else {
+                    formatted.push(null);
                 }
             }
         });
 
-        // Support up to 4 images: all images exceeding 4 are filtered out and skipped
-        return formatted.filter(Boolean).slice(0, 4);
+        // Support up to 4 images: keep exact slot positions
+        return formatted.slice(0, 4);
     }, [getUpstreamNodeValues, node.id, incomingConnections]);
 
     // Upstream Prompt / Text Resolution
@@ -182,25 +190,52 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
         return null;
     }, [getUpstreamNodeValues, node.id, incomingConnections]);
 
-    const hasUpstreamImages = upstreamImages.length > 0 || Boolean(upstreamMultiview);
+    const hasUpstreamMultiview = upstreamMultiview !== null;
+    const hasUpstreamImages = upstreamImages.some(Boolean) || hasUpstreamMultiview;
+    const upstreamImagesCount = upstreamImages.filter(Boolean).length;
 
     // Slot mappings:
-    // Slot 1 (Top-Left): Front
-    // Slot 2 (Top-Right): Back
-    // Slot 3 (Bottom-Left): Left
-    // Slot 4 (Bottom-Right): Right
-    const effectiveSingleImage = upstreamMultiview !== null ? (upstreamMultiview.front || upstreamMultiview.left || upstreamMultiview.back || upstreamMultiview.right) : (upstreamImages[0] || state.image);
-    const effectiveFrontImage = upstreamMultiview !== null ? upstreamMultiview.front : (upstreamImages[0] || state.multiview.front || state.image);
-    const effectiveBackImage = upstreamMultiview !== null ? upstreamMultiview.back : (upstreamImages[1] || state.multiview.back);
-    const effectiveLeftImage = upstreamMultiview !== null ? upstreamMultiview.left : (upstreamImages[2] || state.multiview.left);
-    const effectiveRightImage = upstreamMultiview !== null ? upstreamMultiview.right : (upstreamImages[3] || state.multiview.right);
+    // Slot 1 (Top-Left): Front (Index 0 / 'F')
+    // Slot 2 (Top-Right): Back (Index 1 / 'B')
+    // Slot 3 (Bottom-Left): Left (Index 2 / 'L')
+    // Slot 4 (Bottom-Right): Right (Index 3 / 'R')
+    const effectiveSingleImage = upstreamMultiview !== null 
+        ? (upstreamMultiview.front || upstreamMultiview.left || upstreamMultiview.back || upstreamMultiview.right)
+        : (isImageHandleConnected && upstreamImages.length > 0 
+            ? (upstreamImages.find(Boolean) || null) 
+            : (upstreamImages[0] || state.image));
+
+    const effectiveFrontImage = upstreamMultiview !== null 
+        ? upstreamMultiview.front 
+        : (isImageHandleConnected && upstreamImages.length > 0 
+            ? (upstreamImages[0] || null) 
+            : (state.multiview.front || state.image));
+
+    const effectiveBackImage = upstreamMultiview !== null 
+        ? upstreamMultiview.back 
+        : (isImageHandleConnected && upstreamImages.length > 0 
+            ? (upstreamImages[1] || null) 
+            : (state.multiview.back || null));
+
+    const effectiveLeftImage = upstreamMultiview !== null 
+        ? upstreamMultiview.left 
+        : (isImageHandleConnected && upstreamImages.length > 0 
+            ? (upstreamImages[2] || null) 
+            : (state.multiview.left || null));
+
+    const effectiveRightImage = upstreamMultiview !== null 
+        ? upstreamMultiview.right 
+        : (isImageHandleConnected && upstreamImages.length > 0 
+            ? (upstreamImages[3] || null) 
+            : (state.multiview.right || null));
+
     const effectivePrompt = upstreamPrompt || state.prompt;
 
-    const isSingleConnected = Boolean(upstreamMultiview !== null ? (upstreamMultiview.front || upstreamMultiview.left || upstreamMultiview.back || upstreamMultiview.right) : upstreamImages[0]);
-    const isFrontConnected = Boolean(upstreamMultiview !== null ? upstreamMultiview.front : upstreamImages[0]);
-    const isBackConnected = Boolean(upstreamMultiview !== null ? upstreamMultiview.back : upstreamImages[1]);
-    const isLeftConnected = Boolean(upstreamMultiview !== null ? upstreamMultiview.left : upstreamImages[2]);
-    const isRightConnected = Boolean(upstreamMultiview !== null ? upstreamMultiview.right : upstreamImages[3]);
+    const isSingleConnected = Boolean(upstreamMultiview !== null ? (upstreamMultiview.front || upstreamMultiview.left || upstreamMultiview.back || upstreamMultiview.right) : (isImageHandleConnected && upstreamImages.find(Boolean)));
+    const isFrontConnected = Boolean(upstreamMultiview !== null ? upstreamMultiview.front : (isImageHandleConnected && upstreamImages[0]));
+    const isBackConnected = Boolean(upstreamMultiview !== null ? upstreamMultiview.back : (isImageHandleConnected && upstreamImages[1]));
+    const isLeftConnected = Boolean(upstreamMultiview !== null ? upstreamMultiview.left : (isImageHandleConnected && upstreamImages[2]));
+    const isRightConnected = Boolean(upstreamMultiview !== null ? upstreamMultiview.right : (isImageHandleConnected && upstreamImages[3]));
 
     // File Upload Handler
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, slot: ThreeDSlotType) => {
@@ -728,12 +763,78 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
     const apiKey = getTripoApiKey();
     const isApiKeyMissing = !isTripoEnabled() || !apiKey;
 
+    // Live Batch Preview derived from connected 3D Batch Prepare Node
+    const connectedBatchJobPreview = useMemo<ThreeDBatchJob | null>(() => {
+        const upstreamPrepNodes = (context?.nodes || []).filter(n => {
+            if (n.type !== NodeType.BATCH_PREPARE) return false;
+            return incomingConnections.some(c => c.fromNodeId === n.id);
+        });
+
+        if (upstreamPrepNodes.length === 0) {
+            return state.batchJob || null;
+        }
+
+        try {
+            const parsed = JSON.parse(upstreamPrepNodes[0].value || '{}');
+            const allPacks: BatchPreparePack[] = Array.isArray(parsed.packs) ? parsed.packs : [];
+            const enabledPacks = allPacks.filter(p => p.enabled !== false);
+            const baseName = (parsed.assetBaseName || 'Asset_Name').trim() || 'Asset_Name';
+
+            if (isGenerating && state.batchJob && state.batchJob.status === 'running') {
+                return state.batchJob;
+            }
+
+            const items = enabledPacks.map((p, idx) => {
+                const existingItem = state.batchJob?.items?.find(it => it.id === p.id);
+                return {
+                    id: p.id,
+                    packIndex: idx + 1,
+                    packName: p.name || `${baseName}_${String(idx + 1).padStart(2, '0')}`,
+                    views: p.views,
+                    mutedViews: p.mutedViews,
+                    taskId: p.taskId || existingItem?.taskId,
+                    status: p.status || existingItem?.status || (p.modelUrl ? 'success' : 'queued'),
+                    progress: p.progress || existingItem?.progress || (p.modelUrl ? 100 : 0),
+                    modelUrl: p.modelUrl || existingItem?.modelUrl,
+                    thumbnailUrl: p.thumbnailUrl || existingItem?.thumbnailUrl,
+                    renderedImageUrl: p.renderedImageUrl || existingItem?.renderedImageUrl,
+                    createdAt: p.createdAt || Date.now(),
+                    completedAt: existingItem?.completedAt
+                };
+            });
+
+            const completed = items.filter(it => it.status === 'success').length;
+            const running = items.filter(it => it.status === 'running' || it.status === 'uploading').length;
+            const queued = items.filter(it => it.status === 'queued').length;
+            const failed = items.filter(it => it.status === 'failed' || it.status === 'cancelled').length;
+
+            return {
+                id: state.batchJob?.id || `preview-${upstreamPrepNodes[0].id}`,
+                name: `3D Batch: ${baseName}`,
+                assetBaseName: baseName,
+                nodeId: node.id,
+                createdAt: state.batchJob?.createdAt || Date.now(),
+                totalCount: items.length,
+                completedCount: completed,
+                runningCount: running,
+                queuedCount: queued,
+                failedCount: failed,
+                progressPercent: items.length > 0 ? Math.round((completed / items.length) * 100) : 0,
+                status: (items.length > 0 && completed === items.length ? 'completed' : 'queued') as 'completed' | 'queued' | 'running' | 'failed' | 'cancelled',
+                modelVersion: state.modelVersion || 'v3.1',
+                items
+            };
+        } catch {
+            return state.batchJob || null;
+        }
+    }, [context?.nodes, incomingConnections, node.id, state.batchJob, isGenerating, state.modelVersion]);
+
     // Direct Batch Handler from 3D Node
     const handleStartNodeBatch = async () => {
         // Collect packs from connected BatchPrepare node or batchJob
         const upstreamPrepNodes = (context?.nodes || []).filter(n => {
             if (n.type !== NodeType.BATCH_PREPARE) return false;
-            return context?.connections?.some(c => c.fromNodeId === n.id && c.toNodeId === node.id);
+            return incomingConnections.some(c => c.fromNodeId === n.id);
         });
 
         let targetPacks: BatchPreparePack[] = [];
@@ -743,8 +844,8 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
             try {
                 const parsed = JSON.parse(upstreamPrepNodes[0].value || '{}');
                 if (Array.isArray(parsed.packs) && parsed.packs.length > 0) {
-                    targetPacks = parsed.packs;
-                    baseName = parsed.assetBaseName || 'Asset_Name';
+                    targetPacks = parsed.packs.filter((p: BatchPreparePack) => p.enabled !== false);
+                    baseName = (parsed.assetBaseName || 'Asset_Name').trim() || 'Asset_Name';
                 }
             } catch {}
         }
@@ -766,7 +867,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
         }
 
         if (targetPacks.length === 0) {
-            if (addToast) addToast('Подключите ноду 3D Batch Prepare с паками или создайте паки в буфере', 'warning');
+            if (addToast) addToast('Все паки деактивированы или подключите ноду 3D Batch Prepare с активными паками', 'warning');
             return;
         }
 
@@ -870,7 +971,7 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
             {state.isBatchMode ? (
                 <div className="flex-1 p-2 overflow-hidden min-h-0 flex flex-col">
                     <ThreeDBatchDashboard
-                        batchJob={state.batchJob || null}
+                        batchJob={connectedBatchJobPreview || state.batchJob || null}
                         isBatchRunning={isGenerating}
                         onStopBatch={handleCancel}
                         onStartBatch={handleStartNodeBatch}

@@ -369,4 +369,5 @@ export const nodes = {
     'threed.generate': 'Сгенерировать 3D модель',
     'threed.cancel': 'Отмена',
     'threed.paramsTitle': 'Параметры и движок 3D',
+    'batchprep.savePackBtn': 'Save to Pack Buffer',
 };

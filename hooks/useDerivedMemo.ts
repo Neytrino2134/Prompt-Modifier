@@ -43,17 +43,16 @@ const extractMarkdownSection = (text: string, targetSection: 'Appearance' | 'Per
 const generateSignature = (val: string) => {
     if (!val) return '0';
     let hash = 0;
-    // To be efficient with large base64 strings, we sample: start + length + end
-    // But for character cards JSON which isn't huge (images are thumbnails), full string or dense sample is okay.
-    // Let's use length + simple sampling to catch "isOutput" flag swaps that don't change length.
     const len = val.length;
-    // Sample first 500 and last 500 chars to catch property changes at ends of JSON
-    const sample = len > 1000 ? val.substring(0, 500) + val.substring(len - 500) : val;
-    
-    for (let i = 0; i < sample.length; i++) {
-        const char = sample.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
+    // Sample evenly across the string (up to 20 samples) to catch changes anywhere in large JSON payloads
+    const samplesCount = Math.min(20, Math.max(2, Math.floor(len / 100)));
+    const step = Math.max(1, Math.floor(len / samplesCount));
+    for (let i = 0; i < len; i += step) {
+        const slice = val.slice(i, i + 32);
+        for (let j = 0; j < slice.length; j++) {
+            hash = ((hash << 5) - hash) + slice.charCodeAt(j);
+            hash = hash & hash;
+        }
     }
     return `${len}-${hash}`;
 };
@@ -74,6 +73,40 @@ const getCharacterIdentitySignature = (val: string) => {
     }
     
     return (matches ? matches.join(',') : 'no-match') + `-${hash}`;
+};
+
+// Specialized signature generator for Batch Prepare Nodes to ensure View swaps/mutes/packs update immediately
+const getBatchPrepareSignature = (val: string) => {
+    if (!val) return 'empty';
+    try {
+        const parsed = JSON.parse(val);
+        const activeViews = parsed.activeViews || parsed.multiview || {};
+        const muted = parsed.mutedViews || {};
+        const f = activeViews.front ? `${activeViews.front.length}-${activeViews.front.slice(20, 60)}` : 'null';
+        const b = activeViews.back ? `${activeViews.back.length}-${activeViews.back.slice(20, 60)}` : 'null';
+        const l = activeViews.left ? `${activeViews.left.length}-${activeViews.left.slice(20, 60)}` : 'null';
+        const r = activeViews.right ? `${activeViews.right.length}-${activeViews.right.slice(20, 60)}` : 'null';
+        const mf = muted.front ? '1' : '0';
+        const mb = muted.back ? '1' : '0';
+        const ml = muted.left ? '1' : '0';
+        const mr = muted.right ? '1' : '0';
+        const packId = parsed.activePackId || '';
+        const packsCount = Array.isArray(parsed.packs) ? parsed.packs.length : 0;
+        return `batchprep:${f}:${b}:${l}:${r}:${mf}${mb}${ml}${mr}:${packId}:${packsCount}:${val.length}`;
+    } catch {
+        return generateSignature(val);
+    }
+};
+
+const getNodeValueSignature = (node: Node | undefined): string => {
+    if (!node || !node.value) return 'empty';
+    if (node.type === NodeType.BATCH_PREPARE) {
+        return getBatchPrepareSignature(node.value);
+    }
+    if (node.type === NodeType.CHARACTER_CARD || node.type === NodeType.CHARACTER_GENERATOR) {
+        return `char:${getCharacterIdentitySignature(node.value)}`;
+    }
+    return generateSignature(node.value);
 };
 
 export const useDerivedMemo = (props: UseDerivedMemoProps) => {
@@ -437,7 +470,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
 
         const sigParts = inputConnections.map(c => {
             const fn = activeNodes.find(n => n.id === c.fromNodeId);
-            return `${c.id}:${c.fromHandleId || ''}:${c.toHandleId || ''}:${fn?.id || ''}:${generateSignature(fn?.value || '')}`;
+            return `${c.id}:${c.fromHandleId || ''}:${c.toHandleId || ''}:${fn?.id || ''}:${getNodeValueSignature(fn)}`;
         });
         const incomingSig = sigParts.join('|');
         const cacheKey = `${nodeId}_${handleId || 'all'}_${optimizedForUI ? '1' : '0'}`;
@@ -725,20 +758,19 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             muted.right ? null : (activeMultiview.right || null)
                         ];
 
-                        let pushedAny = false;
                         packViews.forEach((viewUrl) => {
                             if (viewUrl && typeof viewUrl === 'string' && viewUrl.startsWith('data:')) {
                                 const parts = viewUrl.split(',');
                                 const mime = viewUrl.match(/:(.*?);/)?.[1] || 'image/png';
                                 values.push({ base64ImageData: parts[1], mimeType: mime });
-                                pushedAny = true;
                             } else if (viewUrl && typeof viewUrl === 'string' && (viewUrl.startsWith('http') || viewUrl.startsWith('blob:'))) {
                                 values.push(viewUrl);
-                                pushedAny = true;
+                            } else {
+                                values.push(null);
                             }
                         });
 
-                        if (pushedAny) continue;
+                        continue;
                     } catch {}
                 } else if (fromNode.type === NodeType.IMAGE_OUTPUT) {
                     const fullUrl = getFullSizeImage(fromNode.id, 0);

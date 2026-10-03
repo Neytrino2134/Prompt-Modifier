@@ -70,9 +70,9 @@ export const BatchPrepareNode: React.FC<NodeContentProps> = memo(({
     }, [state]);
 
     // Local state for smooth slider dragging (committing only on mouse up / touch end)
-    const [localBorderWidth, setLocalBorderWidth] = useState<number>(state.gridConfig.borderWidth || 0);
+    const [localBorderWidth, setLocalBorderWidth] = useState<number>(state.gridConfig.borderWidth !== undefined ? state.gridConfig.borderWidth : 20);
     useEffect(() => {
-        setLocalBorderWidth(state.gridConfig.borderWidth || 0);
+        setLocalBorderWidth(state.gridConfig.borderWidth !== undefined ? state.gridConfig.borderWidth : 20);
     }, [state.gridConfig.borderWidth]);
 
     // Upstream Multi-Channel Images Resolution
@@ -670,7 +670,8 @@ export const BatchPrepareNode: React.FC<NodeContentProps> = memo(({
             ...pack,
             id: `pack-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             name: `${baseName}_${padIndex}`,
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            enabled: pack.enabled !== false
         };
         updateState(prev => ({
             packs: [...prev.packs, dup],
@@ -680,6 +681,77 @@ export const BatchPrepareNode: React.FC<NodeContentProps> = memo(({
         }));
         addToast(`Создана копия пака "${dup.name}"`, 'success');
     };
+
+    // Pack Selection / Activation Handlers
+    const handleTogglePackEnabled = useCallback((packId: string, enabled: boolean) => {
+        updateState(prev => ({
+            packs: prev.packs.map(p => p.id === packId ? { ...p, enabled } : p)
+        }));
+    }, [updateState]);
+
+    const handleSelectAllPacks = useCallback(() => {
+        updateState(prev => ({
+            packs: prev.packs.map(p => ({ ...p, enabled: true }))
+        }));
+        addToast('Все паки активированы', 'info');
+    }, [updateState, addToast]);
+
+    const handleDeselectAllPacks = useCallback(() => {
+        updateState(prev => ({
+            packs: prev.packs.map(p => ({ ...p, enabled: false }))
+        }));
+        addToast('Выбор со всех паков снят', 'info');
+    }, [updateState, addToast]);
+
+    const handleInvertPackSelection = useCallback(() => {
+        updateState(prev => ({
+            packs: prev.packs.map(p => ({ ...p, enabled: p.enabled === false ? true : false }))
+        }));
+        addToast('Выбор паков инвертирован', 'info');
+    }, [updateState, addToast]);
+
+    const handleSelectPackRange = useCallback((rangeStr: string) => {
+        const total = stateRef.current.packs.length;
+        if (total === 0) return;
+
+        const selectedIndices = new Set<number>();
+        const parts = rangeStr.split(/[,;\s]+/).filter(Boolean);
+
+        parts.forEach(part => {
+            if (part.includes('-')) {
+                const [startStr, endStr] = part.split('-');
+                const start = parseInt(startStr.trim(), 10);
+                const end = parseInt(endStr.trim(), 10);
+                if (!isNaN(start) && !isNaN(end)) {
+                    const min = Math.min(start, end);
+                    const max = Math.max(start, end);
+                    for (let i = min; i <= max; i++) {
+                        if (i >= 1 && i <= total) {
+                            selectedIndices.add(i - 1);
+                        }
+                    }
+                }
+            } else {
+                const num = parseInt(part.trim(), 10);
+                if (!isNaN(num) && num >= 1 && num <= total) {
+                    selectedIndices.add(num - 1);
+                }
+            }
+        });
+
+        if (selectedIndices.size === 0) {
+            addToast('Некорректный диапазон (например: 3-7 или 1-3, 5)', 'warning');
+            return;
+        }
+
+        updateState(prev => ({
+            packs: prev.packs.map((p, idx) => ({
+                ...p,
+                enabled: selectedIndices.has(idx)
+            }))
+        }));
+        addToast(`Выбрано паков: ${selectedIndices.size} по диапазону "${rangeStr}"`, 'success');
+    }, [updateState, addToast]);
 
     const handleDownloadPackZip = async (pack: BatchPreparePack) => {
         try {
@@ -891,9 +963,10 @@ export const BatchPrepareNode: React.FC<NodeContentProps> = memo(({
     }, [updateState, addToast]);
 
     const handleStart3DBatch = useCallback(async () => {
-        const currentPacks = stateRef.current.packs;
-        if (!currentPacks || currentPacks.length === 0) {
-            addToast('В буфере нет паков для 3D Batch генерации', 'warning');
+        const allPacks = stateRef.current.packs || [];
+        const currentPacks = allPacks.filter(p => p.enabled !== false);
+        if (currentPacks.length === 0) {
+            addToast('Все паки деактивированы или в буфере нет паков для 3D Batch генерации', 'warning');
             return;
         }
 
@@ -1056,12 +1129,7 @@ export const BatchPrepareNode: React.FC<NodeContentProps> = memo(({
                 filledActiveViewCount={filledActiveViewCount}
                 activePack={activePack}
                 packsCount={state.packs.length}
-                onSaveCurrentToPack={handleSaveCurrentToPack}
                 onDownloadAllPacksZip={handleDownloadAllPacksZip}
-                isBatchRunning={Boolean(state.isBatchRunning)}
-                batchProgress={state.batchProgress}
-                onStart3DBatch={handleStart3DBatch}
-                onStop3DBatch={handleStop3DBatch}
             />
 
             {/* 4-Column Layout */}
@@ -1211,6 +1279,11 @@ export const BatchPrepareNode: React.FC<NodeContentProps> = memo(({
                     onDuplicatePack={handleDuplicatePack}
                     onDownloadPackZip={handleDownloadPackZip}
                     onDeletePack={handleDeletePack}
+                    onTogglePackEnabled={handleTogglePackEnabled}
+                    onSelectAllPacks={handleSelectAllPacks}
+                    onDeselectAllPacks={handleDeselectAllPacks}
+                    onInvertPackSelection={handleInvertPackSelection}
+                    onSelectPackRange={handleSelectPackRange}
                     isBatchRunning={Boolean(state.isBatchRunning)}
                     onStart3DBatch={handleStart3DBatch}
                     onStop3DBatch={handleStop3DBatch}

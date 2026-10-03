@@ -13,9 +13,12 @@ import {
     Square, 
     Check, 
     Loader2, 
-    FileJson 
+    FileJson,
+    CheckCheck,
+    Shuffle
 } from 'lucide-react';
 import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
+import { CustomCheckbox } from '../../CustomCheckbox';
 import { BatchPreparePack, ViewSlotKey } from './types';
 import { download3DModelFromUrl, format3DAssetFilename } from '../../../services/tripoBatchService';
 import { downloadTaskMetadataJson } from '../../../services/tripoService';
@@ -31,6 +34,11 @@ interface BatchPreparePacksColumnProps {
     onDuplicatePack: (pack: BatchPreparePack) => void;
     onDownloadPackZip: (pack: BatchPreparePack) => void;
     onDeletePack: (packId: string) => void;
+    onTogglePackEnabled?: (packId: string, enabled: boolean) => void;
+    onSelectAllPacks?: () => void;
+    onDeselectAllPacks?: () => void;
+    onInvertPackSelection?: () => void;
+    onSelectPackRange?: (rangeStr: string) => void;
     isBatchRunning?: boolean;
     onStart3DBatch?: () => void;
     onStop3DBatch?: () => void;
@@ -48,6 +56,11 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
     onDuplicatePack,
     onDownloadPackZip,
     onDeletePack,
+    onTogglePackEnabled,
+    onSelectAllPacks,
+    onDeselectAllPacks,
+    onInvertPackSelection,
+    onSelectPackRange,
     isBatchRunning = false,
     onStart3DBatch,
     onStop3DBatch,
@@ -55,6 +68,11 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
 }) => {
     const { t } = useLanguage();
     const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
+    const [rangeInput, setRangeInput] = useState<string>('');
+
+    const enabledPacksCount = useMemo(() => {
+        return packs.filter(p => p.enabled !== false).length;
+    }, [packs]);
 
     // Virtual Scroll Buffering for Packs Buffer (Column 4)
     const packsContainerRef = useRef<HTMLDivElement>(null);
@@ -141,8 +159,11 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                     <span className="text-[11px] font-bold text-gray-300 tracking-wider uppercase">
                         4. {t('batchprep.col4.title') || 'Буфер паков (Packs)'}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-semibold">
-                        {packs.length}
+                    <span 
+                        className="text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-semibold"
+                        title={`Активно ${enabledPacksCount} из ${packs.length} паков`}
+                    >
+                        {enabledPacksCount === packs.length ? packs.length : `${enabledPacksCount}/${packs.length}`}
                     </span>
                 </div>
                 <div className="flex items-center space-x-1">
@@ -165,43 +186,74 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                 </div>
             </div>
 
-            {/* Asset Base Name Field & Batch Start Button */}
-            <div className="p-2 bg-gray-950/80 border-b border-gray-800/80 flex flex-col gap-1.5 shrink-0">
-                <div className="flex items-center space-x-1.5">
-                    <span className="text-[10px] font-semibold text-gray-400 shrink-0">Asset Name:</span>
-                    <input
-                        type="text"
-                        value={assetBaseName}
-                        placeholder="Asset_Name"
-                        onChange={(e) => onBaseNameChange(e.target.value)}
-                        className="flex-1 min-w-0 text-xs font-semibold text-cyan-200 bg-gray-900 border border-gray-700 hover:border-gray-600 focus:border-cyan-400 focus:bg-gray-850 px-2 py-0.5 rounded outline-none shadow-inner"
-                    />
+            {/* Asset Base Name Field */}
+            <div className="p-2 bg-gray-950/80 border-b border-gray-800/80 flex items-center space-x-1.5 shrink-0">
+                <span className="text-[10px] font-semibold text-gray-400 shrink-0">Asset Name:</span>
+                <input
+                    type="text"
+                    value={assetBaseName}
+                    placeholder="Asset_Name"
+                    onChange={(e) => onBaseNameChange(e.target.value)}
+                    className="flex-1 min-w-0 text-xs font-semibold text-cyan-200 bg-gray-900 border border-gray-700 hover:border-gray-600 focus:border-cyan-400 focus:bg-gray-850 px-2 py-0.5 rounded outline-none shadow-inner"
+                />
+            </div>
+
+            {/* Selection Toolbar: Select All, Deselect All, Invert, Range Select */}
+            <div className="px-2 py-1.5 bg-gray-950/90 border-b border-gray-800 flex items-center justify-between gap-1.5 shrink-0 text-xs">
+                <div className="flex items-center space-x-1 shrink-0">
+                    <button
+                        onClick={onSelectAllPacks}
+                        disabled={packs.length === 0}
+                        className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-cyan-300 hover:text-cyan-100 disabled:opacity-40 transition-colors border border-gray-700/60"
+                        title="Выбрать все паки (Select All)"
+                    >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                        onClick={onDeselectAllPacks}
+                        disabled={packs.length === 0}
+                        className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-40 transition-colors border border-gray-700/60"
+                        title="Снять выбор со всех (Deselect All)"
+                    >
+                        <Square className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                        onClick={onInvertPackSelection}
+                        disabled={packs.length === 0}
+                        className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-amber-300 hover:text-amber-100 disabled:opacity-40 transition-colors border border-gray-700/60"
+                        title="Инвертировать выбор (Invert Selection)"
+                    >
+                        <Shuffle className="w-3.5 h-3.5" />
+                    </button>
                 </div>
 
-                {/* Prominent Start/Stop 3D Batch Button */}
-                {isBatchRunning ? (
+                {/* Range Input & Apply */}
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (rangeInput.trim()) {
+                            onSelectPackRange?.(rangeInput.trim());
+                        }
+                    }}
+                    className="flex items-center space-x-1 flex-1 min-w-0 max-w-[155px] justify-end"
+                >
+                    <input
+                        type="text"
+                        value={rangeInput}
+                        onChange={(e) => setRangeInput(e.target.value)}
+                        placeholder="3-7 или 1,4-6"
+                        className="w-full text-[10px] font-mono text-cyan-200 bg-gray-900 border border-gray-700 hover:border-gray-600 focus:border-cyan-400 px-1.5 py-0.5 rounded outline-none"
+                        title="Укажите диапазон номеров паков (например: 3-7 или 1, 3-5)"
+                    />
                     <button
-                        onClick={onStop3DBatch}
-                        className="w-full py-1 px-2 text-xs font-bold rounded bg-red-700 hover:bg-red-600 text-white flex items-center justify-center gap-1.5 shadow transition-all border border-red-500/50 animate-pulse"
+                        type="submit"
+                        disabled={!rangeInput.trim() || packs.length === 0}
+                        className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-cyan-700 hover:bg-cyan-600 text-white disabled:opacity-40 shrink-0"
+                        title="Применить выбор диапазона"
                     >
-                        <Square className="w-3 h-3 fill-current" />
-                        <span>Остановить 3D Batch</span>
+                        OK
                     </button>
-                ) : (
-                    <button
-                        onClick={onStart3DBatch}
-                        disabled={packs.length === 0}
-                        className={`w-full py-1 px-2 text-xs font-bold rounded text-white flex items-center justify-center gap-1.5 shadow transition-all border ${
-                            packs.length > 0 
-                                ? 'bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 border-cyan-400/50 shadow-cyan-950/40' 
-                                : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'
-                        }`}
-                        title="Отправить все паки в 3D генерацию с сохранением Task ID и авто-скачиванием GLB"
-                    >
-                        <Zap className={`w-3.5 h-3.5 ${packs.length > 0 ? 'text-yellow-300 fill-current' : 'text-gray-500'}`} />
-                        <span>Запустить 3D Batch ({packs.length})</span>
-                    </button>
-                )}
+                </form>
             </div>
 
             {/* Pack switcher ribbon */}
@@ -257,6 +309,7 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                         )}
 
                         {visiblePackItems.map(({ pack, index: idx }) => {
+                            const isEnabled = pack.enabled !== false;
                             const isActive = activePackId === pack.id;
                             const isSuccess = pack.status === 'success' || Boolean(pack.modelUrl);
                             const isRunning = pack.status === 'running' || pack.status === 'uploading';
@@ -266,32 +319,44 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                                     key={pack.id}
                                     onClick={() => onSelectActivePack(pack.id)}
                                     className={`relative flex flex-col p-2 rounded-lg border cursor-pointer transition-all ${
-                                        isActive 
-                                            ? 'bg-cyan-950/50 border-cyan-500 shadow-md shadow-cyan-950/80 ring-1 ring-cyan-500/50' 
-                                            : isSuccess
-                                                ? 'bg-emerald-950/20 border-emerald-800/60 hover:bg-emerald-950/40'
-                                                : isRunning
-                                                    ? 'bg-blue-950/30 border-blue-600/60 animate-pulse'
-                                                    : 'bg-gray-800/60 border-gray-700/70 hover:border-gray-600 hover:bg-gray-800'
+                                        !isEnabled
+                                            ? 'bg-gray-950/40 border-gray-800/40 opacity-60 grayscale-[35%]'
+                                            : isActive 
+                                                ? 'bg-cyan-950/50 border-cyan-500 shadow-md shadow-cyan-950/80 ring-1 ring-cyan-500/50' 
+                                                : isSuccess
+                                                    ? 'bg-emerald-950/20 border-emerald-800/60 hover:bg-emerald-950/40'
+                                                    : isRunning
+                                                        ? 'bg-blue-950/30 border-blue-600/60 animate-pulse'
+                                                        : 'bg-gray-800/60 border-gray-700/70 hover:border-gray-600 hover:bg-gray-800'
                                     }`}
                                 >
-                                    {/* Pack Header */}
+                                    {/* Pack Header with Checkbox */}
                                     <div className="flex items-center justify-between mb-1">
                                         <div className="flex items-center space-x-1.5 flex-1 min-w-0 mr-1">
-                                            <span className="text-[10px] font-bold text-gray-400 font-mono shrink-0">
+                                            <CustomCheckbox
+                                                checked={isEnabled}
+                                                onChange={(checked) => onTogglePackEnabled?.(pack.id, checked)}
+                                                title={isEnabled ? 'Пак активен для генерации' : 'Пак деактивирован'}
+                                            />
+                                            <span className={`text-[10px] font-bold font-mono shrink-0 ${isEnabled ? 'text-gray-400' : 'text-gray-600 line-through'}`}>
                                                 #{idx + 1}
                                             </span>
-                                            <span className="text-[11px] font-bold text-gray-100 truncate" title={pack.name}>
+                                            <span className={`text-[11px] font-bold truncate ${isEnabled ? 'text-gray-100' : 'text-gray-500'}`} title={pack.name}>
                                                 {pack.name}
                                             </span>
                                         </div>
 
-                                        {isActive && (
+                                        {!isEnabled && (
+                                            <span className="text-[8px] px-1.5 py-0.2 rounded font-semibold bg-gray-800 text-gray-400 border border-gray-700 shrink-0">
+                                                ВЫКЛ
+                                            </span>
+                                        )}
+                                        {isEnabled && isActive && (
                                             <span className="text-[8px] px-1.5 py-0.2 rounded font-bold bg-cyan-500 text-black shrink-0">
                                                 ACTIVE
                                             </span>
                                         )}
-                                        {isSuccess && !isActive && (
+                                        {isEnabled && isSuccess && !isActive && (
                                             <span className="text-[8px] px-1.5 py-0.2 rounded font-bold bg-emerald-950 text-emerald-300 border border-emerald-700/60 shrink-0">
                                                 3D READY
                                             </span>
@@ -437,6 +502,33 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                             <div style={{ height: `${packBottomSpacerHeight}px` }} />
                         )}
                     </>
+                )}
+            </div>
+
+            {/* Bottom CTA: Start/Stop 3D Batch Button matching Column 3 size & style */}
+            <div className="p-2 border-t border-gray-800 bg-gray-900/90 shrink-0">
+                {isBatchRunning ? (
+                    <button
+                        onClick={onStop3DBatch}
+                        className="w-full py-1.5 text-xs font-bold rounded-md bg-red-700 hover:bg-red-600 active:bg-red-800 text-white flex items-center justify-center space-x-1.5 shadow-md shadow-red-950/50 transition-all border border-red-500/50 animate-pulse"
+                    >
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                        <span>Остановить 3D Batch</span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={onStart3DBatch}
+                        disabled={enabledPacksCount === 0}
+                        className={`w-full py-1.5 text-xs font-bold rounded-md flex items-center justify-center space-x-1.5 shadow-md transition-all border ${
+                            enabledPacksCount > 0 
+                                ? 'bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 active:from-cyan-700 active:to-purple-700 text-white border-cyan-400/40 shadow-cyan-950/50 cursor-pointer' 
+                                : 'bg-gray-800 text-gray-500 border-gray-700/60 cursor-not-allowed opacity-50'
+                        }`}
+                        title="Отправить активные паки в 3D генерацию с сохранением Task ID и авто-скачиванием GLB"
+                    >
+                        <Zap className={`w-3.5 h-3.5 ${enabledPacksCount > 0 ? 'text-yellow-300 fill-current' : 'text-gray-500'}`} />
+                        <span>Запустить 3D Batch ({enabledPacksCount})</span>
+                    </button>
                 )}
             </div>
         </div>

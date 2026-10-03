@@ -238,7 +238,7 @@ export const getEmptyValueForNodeType = (node: Node): string => {
             return JSON.stringify({
                 inputImages: [],
                 selectedInputIndex: 0,
-                gridConfig: { preset: '1x4', cols: 4, rows: 1 },
+                gridConfig: { preset: '2x2', cols: 2, rows: 2, borderWidth: 20, enableBorder: true, borderMode: 'inner' },
                 slicedImages: [],
                 selectedSliceIndex: null,
                 activeViews: { front: null, back: null, left: null, right: null },
