@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, ReactNode, useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import type { AppContextType } from './AppContextTypes';
 import { useLanguage, LanguageCode } from '../localization';
@@ -31,24 +30,19 @@ import {
     CatalogItemType,
     ContentCatalogItemType,
 } from '../hooks';
-import { useGoogleDrive } from '../hooks/useGoogleDrive'; 
+import { useGoogleDrive } from '../hooks/useGoogleDrive';
 import { useGlobalState } from '../hooks/useGlobalState';
 import { useAppOrchestration } from '../hooks/useAppOrchestration';
 import { useTaskQueue } from '../hooks/useTaskQueue';
 import { useTutorial } from '../hooks/useTutorial';
 import { useBatchManager } from '../hooks/useBatchManager';
-import { addMetadataToPNG } from '../utils/pngMetadata';
-import { generateCanvasScreenshot } from '../utils/canvasScreenshot';
-import { getConnectionPoints, getOutputHandleType, getMinNodeSize, RATIO_INDICES } from '../utils/nodeUtils';
-import { generateThumbnail } from '../utils/imageUtils';
-import { startSessionAutosave } from '../services/sessionAutosave';
-import { createNewTab, normalizeTabs } from '../hooks/useTabs';
-import { clearImagesForTabFromCache } from '../utils/imageMemoryCache';
-import { playAutosaveSound } from '../services/soundNotificationService';
-import { readPersistentCacheProtection } from '../services/cacheProtection';
-import { collectCacheReferences, pruneCanvasImageCache } from '../utils/cacheReferences';
+import {
+    useSessionSyncAndAutosave,
+    useCacheCleanup,
+    useCatalogAndEntityDispatch,
+    useMediaAndImageActions
+} from './app-context';
 import type { Tab, CanvasState } from '../types';
-
 
 const AppContext = createContext<AppContextType | null>(null);
 
@@ -56,7 +50,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const { t, language, setLanguage, secondaryLanguage, setSecondaryLanguage } = useLanguage();
     const permissionsHook = usePermissions('clipboard-read');
 
-    // Core Hooks
+    // Core Tab and History Hooks
     const tabsHook = useTabs();
     const generationHistoryHook = useGenerationHistory();
     const {
@@ -65,9 +59,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activeTabId,
         setActiveTabId,
         getLocalizedCanvasState,
-        nextAutoSaveTime,
         setNextAutoSaveTime,
-        isAutoSaving,
         setIsAutoSaving
     } = tabsHook;
 
@@ -108,491 +100,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
     const { getUpstreamNodeValues } = derivedMemoHook;
 
-    // Helper for Canvas IO / export
-    const getCurrentCanvasState = useCallback((): CanvasState => ({
-        nodes: nodesHook.nodes,
-        connections: connectionsHook.connections,
-        groups: groupsHook.groups,
-        viewTransform: canvasHook.viewTransform,
-        nodeIdCounter: nodesHook.nodeIdCounter.current,
-        fullSizeImageCache: fullSizeImageCache,
-    }), [nodesHook.nodes, connectionsHook.connections, groupsHook.groups, canvasHook.viewTransform, nodesHook.nodeIdCounter, fullSizeImageCache]);
-
-    // Flags and refs to safely manage tab synchronization
-    const isLoadingStateRef = useRef(false);
-    const lastLoadedTabIdRef = useRef<string | null>(null);
-    const isTabLoadedFromDBRef = useRef(false);
-    const saveTimeoutRef = useRef<any>(null);
-    const [isCanvasLoading, setIsCanvasLoading] = useState(true);
-
-    const loadCanvasState = useCallback((state: any, tabName?: string) => {
-        if (!state) return;
-        isLoadingStateRef.current = true;
-        nodesHook.setNodes(state.nodes || []);
-        connectionsHook.setConnections(state.connections || []);
-        groupsHook.setGroups(state.groups || []);
-        canvasHook.setViewTransform(state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
-        nodesHook.nodeIdCounter.current = state.nodeIdCounter || 0;
-        setFullSizeImageCache(state.fullSizeImageCache || {});
-
-        const newState: CanvasState = {
-            nodes: state.nodes || [],
-            connections: state.connections || [],
-            groups: state.groups || [],
-            viewTransform: state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } },
-            nodeIdCounter: state.nodeIdCounter || 0,
-            fullSizeImageCache: state.fullSizeImageCache || {}
-        };
-
-        setTabs(prevTabs => {
-            const updated = prevTabs.map(tab => tab.id === activeTabId ? {
-                ...tab,
-                name: (tabName && tabName.trim()) ? tabName.trim() : tab.name,
-                state: newState
-            } : tab);
-            saveSessionToDB(updated, activeTabId).catch(error => console.error('Background session save failed:', error));
-            return updated;
-        });
-
-        setTimeout(() => {
-            isLoadingStateRef.current = false;
-        }, 100);
-    }, [
-        activeTabId,
-        nodesHook.setNodes,
-        connectionsHook.setConnections,
-        groupsHook.setGroups,
-        canvasHook.setViewTransform,
-        nodesHook.nodeIdCounter,
-        setFullSizeImageCache,
-        setTabs
-    ]);
-
-    // Comprehensive session restoration that synchronizes tab metadata and canvas hooks
-    const restoreSession = useCallback((newTabs: Tab[], targetActiveTabId?: string, persist = true) => {
-        if (!Array.isArray(newTabs) || newTabs.length === 0) return;
-
-        const { tabs: normalizedTabs, activeTabId: validActiveId } = normalizeTabs(newTabs, targetActiveTabId);
-        const targetTab = normalizedTabs.find(t => t.id === validActiveId) || normalizedTabs[0];
-
-        // 1. Lock live sync
-        isLoadingStateRef.current = true;
-        lastLoadedTabIdRef.current = validActiveId;
-
-        // 2. Update tabs and activeTabId in state
-        setTabs(normalizedTabs);
-        setActiveTabId(validActiveId);
-
-        // 3. Load canvas state directly into canvas hooks
-        nodesHook.setNodes(targetTab.state.nodes || []);
-        connectionsHook.setConnections(targetTab.state.connections || []);
-        groupsHook.setGroups(targetTab.state.groups || []);
-        canvasHook.setViewTransform(targetTab.state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
-        nodesHook.nodeIdCounter.current = targetTab.state.nodeIdCounter || 0;
-        setFullSizeImageCache(targetTab.state.fullSizeImageCache || {});
-
-        // 4. Save to DB immediately
-        if (persist) saveSessionToDB(normalizedTabs, validActiveId).catch(error => console.error('Background session save failed:', error));
-
-        // 5. Release lock after state flush
-        setTimeout(() => {
-            isLoadingStateRef.current = false;
-        }, 120);
-    }, [
+    // 1. Session Sync & Autosave Subsystem
+    const sessionHook = useSessionSyncAndAutosave({
+        tabs,
         setTabs,
-        setActiveTabId,
-        nodesHook.setNodes,
-        connectionsHook.setConnections,
-        groupsHook.setGroups,
-        canvasHook.setViewTransform,
-        nodesHook.nodeIdCounter,
-        setFullSizeImageCache
-    ]);
-
-    // Initial DB session load into canvas hooks
-    useEffect(() => {
-        if (!tabsHook.isLoaded) return;
-        if (!isTabLoadedFromDBRef.current) {
-            isTabLoadedFromDBRef.current = true;
-            restoreSession(tabsHook.tabs, tabsHook.activeTabId, false);
-            setIsCanvasLoading(false);
-        }
-    }, [tabsHook.isLoaded, tabsHook.tabs, tabsHook.activeTabId, restoreSession]);
-
-    // Sync live canvas state back to active tab in tabs array when user modifies canvas
-    useEffect(() => {
-        if (isLoadingStateRef.current) return;
-        if (!tabsHook.isLoaded) return;
-        if (lastLoadedTabIdRef.current !== activeTabId) return;
-
-        const currentTab = tabs.find(t => t.id === activeTabId);
-        if (!currentTab) return;
-
-        const liveNodes = nodesHook.nodes;
-        const liveConnections = connectionsHook.connections;
-        const liveGroups = groupsHook.groups;
-        const liveViewTransform = canvasHook.viewTransform;
-        const liveNodeIdCounter = nodesHook.nodeIdCounter.current;
-
-        const prevState = currentTab.state;
-
-        // Prevent redundant updates using reference equality
-        const isIdentical =
-            prevState.nodes === liveNodes &&
-            prevState.connections === liveConnections &&
-            prevState.groups === liveGroups &&
-            prevState.viewTransform === liveViewTransform &&
-            prevState.fullSizeImageCache === fullSizeImageCache &&
-            prevState.nodeIdCounter === liveNodeIdCounter;
-
-        if (isIdentical) return;
-
-        const stateToSave: CanvasState = {
-            nodes: liveNodes,
-            connections: liveConnections,
-            groups: liveGroups,
-            viewTransform: liveViewTransform,
-            nodeIdCounter: liveNodeIdCounter,
-            fullSizeImageCache: fullSizeImageCache,
-        };
-
-        setTabs(prevTabs =>
-            prevTabs.map(tab => (tab.id === activeTabId ? { ...tab, state: stateToSave } : tab))
-        );
-    }, [
-        nodesHook.nodes,
-        connectionsHook.connections,
-        groupsHook.groups,
-        canvasHook.viewTransform,
-        fullSizeImageCache,
         activeTabId,
-        tabsHook.isLoaded,
-        setTabs
-    ]);
-
-    // Produces the 100% accurate, complete snapshot of all tabs by merging live active canvas
-    const getCompleteProjectState = useCallback((): { tabs: Tab[], activeTabId: string } => {
-        const liveState: CanvasState = {
-            nodes: nodesHook.nodes,
-            connections: connectionsHook.connections,
-            groups: groupsHook.groups,
-            viewTransform: canvasHook.viewTransform,
-            nodeIdCounter: nodesHook.nodeIdCounter.current,
-            fullSizeImageCache: fullSizeImageCache,
-        };
-
-        const latestTabs = tabs.map(tab => 
-            tab.id === activeTabId ? { ...tab, state: liveState } : tab
-        );
-
-        return { tabs: latestTabs, activeTabId };
-    }, [nodesHook.nodes, connectionsHook.connections, groupsHook.groups, canvasHook.viewTransform, nodesHook.nodeIdCounter, fullSizeImageCache, tabs, activeTabId]);
-
-    const getCompleteProjectStateRef = useRef(getCompleteProjectState);
-    getCompleteProjectStateRef.current = getCompleteProjectState;
-
-    // Force save session to IndexedDB immediately (e.g. before exit, manual save, or batch finish)
-    const forceSaveSession = useCallback(async (overrideTabs?: Tab[], overrideActiveTabId?: string, isSnapshot = true): Promise<void> => {
-        if (!tabsHook.isLoaded || isLoadingStateRef.current) throw new Error(t('settings.sessionStillLoading'));
-        setIsAutoSaving(true);
-        try {
-            let tabsToSave: Tab[];
-            let activeTabIdToSave: string;
-
-            if (overrideTabs && overrideActiveTabId) {
-                tabsToSave = overrideTabs;
-                activeTabIdToSave = overrideActiveTabId;
-            } else {
-                const snapshot = getCompleteProjectStateRef.current();
-                tabsToSave = snapshot.tabs;
-                activeTabIdToSave = snapshot.activeTabId;
-                setTabs(tabsToSave);
-            }
-
-            const activeTab = (activeTabIdToSave ? tabsToSave.find(t => t.id === activeTabIdToSave) : null) || tabsToSave[0];
-            let screenshot = '';
-            try { screenshot = activeTab?.state ? generateCanvasScreenshot(activeTab.state) : ''; }
-            catch (error) { console.warn('Could not create session preview:', error); }
-
-            await saveSessionToDB(tabsToSave, activeTabIdToSave, screenshot, isSnapshot);
-            playAutosaveSound();
-        } catch (e) {
-            console.error("Failed to save session:", e);
-            throw e;
-        } finally {
-            setIsAutoSaving(false);
-        }
-    }, [tabsHook.isLoaded, setTabs, setIsAutoSaving, t]);
-
-    // Central Auto-Save Timer (runs strictly on intervalSeconds cadence without resetting on canvas events)
-    useEffect(() => {
-        if (!tabsHook.isLoaded) return;
-
-        if (new URLSearchParams(window.location.search).has('detachedNodeId')) return;
-
-        const intervalSeconds = globalState.autoSaveInterval;
-        if (intervalSeconds <= 0) {
-            setNextAutoSaveTime(null);
-            return;
-        }
-
-        const intervalMs = intervalSeconds * 1000;
-        setNextAutoSaveTime(Date.now() + intervalMs);
-
-        const stopAutosave = startSessionAutosave(intervalMs, () => !isLoadingStateRef.current, async () => {
-
-            setIsAutoSaving(true);
-            try {
-                const snapshot = getCompleteProjectStateRef.current();
-                const activeTab = (snapshot.activeTabId ? snapshot.tabs.find(t => t.id === snapshot.activeTabId) : null) || snapshot.tabs[0];
-                let screenshot = '';
-                try { screenshot = activeTab?.state ? generateCanvasScreenshot(activeTab.state) : ''; }
-                catch (error) { console.warn('Could not create session preview:', error); }
-
-                // Save with isSnapshot = true to create a persistent snapshot in autosave history
-                await saveSessionToDB(snapshot.tabs, snapshot.activeTabId, screenshot, true);
-                addToast(t('toast.autoSaved'), 'success');
-                playAutosaveSound();
-            } catch (e) {
-                console.error("Failed to auto-save session:", e);
-                addToast(t('settings.sessionSaveFailed'), 'error');
-            } finally {
-                setIsAutoSaving(false);
-                setNextAutoSaveTime(Date.now() + intervalMs);
-            }
-        });
-
-        return stopAutosave;
-    }, [
-        globalState.autoSaveInterval,
-        tabsHook.isLoaded,
+        setActiveTabId,
+        isTabsLoaded: tabsHook.isLoaded,
+        getLocalizedCanvasState,
         setNextAutoSaveTime,
         setIsAutoSaving,
+        autoSaveInterval: globalState.autoSaveInterval,
+        nodes: nodesHook.nodes,
+        setNodes: nodesHook.setNodes,
+        connections: connectionsHook.connections,
+        setConnections: connectionsHook.setConnections,
+        groups: groupsHook.groups,
+        setGroups: groupsHook.setGroups,
+        viewTransform: canvasHook.viewTransform,
+        setViewTransform: canvasHook.setViewTransform,
+        nodeIdCounter: nodesHook.nodeIdCounter,
+        fullSizeImageCache,
+        setFullSizeImageCache,
         addToast,
         t
-    ]);
+    });
 
-    // Robust Tab Handlers that coordinate live canvas hooks with tabs array
-    const handleSwitchTab = useCallback((targetTabId: string) => {
-        if (targetTabId === activeTabId) return;
+    const {
+        getCurrentCanvasState,
+        loadCanvasState,
+        restoreSession,
+        forceSaveSession,
+        handleSwitchTab,
+        handleAddTab,
+        handleRenameTab,
+        handleReorderTabs,
+        resetTabs,
+        resetCurrentTab,
+        resetCanvasToDefault,
+        isCanvasLoading
+    } = sessionHook;
 
-        const targetTab = tabs.find(t => t.id === targetTabId);
-        if (!targetTab) return;
-
-        // 1. Snapshot current active tab
-        const currentLiveState: CanvasState = {
-            nodes: nodesHook.nodes,
-            connections: connectionsHook.connections,
-            groups: groupsHook.groups,
-            viewTransform: canvasHook.viewTransform,
-            nodeIdCounter: nodesHook.nodeIdCounter.current,
-            fullSizeImageCache: fullSizeImageCache,
-        };
-
-        // 2. Prevent race conditions
-        isLoadingStateRef.current = true;
-        lastLoadedTabIdRef.current = targetTabId;
-
-        // 3. Update tabs array
-        const updatedTabs = tabs.map(tab => 
-            tab.id === activeTabId ? { ...tab, state: currentLiveState } : tab
-        );
-        setTabs(updatedTabs);
-        setActiveTabId(targetTabId);
-
-        // 4. Directly load target tab's canvas state into canvas hooks
-        nodesHook.setNodes(targetTab.state.nodes || []);
-        connectionsHook.setConnections(targetTab.state.connections || []);
-        groupsHook.setGroups(targetTab.state.groups || []);
-        canvasHook.setViewTransform(targetTab.state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
-        nodesHook.nodeIdCounter.current = targetTab.state.nodeIdCounter || 0;
-        setFullSizeImageCache(targetTab.state.fullSizeImageCache || {});
-
-        // 5. Persist the updated snapshot immediately
-        saveSessionToDB(updatedTabs, targetTabId).catch(error => console.error('Background session save failed:', error));
-
-        setTimeout(() => {
-            isLoadingStateRef.current = false;
-        }, 80);
-    }, [
-        activeTabId,
-        tabs,
-        setTabs,
-        setActiveTabId,
-        nodesHook.nodes,
-        nodesHook.setNodes,
-        connectionsHook.connections,
-        connectionsHook.setConnections,
-        groupsHook.groups,
-        groupsHook.setGroups,
-        canvasHook.viewTransform,
-        canvasHook.setViewTransform,
-        nodesHook.nodeIdCounter,
-        fullSizeImageCache,
-        setFullSizeImageCache
-    ]);
-
-    const handleAddTab = useCallback((customName?: string | unknown) => {
-        const currentLiveState: CanvasState = {
-            nodes: nodesHook.nodes,
-            connections: connectionsHook.connections,
-            groups: groupsHook.groups,
-            viewTransform: canvasHook.viewTransform,
-            nodeIdCounter: nodesHook.nodeIdCounter.current,
-            fullSizeImageCache: fullSizeImageCache,
-        };
-
-        const safeName = typeof customName === 'string' && customName.trim() ? customName.trim() : `Canvas ${tabs.length + 1}`;
-        const newTab = createNewTab(safeName);
-
-        isLoadingStateRef.current = true;
-        lastLoadedTabIdRef.current = newTab.id;
-
-        const updatedTabs = tabs.map(tab => 
-            tab.id === activeTabId ? { ...tab, state: currentLiveState } : tab
-        ).concat(newTab);
-
-        setTabs(updatedTabs);
-        setActiveTabId(newTab.id);
-
-        nodesHook.setNodes(newTab.state.nodes || []);
-        connectionsHook.setConnections(newTab.state.connections || []);
-        groupsHook.setGroups(newTab.state.groups || []);
-        canvasHook.setViewTransform(newTab.state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
-        nodesHook.nodeIdCounter.current = newTab.state.nodeIdCounter || 0;
-        setFullSizeImageCache(newTab.state.fullSizeImageCache || {});
-
-        saveSessionToDB(updatedTabs, newTab.id).catch(error => console.error('Background session save failed:', error));
-
-        setTimeout(() => {
-            isLoadingStateRef.current = false;
-        }, 80);
-    }, [
-        activeTabId,
-        tabs,
-        setTabs,
-        setActiveTabId,
-        nodesHook.nodes,
-        nodesHook.setNodes,
-        connectionsHook.connections,
-        connectionsHook.setConnections,
-        groupsHook.groups,
-        groupsHook.setGroups,
-        canvasHook.viewTransform,
-        canvasHook.setViewTransform,
-        nodesHook.nodeIdCounter,
-        fullSizeImageCache,
-        setFullSizeImageCache
-    ]);
-
-    const handleCloseTab = useCallback((tabIdToClose: string) => {
-        clearImagesForTabFromCache(tabIdToClose);
-        if (tabs.length <= 1) return; // Keep at least one tab
-
-        const closingIndex = tabs.findIndex(t => t.id === tabIdToClose);
-        const newTabs = tabs.filter(t => t.id !== tabIdToClose);
-
-        if (activeTabId === tabIdToClose) {
-            const nextActiveIndex = Math.max(0, closingIndex - 1);
-            const nextActiveTab = newTabs[nextActiveIndex] || newTabs[0];
-
-            isLoadingStateRef.current = true;
-            lastLoadedTabIdRef.current = nextActiveTab.id;
-
-            setTabs(newTabs);
-            setActiveTabId(nextActiveTab.id);
-
-            nodesHook.setNodes(nextActiveTab.state.nodes || []);
-            connectionsHook.setConnections(nextActiveTab.state.connections || []);
-            groupsHook.setGroups(nextActiveTab.state.groups || []);
-            canvasHook.setViewTransform(nextActiveTab.state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
-            nodesHook.nodeIdCounter.current = nextActiveTab.state.nodeIdCounter || 0;
-            setFullSizeImageCache(nextActiveTab.state.fullSizeImageCache || {});
-
-            saveSessionToDB(newTabs, nextActiveTab.id).catch(error => console.error('Background session save failed:', error));
-
-            setTimeout(() => {
-                isLoadingStateRef.current = false;
-            }, 80);
-        } else {
-            setTabs(newTabs);
-            saveSessionToDB(newTabs, activeTabId).catch(error => console.error('Background session save failed:', error));
-        }
-    }, [tabs, activeTabId, setTabs, setActiveTabId, nodesHook.setNodes, connectionsHook.setConnections, groupsHook.setGroups, canvasHook.setViewTransform, setFullSizeImageCache, clearImagesForTabFromCache]);
-
-    const handleRenameTab = useCallback((tabId: string, newName: string) => {
-        setTabs(prevTabs => {
-            const updated = prevTabs.map(tab => (tab.id === tabId ? { ...tab, name: newName } : tab));
-            saveSessionToDB(updated, activeTabId).catch(error => console.error('Background session save failed:', error));
-            return updated;
-        });
-    }, [setTabs, activeTabId]);
-
-    const handleReorderTabs = useCallback((sourceIndex: number, targetIndex: number) => {
-        if (sourceIndex === targetIndex) return;
-        const currentLiveState: CanvasState = {
-            nodes: nodesHook.nodes,
-            connections: connectionsHook.connections,
-            groups: groupsHook.groups,
-            viewTransform: canvasHook.viewTransform,
-            nodeIdCounter: nodesHook.nodeIdCounter.current,
-            fullSizeImageCache: fullSizeImageCache,
-        };
-
-        setTabs(prevTabs => {
-            if (
-                sourceIndex < 0 || sourceIndex >= prevTabs.length ||
-                targetIndex < 0 || targetIndex >= prevTabs.length
-            ) {
-                return prevTabs;
-            }
-            const updated = prevTabs.map(t => t.id === activeTabId ? { ...t, state: currentLiveState } : t);
-            const [moved] = updated.splice(sourceIndex, 1);
-            updated.splice(targetIndex, 0, moved);
-            
-            saveSessionToDB(updated, activeTabId).catch(error => console.error('Background session save failed:', error));
-            return updated;
-        });
-    }, [
-        activeTabId,
-        nodesHook.nodes,
-        connectionsHook.connections,
-        groupsHook.groups,
-        canvasHook.viewTransform,
-        nodesHook.nodeIdCounter,
-        fullSizeImageCache,
-        setTabs
-    ]);
-
-    const resetTabs = useCallback(async (lang: LanguageCode) => {
-        const defaultState = getLocalizedCanvasState(lang);
-        const newTab = createNewTab('Canvas 1', defaultState);
-        restoreSession([newTab], newTab.id);
-        await saveSessionToDB([newTab], newTab.id);
-    }, [getLocalizedCanvasState, restoreSession]);
-
-    const resetCurrentTab = useCallback((lang: LanguageCode) => {
-        const defaultState = getLocalizedCanvasState(lang);
-        isLoadingStateRef.current = true;
-        loadCanvasState(defaultState);
-
-        setTabs(prev => {
-            const updated = prev.map(tab => 
-                tab.id === activeTabId ? { ...tab, state: defaultState } : tab
-            );
-            saveSessionToDB(updated, activeTabId).catch(error => console.error('Background session save failed:', error));
-            return updated;
-        });
-    }, [activeTabId, getLocalizedCanvasState, loadCanvasState, setTabs]);
-
-    const resetCanvasToDefault = useCallback((lang: LanguageCode) => {
-        resetTabs(lang);
-    }, [resetTabs]);
-
-    // Derived Action Hooks
+    // Derived Action Hooks & Batch Job tracking
     const activeTabIdRef = useRef(activeTabId);
     useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
-
     const batchJobsRef = useRef<any[]>([]);
 
     const entityActionsHook = useEntityActions({
@@ -615,8 +166,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const scriptCatalogHook = useContentCatalog('script-catalog', t('catalog.tabs.scripts'), t, 'scripts', onRedirectImportProxy);
     const sequenceCatalogHook = useContentCatalog('sequence-catalog', t('catalog.tabs.sequences'), t, 'sequences', onRedirectImportProxy);
 
-    // Google Drive Hook (Initialized with access to current state)
-    // IMPORTANT: Inject library import function so sync can update it
+    // Google Drive Hook
     const googleDriveHook = useGoogleDrive({
         addToast,
         getCurrentCanvasState,
@@ -631,29 +181,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         scriptCatalog: scriptCatalogHook,
         sequenceCatalog: sequenceCatalogHook,
         t,
-        // We inject the library importer here by monkey-patching the libraryItems logic in useGoogleDrive
-        // Actually we need to modify useGoogleDrive signature first.
-        // For now, useGoogleDrive will rely on the passed references. 
-        // We need to pass libraryHook.importItemsData to enable library sync.
     });
-    
-    // Injecting import capability for library into Google Drive Sync manually
-    // Since useGoogleDrive doesn't natively accept 'importLibrary' yet, 
-    // we override handleSyncCatalogs behavior or pass it if updated.
-    // The previous step updated useGoogleDrive.ts, now we ensure it uses the right data.
-    
-    // The previous update to useGoogleDrive.ts didn't explicitly add importLibrary as a prop. 
-    // It iterates files and checks catalogContext. 
-    // If context is 'library', it needs a way to call libraryHook.importItemsData.
-    // Since I can't easily change the hook signature in the XML block for AppContext without providing the full file...
-    // Wait, I AM providing the full AppContext file here.
-    
-    // BUT I need to pass it to useGoogleDrive.
-    // I will modify the hook usage below.
 
-    // ... (rest of the file as is)
-
-    // Gemini Hooks
+    // Task Queue & Generation Hooks
     const taskQueueHook = useTaskQueue();
 
     const geminiAnalysisHook = useGeminiAnalysis({
@@ -666,12 +196,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const updateNodeInStorage = useCallback((targetTabId: string, nodeId: string, valueUpdater: (prevVal: any) => any, imageCacheUpdate?: { frame: number, url: string }) => {
         const safeParse = (val: string) => {
-            try { 
+            try {
                 const parsed = JSON.parse(val || '{}');
                 return parsed;
-            } catch { 
-                return val; 
-            } 
+            } catch {
+                return val;
+            }
         };
 
         if (activeTabIdRef.current === targetTabId) {
@@ -697,7 +227,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         }
                         return n;
                     });
-                    
+
                     let newCache = tab.state.fullSizeImageCache || {};
                     if (imageCacheUpdate) {
                         newCache = {
@@ -725,23 +255,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return nodes?.find(node => node.id === nodeId);
     }, []);
 
-    const cacheProtectionState = {
-        loaded: tabsHook.isLoaded, tabs, activeTabId, nodes: nodesHook.nodes, fullSizeImageCache, canvasState: getCurrentCanvasState(),
-        tasks: taskQueueHook.tasks, history: generationHistoryHook.historyItems,
+    // 2. Cache Cleanup Subsystem
+    const cacheCleanupHook = useCacheCleanup({
+        isTabsLoaded: tabsHook.isLoaded,
+        tabs,
+        setTabs,
+        activeTabId,
+        nodes: nodesHook.nodes,
+        fullSizeImageCache,
+        setFullSizeImageCache,
+        getCurrentCanvasState,
+        tasks: taskQueueHook.tasks,
+        historyItems: generationHistoryHook.historyItems,
         catalogs: [catalogHook.catalogItems, libraryHook.libraryItems, characterCatalogHook.items, scriptCatalogHook.items, sequenceCatalogHook.items],
-        previews: [globalState.globalImageEditor] as unknown[],
-        deletedNodes: entityActionsHook.getDeletedNodeCacheReferences
-    };
-    const cacheProtectionRef = useRef(cacheProtectionState);
-    cacheProtectionRef.current = cacheProtectionState;
-    const getCacheProtection = useCallback(async () => {
-        if (!cacheProtectionRef.current.loaded) throw new Error('Session is still loading');
-        const persistent = await readPersistentCacheProtection();
-        const current = cacheProtectionRef.current;
-        const canvases = current.tabs.map((tab: Tab) => tab.id === current.activeTabId
-            ? { ...tab.state, nodes: current.nodes, fullSizeImageCache: current.fullSizeImageCache } : tab.state);
-        return [...persistent, ...canvases, current.tasks, current.history, current.catalogs, current.previews, current.deletedNodes()];
-    }, []);
+        globalImageEditor: globalState.globalImageEditor,
+        imageViewer: null, // Will be registered with dialogsHook
+        getDeletedNodeCacheReferences: entityActionsHook.getDeletedNodeCacheReferences,
+        clearUnusedBatchCache: () => batchManagerHook.clearUnusedBatchCache(),
+        addToast,
+        t
+    });
+
+    const { clearUnusedFullSizeImages, getCacheProtection } = cacheCleanupHook;
 
     const batchManagerHook = useBatchManager({
         getCacheProtection,
@@ -757,33 +292,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         t
     });
     batchJobsRef.current = batchManagerHook.batchJobs;
-
-    const cacheCleanupRef = useRef(false);
-    const clearUnusedFullSizeImages = useCallback(async () => {
-        if (cacheCleanupRef.current) return;
-        cacheCleanupRef.current = true;
-        try {
-            const roots = await getCacheProtection();
-            const references = collectCacheReferences(roots);
-            const current = cacheProtectionRef.current;
-            let removed = 0;
-            const cleanedTabs = current.tabs.map((tab: Tab) => {
-                const isActive = tab.id === current.activeTabId;
-                const state = isActive ? { ...tab.state, ...current.canvasState } : tab.state;
-                const cleaned = pruneCanvasImageCache(state.nodes, state.fullSizeImageCache || {}, references.images);
-                removed += cleaned.removed;
-                return { ...tab, state: { ...state, fullSizeImageCache: cleaned.cache } };
-            });
-            setFullSizeImageCache(cleanedTabs.find((tab: Tab) => tab.id === current.activeTabId)?.state.fullSizeImageCache || {});
-            setTabs(cleanedTabs);
-            await saveSessionToDB(cleanedTabs, current.activeTabId);
-            addToast(t('cache.imagesCleared').replace('{count}', String(removed)), 'info');
-            await batchManagerHook.clearUnusedBatchCache();
-        } catch (error) {
-            console.error('Unused cache cleanup failed:', error);
-            addToast(t('batch.cacheCleanupFailed'), 'error');
-        } finally { cacheCleanupRef.current = false; }
-    }, [getCacheProtection, getCurrentCanvasState, setFullSizeImageCache, setTabs, batchManagerHook.clearUnusedBatchCache, addToast, t]);
 
     const geminiConversationHook = useGeminiConversation({
         nodes: nodesHook.nodes, setNodes: nodesHook.setNodes, setError: globalState.setError, t, getUpstreamNodeValues, activeTabId, setTabs
@@ -884,9 +392,66 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     const dialogsHook = useDialogsAndUI({
-        setGroups: groupsHook.setGroups, renameCatalogItem: catalogHook.renameCatalogItem, updateLibraryItem: libraryHook.updateLibraryItem, handleRenameTab: handleRenameTab, handleCloseTab: handleCloseTab, handleRenameNode: nodesHook.handleRenameNode, getCurrentCanvasState: getCurrentCanvasState, loadCanvasState, tabs, activeTabId, t, characterCatalog: characterCatalogHook, scriptCatalog: scriptCatalogHook, sequenceCatalog: sequenceCatalogHook,
+        setGroups: groupsHook.setGroups, renameCatalogItem: catalogHook.renameCatalogItem, updateLibraryItem: libraryHook.updateLibraryItem, handleRenameTab: handleRenameTab, handleCloseTab: sessionHook.handleCloseTab, handleRenameNode: nodesHook.handleRenameNode, getCurrentCanvasState: getCurrentCanvasState, loadCanvasState, tabs, activeTabId, t, characterCatalog: characterCatalogHook, scriptCatalog: scriptCatalogHook, sequenceCatalog: sequenceCatalogHook,
     });
-    cacheProtectionRef.current.previews.push(dialogsHook.imageViewer);
+
+    // 3. Catalog and Entity Dispatch Subsystem
+    const catalogDispatchHook = useCatalogAndEntityDispatch({
+        nodes: nodesHook.nodes,
+        setNodes: nodesHook.setNodes,
+        connections: connectionsHook.connections,
+        groups: groupsHook.groups,
+        setGroups: groupsHook.setGroups,
+        fullSizeImageCache,
+        setFullSizeImage,
+        getFullSizeImage,
+        handleValueChange: nodesHook.handleValueChange,
+        onAddNode: entityActionsHook.onAddNode,
+        deleteNodeAndConnections: entityActionsHook.deleteNodeAndConnections,
+        characterCatalog: characterCatalogHook,
+        scriptCatalog: scriptCatalogHook,
+        sequenceCatalog: sequenceCatalogHook,
+        catalogHook,
+        addToast,
+        t
+    });
+
+    const {
+        handleDetachNodeFromGroup,
+        handleRemoveGroup,
+        handleSaveGroupToCatalog,
+        handleSaveGroupToDisk,
+        handleDetachAndPasteConcept,
+        onDetachImageToNode,
+        onSaveCharacterToCatalog,
+        onSaveGeneratedCharacterToCatalog,
+        onSaveScriptToCatalog,
+        onSaveSequenceToCatalog
+    } = catalogDispatchHook;
+
+    // 4. Media and Image Actions Subsystem
+    const mediaActionsHook = useMediaAndImageActions({
+        nodes: nodesHook.nodes,
+        setNodes: nodesHook.setNodes,
+        connections: connectionsHook.connections,
+        setConnections: connectionsHook.setConnections,
+        viewTransform: canvasHook.viewTransform,
+        setViewTransform: canvasHook.setViewTransform,
+        getUpstreamNodeValues,
+        handleValueChange: nodesHook.handleValueChange,
+        onAddNode: entityActionsHook.onAddNode,
+        setSelectedNodeIds,
+        addToast,
+        t
+    });
+
+    const {
+        onDownloadImageFromUrl,
+        onCopyImageToClipboard,
+        onReadData,
+        handleSplitConnection,
+        handleNavigateToNodeFrame
+    } = mediaActionsHook;
 
     // Orchestration Hook
     const orchestrationHook = useAppOrchestration(
@@ -900,15 +465,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         orchestrationRef.current = orchestrationHook;
     }, [orchestrationHook]);
 
-    // ... (rest of wrapper functions) ...
-
-    // To properly support Library Sync, we need to extend the useGoogleDrive hook to accept importLibrary
-    // Since I can't edit that hook in this block, I'll rely on the existing structure where 'libraryItems' is passed.
-    // If the hook uses 'libraryItems' for upload, that works.
-    // For download/sync, we might need a dedicated `importLibrary` prop in `useGoogleDrive`.
-    // I will assume for now that standard catalog sync covers characters/sequences which were the main request.
-    // For library sync, the user can manually export/import JSON if auto-sync isn't wired yet.
-
     const handleAddNodeAndConnectWrapper = useCallback((nodeType: NodeType) => {
         if (dialogsHook.connectionQuickAddInfo) {
             orchestrationHook.handleAddNodeAndConnect(
@@ -918,282 +474,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             );
         }
     }, [dialogsHook.connectionQuickAddInfo, dialogsHook.handleCloseConnectionQuickAdd, orchestrationHook]);
-
-    const handleDetachNodeFromGroup = useCallback((nodeId: string) => {
-        const currentNodes = nodesHook.nodes;
-        groupsHook.setGroups(currentGroups => {
-            const groupContainingNode = currentGroups.find(g => g.nodeIds.includes(nodeId));
-            if (!groupContainingNode) return currentGroups;
-            const newNodeIds = groupContainingNode.nodeIds.filter(id => id !== nodeId);
-            if (newNodeIds.length > 0) {
-                const remainingNodes = currentNodes.filter(n => newNodeIds.includes(n.id));
-                const newBounds = calculateGroupBounds(remainingNodes);
-                if (newBounds) {
-                    return currentGroups.map(g => g.id === groupContainingNode.id ? { ...g, nodeIds: newNodeIds, ...newBounds } : g);
-                }
-                return currentGroups.map(g => g.id === groupContainingNode.id ? { ...g, nodeIds: newNodeIds } : g);
-            } else {
-                return currentGroups.filter(g => g.id !== groupContainingNode.id);
-            }
-        });
-    }, [groupsHook.setGroups, nodesHook.nodes]);
-    
-    // ... (rest of handlers) ...
-    
-    const handleRemoveGroup = useCallback((groupId: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (e.shiftKey) {
-            const group = groupsHook.groups.find(g => g.id === groupId);
-            if (group) {
-                group.nodeIds.forEach(id => entityActionsHook.deleteNodeAndConnections(id));
-            }
-            groupsHook.removeGroup(groupId);
-            addToast(t('toast.groupDeleted'), 'info');
-        } else {
-            groupsHook.removeGroup(groupId);
-        }
-    }, [groupsHook, entityActionsHook, addToast, t]);
-
-    const handleSaveGroupToCatalog = useCallback((groupId: string) => {
-        const group = groupsHook.groups.find(g => g.id === groupId);
-        if (!group) return;
-        catalogHook.saveGroupToCatalog(group, nodesHook.nodes, connectionsHook.connections, globalState.fullSizeImageCache);
-        addToast(t('alert.groupSaved', { groupTitle: group.title }), 'success');
-    }, [groupsHook, nodesHook, connectionsHook, globalState.fullSizeImageCache, catalogHook, addToast, t]);
-
-    const handleSaveGroupToDisk = useCallback((groupId: string) => {
-         const group = groupsHook.groups.find(g => g.id === groupId);
-         if (!group) return;
-         
-         const groupNodes = nodesHook.nodes.filter(n => group.nodeIds.includes(n.id));
-         const groupNodeIds = new Set(groupNodes.map(n => n.id));
-         const groupConnections = connectionsHook.connections.filter(c => groupNodeIds.has(c.fromNodeId) && groupNodeIds.has(c.toNodeId));
-         
-         const images: Record<string, Record<number, string>> = {};
-         groupNodes.forEach(n => {
-             if (globalState.fullSizeImageCache[n.id]) {
-                 images[n.id] = globalState.fullSizeImageCache[n.id];
-             }
-         });
-
-         const data = {
-             type: 'prompModifierGroup',
-             name: group.title,
-             nodes: groupNodes,
-             connections: groupConnections,
-             fullSizeImages: images
-         };
-         
-         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-         const url = URL.createObjectURL(blob);
-         const a = document.createElement('a');
-         a.href = url;
-         a.download = `${group.title.replace(/\s+/g, '_')}_Group.json`;
-         a.click();
-         URL.revokeObjectURL(url);
-         addToast(t('toast.groupSavedToDisk', { groupTitle: group.title }), 'success');
-    }, [groupsHook, nodesHook, connectionsHook, globalState.fullSizeImageCache, addToast, t]);
-
-    const handleDetachAndPasteConcept = useCallback((sequenceNodeId: string, conceptToPaste: any) => {
-        const sourceNode = nodesHook.nodes.find(n => n.id === sequenceNodeId);
-        const position = sourceNode 
-            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y } 
-            : { x: 0, y: 0 };
-            
-        const newNodeId = entityActionsHook.onAddNode(NodeType.CHARACTER_CARD, position, conceptToPaste.name);
-        
-        const cardData = [{
-            id: `char-card-${Date.now()}`,
-            name: conceptToPaste.name || 'New Entity',
-            index: conceptToPaste.index || 'Entity-1',
-            image: conceptToPaste.image,
-            thumbnails: { '1:1': conceptToPaste.image, '16:9': null, '9:16': null },
-            selectedRatio: '1:1',
-            prompt: conceptToPaste.prompt || '',
-            fullDescription: conceptToPaste.fullDescription || '',
-            isOutput: true,
-            isActive: true
-        }];
-        
-        if (conceptToPaste._fullResImage) {
-             setFullSizeImage(newNodeId, 0, conceptToPaste._fullResImage);
-             setFullSizeImage(newNodeId, 1, conceptToPaste._fullResImage); 
-        } else if (conceptToPaste.image && conceptToPaste.image.startsWith('data:')) {
-             setFullSizeImage(newNodeId, 0, conceptToPaste.image);
-             setFullSizeImage(newNodeId, 1, conceptToPaste.image);
-        }
-
-        nodesHook.handleValueChange(newNodeId, JSON.stringify(cardData));
-        addToast(t('toast.pastedFromClipboard'), 'success');
-    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t, nodesHook]);
-
-    const onDetachImageToNode = useCallback((imageDataUrl: string, sourceNodeId: string) => {
-        const sourceNode = nodesHook.nodes.find(n => n.id === sourceNodeId);
-        const position = sourceNode 
-            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y } 
-            : { x: 0, y: 0 };
-            
-        const newNodeId = entityActionsHook.onAddNode(NodeType.IMAGE_INPUT, position);
-        
-        setFullSizeImage(newNodeId, 0, imageDataUrl);
-        generateThumbnail(imageDataUrl, 256, 256).then(thumb => {
-             nodesHook.handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: '' }));
-        });
-        
-        addToast(t('toast.pastedFromClipboard'), 'success');
-    }, [nodesHook, entityActionsHook, setFullSizeImage, addToast, t, nodesHook]);
-
-    const onSaveCharacterToCatalog = useCallback((nodeId: string, cardIndex?: number) => {
-        const node = nodesHook.nodes.find(n => n.id === nodeId);
-        if (!node || node.type !== NodeType.CHARACTER_CARD) return;
-
-        try {
-            let characters = JSON.parse(node.value || '[]');
-            if (!Array.isArray(characters)) characters = [characters];
-            
-            if (cardIndex !== undefined) {
-                 const char = characters[cardIndex];
-                 if (!char) return;
-                 
-                 // Resolve images
-                 const fullSources: Record<string, string | null> = { ...char.thumbnails };
-                 Object.entries(RATIO_INDICES).forEach(([ratio, index]) => {
-                    const fullRes = getFullSizeImage(nodeId, (cardIndex * 10) + index);
-                    if (fullRes) fullSources[ratio] = fullRes;
-                 });
-                 const activeImg = getFullSizeImage(nodeId, cardIndex * 10) || char.image;
-
-                 const dataToSave = {
-                    type: 'character-card',
-                    name: char.name,
-                    index: char.index,
-                    image: activeImg,
-                    imageSources: fullSources,
-                    prompt: char.prompt,
-                    fullDescription: char.fullDescription,
-                    selectedRatio: char.selectedRatio,
-                    additionalPrompt: char.additionalPrompt
-                 };
-                 
-                 characterCatalogHook.createItem(ContentCatalogItemType.ITEM, char.name || 'New Character', JSON.stringify(dataToSave));
-                 addToast(t('toast.characterSavedCatalog'), 'success');
-
-            } else {
-                 const allDataToSave = characters.map((char: any, i: number) => {
-                     const fullSources: Record<string, string | null> = { ...(char.thumbnails || char.imageSources || {}) };
-                     Object.entries(RATIO_INDICES).forEach(([ratio, index]) => {
-                        const fullRes = getFullSizeImage(nodeId, (i * 10) + index);
-                        if (fullRes) fullSources[ratio] = fullRes;
-                     });
-                     
-                     const activeImg = getFullSizeImage(nodeId, i * 10) || char.image;
-
-                     return {
-                        id: char.id || `char-${Date.now()}-${i}`,
-                        type: 'character-card',
-                        name: char.name,
-                        index: char.index,
-                        image: activeImg,
-                        imageSources: fullSources,
-                        prompt: char.prompt,
-                        fullDescription: char.fullDescription,
-                        selectedRatio: char.selectedRatio,
-                        additionalPrompt: char.additionalPrompt,
-                        isActive: char.isActive
-                     };
-                 });
-                 
-                 const collectionName = node.title || 'Character Collection';
-                 
-                 characterCatalogHook.createItem(
-                     ContentCatalogItemType.ITEM, 
-                     collectionName, 
-                     JSON.stringify(allDataToSave)
-                 );
-                 addToast(t('toast.characterSavedCatalog') + " (All)", 'success');
-            }
-        } catch (e) {
-            console.error("Failed to save character to catalog", e);
-             addToast("Failed to save to catalog", 'error');
-        }
-    }, [nodesHook.nodes, characterCatalogHook, getFullSizeImage, addToast, t]);
-
-    const onSaveGeneratedCharacterToCatalog = useCallback((characterData: any) => {
-        if (!characterData) return;
-        
-        const dataToSave = {
-            type: 'character-card', 
-            name: characterData.name,
-            index: characterData.alias || characterData.index,
-            image: characterData.imageBase64 ? `data:image/png;base64,${characterData.imageBase64}` : null,
-            imageSources: characterData.imageBase64 ? { '1:1': `data:image/png;base64,${characterData.imageBase64}` } : {},
-            prompt: characterData.prompt,
-            fullDescription: characterData.fullDescription,
-            selectedRatio: '1:1',
-            additionalPrompt: characterData.additionalPrompt
-        };
-
-        characterCatalogHook.createItem(ContentCatalogItemType.ITEM, characterData.name || 'Generated Character', JSON.stringify(dataToSave));
-        addToast(t('toast.characterSavedCatalog'), 'success');
-    }, [characterCatalogHook, addToast, t]);
-
-    const onSaveScriptToCatalog = useCallback((nodeId: string) => {
-        const node = nodesHook.nodes.find(n => n.id === nodeId);
-        if (!node) return;
-        
-        if (node.type === NodeType.SCRIPT_GENERATOR || node.type === NodeType.SCRIPT_VIEWER) {
-             scriptCatalogHook.createItem(ContentCatalogItemType.ITEM, node.title || 'New Script', node.value);
-             addToast("Script saved to catalog", 'success');
-        }
-    }, [nodesHook.nodes, scriptCatalogHook, addToast]);
-
-    const onSaveSequenceToCatalog = useCallback((nodeId: string) => {
-        const node = nodesHook.nodes.find(n => n.id === nodeId);
-        if (!node) return;
-
-        if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {
-            try {
-                const data = JSON.parse(node.value || '{}');
-                const contentToSave = {
-                    type: 'script-prompt-modifier-data', 
-                    title: node.title,
-                    usedCharacters: data.usedCharacters,
-                    sceneContexts: data.sceneContexts,
-                    finalPrompts: (data.prompts || []).map((p:any) => ({
-                         frameNumber: p.frameNumber,
-                         sceneNumber: p.sceneNumber,
-                         sceneTitle: p.sceneTitle,
-                         characters: p.characters,
-                         duration: p.duration,
-                         prompt: p.prompt,
-                         shotType: p.shotType
-                    })),
-                    videoPrompts: (data.prompts || []).map((p:any) => ({
-                         frameNumber: p.frameNumber,
-                         videoPrompt: p.videoPrompt
-                    })),
-                    styleOverride: data.styleOverride
-                };
-                
-                sequenceCatalogHook.createItem(ContentCatalogItemType.ITEM, node.title || 'New Sequence', JSON.stringify(contentToSave));
-                addToast("Sequence saved to catalog", 'success');
-            } catch(e) { console.error(e); }
-        } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
-            try {
-                const data = JSON.parse(node.value || '{}');
-                const contentToSave = {
-                    type: 'script-prompt-modifier-data',
-                    title: node.title,
-                    usedCharacters: data.usedCharacters,
-                    sceneContexts: data.sceneContexts,
-                    finalPrompts: data.modifiedPrompts || data.sourcePrompts || [], 
-                    styleOverride: data.styleOverride
-                };
-                 sequenceCatalogHook.createItem(ContentCatalogItemType.ITEM, node.title || 'New Sequence', JSON.stringify(contentToSave));
-                 addToast("Sequence saved to catalog", 'success');
-            } catch(e) { console.error(e); }
-        }
-    }, [nodesHook.nodes, sequenceCatalogHook, addToast]);
 
     const setIsHistoryPanelOpen = useCallback((action: React.SetStateAction<boolean>) => {
         generationHistoryHook.setIsHistoryPanelOpen(prev => {
@@ -1328,14 +608,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activeTabId: activeTabId,
         handleRenameTab: handleRenameTab,
         handleRemoveGroup,
-        isImageDropMenuEnabled: globalState.isImageDropMenuEnabled 
+        isImageDropMenuEnabled: globalState.isImageDropMenuEnabled
     });
 
     const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
         const target = e.target as Element;
         if (target.closest('.node-view') || target.closest('.group-view') || target.closest('.connection-view') || target.closest('input, textarea, button, a, select')) return;
-        
-        // Suppress context menu if the user was holding right click to drag the canvas
+
         if (interactionHook.wasRightClickPan && interactionHook.wasRightClickPan()) {
             e.preventDefault();
             return;
@@ -1349,7 +628,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const performReset = () => {
             const defaultState = getLocalizedCanvasState(language);
             resetCurrentTab(language);
-            loadCanvasState(defaultState); // Immediately update UI
+            loadCanvasState(defaultState);
         };
 
         if (e?.shiftKey) {
@@ -1363,218 +642,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }, [resetCurrentTab, language, t, dialogsHook, getLocalizedCanvasState, loadCanvasState]);
 
-    const onDownloadImageFromUrl = useCallback((imageUrl: string, frameNumber: number, prompt: string, filenameOverride?: string) => {
-        let assetUrl = imageUrl;
-        if (imageUrl.startsWith('data:image/png')) {
-            assetUrl = addMetadataToPNG(imageUrl, 'prompt', prompt);
-        }
-        const link = document.createElement('a');
-        link.href = assetUrl;
-
-        if (filenameOverride) {
-            link.download = filenameOverride;
-        } else {
-            const now = new Date();
-            const date = now.toISOString().split('T')[0];
-            const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-            const padded = String(frameNumber).padStart(3, '0');
-            link.download = `Image_${padded}_${date}_${time}.png`;
-        }
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }, []);
-
-    const onCopyImageToClipboard = useCallback(async (imageUrl: string): Promise<void> => {
-        try {
-            if (imageUrl && imageUrl.startsWith('data:image')) {
-                const response = await fetch(imageUrl);
-                let blob = await response.blob();
-
-                // Convert to PNG if not already PNG
-                if (blob.type !== 'image/png') {
-                    try {
-                        const imageBitmap = await createImageBitmap(blob);
-                        const canvas = document.createElement('canvas');
-                        canvas.width = imageBitmap.width;
-                        canvas.height = imageBitmap.height;
-                        const ctx = canvas.getContext('2d');
-                        if (ctx) {
-                            ctx.drawImage(imageBitmap, 0, 0);
-                            const pngBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-                            if (pngBlob) blob = pngBlob;
-                        }
-                    } catch (e) {
-                        console.error('Failed to convert image to PNG:', e);
-                    }
-                }
-
-                await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-                addToast(t('toast.copiedToClipboard'));
-            } else {
-                addToast(t('toast.pasteFailed'), 'error');
-            }
-        } catch (err) {
-            console.error('Failed to copy image to clipboard:', err);
-            addToast(t('toast.pasteFailed'), 'error');
-        }
-    }, [addToast, t]);
-
-    // Refs to avoid frequent context updates when these change
-    const nodesRef = useRef(nodesHook.nodes);
-    nodesRef.current = nodesHook.nodes;
-
-    const viewTransformRef = useRef(canvasHook.viewTransform);
-    viewTransformRef.current = canvasHook.viewTransform;
-
-    const onReadData = useCallback((nodeId: string) => {
-        const currentNodes = nodesRef.current;
-        const node = currentNodes.find(n => n.id === nodeId);
-        if (!node) return;
-
-        const values = getUpstreamNodeValues(nodeId, undefined, currentNodes, false);
-
-        let text = '';
-        let image: string | null = null;
-        const images: string[] = [];
-        let mediaUrl: string | null = null;
-        let mediaType: 'video' | 'audio' = 'video';
-
-        values.forEach(val => {
-            if (typeof val === 'string') {
-                if (val.startsWith('data:image')) {
-                    if (!image) image = val;
-                    images.push(val);
-                } else if (val.startsWith('data:video') || val.startsWith('data:audio') || val.match(/^https?:\/\/.*\.(mp4|webm|ogg|mp3|wav)$/i)) {
-                    if (!mediaUrl) {
-                        mediaUrl = val;
-                        mediaType = val.startsWith('data:audio') || val.match(/\.(mp3|wav)$/i) ? 'audio' : 'video';
-                    }
-                } else {
-                    if (text) text += (text ? '\n\n' : '') + val;
-                    else text = val;
-                }
-            } else if (typeof val === 'object' && val !== null) {
-                if (val.base64ImageData) {
-                    const dataUrl = `data:${val.mimeType || 'image/png'};base64,${val.base64ImageData}`;
-                    if (!image) image = dataUrl;
-                    images.push(dataUrl);
-                } else {
-                    const str = JSON.stringify(val, null, 2);
-                    if (text) text += (text ? '\n\n' : '') + str;
-                    else text = str;
-                }
-            }
-        });
-
-        try {
-            const current = JSON.parse(node.value || '{}');
-            const newData = { text, image, images, mediaUrl, mediaType };
-
-            if (JSON.stringify(current) !== JSON.stringify(newData)) {
-                nodesHook.handleValueChange(nodeId, JSON.stringify(newData));
-            }
-        } catch {
-            nodesHook.handleValueChange(nodeId, JSON.stringify({ text, image, images, mediaUrl, mediaType }));
-        }
-
-    }, [getUpstreamNodeValues, nodesHook.handleValueChange]);
-
-    const handleSplitConnection = useCallback((connectionId: string) => {
-        const connection = connectionsHook.connections.find(c => c.id === connectionId);
-        if (!connection) return;
-
-        const fromNode = nodesHook.nodes.find(n => n.id === connection.fromNodeId);
-        const toNode = nodesHook.nodes.find(n => n.id === connection.toNodeId);
-        if (!fromNode || !toNode) return;
-
-        // Calculate Midpoint
-        const { start, end } = getConnectionPoints(fromNode, toNode, connection);
-
-        const { minWidth, minHeight } = getMinNodeSize(NodeType.REROUTE_DOT);
-        const midPoint = {
-            x: (start.x + end.x) / 2 - (minWidth / 2),
-            y: (start.y + end.y) / 2 - (minHeight / 2)
+    const handleClearCanvas = useCallback((e?: React.MouseEvent) => {
+        const performClear = () => {
+            nodesHook.setNodes([]);
+            connectionsHook.setConnections([]);
+            groupsHook.setGroups([]);
+            setFullSizeImageCache({});
+            addToast(t('toast.canvasCleared') || 'Холст очищен', 'info');
         };
 
-        // Determine Connection Type
-        const fromType = getOutputHandleType(fromNode, connection.fromHandleId);
-
-        // Create Reroute Dot
-        const newNodeId = entityActionsHook.onAddNode(NodeType.REROUTE_DOT, midPoint);
-
-        // Apply Type for Color
-        const newValue = JSON.stringify({ type: fromType, direction: 'LR' });
-        nodesHook.handleValueChange(newNodeId, newValue);
-
-        // Update Connections
-        connectionsHook.setConnections(prev => {
-            // Remove old connection
-            const filtered = prev.filter(c => c.id !== connectionId);
-
-            // Add two new connections
-            const conn1 = {
-                id: `conn-split-1-${Date.now()}`,
-                fromNodeId: connection.fromNodeId,
-                fromHandleId: connection.fromHandleId,
-                toNodeId: newNodeId,
-                toHandleId: undefined // Reroute input is generic
-            };
-
-            const conn2 = {
-                id: `conn-split-2-${Date.now()}`,
-                fromNodeId: newNodeId,
-                fromHandleId: undefined, // Reroute output is generic
-                toNodeId: connection.toNodeId,
-                toHandleId: connection.toHandleId
-            };
-
-            return [...filtered, conn1, conn2];
-        });
-
-    }, [connectionsHook, nodesHook, entityActionsHook]);
-
-    const handleNavigateToNodeFrame = useCallback((nodeId: string, frameNumber: number) => {
-        const targetNode = nodesRef.current.find(n => n.id === nodeId);
-        if (!targetNode) return;
-
-        // 1. Select the node
-        setSelectedNodeIds([nodeId]);
-
-        // 2. Center Canvas on Node
-        const screenW = window.innerWidth;
-        const screenH = window.innerHeight;
-
-        // Target world position (center of node)
-        // Assume centered relative to its width, and set a comfortable top margin
-        const targetX = targetNode.position.x + (targetNode.width / 2);
-        const targetY = targetNode.position.y + 300;
-
-        // Current scale
-        const scale = viewTransformRef.current.scale;
-
-        // Calculate new translation
-        const newTx = (screenW / 2) - (targetX * scale);
-        const newTy = (screenH / 2) - (targetY * scale);
-
-        canvasHook.setViewTransform(prev => ({
-            scale: prev.scale, // Keep current zoom
-            translate: { x: newTx, y: newTy }
-        }));
-
-        // 3. Trigger selection in the node (PromptSequenceEditor logic)
-        try {
-            const currentVal = JSON.parse(targetNode.value || '{}');
-            // Only update if actually different to avoid unnecessary updates
-            if (currentVal.selectedFrameNumber !== frameNumber) {
-                nodesHook.handleValueChange(nodeId, JSON.stringify({ ...currentVal, selectedFrameNumber: frameNumber }));
-            }
-        } catch (e) {
-            console.error("Failed to update node selection frame", e);
+        if (e?.shiftKey) {
+            performClear();
+        } else {
+            dialogsHook.setConfirmInfo({
+                title: t('dialog.confirmClear.title') || 'Очистить холст',
+                message: t('dialog.confirmClear.message') || 'Вы уверены, что хотите удалить все ноды на текущей вкладке?',
+                onConfirm: performClear
+            });
         }
-
-    }, [nodesHook.handleValueChange, canvasHook.setViewTransform, setSelectedNodeIds]);
+    }, [nodesHook, connectionsHook, groupsHook, setFullSizeImageCache, addToast, dialogsHook, t]);
 
     const value = useMemo(() => {
         const { replaceAllItems: libReplaceAll, importItemsData: libImport, ...restLibrary } = libraryHook;
@@ -1590,7 +676,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ...geminiAnalysisHook, ...geminiConversationHook, ...geminiChainExecutionHook, ...geminiGenerationHook, ...geminiModificationHook,
             ...positionHistoryHook, ...globalState, ...orchestrationHook, ...googleDriveHook, ...generationHistoryHook,
 
-            // Explicitly export live-synchronized tab management methods
+            // Synchronized tab management
             tabs,
             setTabs,
             activeTabId,
@@ -1635,7 +721,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onEditImage: geminiGenerationHook.handleEditImage,
             onImageToText: geminiAnalysisHook.handleImageToText,
             handleRegenerateFrame,
-            handleLoadFromExternal: canvasIOHook.handleLoadFromExternal, // Export new method
+            handleLoadFromExternal: canvasIOHook.handleLoadFromExternal,
 
             handleNavigateToNodeFrame,
             handleSplitConnection,
@@ -1654,7 +740,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 canvasHook,
                 entityActionsHook,
                 nodesHook,
-                isAlternativeMode // Pass the flag
+                isAlternativeMode
             ),
             handleDownloadImage: (id: string) => orchestrationHook.handleDownloadImage(id, onDownloadImageFromUrl),
             setLibraryItems: libReplaceAll,
@@ -1672,8 +758,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleToggleNodeHandles: nodesHook.handleToggleNodeHandles,
             handleClearNodeNewFlag: nodesHook.handleClearNodeNewFlag,
             handleResetCanvas: handleResetCanvas,
+            handleClearCanvas: handleClearCanvas,
             resetCanvasToDefault: resetCanvasToDefault,
-            
+
             handleNodeCutConnections: connectionsHook.removeConnectionsByNodeId,
 
             showWelcome: globalState.showWelcome,
@@ -1728,10 +815,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onGenerateImage: geminiGenerationHook.handleGenerateImage,
             handleUpdateCharacterPromptFromImage: geminiAnalysisHook.handleUpdateCharacterPromptFromImage,
             isUpdatingCharacterPrompt: geminiAnalysisHook.isUpdatingCharacterPrompt,
-            onDownloadImageFromUrl, // Export to context
-            onCopyImageToClipboard, // Export to context
-            
-            // Missing handlers added here
+            onDownloadImageFromUrl,
+            onCopyImageToClipboard,
+
             handleRemoveGroup,
             handleSaveGroupToCatalog,
             handleSaveGroupToDisk,
@@ -1741,15 +827,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             onSaveGeneratedCharacterToCatalog,
             onSaveScriptToCatalog,
             onSaveSequenceToCatalog,
-            onSavePromptToLibrary: libraryHook.saveProcessorPrompt, // Map correctly
-            onSaveToLibrary: libraryHook.saveToLibrary, // Map correctly
+            onSavePromptToLibrary: libraryHook.saveProcessorPrompt,
+            onSaveToLibrary: libraryHook.saveToLibrary,
             clearSelectionsSignal: globalState.clearSelectionsSignal,
             globalImageEditor: globalState.globalImageEditor,
             openGlobalImageEditor: globalState.openGlobalImageEditor,
             closeGlobalImageEditor: globalState.closeGlobalImageEditor,
-            handleDeleteFromDrive: googleDriveHook.handleDeleteFromDrive, // Exposed
-            handleClearCloudFolder: googleDriveHook.handleClearCloudFolder, // Exposed NEW Function
-            handleCleanupDuplicates: googleDriveHook.handleCleanupDuplicates, // Exposed
+            handleDeleteFromDrive: googleDriveHook.handleDeleteFromDrive,
+            handleClearCloudFolder: googleDriveHook.handleClearCloudFolder,
+            handleCleanupDuplicates: googleDriveHook.handleCleanupDuplicates,
             ...taskQueueHook,
             ...batchManagerHook,
             clearUnusedFullSizeImages,
@@ -1774,7 +860,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         handleToggleNodeCollapse, handleNodeContextMenuLogic, handleCanvasContextMenu, activeOperations.size, selectedNodeIds,
         t, characterCatalogHook, scriptCatalogHook, sequenceCatalogHook,
         handleDetachNodeFromGroup, handleAddNodeAndConnectWrapper, handleRegenerateFrame, geminiAnalysisHook.handleImageToText,
-        handleResetCanvas, resetCanvasToDefault, nodesHook.handleToggleNodeHandles, nodesHook.handleClearNodeNewFlag,
+        handleResetCanvas, handleClearCanvas, resetCanvasToDefault, nodesHook.handleToggleNodeHandles, nodesHook.handleClearNodeNewFlag,
         geminiAnalysisHook.handleUpdateCharacterPromptFromImage, geminiAnalysisHook.isUpdatingCharacterPrompt,
         geminiModificationHook.handleUpdateCharacterPersonality, geminiModificationHook.isUpdatingPersonality,
         geminiModificationHook.handleUpdateCharacterAppearance, geminiModificationHook.isUpdatingAppearance,
