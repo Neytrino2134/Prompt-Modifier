@@ -65,7 +65,6 @@ function triggerTrayUpdate() {
 // 3. Register IPC handlers and subsystem modules
 setupWindowIPC(triggerTrayUpdate);
 setupSessionIPC(getMainWindow);
-setupFileAndDialogIPC(getMainWindow);
 setupTrayIPC(getTrayContext());
 
 // 4. Force spoofed User Agent across all web requests and new popup windows
@@ -101,6 +100,10 @@ app.on('before-quit', () => {
 
 // 6. App Lifecycle Initialization
 app.whenReady().then(() => {
+  // File handlers access defaultSession, which is only available after ready.
+  // Register them before creating any windows that can initiate downloads.
+  setupFileAndDialogIPC(getMainWindow);
+
   // Strip Electron signatures from network requests
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     details.requestHeaders['User-Agent'] = FAKE_USER_AGENT;
