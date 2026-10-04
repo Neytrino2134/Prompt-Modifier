@@ -30,7 +30,7 @@ import {
     CatalogItemType,
     ContentCatalogItemType,
 } from '../hooks';
-import { useGoogleDrive } from '../hooks/useGoogleDrive';
+import { useGoogleDrive } from '../hooks/useGoogleDrive'; 
 import { useGlobalState } from '../hooks/useGlobalState';
 import { useAppOrchestration } from '../hooks/useAppOrchestration';
 import { useTaskQueue } from '../hooks/useTaskQueue';
@@ -196,12 +196,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const updateNodeInStorage = useCallback((targetTabId: string, nodeId: string, valueUpdater: (prevVal: any) => any, imageCacheUpdate?: { frame: number, url: string }) => {
         const safeParse = (val: string) => {
-            try {
+            try { 
                 const parsed = JSON.parse(val || '{}');
                 return parsed;
-            } catch {
-                return val;
-            }
+            } catch { 
+                return val; 
+            } 
         };
 
         if (activeTabIdRef.current === targetTabId) {
@@ -227,7 +227,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         }
                         return n;
                     });
-
+                    
                     let newCache = tab.state.fullSizeImageCache || {};
                     if (imageCacheUpdate) {
                         newCache = {
@@ -608,13 +608,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activeTabId: activeTabId,
         handleRenameTab: handleRenameTab,
         handleRemoveGroup,
-        isImageDropMenuEnabled: globalState.isImageDropMenuEnabled
+        isImageDropMenuEnabled: globalState.isImageDropMenuEnabled 
     });
 
     const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
         const target = e.target as Element;
         if (target.closest('.node-view') || target.closest('.group-view') || target.closest('.connection-view') || target.closest('input, textarea, button, a, select')) return;
-
+        
         if (interactionHook.wasRightClickPan && interactionHook.wasRightClickPan()) {
             e.preventDefault();
             return;
@@ -760,7 +760,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             handleResetCanvas: handleResetCanvas,
             handleClearCanvas: handleClearCanvas,
             resetCanvasToDefault: resetCanvasToDefault,
-
+            
             handleNodeCutConnections: connectionsHook.removeConnectionsByNodeId,
 
             showWelcome: globalState.showWelcome,
@@ -817,7 +817,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             isUpdatingCharacterPrompt: geminiAnalysisHook.isUpdatingCharacterPrompt,
             onDownloadImageFromUrl,
             onCopyImageToClipboard,
-
+            
             handleRemoveGroup,
             handleSaveGroupToCatalog,
             handleSaveGroupToDisk,

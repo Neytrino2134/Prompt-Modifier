@@ -2,16 +2,16 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../../contexts/AppContext';
 import { ActiveOperation, BatchJobRecord, TaskStatus } from '../../types';
 import { QueueStats, BatchStats } from './types';
-import {
-    matchesDeviceFilter,
-    getDeviceId,
-    isDeviceIsolationEnabled,
-    getDeviceFilterMode
+import { 
+    matchesDeviceFilter, 
+    getDeviceId, 
+    isDeviceIsolationEnabled, 
+    getDeviceFilterMode 
 } from '../../utils/deviceId';
 
 export const formatTime = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
-    const milliseconds = Math.floor((ms % 1000) / 10);
+    const milliseconds = Math.floor((ms % 1000) / 10); 
     return `${seconds}.${milliseconds.toString().padStart(2, '0')}s`;
 };
 

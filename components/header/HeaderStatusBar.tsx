@@ -31,18 +31,18 @@ export const HeaderStatusBar: React.FC<HeaderStatusBarProps> = ({
     if (!isStatusBarOpen) return null;
 
     return (
-        <div
+        <div 
             onDoubleClick={handleTitleBarDoubleClick}
             className="relative z-20 w-full bg-transparent px-3 py-1 flex items-center justify-between text-xs gap-3 overflow-x-auto hide-scrollbar app-region-drag select-none"
         >
             {/* Mode 1: Real-time Generation Queue Section */}
-            <div
+            <div 
                 role="button"
                 tabIndex={0}
                 onClick={() => openTaskQueueTab('queue')}
                 className={`flex items-center gap-2.5 px-2.5 py-1 rounded-md cursor-pointer transition-all border app-region-no-drag ${
-                    queueStats.running > 0
-                        ? 'bg-cyan-950/40 border-cyan-500/40 hover:bg-cyan-950/60 shadow-sm'
+                    queueStats.running > 0 
+                        ? 'bg-cyan-950/40 border-cyan-500/40 hover:bg-cyan-950/60 shadow-sm' 
                         : 'bg-gray-800/70 border-gray-700/60 hover:bg-gray-800 hover:border-gray-600'
                 }`}
                 title={`${t('titlebar.statusRealtime')}: ${t('queue.title')}`}
@@ -112,13 +112,13 @@ export const HeaderStatusBar: React.FC<HeaderStatusBarProps> = ({
             <div className="w-px h-5 bg-gray-800 flex-shrink-0"></div>
 
             {/* Mode 2: Deferred Batch API Section */}
-            <div
+            <div 
                 role="button"
                 tabIndex={0}
                 onClick={() => openTaskQueueTab('batch')}
                 className={`flex items-center gap-2.5 px-2.5 py-1 rounded-md cursor-pointer transition-all border app-region-no-drag ${
                     batchStats.activeJobs > 0 || batchStats.readyToDownload > 0
-                        ? 'bg-gray-800/90 border-gray-700 hover:bg-gray-800 hover:border-gray-600 shadow-sm'
+                        ? 'bg-gray-800/90 border-gray-700 hover:bg-gray-800 hover:border-gray-600 shadow-sm' 
                         : 'bg-gray-800/70 border-gray-700/60 hover:bg-gray-800 hover:border-gray-600'
                 }`}
                 title={`${t('titlebar.statusBatch')}: ${t('batch.title')}`}

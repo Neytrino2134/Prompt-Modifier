@@ -39,21 +39,21 @@ const AppHeader: React.FC = () => {
     }, [isThemeMenuOpen, isPanelBgMenuOpen, isCursorSkinMenuOpen]);
 
     if (!context) return null;
-
-    const {
-        t,
-        clearUnusedFullSizeImages,
+    
+    const { 
+        t, 
+        clearUnusedFullSizeImages, 
         handleResetCanvas,
         handleClearCanvas,
-        tabs,
-        activeTabId,
-        handleSwitchTab,
-        handleAddTab,
-        handleCloseTab,
+        tabs, 
+        activeTabId, 
+        handleSwitchTab, 
+        handleAddTab, 
+        handleCloseTab, 
         handleRenameTab,
         handleReorderTabs,
-        showWelcome,
-        setShowWelcome,
+        showWelcome,    
+        setShowWelcome, 
         nodes,
         currentTheme,
         setTheme,
@@ -82,8 +82,8 @@ const AppHeader: React.FC = () => {
 
     const openSettings = (e: React.MouseEvent) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        window.dispatchEvent(new CustomEvent('open-settings', {
-            detail: { x: rect.left, y: rect.bottom }
+        window.dispatchEvent(new CustomEvent('open-settings', { 
+            detail: { x: rect.left, y: rect.bottom } 
         }));
     };
 
@@ -120,10 +120,10 @@ const AppHeader: React.FC = () => {
     return (
         <>
             {showWelcome && <WelcomeScreen onClose={() => setShowWelcome(false)} isResumable={canResume} />}
-
-            <header
-                ref={headerRef}
-                id="app-header"
+            
+            <header 
+                ref={headerRef} 
+                id="app-header" 
                 onDoubleClick={windowControls.handleTitleBarDoubleClick}
                 className={`fixed top-0 left-0 w-full z-40 select-none flex flex-col top-panel-unified top-panel-anim-${panelAnimation} border-b border-white/20 shadow-[0_14px_36px_rgba(0,0,0,0.75),0_6px_16px_rgba(0,0,0,0.55)] backdrop-blur-md transition-all duration-200 app-region-drag`}
             >
@@ -133,7 +133,7 @@ const AppHeader: React.FC = () => {
                     theme={currentTheme}
                     isAdaptive={isPanelAnimationAdaptive}
                 />
-
+                
                 {/* ROW 1: Main Application Header & Window Title Bar */}
                 <HeaderTitleBar
                     hasAnyActiveWork={stats.hasAnyActiveWork}

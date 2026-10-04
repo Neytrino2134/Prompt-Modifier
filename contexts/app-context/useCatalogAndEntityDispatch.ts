@@ -85,11 +85,11 @@ export const useCatalogAndEntityDispatch = ({
     const handleSaveGroupToDisk = useCallback((groupId: string) => {
          const group = groups.find(g => g.id === groupId);
          if (!group) return;
-
+         
          const groupNodes = nodes.filter(n => group.nodeIds.includes(n.id));
          const groupNodeIds = new Set(groupNodes.map(n => n.id));
          const groupConnections = connections.filter(c => groupNodeIds.has(c.fromNodeId) && groupNodeIds.has(c.toNodeId));
-
+         
          const images: Record<string, Record<number, string>> = {};
          groupNodes.forEach(n => {
              if (fullSizeImageCache[n.id]) {
@@ -104,7 +104,7 @@ export const useCatalogAndEntityDispatch = ({
              connections: groupConnections,
              fullSizeImages: images
          };
-
+         
          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
          const url = URL.createObjectURL(blob);
          const a = document.createElement('a');
@@ -117,12 +117,12 @@ export const useCatalogAndEntityDispatch = ({
 
     const handleDetachAndPasteConcept = useCallback((sequenceNodeId: string, conceptToPaste: any) => {
         const sourceNode = nodes.find(n => n.id === sequenceNodeId);
-        const position = sourceNode
-            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y }
+        const position = sourceNode 
+            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y } 
             : { x: 0, y: 0 };
-
+            
         const newNodeId = onAddNode(NodeType.CHARACTER_CARD, position, conceptToPaste.name);
-
+        
         const cardData = [{
             id: `char-card-${Date.now()}`,
             name: conceptToPaste.name || 'New Entity',
@@ -135,10 +135,10 @@ export const useCatalogAndEntityDispatch = ({
             isOutput: true,
             isActive: true
         }];
-
+        
         if (conceptToPaste._fullResImage) {
              setFullSizeImage(newNodeId, 0, conceptToPaste._fullResImage);
-             setFullSizeImage(newNodeId, 1, conceptToPaste._fullResImage);
+             setFullSizeImage(newNodeId, 1, conceptToPaste._fullResImage); 
         } else if (conceptToPaste.image && conceptToPaste.image.startsWith('data:')) {
              setFullSizeImage(newNodeId, 0, conceptToPaste.image);
              setFullSizeImage(newNodeId, 1, conceptToPaste.image);
@@ -150,17 +150,17 @@ export const useCatalogAndEntityDispatch = ({
 
     const onDetachImageToNode = useCallback((imageDataUrl: string, sourceNodeId: string) => {
         const sourceNode = nodes.find(n => n.id === sourceNodeId);
-        const position = sourceNode
-            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y }
+        const position = sourceNode 
+            ? { x: sourceNode.position.x + sourceNode.width + 50, y: sourceNode.position.y } 
             : { x: 0, y: 0 };
-
+            
         const newNodeId = onAddNode(NodeType.IMAGE_INPUT, position);
-
+        
         setFullSizeImage(newNodeId, 0, imageDataUrl);
         generateThumbnail(imageDataUrl, 256, 256).then(thumb => {
              handleValueChange(newNodeId, JSON.stringify({ image: thumb, prompt: '' }));
         });
-
+        
         addToast(t('toast.pastedFromClipboard'), 'success');
     }, [nodes, onAddNode, setFullSizeImage, handleValueChange, addToast, t]);
 
@@ -171,11 +171,11 @@ export const useCatalogAndEntityDispatch = ({
         try {
             let characters = JSON.parse(node.value || '[]');
             if (!Array.isArray(characters)) characters = [characters];
-
+            
             if (cardIndex !== undefined) {
                  const char = characters[cardIndex];
                  if (!char) return;
-
+                 
                  const fullSources: Record<string, string | null> = { ...char.thumbnails };
                  Object.entries(RATIO_INDICES).forEach(([ratio, index]) => {
                     const fullRes = getFullSizeImage(nodeId, (cardIndex * 10) + index);
@@ -194,7 +194,7 @@ export const useCatalogAndEntityDispatch = ({
                     selectedRatio: char.selectedRatio,
                     additionalPrompt: char.additionalPrompt
                  };
-
+                 
                  characterCatalog.createItem(ContentCatalogItemType.ITEM, char.name || 'New Character', JSON.stringify(dataToSave));
                  addToast(t('toast.characterSavedCatalog'), 'success');
 
@@ -205,7 +205,7 @@ export const useCatalogAndEntityDispatch = ({
                         const fullRes = getFullSizeImage(nodeId, (i * 10) + index);
                         if (fullRes) fullSources[ratio] = fullRes;
                      });
-
+                     
                      const activeImg = getFullSizeImage(nodeId, i * 10) || char.image;
 
                      return {
@@ -222,12 +222,12 @@ export const useCatalogAndEntityDispatch = ({
                         isActive: char.isActive
                      };
                  });
-
+                 
                  const collectionName = node.title || 'Character Collection';
-
+                 
                  characterCatalog.createItem(
-                     ContentCatalogItemType.ITEM,
-                     collectionName,
+                     ContentCatalogItemType.ITEM, 
+                     collectionName, 
                      JSON.stringify(allDataToSave)
                  );
                  addToast(t('toast.characterSavedCatalog') + " (All)", 'success');
@@ -240,9 +240,9 @@ export const useCatalogAndEntityDispatch = ({
 
     const onSaveGeneratedCharacterToCatalog = useCallback((characterData: any) => {
         if (!characterData) return;
-
+        
         const dataToSave = {
-            type: 'character-card',
+            type: 'character-card', 
             name: characterData.name,
             index: characterData.alias || characterData.index,
             image: characterData.imageBase64 ? `data:image/png;base64,${characterData.imageBase64}` : null,
@@ -260,7 +260,7 @@ export const useCatalogAndEntityDispatch = ({
     const onSaveScriptToCatalog = useCallback((nodeId: string) => {
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
-
+        
         if (node.type === NodeType.SCRIPT_GENERATOR || node.type === NodeType.SCRIPT_VIEWER) {
              scriptCatalog.createItem(ContentCatalogItemType.ITEM, node.title || 'New Script', node.value);
              addToast("Script saved to catalog", 'success');
@@ -275,7 +275,7 @@ export const useCatalogAndEntityDispatch = ({
             try {
                 const data = JSON.parse(node.value || '{}');
                 const contentToSave = {
-                    type: 'script-prompt-modifier-data',
+                    type: 'script-prompt-modifier-data', 
                     title: node.title,
                     usedCharacters: data.usedCharacters,
                     sceneContexts: data.sceneContexts,
@@ -294,7 +294,7 @@ export const useCatalogAndEntityDispatch = ({
                     })),
                     styleOverride: data.styleOverride
                 };
-
+                
                 sequenceCatalog.createItem(ContentCatalogItemType.ITEM, node.title || 'New Sequence', JSON.stringify(contentToSave));
                 addToast("Sequence saved to catalog", 'success');
             } catch(e) { console.error(e); }
@@ -302,11 +302,11 @@ export const useCatalogAndEntityDispatch = ({
             try {
                 const data = JSON.parse(node.value || '{}');
                 const contentToSave = {
-                    type: 'script-prompt-modifier-data',
+                    type: 'script-prompt-modifier-data', 
                     title: node.title,
                     usedCharacters: data.usedCharacters,
                     sceneContexts: data.sceneContexts,
-                    finalPrompts: data.modifiedPrompts || data.sourcePrompts || [],
+                    finalPrompts: data.modifiedPrompts || data.sourcePrompts || [], 
                     styleOverride: data.styleOverride
                 };
                  sequenceCatalog.createItem(ContentCatalogItemType.ITEM, node.title || 'New Sequence', JSON.stringify(contentToSave));

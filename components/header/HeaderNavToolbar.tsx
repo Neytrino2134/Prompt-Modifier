@@ -61,7 +61,7 @@ export const HeaderNavToolbar: React.FC<HeaderNavToolbarProps> = ({
     t
 }) => {
     return (
-        <div
+        <div 
             onDoubleClick={handleTitleBarDoubleClick}
             className="relative z-10 w-full flex items-center justify-between px-2.5 py-1 min-h-[38px] bg-transparent gap-2 overflow-x-auto hide-scrollbar app-region-drag select-none"
         >
@@ -118,12 +118,12 @@ export const HeaderNavToolbar: React.FC<HeaderNavToolbarProps> = ({
                         <div className="w-px h-5 bg-gray-700/60 mx-0.5"></div>
 
                         {/* Project Tabs Bar */}
-                        <TabsBar
-                            tabs={tabs}
-                            activeTabId={activeTabId}
-                            onSwitchTab={handleSwitchTab}
-                            onAddTab={handleAddTab}
-                            onCloseTab={handleCloseTab}
+                        <TabsBar 
+                            tabs={tabs} 
+                            activeTabId={activeTabId} 
+                            onSwitchTab={handleSwitchTab} 
+                            onAddTab={handleAddTab} 
+                            onCloseTab={handleCloseTab} 
                             onRenameTab={handleRenameTab}
                             onReorderTabs={handleReorderTabs}
                         />
@@ -210,8 +210,8 @@ export const HeaderNavToolbar: React.FC<HeaderNavToolbarProps> = ({
                     <button
                         onClick={() => setIsDebugConsoleOpen(!isDebugConsoleOpen)}
                         className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-8 w-8 border relative ${
-                            isDebugConsoleOpen
-                                ? 'text-accent-text bg-gray-800 border-accent/40'
+                            isDebugConsoleOpen 
+                                ? 'text-accent-text bg-gray-800 border-accent/40' 
                                 : 'text-gray-400 hover:text-white hover:bg-gray-800 border-gray-700/50'
                         }`}
                         aria-label="Debug Console"

@@ -25,14 +25,14 @@ export const CursorSkinDropdownMenu: React.FC<CursorSkinDropdownMenuProps> = ({
     return (
         <div className="relative header-dropdown-menu-container">
             <Tooltip content={t('settings.cursorSkinLabel') || 'Скины курсора'} position="bottom">
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
+                <button 
+                    onClick={(e) => { 
+                        e.stopPropagation(); 
                         onToggle();
                     }}
                     className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border cursor-pointer app-region-no-drag ${
-                        isOpen
-                            ? 'bg-accent text-white border-accent'
+                        isOpen 
+                            ? 'bg-accent text-white border-accent' 
                             : 'bg-gray-800/70 text-gray-300 hover:bg-accent hover:text-white border-gray-700/50'
                     }`}
                     aria-label={t('settings.cursorSkinLabel') || 'Скины курсора'}
@@ -41,7 +41,7 @@ export const CursorSkinDropdownMenu: React.FC<CursorSkinDropdownMenuProps> = ({
                 </button>
             </Tooltip>
             {isOpen && (
-                <div
+                <div 
                     onClick={(e) => e.stopPropagation()}
                     style={{ top: 'calc(var(--app-header-height, 74px) - 4px + 6px)' }}
                     className="absolute right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-2.5 z-[120] flex flex-col gap-2 min-w-[260px] max-w-[300px] animate-fade-in-drop origin-top-right app-region-no-drag pointer-events-auto select-none"

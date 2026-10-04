@@ -44,7 +44,7 @@ export const useImageInputCropAndGrid = ({
     const [isSlicing, setIsSlicing] = useState(false);
     const [gridAssetName, setGridAssetName] = useState<string>(() => grid?.assetName || 'Asset_Name');
     const [localBorderWidth, setLocalBorderWidth] = useState<string>(() => String(grid?.borderWidth ?? 24));
-
+    
     const operationIdRef = useRef<number>(0);
     const borderDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 

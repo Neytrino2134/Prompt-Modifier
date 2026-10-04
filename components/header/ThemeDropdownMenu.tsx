@@ -22,14 +22,14 @@ export const ThemeDropdownMenu: React.FC<ThemeDropdownMenuProps> = ({
     return (
         <div className="relative header-dropdown-menu-container">
             <Tooltip content={t('settings.themeLabel')} position="bottom">
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
+                <button 
+                    onClick={(e) => { 
+                        e.stopPropagation(); 
                         onToggle();
                     }}
                     className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border cursor-pointer app-region-no-drag ${
-                        isOpen
-                            ? 'bg-accent text-white border-accent'
+                        isOpen 
+                            ? 'bg-accent text-white border-accent' 
                             : 'bg-gray-800/70 text-gray-300 hover:bg-accent hover:text-white border-gray-700/50'
                     }`}
                     aria-label={t('settings.themeLabel')}
@@ -38,7 +38,7 @@ export const ThemeDropdownMenu: React.FC<ThemeDropdownMenuProps> = ({
                 </button>
             </Tooltip>
             {isOpen && (
-                <div
+                <div 
                     onClick={(e) => e.stopPropagation()}
                     style={{ top: 'calc(var(--app-header-height, 74px) - 4px + 6px)' }}
                     className="absolute right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-2.5 z-[120] flex flex-col gap-2 min-w-[240px] max-w-[280px] animate-fade-in-drop origin-top-right app-region-no-drag pointer-events-auto select-none"
@@ -74,7 +74,7 @@ export const ThemeDropdownMenu: React.FC<ThemeDropdownMenuProps> = ({
                                                         : 'bg-gray-800/40 border-gray-700/50 text-gray-300 hover:bg-gray-750 hover:text-white hover:border-gray-600'
                                                 }`}
                                             >
-                                                <div
+                                                <div 
                                                     className="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-sm border border-white/20"
                                                     style={{ backgroundColor: theme.color }}
                                                 />
@@ -82,7 +82,7 @@ export const ThemeDropdownMenu: React.FC<ThemeDropdownMenuProps> = ({
                                                     {labelText}
                                                 </span>
                                                 {isSelected && (
-                                                    <span
+                                                    <span 
                                                         className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse"
                                                         style={{ backgroundColor: theme.color }}
                                                     />

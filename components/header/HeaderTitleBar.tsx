@@ -96,13 +96,13 @@ export const HeaderTitleBar: React.FC<HeaderTitleBarProps> = ({
     t
 }) => {
     return (
-        <div
+        <div 
             onDoubleClick={handleTitleBarDoubleClick}
             className="relative z-30 w-full flex items-center justify-between px-2.5 h-9 bg-transparent gap-2 app-region-drag select-none"
         >
             {/* Left Section: App Logo, Title & Header Quick Actions */}
             <div className="flex items-center gap-2 flex-shrink-0 app-region-drag">
-                <div
+                <div 
                     className="flex items-center gap-2 px-1.5 py-0.5 rounded-md select-none app-region-drag group"
                     title="Prompt Modifier"
                 >
@@ -116,14 +116,14 @@ export const HeaderTitleBar: React.FC<HeaderTitleBarProps> = ({
                         )}
                     </div>
                     <div className="flex items-baseline tracking-tight font-sans text-xs whitespace-nowrap">
-                        <span
+                        <span 
                             className="font-extrabold text-white tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
                             style={{ fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif" }}
                         >
                             Prompt
                         </span>
                         <span className="w-1"></span>
-                        <span
+                        <span 
                             className="font-extrabold text-[#00d2ff] tracking-tight drop-shadow-[0_0_8px_rgba(0,210,255,0.4)]"
                             style={{ fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif" }}
                         >
@@ -140,7 +140,7 @@ export const HeaderTitleBar: React.FC<HeaderTitleBarProps> = ({
                 <div className="flex items-center gap-1 app-region-no-drag">
                     <LanguageSelector />
 
-                    <HelpPanel
+                    <HelpPanel 
                         buttonClassName="p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 bg-gray-800/70 hover:bg-accent hover:text-white text-gray-300 border border-gray-700/50"
                         iconClassName="h-3.5 w-3.5"
                     />
@@ -174,11 +174,11 @@ export const HeaderTitleBar: React.FC<HeaderTitleBarProps> = ({
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setIsBatchMode(!isBatchMode)}
                     className={`app-region-no-drag px-3 py-1 rounded-full text-[11px] font-medium transition-all duration-200 flex items-center gap-2.5 shadow-inner select-none cursor-pointer focus:outline-none focus:ring-0 outline-none ${
-                        isBatchMode
-                            ? 'bg-gray-950/90 text-white shadow-accent-secondary/10 hover:bg-gray-900'
+                        isBatchMode 
+                            ? 'bg-gray-950/90 text-white shadow-accent-secondary/10 hover:bg-gray-900' 
                             : 'bg-gray-950/80 text-gray-300 hover:bg-gray-900 hover:text-white'
                     }`}
-                    title={isBatchMode
+                    title={isBatchMode 
                         ? (t('titlebar.switchToNormalTooltip') || 'Переключить в Обычный режим (Прямая генерация)')
                         : (t('titlebar.switchToBatchTooltip') || 'Переключить в Режим Batch API (Скидка -50%, отложенная обработка)')
                     }
@@ -223,8 +223,8 @@ export const HeaderTitleBar: React.FC<HeaderTitleBarProps> = ({
                     <button
                         onClick={() => setIsStatusBarOpen(prev => !prev)}
                         className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border relative ${
-                            isStatusBarOpen
-                                ? 'bg-gray-800 text-accent-text border-gray-700/60'
+                            isStatusBarOpen 
+                                ? 'bg-gray-800 text-accent-text border-gray-700/60' 
                                 : 'bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-800 border-gray-700/50'
                         }`}
                         aria-label="Toggle Status Line"
@@ -246,8 +246,8 @@ export const HeaderTitleBar: React.FC<HeaderTitleBarProps> = ({
                     <button
                         onClick={() => setIsHistoryPanelOpen?.(prev => !prev)}
                         className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border ${
-                            isHistoryPanelOpen
-                                ? 'bg-accent text-white border-accent'
+                            isHistoryPanelOpen 
+                                ? 'bg-accent text-white border-accent' 
                                 : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white border-gray-700/50'
                         }`}
                         aria-label={t('toolbar.historyStats')}
@@ -263,8 +263,8 @@ export const HeaderTitleBar: React.FC<HeaderTitleBarProps> = ({
                     <button
                         onClick={() => setIsTaskQueuePanelOpen(!isTaskQueuePanelOpen)}
                         className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border relative ${
-                            isTaskQueuePanelOpen
-                                ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
+                            isTaskQueuePanelOpen 
+                                ? 'bg-accent text-white border-accent shadow-md shadow-accent/20' 
                                 : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white border-gray-700/50'
                         }`}
                         aria-label={t('queue.title') || 'Task Queue'}

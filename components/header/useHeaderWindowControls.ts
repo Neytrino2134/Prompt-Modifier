@@ -171,7 +171,7 @@ export const useHeaderWindowControls = () => {
                     fullSizeImageCache: {}
                 });
                 if (context.resetTabs) {
-                   context.resetTabs('en');
+                   context.resetTabs('en'); 
                 }
                 setTimeout(() => {
                     window.location.reload();

@@ -194,7 +194,7 @@ export const useSessionSyncAndAutosave = ({
             fullSizeImageCache,
         };
 
-        const latestTabs = tabs.map(tab =>
+        const latestTabs = tabs.map(tab => 
             tab.id === activeTabId ? { ...tab, state: liveState } : tab
         );
 
@@ -292,7 +292,7 @@ export const useSessionSyncAndAutosave = ({
         isLoadingStateRef.current = true;
         lastLoadedTabIdRef.current = targetTabId;
 
-        const updatedTabs = tabs.map(tab =>
+        const updatedTabs = tabs.map(tab => 
             tab.id === activeTabId ? { ...tab, state: currentLiveState } : tab
         );
         setTabs(updatedTabs);
@@ -328,7 +328,7 @@ export const useSessionSyncAndAutosave = ({
         isLoadingStateRef.current = true;
         lastLoadedTabIdRef.current = newTab.id;
 
-        const updatedTabs = tabs.map(tab =>
+        const updatedTabs = tabs.map(tab => 
             tab.id === activeTabId ? { ...tab, state: currentLiveState } : tab
         ).concat(newTab);
 
@@ -413,7 +413,7 @@ export const useSessionSyncAndAutosave = ({
             const updated = prevTabs.map(t => t.id === activeTabId ? { ...t, state: currentLiveState } : t);
             const [moved] = updated.splice(sourceIndex, 1);
             updated.splice(targetIndex, 0, moved);
-
+            
             saveSessionToDB(updated, activeTabId).catch(error => console.error('Background session save failed:', error));
             return updated;
         });
@@ -432,7 +432,7 @@ export const useSessionSyncAndAutosave = ({
         loadCanvasState(defaultState);
 
         setTabs(prev => {
-            const updated = prev.map(tab =>
+            const updated = prev.map(tab => 
                 tab.id === activeTabId ? { ...tab, state: defaultState } : tab
             );
             saveSessionToDB(updated, activeTabId).catch(error => console.error('Background session save failed:', error));

@@ -52,17 +52,17 @@ export const useImageInputExportAndDispatch = ({
 }: UseImageInputExportAndDispatchParams) => {
     const handleOpenInNode = useCallback((e: React.MouseEvent, targetType: NodeType) => {
         if (!addNode) return;
-
+        
         const fullRes = getFullSizeImage(nodeId, 0) || image;
         if (!fullRes) return;
 
         let newPosition = { x: nodePosition.x, y: nodePosition.y };
-
+        
         if (!e.shiftKey) {
              const GAP = 50;
-             newPosition = {
-                 x: nodePosition.x + (nodeWidth || 600) + GAP,
-                 y: nodePosition.y
+             newPosition = { 
+                 x: nodePosition.x + (nodeWidth || 600) + GAP, 
+                 y: nodePosition.y 
              };
         }
 
@@ -80,7 +80,7 @@ export const useImageInputExportAndDispatch = ({
                 const rows = grid?.rows || 1;
                 const total = cols * rows;
                 const activeCells = grid?.selectedCells || Array.from({ length: total }, (_, i) => i);
-
+                
                 const editorThumbnails: string[] = [];
                 activeCells.forEach((cellIdx, editorIdx) => {
                     const thumb = extractedImages[cellIdx] || image || '';
@@ -181,7 +181,7 @@ export const useImageInputExportAndDispatch = ({
                     topPaneHeight: 320,
                 };
                 onValueChange(newNodeId, JSON.stringify(defaultEditorState));
-                setFullSizeImage(newNodeId, 1, fullRes);
+                setFullSizeImage(newNodeId, 1, fullRes); 
             }
         }
 
