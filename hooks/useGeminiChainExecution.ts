@@ -9,10 +9,11 @@ interface UseGeminiChainExecutionProps {
     setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
     connections: Connection[];
     setError: (error: string | null) => void;
-    getUpstreamNodeValues: (nodeId: string, handleId?: string, currentNodes?: Node[], optimizedForUI?: boolean) => (string | { base64ImageData: string, mimeType: string })[];
+    getUpstreamNodeValues: (nodeId: string, handleId?: string, currentNodes?: Node[], optimizedForUI?: boolean, imageGetter?: (nodeId: string, frame: number) => string | undefined) => (string | { base64ImageData: string, mimeType: string })[];
     t: (key: string) => string;
     setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void;
     getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
+    fullSizeImageCache: Record<string, Record<number, string>>;
     activeTabId: string;
     activeTabName: string;
     registerOperation: (op: ActiveOperation) => void;
@@ -59,7 +60,7 @@ const downloadGeneratedAsset = (url: string, prompt: string, nodeType: NodeType)
     document.body.removeChild(link);
 };
 
-export const useGeminiChainExecution = ({ nodes, setNodes, connections, setError, getUpstreamNodeValues, t, setFullSizeImage, getFullSizeImage, activeTabId, activeTabName, registerOperation, unregisterOperation, isGlobalProcessing, setTabs }: UseGeminiChainExecutionProps) => {
+export const useGeminiChainExecution = ({ nodes, setNodes, connections, setError, getUpstreamNodeValues, t, setFullSizeImage, getFullSizeImage, fullSizeImageCache, activeTabId, activeTabName, registerOperation, unregisterOperation, isGlobalProcessing, setTabs }: UseGeminiChainExecutionProps) => {
     const [isExecutingChain, setIsExecutingChain] = useState(false);
     const [executingNodeId, setExecutingNodeId] = useState<string | null>(null);
     const chainExecutionController = useRef<AbortController | null>(null);
@@ -100,19 +101,29 @@ export const useGeminiChainExecution = ({ nodes, setNodes, connections, setError
 
 
     // Helper to execute logic for a single node using the processor pattern
-    const _executeNodeLogic = useCallback(async (node: Node, currentNodes: Node[], targetTabId: string) => {
+    const _executeNodeLogic = useCallback(async (node: Node, currentNodes: Node[], targetTabId: string, chainImages: Record<string, Record<number, string>>) => {
+        const readOriginal = (id: string, frame: number) => chainImages[id]?.[frame];
+        const saveOriginal = (id: string, frame: number, url: string) => {
+            (chainImages[id] ||= {})[frame] = url;
+            if (activeTabIdRef.current === targetTabId) setFullSizeImage(id, frame, url);
+            else setTabs(prev => prev.map(tab => tab.id !== targetTabId ? tab : {
+                ...tab, state: { ...tab.state, fullSizeImageCache: {
+                    ...tab.state.fullSizeImageCache, [id]: { ...tab.state.fullSizeImageCache?.[id], [frame]: url }
+                } }
+            }));
+        };
         
         // Special handling for Image Editor due to cache complexity
         if (node.type === NodeType.IMAGE_EDITOR) {
-            const textInputs = getUpstreamNodeValues(node.id, 'text', currentNodes).filter(v => typeof v === 'string') as string[];
-            const imageInputs = getUpstreamNodeValues(node.id, 'image', currentNodes).filter(v => typeof v === 'object') as { base64ImageData: string, mimeType: string }[];
-            const imageInputsB = getUpstreamNodeValues(node.id, 'image_b', currentNodes).filter(v => typeof v === 'object') as { base64ImageData: string, mimeType: string }[];
+            const textInputs = getUpstreamNodeValues(node.id, 'text', currentNodes, false, readOriginal).filter(v => typeof v === 'string') as string[];
+            const imageInputs = getUpstreamNodeValues(node.id, 'image', currentNodes, false, readOriginal).filter(v => typeof v === 'object') as { base64ImageData: string, mimeType: string }[];
+            const imageInputsB = getUpstreamNodeValues(node.id, 'image_b', currentNodes, false, readOriginal).filter(v => typeof v === 'object') as { base64ImageData: string, mimeType: string }[];
 
             const parsed = JSON.parse(node.value);
             
             // Local A Images (Index 1+)
             const localImages = (parsed.inputImages || []).map((thumbnailUrl: string, index: number) => {
-                 const fullRes = getFullSizeImage(node.id, index + 1);
+                 const fullRes = readOriginal(node.id, index + 1);
                  const imgDataUrl = fullRes || thumbnailUrl;
                  return {
                      base64ImageData: imgDataUrl.split(',')[1],
@@ -122,7 +133,7 @@ export const useGeminiChainExecution = ({ nodes, setNodes, connections, setError
             
             // Local B Images (Index 2000+)
             const localImagesB = (parsed.inputImagesB || []).map((thumbnailUrl: string, index: number) => {
-                 const fullRes = getFullSizeImage(node.id, 2000 + index + 1);
+                 const fullRes = readOriginal(node.id, 2000 + index + 1);
                  const imgDataUrl = fullRes || thumbnailUrl;
                  return {
                      base64ImageData: imgDataUrl.split(',')[1],
@@ -132,9 +143,7 @@ export const useGeminiChainExecution = ({ nodes, setNodes, connections, setError
 
             // Pass a save callback that handles cross-tab updates
             const saveCallback = (frame: number, url: string) => {
-                 if (activeTabIdRef.current === targetTabId) {
-                    setFullSizeImage(node.id, frame, url);
-                 } 
+                 saveOriginal(node.id, frame, url);
             };
 
             return await processImageEditor(
@@ -153,15 +162,13 @@ export const useGeminiChainExecution = ({ nodes, setNodes, connections, setError
         
         if (processor) {
             // Gather inputs (default handle undefined)
-            const upstreamData = getUpstreamNodeValues(node.id, undefined, currentNodes);
+            const upstreamData = getUpstreamNodeValues(node.id, undefined, currentNodes, false, readOriginal);
             
             const context: ProcessingContext = {
                 node,
                 upstreamData,
                 saveImageToCache: (frame, url) => {
-                    if (activeTabIdRef.current === targetTabId) {
-                        setFullSizeImage(node.id, frame, url);
-                    }
+                    saveOriginal(node.id, frame, url);
                 }
             };
 
@@ -171,12 +178,13 @@ export const useGeminiChainExecution = ({ nodes, setNodes, connections, setError
         // Fallback or unknown node type
         return { value: null, downloadData: undefined };
 
-    }, [getUpstreamNodeValues, setFullSizeImage, getFullSizeImage]);
+    }, [getUpstreamNodeValues, setFullSizeImage, setTabs]);
     
     const runChain = useCallback(async (startNodeId: string, type: 'execute' | 'forward') => {
         if (isExecutingChain) return;
         
         const executionTabId = activeTabIdRef.current; // Capture current tab as execution context
+        const chainImages = Object.fromEntries(Object.entries(fullSizeImageCache).map(([id, images]) => [id, { ...images }]));
         const executionNodes = [...nodes]; // Snapshot of nodes at start
         const executionConnections = [...connections]; // Snapshot of connections
 
@@ -225,7 +233,7 @@ export const useGeminiChainExecution = ({ nodes, setNodes, connections, setError
                     // Pass current state of nodes (including updates from previous steps in this chain)
                     const currentNodesSnapshot = Array.from(localNodeState.values());
                     
-                    const result = await _executeNodeLogic(nodeToExecute, currentNodesSnapshot, executionTabId);
+                    const result = await _executeNodeLogic(nodeToExecute, currentNodesSnapshot, executionTabId, chainImages);
                     
                     const { value: resultValue, downloadData } = result;
 
@@ -253,7 +261,7 @@ export const useGeminiChainExecution = ({ nodes, setNodes, connections, setError
             chainExecutionController.current = null;
             unregisterOperation(startNodeId);
         }
-    }, [isExecutingChain, nodes, connections, setError, _executeNodeLogic, registerOperation, unregisterOperation, activeTabId, activeTabName, t, updateNodeInStorage]);
+    }, [isExecutingChain, nodes, connections, setError, _executeNodeLogic, registerOperation, unregisterOperation, activeTabId, activeTabName, t, updateNodeInStorage, fullSizeImageCache]);
 
     return {
         isExecutingChain,

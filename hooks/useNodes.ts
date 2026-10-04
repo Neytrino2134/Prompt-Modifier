@@ -5,7 +5,7 @@ import { readPromptFromPNG } from '../utils/pngMetadata';
 import { getEmptyValueForNodeType, getDuplicatedValueForNodeType, RATIO_INDICES } from '../utils/nodeUtils';
 import { generateThumbnail } from '../utils/imageUtils';
 
-export const useNodes = (initialNodes: Node[], initialCounter: number, addToast: (message: string, type?: ToastType) => void, t: (key: string) => string, setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void, getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined) => {
+export const useNodes = (initialNodes: Node[], initialCounter: number, addToast: (message: string, type?: ToastType) => void, t: (key: string) => string, setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void, getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined, fullSizeImageCache: Record<string, Record<number, string>>) => {
     const [nodes, setNodes] = useState<Node[]>(initialNodes);
     const nodeIdCounter = useRef<number>(initialCounter);
 
@@ -60,10 +60,8 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
             value: nodeToDup.value,
         };
 
-        // Character Card logic: up to 10 characters supported in duplication loop (0..9) * 10
-        // Standard loop 0-50 covers generic nodes + 5 characters. Increased to 100 for safety.
-        // Note Cache logic: References use indexes 0...N. Loop handles it.
-        for (let i = 0; i <= 100; i++) {
+        // Preserve every original, including sequence frames and input B slots.
+        for (const i of Object.keys(fullSizeImageCache[nodeId] || {}).map(Number)) {
             const cachedImg = getFullSizeImage(nodeId, i);
             if (cachedImg) {
                 setFullSizeImage(newNodeId, i, cachedImg);
@@ -73,7 +71,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         setNodes(nds => [...nds, newNode]);
         addToast(t('toast.nodeDuplicated'));
         return newNodeId;
-    }, [nodes, nodeIdCounter, setNodes, addToast, t, getFullSizeImage, setFullSizeImage]);
+    }, [nodes, nodeIdCounter, setNodes, addToast, t, getFullSizeImage, setFullSizeImage, fullSizeImageCache]);
 
     const handlePasteNodeValue = async (nodeId: string) => {
         const node = nodes.find(n => n.id === nodeId);
@@ -693,7 +691,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
 
                             // Collect all high-res slices from cache
                             const slices: Record<number, string> = {};
-                            for (let i = 1; i <= 100; i++) {
+                            for (const i of Object.keys(fullSizeImageCache[node.id] || {}).map(Number).filter(i => i > 0)) {
                                 const sliceImg = getFullSizeImage(node.id, i);
                                 if (sliceImg) {
                                     slices[i] = sliceImg;

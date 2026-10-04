@@ -140,32 +140,29 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
         return (batchJobs || []).filter(j => j && j.state === 'SUCCEEDED').length;
     }, [batchJobs]);
 
-    // Batch Auto-Download Eligibility & Toggle
-    const isBatchAutoDownloadEligible = node.type === NodeType.IMAGE_EDITOR || node.type === NodeType.IMAGE_OUTPUT;
+    // Batch result insertion toggle
+    const isBatchAutoInsertEligible = node.type === NodeType.IMAGE_EDITOR || node.type === NodeType.IMAGE_OUTPUT;
     const isBatchActive = (context?.isBatchMode) || node.useBatch || isWaitingBatch || !!completedBatchJob;
 
-    const isAutoDownloadEnabled = React.useMemo(() => {
+    const isAutoInsertEnabled = React.useMemo(() => {
         if (node.type === NodeType.IMAGE_EDITOR) {
             try {
                 const parsed = JSON.parse(node.value || '{}');
-                if (parsed.autoDownload !== undefined) return !!parsed.autoDownload;
+                return !!(parsed.autoInsertResults ?? parsed.autoDownload ?? true);
             } catch { }
         }
         return !!node.autoDownload;
     }, [node.type, node.value, node.autoDownload]);
 
-    const handleToggleBatchAutoDownload = (e: React.MouseEvent) => {
+    const handleToggleBatchAutoInsert = (e: React.MouseEvent) => {
         e.stopPropagation();
-        const nextVal = !isAutoDownloadEnabled;
-
-        if (context?.handleAutoDownloadChange) {
-            context.handleAutoDownloadChange(node.id, nextVal);
-        }
+        const nextVal = !isAutoInsertEnabled;
+        if (node.type === NodeType.IMAGE_OUTPUT) context?.handleAutoDownloadChange?.(node.id, nextVal);
 
         if (node.type === NodeType.IMAGE_EDITOR) {
             try {
                 const parsed = JSON.parse(node.value || '{}');
-                const updated = { ...parsed, autoDownload: nextVal };
+                const updated = { ...parsed, autoInsertResults: nextVal };
                 onValueChange(node.id, JSON.stringify(updated));
             } catch { }
         }
@@ -175,22 +172,22 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                 if (j.nodeId === node.id) {
                     return {
                         ...j,
-                        items: (j.items || []).map((it: any) => ({ ...it, autoDownload: nextVal }))
+                        items: (j.items || []).map((it: any) => ({ ...it, ...(node.type === NodeType.IMAGE_EDITOR ? { autoInsertResults: nextVal } : { autoDownload: nextVal }) }))
                     };
                 }
                 return j;
             }));
         }
 
-        if (nextVal && completedBatchJob && fetchBatchJobResults && !isDownloadingBatch) {
+        if (nextVal && completedBatchJob && fetchBatchJobResults && !isDownloadingBatch && (node.type !== NodeType.IMAGE_EDITOR || completedBatchJob.resultsCached || (completedBatchJob.items.some(item => !!item.resultUrl) && completedBatchJob.items.every(item => !!item.resultUrl || item.status === 'failed' || item.status === 'cancelled')))) {
             fetchBatchJobResults(completedBatchJob.id, { forceRestore: true });
         }
 
         if (addToast) {
             addToast(
                 nextVal
-                    ? (t('batch.autoDownloadEnabledToast') || 'Авто-скачка с сервера включена')
-                    : (t('batch.autoDownloadDisabledToast') || 'Авто-скачка с сервера выключена'),
+                    ? (t(node.type === NodeType.IMAGE_EDITOR ? 'batch.autoInsertEnabledToast' : 'batch.autoDownloadEnabledToast') || 'Автовставка в ноду включена')
+                    : (t(node.type === NodeType.IMAGE_EDITOR ? 'batch.autoInsertDisabledToast' : 'batch.autoDownloadDisabledToast') || 'Автовставка в ноду выключена'),
                 'info'
             );
         }
@@ -543,32 +540,32 @@ export const NodeHeader: React.FC<NodeHeaderProps> = ({
                             </>
                         )}
 
-                        {/* Batch Auto-Download Option (when Batch mode is active for AI Image Editor and Image Output) */}
-                        {isBatchAutoDownloadEligible && isBatchActive && (
+                        {/* Insert downloaded batch results into this image editor */}
+                        {isBatchAutoInsertEligible && isBatchActive && (
                             <EditorTooltip
-                                title={t('batch.autoDownloadLabel') || 'Авто-скачка'}
+                                title={t(node.type === NodeType.IMAGE_EDITOR ? 'batch.autoInsertLabel' : 'batch.autoDownloadLabel') || 'Автовставка в ноду'}
                                 status={{
-                                    enabled: isAutoDownloadEnabled,
+                                    enabled: isAutoInsertEnabled,
                                     labelOn: t('common.enabled') || 'Включено',
                                     labelOff: t('common.disabled') || 'Выключено'
                                 }}
-                                description={t('batch.autoDownloadTooltip') || 'Авто-скачка с сервера при получении ответа (Batch API)'}
+                                description={t(node.type === NodeType.IMAGE_EDITOR ? 'batch.autoInsertTooltip' : 'batch.autoDownloadTooltip') || 'Автоматически вставлять скачанные результаты Batch API в эту ноду'}
                                 position="bottom"
                             >
                                 <button
                                     type="button"
-                                    onClick={handleToggleBatchAutoDownload}
+                                    onClick={handleToggleBatchAutoInsert}
                                     className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all select-none border cursor-pointer ${
-                                        isAutoDownloadEnabled
+                                        isAutoInsertEnabled
                                             ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/60 shadow-sm'
                                             : 'bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-gray-200 border-gray-600/60'
                                     }`}
                                 >
-                                    <svg className={`w-3.5 h-3.5 shrink-0 ${isAutoDownloadEnabled ? 'text-emerald-400' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <svg className={`w-3.5 h-3.5 shrink-0 ${isAutoInsertEnabled ? 'text-emerald-400' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                     </svg>
-                                    <span className="truncate">{t('batch.autoDownloadLabel') || 'Авто-скачка'}</span>
-                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isAutoDownloadEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                                    <span className="truncate">{t(node.type === NodeType.IMAGE_EDITOR ? 'batch.autoInsertLabel' : 'batch.autoDownloadLabel') || 'Автовставка в ноду'}</span>
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isAutoInsertEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
                                 </button>
                             </EditorTooltip>
                         )}

@@ -1156,9 +1156,9 @@ export const createBatchImageJob = async (
 /**
  * Fetches the current status and metadata of a Batch API job.
  */
-export const getBatchJobStatus = async (jobName: string): Promise<any> => {
+export const getBatchJobStatus = async (jobName: string, options?: { downloadResults?: boolean }): Promise<any> => {
     if (jobName.startsWith('openai_') || jobName.startsWith('batch_')) {
-        return await getOpenAiBatchJobStatus(jobName);
+        return await getOpenAiBatchJobStatus(jobName, options);
     }
 
     return callWithRetry(async () => {
@@ -1417,6 +1417,5 @@ export const transcribeAudio = async (
         return "";
     });
 };
-
 
 

@@ -1,3 +1,4 @@
+import { setupImageDragData } from '../../../utils/imageUtils';
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ImageBatchItem, ImageBatchSubMode, ImageInputCropRect, ImageInputGridConfig } from './types';
 import { ActionButton } from '../../ActionButton';
@@ -584,6 +585,8 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                             return (
                                 <div
                                     key={file.id || idx}
+                                    draggable
+                                    onDragStart={e => { e.stopPropagation(); setupImageDragData(e, file.dataUrl, file.name); }}
                                     onClick={() => onSelectReferenceIndex(idx)}
                                     style={{
                                         position: 'absolute',

@@ -1,3 +1,4 @@
+import { setupImageDragData } from '../../../utils/imageUtils';
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ImageBatchItem } from './types';
 
@@ -213,6 +214,8 @@ export const ImageBatchThumbnailsBar: React.FC<ImageBatchThumbnailsBarProps> = (
                         return (
                             <div
                                 key={file.id || idx}
+                                    draggable
+                                    onDragStart={e => { e.stopPropagation(); setupImageDragData(e, file.dataUrl, file.name); }}
                                 onClick={() => onSelectIndex(idx)}
                                 style={{
                                     position: 'absolute',

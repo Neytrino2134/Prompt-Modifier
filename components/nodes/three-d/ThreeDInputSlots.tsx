@@ -1,3 +1,4 @@
+import { setupImageDragData } from '../../../utils/imageUtils';
 import React, { useRef } from 'react';
 import { useLanguage } from '../../../localization';
 import { Link, Unlink } from 'lucide-react';
@@ -123,7 +124,7 @@ export const ThreeDInputSlots: React.FC<ThreeDInputSlotsProps> = ({
                                 title="Нажмите для просмотра в полном разрешении"
                             >
                                 <OptimizedThumbnail 
-                                    src={effectiveSingleImage} 
+                                    src={effectiveSingleImage} draggable={true} onDragStart={e => { e.stopPropagation(); if (effectiveSingleImage) setupImageDragData(e, effectiveSingleImage, '3D_Input.png'); }}
                                     size={128}
                                     alt="Input 3D Source" 
                                     className="max-h-full max-w-full object-contain rounded hover:brightness-110 transition-all"
@@ -198,7 +199,7 @@ export const ThreeDInputSlots: React.FC<ThreeDInputSlotsProps> = ({
                                     className="cursor-pointer max-h-full max-w-full flex items-center justify-center pt-4"
                                     title="Нажмите для просмотра в полном разрешении"
                                 >
-                                    <OptimizedThumbnail src={effectiveFrontImage} size={128} alt="Front View" className="max-h-full max-w-full object-contain rounded hover:brightness-110 transition-all" />
+                                    <OptimizedThumbnail src={effectiveFrontImage} draggable={true} onDragStart={e => { e.stopPropagation(); if (effectiveFrontImage) setupImageDragData(e, effectiveFrontImage, '3D_Input.png'); }} size={128} alt="Front View" className="max-h-full max-w-full object-contain rounded hover:brightness-110 transition-all" />
                                 </div>
                                 {!isFrontConnected && (
                                     <button
@@ -248,7 +249,7 @@ export const ThreeDInputSlots: React.FC<ThreeDInputSlotsProps> = ({
                                     className="cursor-pointer max-h-full max-w-full flex items-center justify-center pt-4"
                                     title="Нажмите для просмотра в полном разрешении"
                                 >
-                                    <OptimizedThumbnail src={effectiveBackImage} size={128} alt="Back View" className="max-h-full max-w-full object-contain rounded hover:brightness-110 transition-all" />
+                                    <OptimizedThumbnail src={effectiveBackImage} draggable={true} onDragStart={e => { e.stopPropagation(); if (effectiveBackImage) setupImageDragData(e, effectiveBackImage, '3D_Input.png'); }} size={128} alt="Back View" className="max-h-full max-w-full object-contain rounded hover:brightness-110 transition-all" />
                                 </div>
                                 {!isBackConnected && (
                                     <button
@@ -298,7 +299,7 @@ export const ThreeDInputSlots: React.FC<ThreeDInputSlotsProps> = ({
                                     className="cursor-pointer max-h-full max-w-full flex items-center justify-center pt-4"
                                     title="Нажмите для просмотра в полном разрешении"
                                 >
-                                    <OptimizedThumbnail src={effectiveLeftImage} size={128} alt="Left View" className="max-h-full max-w-full object-contain rounded hover:brightness-110 transition-all" />
+                                    <OptimizedThumbnail src={effectiveLeftImage} draggable={true} onDragStart={e => { e.stopPropagation(); if (effectiveLeftImage) setupImageDragData(e, effectiveLeftImage, '3D_Input.png'); }} size={128} alt="Left View" className="max-h-full max-w-full object-contain rounded hover:brightness-110 transition-all" />
                                 </div>
                                 {!isLeftConnected && (
                                     <button
@@ -348,7 +349,7 @@ export const ThreeDInputSlots: React.FC<ThreeDInputSlotsProps> = ({
                                     className="cursor-pointer max-h-full max-w-full flex items-center justify-center pt-4"
                                     title="Нажмите для просмотра в полном разрешении"
                                 >
-                                    <OptimizedThumbnail src={effectiveRightImage} size={128} alt="Right View" className="max-h-full max-w-full object-contain rounded hover:brightness-110 transition-all" />
+                                    <OptimizedThumbnail src={effectiveRightImage} draggable={true} onDragStart={e => { e.stopPropagation(); if (effectiveRightImage) setupImageDragData(e, effectiveRightImage, '3D_Input.png'); }} size={128} alt="Right View" className="max-h-full max-w-full object-contain rounded hover:brightness-110 transition-all" />
                                 </div>
                                 {!isRightConnected && (
                                     <button

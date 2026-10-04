@@ -1,3 +1,4 @@
+import { useFullSizeImageCache } from './useFullSizeImageCache';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Node, ActiveOperation, Toast, ToastType, DraggingInfo, LogEntry, LogLevel, GlobalMediaState, Tool, LineStyle, Point, SmartGuide, DockMode, Theme, CanvasColorMode, InputColorMode, PanelStyle, PanelAnimation, CursorSkin, ConnectionAnimationStyle, ConnectionAnimationConfig, DEFAULT_CONNECTION_ANIMATION_CONFIG } from '../types';
@@ -83,22 +84,7 @@ export const useGlobalState = (currentNodes: Node[]) => {
     }, [addLog]);
 
     // Full Size Image Cache (In-Memory + React State for reactivity if needed)
-    const [fullSizeImageCache, setFullSizeImageCache] = useState<Record<string, Record<number, string>>>({});
-
-    const setFullSizeImage = useCallback((nodeId: string, frameNumber: number, dataUrl: string) => {
-        // Update local state (for save/export)
-        setFullSizeImageCache(prev => ({
-            ...prev,
-            [nodeId]: {
-                ...(prev[nodeId] || {}),
-                [frameNumber]: dataUrl
-            }
-        }));
-    }, []);
-
-    const getFullSizeImage = useCallback((nodeId: string, frameNumber: number) => {
-        return fullSizeImageCache[nodeId]?.[frameNumber];
-    }, [fullSizeImageCache]);
+    const { fullSizeImageCache, setFullSizeImageCache, setFullSizeImage, getFullSizeImage } = useFullSizeImageCache();
 
     const clearImagesForNodeFromCache = useCallback((nodeId: string) => {
         setFullSizeImageCache(prev => {
@@ -107,23 +93,6 @@ export const useGlobalState = (currentNodes: Node[]) => {
             return next;
         });
     }, []);
-
-    const clearUnusedFullSizeImages = useCallback(() => {
-        let removedCount = 0;
-        setFullSizeImageCache(prev => {
-            const newCache: Record<string, Record<number, string>> = {};
-            currentNodes.forEach(node => {
-                if (prev[node.id]) {
-                    newCache[node.id] = prev[node.id];
-                }
-            });
-            removedCount = Object.keys(prev).length - Object.keys(newCache).length;
-            return newCache;
-        });
-        
-        if (removedCount > 0) addToast(`Cleared ${removedCount} unused items from cache`, 'info');
-        else addToast('Cache is already optimized', 'info');
-    }, [currentNodes, addToast]);
 
     // Active Operations
     const [activeOperations, setActiveOperations] = useState<Map<string, ActiveOperation>>(new Map());
@@ -586,7 +555,6 @@ export const useGlobalState = (currentNodes: Node[]) => {
         setFullSizeImage,
         getFullSizeImage,
         clearImagesForNodeFromCache,
-        clearUnusedFullSizeImages,
         activeOperations,
         registerOperation,
         unregisterOperation,

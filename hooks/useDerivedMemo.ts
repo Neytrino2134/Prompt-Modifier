@@ -116,6 +116,19 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
     const characterDataCache = useRef<{ signature: string, data: Map<string, any[]> }>({ signature: '', data: new Map() });
     const imageSourcesCache = useRef<{ signature: string, data: Map<string, (string | null)[]> }>({ signature: '', data: new Map() });
     const upstreamValuesCache = useRef<Map<string, { signature: string, values: any[] }>>(new Map());
+    const imageCacheInputs = useRef<{ values: Array<[string, string]>; connections: Connection[]; getter: typeof getFullSizeImage } | null>(null);
+    const previous = imageCacheInputs.current;
+    // Exact value comparisons avoid collisions in sampled JSON signatures, and
+    // include upstream nodes behind reroutes. Replacing only an original image
+    // also invalidates results even when its thumbnail/value is unchanged.
+    if (!previous || previous.getter !== getFullSizeImage || previous.connections !== connections
+        || previous.values.length !== nodes.length
+        || nodes.some((node, i) => previous.values[i][0] !== node.id || previous.values[i][1] !== node.value)) {
+        upstreamValuesCache.current.clear();
+        imageSourcesCache.current.signature = '\0';
+        characterDataCache.current.signature = '\0';
+        imageCacheInputs.current = { values: nodes.map(node => [node.id, node.value]), connections, getter: getFullSizeImage };
+    }
 
     const connectedInputs = useMemo(() => {
         const map = new Map<string, Set<string | undefined>>();
@@ -141,7 +154,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
         return map;
     }, [connections, nodes]);
 
-    const findImageDataSource = useCallback((fromNodeId: string, fromHandleId: string | undefined, visited: Set<string>, optimizedForUI: boolean): string | null => {
+    const findImageDataSource = useCallback((fromNodeId: string, fromHandleId: string | undefined, visited: Set<string>, optimizedForUI: boolean, imageGetter = getFullSizeImage): string | null => {
         if (visited.has(fromNodeId)) return null;
         visited.add(fromNodeId);
 
@@ -153,10 +166,10 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
 
         if (node.type === NodeType.IMAGE_ANALYZER || node.type === NodeType.REROUTE_DOT) {
             const inputConn = connections.find(c => c.toNodeId === fromNodeId);
-            if (inputConn) return findImageDataSource(inputConn.fromNodeId, inputConn.fromHandleId, visited, optimizedForUI);
+            if (inputConn) return findImageDataSource(inputConn.fromNodeId, inputConn.fromHandleId, visited, optimizedForUI, imageGetter);
         }
 
-        const fullRes = getFullSizeImage(node.id, 0);
+        const fullRes = imageGetter(node.id, 0);
         let parsed: any = {};
         try {
             parsed = JSON.parse(node.value || '{}');
@@ -179,25 +192,25 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
 
                 const mode = parsed.mode || 'full';
                 if (mode === 'single' && (parsed.cropRect || parsed.croppedImage)) {
-                    const croppedFull = getFullSizeImage(node.id, 1);
+                    const croppedFull = imageGetter(node.id, 1);
                     if (croppedFull && !optimizedForUI) return croppedFull;
                     if (parsed.croppedImage) return parsed.croppedImage;
                 } else if (mode === 'grid' && parsed.grid) {
-                    const firstFull = getFullSizeImage(node.id, 1);
+                    const firstFull = imageGetter(node.id, 1);
                     if (firstFull && !optimizedForUI) return firstFull;
                     if (parsed.extractedImages?.[0]) return parsed.extractedImages[0];
                 } else if (mode === 'frames') {
-                    const firstFull = getFullSizeImage(node.id, 1);
+                    const firstFull = imageGetter(node.id, 1);
                     if (firstFull && !optimizedForUI) return firstFull;
                     if (parsed.frameImages?.[0]) return parsed.frameImages[0];
                 } else if (mode === 'batch') {
                     const subMode = parsed.batchConfig?.subMode || (parsed.grid ? 'grid' : 'crop');
                     if (subMode === 'grid' && parsed.grid && Array.isArray(parsed.extractedImages) && parsed.extractedImages.length > 0) {
-                        const firstFull = getFullSizeImage(node.id, 1);
+                        const firstFull = imageGetter(node.id, 1);
                         if (firstFull && !optimizedForUI) return firstFull;
                         if (parsed.extractedImages?.[0]) return parsed.extractedImages[0];
                     } else if (subMode === 'crop' && (parsed.cropRect || parsed.croppedImage)) {
-                        const croppedFull = getFullSizeImage(node.id, 1);
+                        const croppedFull = imageGetter(node.id, 1);
                         if (croppedFull && !optimizedForUI) return croppedFull;
                         if (parsed.croppedImage) return parsed.croppedImage;
                     }
@@ -206,6 +219,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
             }
             case NodeType.POSE_CREATOR: return parsed.renderedImage || fullRes || null;
             case NodeType.IMAGE_ANALYZER:
+                return optimizedForUI ? (parsed.image || fullRes || null) : (fullRes || parsed.image || null);
             case NodeType.CHARACTER_CARD:
                  if (node.type === NodeType.CHARACTER_CARD && fromHandleId !== 'image') break;
                  
@@ -224,7 +238,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                  const ratio = outputChar.selectedRatio || '1:1';
                  const ratioIdx = RATIO_INDICES[ratio] || 1;
                  
-                 const cachedFull = getFullSizeImage(node.id, (charIdx * 10) + ratioIdx) || getFullSizeImage(node.id, charIdx * 10);
+                 const cachedFull = imageGetter(node.id, (charIdx * 10) + ratioIdx) || imageGetter(node.id, charIdx * 10);
                  if (cachedFull && !optimizedForUI) return cachedFull;
                  
                  // Fallback to thumbnail of selected ratio or general image
@@ -237,7 +251,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                         : parsed.sequenceOutputs.map((_: any, i: number) => i);
                     const firstIdx = checked[0] !== undefined ? checked[0] : 0;
                     const out = parsed.sequenceOutputs[firstIdx];
-                    const full = getFullSizeImage(node.id, 1000 + firstIdx);
+                    const full = imageGetter(node.id, 1000 + firstIdx);
                     if (full && !optimizedForUI) return full;
                     if (out?.thumbnail) return out.thumbnail;
                 }
@@ -247,7 +261,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                 if (parsed.images) {
                     const checked = parsed.checkedFrameNumbers || [];
                     const frameNum = checked[0] !== undefined ? checked[0] : (parsed.selectedFrameNumber !== null ? parsed.selectedFrameNumber : 0);
-                    const full = getFullSizeImage(node.id, 1000 + frameNum);
+                    const full = imageGetter(node.id, 1000 + frameNum);
                     if (full && !optimizedForUI) return full;
                     if (parsed.images[frameNum]) return parsed.images[frameNum];
                 }
@@ -274,7 +288,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                     if (Array.isArray(parsed.references) && parsed.references.length > 0) {
                         const firstIdx = parsed.references.findIndex((r: any) => r.image);
                         if (firstIdx !== -1) {
-                            const full = getFullSizeImage(node.id, firstIdx);
+                            const full = imageGetter(node.id, firstIdx);
                             if (full && !optimizedForUI) return full;
                             const thumb = parsed.references[firstIdx]?.image;
                             return (optimizedForUI && thumb) ? thumb : (full || thumb || null);
@@ -457,7 +471,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
         return map;
     }, [connections, nodes, getFullSizeImage]);
 
-    const getUpstreamNodeValues = useCallback((nodeId: string, handleId?: string, currentNodes?: Node[], optimizedForUI: boolean = false) => {
+    const getUpstreamNodeValues = useCallback((nodeId: string, handleId?: string, currentNodes?: Node[], optimizedForUI: boolean = false, imageGetter = getFullSizeImage) => {
         const activeNodes = currentNodes || nodes;
         const inputConnections = connections.filter(c => c.toNodeId === nodeId && (
             handleId === undefined || 
@@ -475,7 +489,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
         const incomingSig = sigParts.join('|');
         const cacheKey = `${nodeId}_${handleId || 'all'}_${optimizedForUI ? '1' : '0'}`;
         const cached = upstreamValuesCache.current.get(cacheKey);
-        if (cached && cached.signature === incomingSig) {
+        if ((imageGetter === getFullSizeImage && (!currentNodes || currentNodes === nodes)) && cached && cached.signature === incomingSig) {
             return cached.values;
         }
 
@@ -486,7 +500,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
             if (!fromNode) continue;
 
             if (fromNode.type === NodeType.REROUTE_DOT) {
-                values.push(...getUpstreamNodeValues(fromNode.id, undefined, activeNodes, optimizedForUI));
+                values.push(...getUpstreamNodeValues(fromNode.id, undefined, activeNodes, optimizedForUI, imageGetter));
                 continue;
             }
 
@@ -577,7 +591,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                         const checked = parsed.checkedFrameNumbers || [];
                         const imgs = parsed.images || {};
                         checked.forEach((frameNum: number) => {
-                             const url = getFullSizeImage(fromNode.id, 1000 + frameNum) || imgs[frameNum];
+                             const url = imageGetter(fromNode.id, 1000 + frameNum) || imgs[frameNum];
                              if (url && url.startsWith('data:')) {
                                  const parts = url.split(',');
                                  const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
@@ -599,7 +613,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             const thumbs = parsed.extractedImages || [];
                             let pushedAny = false;
                             selectedCells.forEach((cellIdx) => {
-                                const fullUrl = getFullSizeImage(fromNode.id, 1 + cellIdx);
+                                const fullUrl = imageGetter(fromNode.id, 1 + cellIdx);
                                 const thumbUrl = thumbs[cellIdx];
                                 const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
                                 if (url && url.startsWith('data:')) {
@@ -615,7 +629,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             const thumbs = parsed.frameImages || [];
                             let pushedAny = false;
                             frames.forEach((_: any, frameIdx: number) => {
-                                const fullUrl = getFullSizeImage(fromNode.id, 1 + frameIdx);
+                                const fullUrl = imageGetter(fromNode.id, 1 + frameIdx);
                                 const thumbUrl = thumbs[frameIdx];
                                 const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
                                 if (url && url.startsWith('data:')) {
@@ -627,9 +641,9 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             });
                             if (pushedAny) continue;
                         } else if (mode === 'single' && (parsed.cropRect || parsed.croppedImage)) {
-                            const fullUrl = getFullSizeImage(fromNode.id, 1);
+                            const fullUrl = imageGetter(fromNode.id, 1);
                             const thumbUrl = parsed.croppedImage;
-                            const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl || getFullSizeImage(fromNode.id, 0) || parsed.image);
+                            const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl || imageGetter(fromNode.id, 0) || parsed.image);
                             if (url && url.startsWith('data:')) {
                                 const parts = url.split(',');
                                 const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
@@ -647,7 +661,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                                 const thumbs = parsed.extractedImages || [];
                                 let pushedAny = false;
                                 selectedCells.forEach((cellIdx) => {
-                                    const fullUrl = getFullSizeImage(fromNode.id, 1 + cellIdx);
+                                    const fullUrl = imageGetter(fromNode.id, 1 + cellIdx);
                                     const thumbUrl = thumbs[cellIdx];
                                     const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
                                     if (url && url.startsWith('data:')) {
@@ -659,9 +673,9 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                                 });
                                 if (pushedAny) continue;
                             } else if (subMode === 'crop' && (parsed.cropRect || parsed.croppedImage)) {
-                                const fullUrl = getFullSizeImage(fromNode.id, 1);
+                                const fullUrl = imageGetter(fromNode.id, 1);
                                 const thumbUrl = parsed.croppedImage;
-                                const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl || getFullSizeImage(fromNode.id, 0) || parsed.image);
+                                const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl || imageGetter(fromNode.id, 0) || parsed.image);
                                 if (url && url.startsWith('data:')) {
                                     const parts = url.split(',');
                                     const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
@@ -671,8 +685,8 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             } else if (Array.isArray(parsed.batchFiles) && parsed.batchFiles.length > 0) {
                                 let pushedAny = false;
                                 parsed.batchFiles.forEach((file: any, fileIdx: number) => {
-                                    const fullUrl = getFullSizeImage(fromNode.id, fileIdx);
-                                    const url = (optimizedForUI ? file.dataUrl : (fullUrl || file.dataUrl));
+                                    const fullUrl = imageGetter(fromNode.id, fileIdx);
+                                    const url = optimizedForUI ? (file.thumbnailUrl || file.dataUrl) : (file.dataUrl || fullUrl);
                                     if (url && url.startsWith('data:')) {
                                         const parts = url.split(',');
                                         const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
@@ -687,8 +701,8 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             if (Array.isArray(parsed.batchFiles) && parsed.batchFiles.length > 0) {
                                 let pushedAny = false;
                                 parsed.batchFiles.forEach((file: any, fileIdx: number) => {
-                                    const fullUrl = getFullSizeImage(fromNode.id, fileIdx);
-                                    const url = (optimizedForUI ? (file.thumbnailUrl || file.dataUrl) : (fullUrl || file.dataUrl));
+                                    const fullUrl = imageGetter(fromNode.id, fileIdx);
+                                    const url = optimizedForUI ? (file.thumbnailUrl || file.dataUrl) : (file.dataUrl || fullUrl);
                                     if (url && url.startsWith('data:')) {
                                         const parts = url.split(',');
                                         const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
@@ -699,7 +713,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                                 if (pushedAny) continue;
                             }
 
-                            const fullUrl = getFullSizeImage(fromNode.id, 0);
+                            const fullUrl = imageGetter(fromNode.id, 0);
                             const thumbUrl = parsed.image;
                             const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
                             if (url && url.startsWith('data:')) {
@@ -773,7 +787,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                         continue;
                     } catch {}
                 } else if (fromNode.type === NodeType.IMAGE_OUTPUT) {
-                    const fullUrl = getFullSizeImage(fromNode.id, 0);
+                    const fullUrl = imageGetter(fromNode.id, 0);
                     let rawUrl = (typeof fromNode.value === 'string' && fromNode.value.startsWith('data:')) ? fromNode.value : '';
                     if (!rawUrl) {
                         try {
@@ -800,7 +814,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             checked.forEach((frameIdx: number) => {
                                 const out = parsed.sequenceOutputs[frameIdx];
                                 if (!out) return;
-                                const fullUrl = getFullSizeImage(fromNode.id, 1000 + frameIdx);
+                                const fullUrl = imageGetter(fromNode.id, 1000 + frameIdx);
                                 const thumbUrl = out.thumbnail;
                                 const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
                                 if (url && url.startsWith('data:')) {
@@ -812,7 +826,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             });
                             if (pushedAny) continue;
                         } else if (parsed.outputImage) {
-                            const fullUrl = getFullSizeImage(fromNode.id, 0);
+                            const fullUrl = imageGetter(fromNode.id, 0);
                             const thumbUrl = parsed.outputImage;
                             const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
                             if (url && url.startsWith('data:')) {
@@ -830,7 +844,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                         if (isRef && Array.isArray(parsed.references) && parsed.references.length > 0) {
                             let pushedAny = false;
                             parsed.references.forEach((ref: any, refIdx: number) => {
-                                const fullUrl = getFullSizeImage(fromNode.id, refIdx);
+                                const fullUrl = imageGetter(fromNode.id, refIdx);
                                 const thumbUrl = ref.image;
                                 const url = (optimizedForUI && thumbUrl) ? thumbUrl : (fullUrl || thumbUrl);
                                 if (url && url.startsWith('data:')) {
@@ -845,7 +859,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                     } catch {}
                 }
 
-                const url = findImageDataSource(conn.fromNodeId, conn.fromHandleId, new Set(), optimizedForUI);
+                const url = findImageDataSource(conn.fromNodeId, conn.fromHandleId, new Set(), optimizedForUI, imageGetter);
                 if (url && url.startsWith('data:')) {
                     const parts = url.split(',');
                     const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
@@ -862,7 +876,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                 values.push(fromNode.value);
             }
         }
-        upstreamValuesCache.current.set(cacheKey, { signature: incomingSig, values });
+        if (!currentNodes || currentNodes === nodes) upstreamValuesCache.current.set(cacheKey, { signature: incomingSig, values });
         return values;
     }, [nodes, connections, findImageDataSource, getFullSizeImage]);
 

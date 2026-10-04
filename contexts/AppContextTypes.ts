@@ -183,7 +183,7 @@ export type AppContextType =
   setDraggingInfo: React.Dispatch<React.SetStateAction<DraggingInfo | null>>;
   handleNodeCutConnections: (nodeId: string) => void;
   clearImagesForNodeFromCache: (nodeId: string) => void;
-  clearUnusedFullSizeImages: () => void;
+  clearUnusedFullSizeImages: () => Promise<void>;
   isSmartGuidesEnabled: boolean;
   setIsSmartGuidesEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   smartGuides: SmartGuide[];
@@ -364,7 +364,7 @@ export type AppContextType =
   updateNodeInStorage: (tabId: string, nodeId: string, updater: (nodeVal: any) => any, cacheData?: { frame: number; url: string }) => void;
 
   // Session Persistence
-  forceSaveSession: () => Promise<void>;
+  forceSaveSession: (overrideTabs?: Tab[], overrideActiveTabId?: string, isSnapshot?: boolean) => Promise<void>;
 
   // Header & Status Bar Safe Zone State
   isStatusBarOpen: boolean;

@@ -1,3 +1,4 @@
+import { readBatchArchive, writeBatchArchive } from './batchResultsCache';
 import { addMetadataToPNG } from '../utils/pngMetadata';
 import { convertToPNG } from '../utils/imageUtils';
 import { getDeviceId, formatWithDeviceTag, extractDeviceId } from '../utils/deviceId';
@@ -393,6 +394,7 @@ interface StoredOpenAiBatch {
     createdAt: number;
     updatedAt: number;
     nativeBatchId?: string;
+    outputCached?: boolean;
     endpoint?: string;
     error?: string;
     rawJsonl?: string;
@@ -641,7 +643,7 @@ const getStoredOpenAiBatches = (): StoredOpenAiBatch[] => {
 
 const saveStoredOpenAiBatches = (batches: StoredOpenAiBatch[]): void => {
     try {
-        localStorage.setItem(STORAGE_KEY_OPENAI_BATCH_JOBS, JSON.stringify(batches));
+        localStorage.setItem(STORAGE_KEY_OPENAI_BATCH_JOBS, JSON.stringify(batches.map(batch => batch.outputCached ? { ...batch, items: batch.items.map(({ resultUrl, ...item }) => item) } : batch)));
     } catch (e) {
         console.error("Failed to save OpenAI batches to storage", e);
     }
@@ -902,13 +904,45 @@ const parseOpenAiBatchErrorLine = (line: string): { customId: string; errorMsg: 
 /**
  * Check status of an OpenAI Batch Job
  */
-export const getOpenAiBatchJobStatus = async (jobName: string): Promise<any> => {
+const applyCachedOutput = (target: StoredOpenAiBatch, fileText: string) => {
+    for (const line of fileText.trim().split('\n').filter(Boolean)) {
+        try {
+            const parsed = JSON.parse(line);
+            const customId = parsed.custom_id || '';
+            const itemId = customId.includes('__') ? customId.split('__')[1] : customId;
+            const item = target.items.find(item => item.id === itemId);
+            if (!item) continue;
+            const resultUrl = buildDataUrlFromOpenAiBatchBody(parsed.response?.body);
+            if (resultUrl) {
+                item.resultUrl = resultUrl;
+                item.status = 'completed';
+                item.error = undefined;
+            } else if (parsed.error || parsed.response?.body?.error) {
+                item.error = parseOpenAiBatchErrorLine(line)?.errorMsg || normalizeOpenAiBatchError(parsed.error || parsed.response?.body?.error, 'OpenAI batch item failed');
+                item.status = 'failed';
+            }
+        } catch (error) { console.warn('Invalid OpenAI output line:', error); }
+    }
+};
+export const getOpenAiBatchJobStatus = async (jobName: string, options?: { downloadResults?: boolean }): Promise<any> => {
     const batches = getStoredOpenAiBatches();
     const batch = batches.find(b => b.id === jobName || b.nativeBatchId === jobName);
     if (!batch) {
         return { state: 'JOB_STATE_FAILED', error: { message: 'OpenAI Batch not found' } };
     }
 
+    if (batch.nativeBatchId && options?.downloadResults !== false) {
+        try {
+            const cached = await readBatchArchive<{ text: string }>(`openai-output:${batch.id}`);
+            if (cached?.text) {
+                applyCachedOutput(batch, cached.text);
+                batch.outputCached = true;
+                batch.state = batch.items.some(item => item.resultUrl) ? 'SUCCEEDED' : 'FAILED';
+                saveStoredOpenAiBatches(batches);
+                return { state: batch.state === 'SUCCEEDED' ? 'JOB_STATE_SUCCEEDED' : 'JOB_STATE_FAILED', batch };
+            }
+        } catch (error) { console.warn('Could not read cached OpenAI output:', error); }
+    }
     const apiKey = getOpenAiApiKey();
 
     // If connected to native OpenAI Batch API
@@ -919,7 +953,13 @@ export const getOpenAiBatchJobStatus = async (jobName: string): Promise<any> => 
             });
             if (res.ok) {
                 const batchStatus = await res.json();
-                const status = batchStatus.status; // validating, in_progress, finalizing, completed, failed, expired, cancelling, cancelled
+                const status = batchStatus.status;
+                if (status === 'completed' && options?.downloadResults === false) {
+                    batch.state = 'SUCCEEDED';
+                    batch.updatedAt = Date.now();
+                    saveStoredOpenAiBatches(batches);
+                    return { state: 'JOB_STATE_SUCCEEDED', batch };
+                } // validating, in_progress, finalizing, completed, failed, expired, cancelling, cancelled
 
                 // If error_file_id is available, parse error details for individual items
                 if (batchStatus.error_file_id) {
@@ -962,26 +1002,11 @@ export const getOpenAiBatchJobStatus = async (jobName: string): Promise<any> => 
                         });
                         if (fileRes.ok) {
                             const fileText = await fileRes.text();
-                            const lines = fileText.trim().split('\n').filter(Boolean);
-                            lines.forEach(line => {
-                                try {
-                                    const parsed = JSON.parse(line);
-                                    const customId = parsed.custom_id || '';
-                                    const itemId = customId.includes('__') ? customId.split('__')[1] : customId;
-                                    const item = batch.items.find(it => it.id === itemId);
-                                    if (item) {
-                                        const resultUrl = buildDataUrlFromOpenAiBatchBody(parsed.response?.body);
-                                        if (resultUrl) {
-                                            item.resultUrl = resultUrl;
-                                            item.status = 'completed';
-                                        } else if (parsed.error || parsed.response?.body?.error) {
-                                            const parsedErr = parseOpenAiBatchErrorLine(line);
-                                            item.error = parsedErr?.errorMsg || normalizeOpenAiBatchError(parsed.error || parsed.response?.body?.error, 'OpenAI batch item failed');
-                                            item.status = 'failed';
-                                        }
-                                    }
-                                } catch {}
-                            });
+                            applyCachedOutput(batch, fileText);
+                            try {
+                                await writeBatchArchive(`openai-output:${batch.id}`, { text: fileText }, batch.items.map(item => item.resultUrl).filter((url): url is string => !!url));
+                                batch.outputCached = true;
+                            } catch (error) { console.warn('Failed to cache OpenAI output file:', error); }
                         }
                     }
 
@@ -1036,6 +1061,8 @@ export const getOpenAiBatchJobStatus = async (jobName: string): Promise<any> => 
             console.warn("Could not query OpenAI native batch:", e);
         }
     }
+
+    if (batch.nativeBatchId) throw new Error('Could not retrieve OpenAI batch results. Check the connection or local cache.');
 
     // Step-by-step background processing fallback (when running locally)
     await triggerNextOpenAiBatchItem(batch.id);

@@ -32,12 +32,13 @@ interface UseEntityActionsProps {
     addToast: (message: string, type?: ToastType, action?: { label: string; onClick: () => void }) => void;
     getFullSizeImage: (nodeId: string, frameNumber: number) => string | undefined;
     setFullSizeImage: (nodeId: string, frameNumber: number, dataUrl: string) => void;
+    fullSizeImageCache: Record<string, Record<number, string>>;
     takeSnapshot?: (nodes: Node[]) => void;
     getBatchJobs?: () => BatchJobRecord[];
 }
 
 export const useEntityActions = (props: UseEntityActionsProps) => {
-    const { nodes, setNodes, connections, setConnections, nodeIdCounter, t, groups, setGroups, clearImagesForNodeFromCache, tabId, addToast, getFullSizeImage, setFullSizeImage, takeSnapshot, getBatchJobs } = props;
+    const { nodes, setNodes, connections, setConnections, nodeIdCounter, t, groups, setGroups, clearImagesForNodeFromCache, tabId, addToast, getFullSizeImage, setFullSizeImage, fullSizeImageCache, takeSnapshot, getBatchJobs } = props;
 
     // Temporary cache for soft-deleted nodes pending permanent deletion
     const deletedNodesCacheRef = useRef<Map<string, SoftDeletedNodeRecord>>(new Map());
@@ -152,7 +153,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         const relatedConnections = connections.filter(c => c.fromNodeId === nodeId || c.toNodeId === nodeId);
         const parentGroup = groups.find(g => g.nodeIds.includes(nodeId));
         const cachedImages: Record<number, string> = {};
-        for (let i = 0; i <= 100; i++) {
+        for (const i of Object.keys(fullSizeImageCache[nodeId] || {}).map(Number)) {
             const img = getFullSizeImage(nodeId, i);
             if (img) cachedImages[i] = img;
         }
@@ -188,7 +189,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
                 }
             );
         }
-    }, [nodes, connections, groups, setNodes, setConnections, setGroups, clearImagesForNodeFromCache, tabId, getBatchJobs, addToast, t, getFullSizeImage, restoreDeletedNode]);
+    }, [nodes, connections, groups, setNodes, setConnections, setGroups, clearImagesForNodeFromCache, tabId, getBatchJobs, addToast, t, getFullSizeImage, fullSizeImageCache, restoreDeletedNode]);
 
     const deleteMultipleNodesAndConnections = useCallback((nodeIds: string[]) => {
         if (!nodeIds || nodeIds.length === 0) return;
@@ -603,7 +604,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
 
         const fullSizeImages: Record<string, Record<number, string>> = {};
         groupNodes.forEach(n => {
-            for (let i = 0; i <= 100; i++) {
+            for (const i of Object.keys(fullSizeImageCache[n.id] || {}).map(Number)) {
                 const img = getFullSizeImage(n.id, i);
                 if (img) {
                     if (!fullSizeImages[n.id]) fullSizeImages[n.id] = {};
@@ -627,7 +628,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             console.error("Failed to copy group to clipboard", e);
             addToast(t('toast.copyFailed') + " (Check console)", 'error');
         }
-    }, [groups, nodes, connections, t, addToast, getFullSizeImage]);
+    }, [groups, nodes, connections, t, addToast, getFullSizeImage, fullSizeImageCache]);
 
     const duplicateGroup = useCallback((groupId: string) => {
         const group = groups.find(g => g.id === groupId);
@@ -646,7 +647,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
             const newId = `node-${nodeIdCounter.current}-${timestamp}-${index}`;
             idMap.set(node.id, newId);
 
-            for (let i = 0; i <= 100; i++) {
+            for (const i of Object.keys(fullSizeImageCache[node.id] || {}).map(Number)) {
                 const img = getFullSizeImage(node.id, i);
                 if (img) setFullSizeImage(newId, i, img);
             }
@@ -680,7 +681,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
         setConnections(prev => [...prev, ...newConnections]);
 
         addToast(t('toast.nodeDuplicated'));
-    }, [groups, nodes, connections, nodeIdCounter, setNodes, setGroups, setConnections, t, addToast, getFullSizeImage, setFullSizeImage]);
+    }, [groups, nodes, connections, nodeIdCounter, setNodes, setGroups, setConnections, t, addToast, getFullSizeImage, setFullSizeImage, fullSizeImageCache]);
 
     const pasteGroup = useCallback((clipboardData: any, position?: Point) => {
         const nodesSource = clipboardData.nodes || [];
@@ -913,6 +914,7 @@ export const useEntityActions = (props: UseEntityActionsProps) => {
     }, [nodes, getFullSizeImage, getPromptForNode, addToast, t]);
 
     return {
+        getDeletedNodeCacheReferences: () => [...deletedNodesCacheRef.current.values()].map(({ node, images }) => ({ node, images })),
         onAddNode,
         deleteNodeAndConnections,
         deleteMultipleNodesAndConnections,

@@ -70,6 +70,10 @@ export const TaskQueuePanel: React.FC = () => {
         handleValueChange,
         isBatchMode,
         setIsBatchMode,
+        autoDownloadFromServer,
+        setAutoDownloadFromServer,
+        clearUnusedBatchCache,
+        isCleaningBatchCache,
         restoreFinishedCards,
         setRestoreFinishedCards,
         restoreFailedCards,
@@ -1060,7 +1064,31 @@ export const TaskQueuePanel: React.FC = () => {
                         </button>
                     </div>
 
+                    <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <CustomCheckbox checked={autoDownloadFromServer} onChange={setAutoDownloadFromServer} />
+                        <div className="flex flex-col">
+                            <span className="text-xs font-medium text-gray-200">{t('batch.autoDownloadFromServerLabel')}</span>
+                            <span className="text-[10px] text-gray-400 mt-0.5">{t('batch.autoDownloadFromServerTooltip')}</span>
+                        </div>
+                    </label>
+
                     {/* Restore Cards Options */}
+                    <div className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-gray-950/70 border border-gray-800/80">
+                        <button type="button" disabled={isCleaningBatchCache}
+                            onClick={() => clearUnusedBatchCache()}
+                            className="text-xs text-left text-gray-200 hover:text-white disabled:opacity-50 flex items-center gap-2">
+                            <Trash2 size={14} />
+                            {t(isCleaningBatchCache ? 'batch.cacheCleaning' : 'batch.clearUnusedArchives')}
+                        </button>
+                        <span className="text-[10px] text-gray-400">{t('batch.clearUnusedArchivesDescription')}</span>
+                        {window.electronAPI?.openBatchCacheFolder && (
+                            <button type="button" className="text-[10px] text-left text-indigo-300 hover:text-indigo-200"
+                                onClick={() => window.electronAPI!.openBatchCacheFolder!().catch(() => addToast(t('batch.cacheCleanupFailed'), 'error'))}>
+                                {t('batch.openCacheFolder')}
+                            </button>
+                        )}
+                    </div>
+
                     <div className="flex flex-col gap-2 p-2.5 rounded-lg bg-gray-950/70 border border-gray-800/80">
                         <label className="flex items-start gap-2.5 cursor-pointer select-none group">
                             <CustomCheckbox
@@ -1673,7 +1701,10 @@ export const TaskQueuePanel: React.FC = () => {
                                                 )}
                                             </div>
                                         </div>
-                                        <div>{getBatchStatusBadge(job.state)}</div>
+                                        <div className="flex flex-col items-end gap-1">
+                                            {getBatchStatusBadge(job.state)}
+                                            {job.resultsCached && <span className="text-[9px] text-emerald-400">{t('batch.cachedLocally')}</span>}
+                                        </div>
                                     </div>
 
                                     {/* Progress Info */}
@@ -2833,4 +2864,3 @@ export const TaskQueuePanel: React.FC = () => {
         </div>
     );
 };
-

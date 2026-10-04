@@ -3,6 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { TRAY_ICON_DATA_URL } from './tray_icon_base64.js';
+import { createSessionWriteQueue, isValidSession } from './sessionPersistence.js';
+import { createBatchCache } from './batchCache.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -69,6 +71,9 @@ let customDownloadPath = app.getPath('downloads');
 
 // Flag to track if we should actually close the app or ask the renderer first
 let isQuitting = false;
+let saveAndExitPending = false;
+const sessionWriteQueue = createSessionWriteQueue();
+let lastSavedSessionAt = 0;
 
 // Store reference to the main window and any detached mini-app windows
 let mainWindow = null;
@@ -488,30 +493,13 @@ function updateTrayContextMenu() {
     },
     { type: 'separator' },
     {
-      label: 'Сохранить и выйти',
+      label: saveAndExitPending ? 'Сохранение перед выходом…' : 'Сохранить и выйти',
+      enabled: !saveAndExitPending,
       click: () => {
         if (mainWindow && !mainWindow.isDestroyed()) {
-          // Send save-and-exit signal via both channels to ensure renderer catches it
+          saveAndExitPending = true;
+          updateTrayContextMenu();
           mainWindow.webContents.send('app:save-and-exit');
-          mainWindow.webContents.send('app:tray-action', { action: 'save-and-exit' });
-          // Safety fallback timeout to ensure exit if renderer is unresponsive
-          setTimeout(() => {
-            if (!isQuitting) {
-              isQuitting = true;
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                saveWindowStateSync(mainWindow);
-              }
-              miniAppWindows.forEach((miniWin) => {
-                if (!miniWin.isDestroyed()) miniWin.destroy();
-              });
-              miniAppWindows.clear();
-              if (tray && !tray.isDestroyed()) {
-                tray.destroy();
-                tray = null;
-              }
-              app.quit();
-            }
-          }, 3500);
         } else {
           isQuitting = true;
           app.quit();
@@ -1026,6 +1014,34 @@ function getUserAutosaveRootDir() {
   return path.join(app.getPath('userData'), 'autosave');
 }
 
+// Stable across launches; kept beside the application's local project autosaves.
+let localBatchCache;
+function getLocalBatchCache() {
+  return localBatchCache ||= createBatchCache(path.join(app.getPath('documents'), 'Prompt Modifier', 'cache', 'batch-results'));
+}
+ipcMain.handle('batch-cache:read', (_, key) => getLocalBatchCache().get(key));
+ipcMain.handle('batch-cache:write', (_, key, payload, hashes, relatedKeys) => getLocalBatchCache().put(key, payload, hashes, relatedKeys));
+ipcMain.handle('batch-cache:prune', (_, references) => getLocalBatchCache().prune(references));
+ipcMain.handle('batch-cache:open-folder', async () => {
+  const root = getLocalBatchCache().root;
+  await fs.promises.mkdir(root, { recursive: true });
+  const error = await shell.openPath(root);
+  if (error) throw new Error(error);
+  return root;
+});
+ipcMain.handle('session:read-backup', async (_, targetPath) => {
+  // Unlike restore-backup, inspection must not replace the primary session.
+  const roots = [getUserAutosaveRootDir(), getDocumentsAutosaveRootDir()].filter(Boolean);
+  const resolved = await fs.promises.realpath(targetPath);
+  if (!roots.some(root => {
+    const relative = path.relative(path.resolve(root), resolved);
+    return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+  })) throw new Error('Backup is outside the session folders');
+  const session = JSON.parse(await fs.promises.readFile(resolved, 'utf8'));
+  if (!Array.isArray(session.tabs)) throw new Error('Invalid session backup');
+  return { success: true, session };
+});
+
 function getDocumentsAutosaveRootDir() {
   try {
     const docPath = app.getPath('documents');
@@ -1172,6 +1188,7 @@ async function saveStateToLaunchDir(targetDir, jsonStr, savedAt, maxStates = cur
     }
   } catch (err) {
     console.warn(`[Autosave] Error saving to launch dir ${targetDir}:`, err);
+    throw err;
   }
 }
 
@@ -1217,7 +1234,7 @@ function getAllCandidateSessionPaths() {
             }
             // All state files sorted newest first
             const stateFiles = innerFiles
-              .filter(f => (f.startsWith('state_') || f.startsWith('session_backup_')) && f.endsWith('.json'))
+              .filter(f => (f === 'latest_session.json' || f.startsWith('state_') || f.startsWith('session_backup_')) && f.endsWith('.json'))
               .sort()
               .reverse();
             for (const sf of stateFiles) {
@@ -1269,8 +1286,12 @@ async function atomicWriteFile(targetPath, dataStr) {
     await fs.promises.mkdir(dir, { recursive: true });
   }
   const tempPath = `${targetPath}.${Date.now()}.${Math.random().toString(36).slice(2, 7)}.tmp`;
-  await fs.promises.writeFile(tempPath, dataStr, 'utf-8');
-  await fs.promises.rename(tempPath, targetPath);
+  try {
+    const handle = await fs.promises.open(tempPath, 'wx');
+    try { await handle.writeFile(dataStr, 'utf8'); await handle.sync(); }
+    finally { await handle.close(); }
+    await fs.promises.rename(tempPath, targetPath);
+  } finally { await fs.promises.unlink(tempPath).catch(() => {}); }
 }
 
 // Check if a session has substantial user content (more than 1 tab, or nodes, or renamed tabs, or non-default state)
@@ -1305,32 +1326,16 @@ function isSubstantialSession(sessionObj) {
   return false;
 }
 
-ipcMain.handle('session:save', async (event, sessionData) => {
+async function persistDesktopSession(event, sessionData) {
   try {
     const parsed = typeof sessionData === 'string' ? JSON.parse(sessionData) : sessionData;
-    if (!parsed || !Array.isArray(parsed.tabs) || parsed.tabs.length === 0) {
+    if (!isValidSession(parsed)) {
       return { success: false, error: 'Invalid session structure' };
     }
 
     // Ensure timestamp
     if (!parsed.savedAt) {
       parsed.savedAt = Date.now();
-    }
-
-    // If screenshot is not provided by client, attempt to capture active page
-    if (!parsed.screenshot && event && event.sender && typeof event.sender.capturePage === 'function') {
-      try {
-        const pageImg = await event.sender.capturePage();
-        if (pageImg && !pageImg.isEmpty()) {
-          const size = pageImg.getSize();
-          const targetWidth = Math.min(640, size.width || 640);
-          const targetHeight = Math.max(1, Math.round((size.height * targetWidth) / (size.width || 1)));
-          const thumbnail = pageImg.resize({ width: targetWidth, height: targetHeight, quality: 'good' });
-          parsed.screenshot = thumbnail.toDataURL();
-        }
-      } catch (err) {
-        console.warn('Could not capture page in session:save:', err);
-      }
     }
 
     // Update dynamic limits if provided by client
@@ -1404,17 +1409,25 @@ ipcMain.handle('session:save', async (event, sessionData) => {
     }
 
     // 5. Clean archive folders and prune states according to limits
-    cleanOldLaunchArchives(getUserAutosaveRootDir(), currentSessionLimit, currentMaxStatesPerLaunch).catch(() => {});
-    cleanOldLaunchArchives(getDocumentsAutosaveRootDir(), currentSessionLimit, currentMaxStatesPerLaunch).catch(() => {});
+    await cleanOldLaunchArchives(getUserAutosaveRootDir(), currentSessionLimit, currentMaxStatesPerLaunch);
+    await cleanOldLaunchArchives(getDocumentsAutosaveRootDir(), currentSessionLimit, currentMaxStatesPerLaunch);
+    lastSavedSessionAt = parsed.savedAt;
 
-    return { success: true, launchFolder: launchFolderName };
+    return { success: true, savedAt: parsed.savedAt, launchFolder: launchFolderName, path: primaryFile };
   } catch (err) {
     console.error('Failed to save session to disk in Electron:', err);
     return { success: false, error: err?.message || String(err) };
   }
+}
+
+ipcMain.handle('session:save', (event, sessionData) => {
+  if (mainWindow && event.sender !== mainWindow.webContents) return { success: false, error: 'Only the main window can save the project session' };
+  const parsed = typeof sessionData === 'string' ? JSON.parse(sessionData) : sessionData;
+  return sessionWriteQueue.run(parsed, () => persistDesktopSession(event, parsed));
 });
 
 ipcMain.handle('session:load', async () => {
+  await sessionWriteQueue.idle();
   try {
     const candidatePaths = getAllCandidateSessionPaths();
     let bestSession = null;
@@ -1430,20 +1443,7 @@ ipcMain.handle('session:load', async () => {
           const stats = await fs.promises.stat(filePath);
           const timestamp = Number(parsed.savedAt) || stats.mtimeMs || 0;
           
-          // Prefer sessions that have substantial user data
-          const isSubstantial = isSubstantialSession(parsed);
-          const currentBestIsSubstantial = bestSession ? isSubstantialSession(bestSession) : false;
-
-          if (!bestSession) {
-            bestSession = parsed;
-            bestSavedAt = timestamp;
-            bestPath = filePath;
-          } else if (isSubstantial && !currentBestIsSubstantial) {
-            // Favor real user project over a blank default canvas even if timestamp was newer
-            bestSession = parsed;
-            bestSavedAt = timestamp;
-            bestPath = filePath;
-          } else if (isSubstantial === currentBestIsSubstantial && timestamp > bestSavedAt) {
+          if (isValidSession(parsed) && (!bestSession || timestamp > bestSavedAt)) {
             bestSession = parsed;
             bestSavedAt = timestamp;
             bestPath = filePath;
@@ -1455,27 +1455,9 @@ ipcMain.handle('session:load', async () => {
     }
 
     if (bestSession) {
+      lastSavedSessionAt = bestSavedAt;
       console.log(`[Session] Restored session with ${bestSession.tabs.length} tabs from: ${bestPath}`);
       
-      // Auto-migrate: Ensure the best session is synchronized to current primary and documents paths
-      const primaryFile = getPrimarySessionFilePath();
-      const docsFile = getDocumentsSessionFilePath();
-      const dataToSync = JSON.stringify(bestSession, null, 2);
-
-      if (bestPath !== primaryFile) {
-        try {
-          await atomicWriteFile(primaryFile, dataToSync);
-        } catch (e) {
-          console.warn('Failed to auto-migrate session to primary path:', e);
-        }
-      }
-      if (docsFile && bestPath !== docsFile) {
-        try {
-          await atomicWriteFile(docsFile, dataToSync);
-        } catch (e) {
-          console.warn('Failed to auto-migrate session to documents path:', e);
-        }
-      }
 
       return bestSession;
     }
@@ -1496,6 +1478,8 @@ ipcMain.handle('session:get-info', () => {
     sessionLimit: currentSessionLimit,
     userAutosaveDir: getCurrentUserLaunchDir(),
     docsAutosaveDir: getCurrentDocsLaunchDir(),
+    primarySessionFile: getPrimarySessionFilePath(),
+    lastSavedAt: lastSavedSessionAt || null,
   };
 });
 
@@ -1536,7 +1520,7 @@ ipcMain.handle('session:list-backups', async () => {
       getDocumentsAutosaveRootDir(),
     ].filter(Boolean);
 
-    // 1. Scan launch directories for actual state snapshots (state_*.json)
+    // 1. Include both historical snapshots and the latest ordinary save.
     for (const rootDir of autosaveRoots) {
       if (fs.existsSync(rootDir)) {
         try {
@@ -1552,7 +1536,7 @@ ipcMain.handle('session:list-backups', async () => {
             try {
               const innerFiles = await fs.promises.readdir(folderPath);
               const stateFiles = innerFiles
-                .filter(f => (f.startsWith('state_') || f.startsWith('session_backup_')) && f.endsWith('.json'))
+                .filter(f => (f === 'latest_session.json' || f.startsWith('state_') || f.startsWith('session_backup_')) && f.endsWith('.json'))
                 .sort((a, b) => {
                   const timeA = parseInt(a.replace(/\D/g, ''), 10) || 0;
                   const timeB = parseInt(b.replace(/\D/g, ''), 10) || 0;
@@ -1659,9 +1643,8 @@ ipcMain.handle('session:restore-backup', async (event, targetPath) => {
     if (!parsed || !Array.isArray(parsed.tabs) || parsed.tabs.length === 0) {
       return { success: false, error: 'Invalid backup format' };
     }
-    // Synchronize to primary
-    const primaryFile = getPrimarySessionFilePath();
-    await atomicWriteFile(primaryFile, raw);
+    // The renderer restores this state, then commits it through the session
+    // write queue with a new timestamp. Reading must not overwrite newer data.
     return { success: true, session: parsed };
   } catch (e) {
     return { success: false, error: e?.message || String(e) };
@@ -1890,17 +1873,23 @@ ipcMain.on('node:sync-action', (event, payload) => {
 });
 
 // Handle Force Close from Renderer (User confirmed exit in UI)
-ipcMain.on('app:force-close', () => {
+ipcMain.on('app:force-close', async () => {
+  await sessionWriteQueue.idle();
   isQuitting = true;
   if (mainWindow && !mainWindow.isDestroyed()) {
     saveWindowStateSync(mainWindow);
   }
   const wins = BrowserWindow.getAllWindows();
   if (wins.length > 0) {
-    wins[0].close();
+    (mainWindow && !mainWindow.isDestroyed() ? mainWindow : wins[0]).close();
   } else {
     app.quit();
   }
+});
+
+ipcMain.on('app:save-and-exit-cancelled', () => {
+  saveAndExitPending = false;
+  updateTrayContextMenu();
 });
 
 // Tray IPC Handlers

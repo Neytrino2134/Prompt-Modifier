@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BatchJobRecord, BatchJobItem, BatchJobState, TaskStatus, ToastType } from '../types';
+import { BatchJobRecord, BatchJobItem, BatchJobState, TaskStatus, ToastType, Node, NodeType } from '../types';
 import { 
     createBatchImageJob, 
     getBatchJobStatus, 
@@ -18,6 +18,8 @@ import {
 import { generateThumbnail, cropImageTo169 } from '../utils/imageUtils';
 import { recordGenerationEvent } from '../utils/generationStats';
 import { addMetadataToPNG } from '../utils/pngMetadata';
+import { batchResultKey, readBatchArchive, writeBatchArchive, clearUnusedBatchArchives, imageHashes } from '../services/batchResultsCache';
+import { collectCacheReferences } from '../utils/cacheReferences';
 import { 
     playBatchSuccessSound, 
     playBatchErrorSound 
@@ -38,11 +40,14 @@ import {
 } from '../utils/deviceId';
 
 const STORAGE_KEY_BATCH_JOBS = 'gemini_batch_jobs_v1';
+const STORAGE_KEY_AUTO_DOWNLOAD = 'task_queue_auto_download_from_server';
 const STORAGE_KEY_BATCH_MODE = 'settings_isBatchMode';
 const STORAGE_KEY_RESTORE_FINISHED_CARDS = 'task_queue_restore_finished_cards';
 const STORAGE_KEY_RESTORE_FAILED_CARDS = 'task_queue_restore_failed_cards';
 
 export interface UseBatchManagerProps {
+    getCacheProtection?: () => Promise<unknown[]>;
+    getTargetNode?: (tabId: string, nodeId: string) => Node | undefined;
     updateNodeInStorage?: (tabId: string, nodeId: string, updater: (nodeVal: any) => any, cacheData?: { frame: number; url: string }) => void;
     setFullSizeImage?: (nodeId: string, frameNumber: number, dataUrl: string) => void;
     addToHistory?: (imageUrl: string, prompt: string, model: string, meta?: any) => void;
@@ -55,6 +60,8 @@ export interface UseBatchManagerProps {
 }
 
 export const useBatchManager = ({
+    getCacheProtection,
+    getTargetNode,
     updateNodeInStorage,
     setFullSizeImage,
     addToHistory,
@@ -111,6 +118,18 @@ export const useBatchManager = ({
             }
             return next;
         });
+    }, []);
+
+    const [autoDownloadFromServer, setAutoDownloadFromServerState] = useState(() => {
+        try { return localStorage.getItem(STORAGE_KEY_AUTO_DOWNLOAD) !== 'false'; }
+        catch { return true; }
+    });
+    const autoDownloadFromServerRef = useRef(autoDownloadFromServer);
+    autoDownloadFromServerRef.current = autoDownloadFromServer;
+    const setAutoDownloadFromServer = useCallback((enabled: boolean) => {
+        autoDownloadFromServerRef.current = enabled;
+        setAutoDownloadFromServerState(enabled);
+        try { localStorage.setItem(STORAGE_KEY_AUTO_DOWNLOAD, String(enabled)); } catch { }
     }, []);
 
     // 1b. Restore finished/failed cards settings (synced with localStorage)
@@ -226,6 +245,8 @@ export const useBatchManager = ({
 
     const [isPolling, setIsPolling] = useState<boolean>(false);
     const [fetchingJobIds, setFetchingJobIds] = useState<{ [jobId: string]: boolean }>({});
+    const [isCleaningBatchCache, setIsCleaningBatchCache] = useState(false);
+    const cleaningBatchCacheRef = useRef(false);
     const fetchingJobIdsRef = useRef(fetchingJobIds);
     fetchingJobIdsRef.current = fetchingJobIds;
 
@@ -233,14 +254,82 @@ export const useBatchManager = ({
     const persistBatchJobs = useCallback((updater: (prev: BatchJobRecord[]) => BatchJobRecord[]) => {
         setBatchJobs(prev => {
             const next = updater(prev);
+            batchJobsRef.current = next;
             try {
-                localStorage.setItem(STORAGE_KEY_BATCH_JOBS, JSON.stringify(next));
+                // Large binary responses live in durable archives, not 5 MB localStorage.
+                const metadata = next.map(job => job.resultsCached ? {
+                    ...job,
+                    rawJsonl: undefined,
+                    items: job.items.map(({ resultUrl, resultThumbnail, images, ...item }) => item)
+                } : job);
+                localStorage.setItem(STORAGE_KEY_BATCH_JOBS, JSON.stringify(metadata));
             } catch (e) {
                 console.error("Failed to persist batch jobs", e);
             }
             return next;
         });
     }, []);
+
+    const storeResults = useCallback(async (job: BatchJobRecord, items: BatchJobItem[]) => {
+        try {
+            const sourceKeys = job.name?.startsWith('openai_')
+                ? [`openai-output:${job.name}`] : [];
+            await writeBatchArchive(batchResultKey(job), { items, rawJsonl: job.rawJsonl },
+                items.flatMap(item => [item.resultUrl, item.resultThumbnail].filter((url): url is string => !!url)), sourceKeys);
+            return true;
+        } catch (error) {
+            console.warn('Failed to persist batch results:', error);
+            addToast?.(t?.('batch.cacheSaveFailed') || 'Could not save batch results locally. They remain available in this session.', 'warning');
+            return false;
+        }
+    }, [addToast, t]);
+
+    // Hydrate results without calling any provider or replaying node autosaves.
+    useEffect(() => {
+        let cancelled = false;
+        const initialJobs = batchJobsRef.current;
+        (async () => {
+            for (const job of initialJobs) {
+                try {
+                    let archived = await readBatchArchive<{ items: BatchJobItem[]; rawJsonl?: string }>(batchResultKey(job));
+                    if (!archived && job.items.some(item => !!item.resultUrl)) {
+                        if (await storeResults(job, job.items)) archived = { items: job.items, rawJsonl: job.rawJsonl };
+                    }
+                    if (cancelled || !archived || !Array.isArray(archived.items)) continue;
+                    persistBatchJobs(prev => prev.map(current => current.id === job.id ? {
+                        ...current, resultsCached: true, rawJsonl: archived!.rawJsonl ?? current.rawJsonl,
+                        items: archived!.items.map(item => ({ ...current.items.find(old => old.id === item.id), ...item, savedToDisk: current.items.find(old => old.id === item.id)?.savedToDisk ?? item.savedToDisk }))
+                    } : current));
+                } catch (error) { console.warn('Could not load local batch archive:', error); }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [persistBatchJobs, storeResults]);
+
+    const clearUnusedBatchCache = useCallback(async () => {
+        if (cleaningBatchCacheRef.current) return;
+        cleaningBatchCacheRef.current = true;
+        setIsCleaningBatchCache(true);
+        try {
+            const before = Date.now();
+            if (!getCacheProtection) throw new Error('Cache protection sources are unavailable');
+            const roots = await getCacheProtection();
+            const references = collectCacheReferences(roots);
+            for (const job of batchJobsRef.current) {
+                references.keys.add(batchResultKey(job));
+                references.keys.add(`results:${job.id}`);
+                if (job.name?.startsWith('openai_')) references.keys.add(`openai-output:${job.name}`);
+            }
+            const result = await clearUnusedBatchArchives({ before, keys: [...references.keys], imageHashes: await imageHashes(references.images) });
+            addToast?.((t?.('batch.cacheCleared') || 'Removed {count} unused archives ({size} MB).')
+                .replace('{count}', String(result.removed)).replace('{size}', (result.bytes / 1024 / 1024).toFixed(1)), 'info');
+            if (result.skipped) addToast?.(t?.('batch.cacheSkipped') || 'Unreadable archives were retained for recovery.', 'warning');
+            return result;
+        } catch (error) {
+            console.error('Batch cache cleanup failed:', error);
+            addToast?.(t?.('batch.cacheCleanupFailed') || 'Could not check cache references. Cleanup was stopped.', 'error');
+        } finally { cleaningBatchCacheRef.current = false; setIsCleaningBatchCache(false); }
+    }, [getCacheProtection, addToast, t]);
 
     // Map SDK JobState string to BatchJobState
     const mapSdkState = (sdkState: string): BatchJobState => {
@@ -281,37 +370,82 @@ export const useBatchManager = ({
 
     // 3. Explicit on-demand Download of Completed Batch Job Results from Server
     const fetchBatchJobResults = useCallback(async (jobIdOrName: string, options?: { forceRestore?: boolean }) => {
-        const job = batchJobsRef.current.find(j => j.id === jobIdOrName || j.name === jobIdOrName);
-        if (!job) {
+        const foundJob = batchJobsRef.current.find(j => j.id === jobIdOrName || j.name === jobIdOrName);
+        if (!foundJob) {
             console.warn(`Job not found for results fetch: ${jobIdOrName}`);
             return;
         }
+        let job: BatchJobRecord = foundJob;
 
         const targetJobId = job.id;
+        if (fetchingJobIdsRef.current[targetJobId]) return;
+        fetchingJobIdsRef.current[targetJobId] = true;
         setFetchingJobIds(prev => ({ ...prev, [targetJobId]: true }));
 
-        const shouldRestore = options?.forceRestore !== undefined
+        // Resolve settings from the destination node, including inactive tabs.
+        let targetNode = job.tabId ? getTargetNode?.(job.tabId, job.nodeId) : undefined;
+        let targetState: any = {};
+        try { targetState = JSON.parse(targetNode?.value || '{}'); } catch { }
+        let isEditor = targetNode?.type === NodeType.IMAGE_EDITOR;
+        let autoInsert = !isEditor || (targetState.autoInsertResults ?? targetState.autoDownload ?? true);
+        let shouldRestore = !!targetNode && (options?.forceRestore !== undefined
             ? options.forceRestore
-            : (restoreFinishedCardsRef.current ?? true);
+            : (restoreFinishedCardsRef.current && autoInsert));
+        const refreshTarget = () => {
+            targetNode = job.tabId ? getTargetNode?.(job.tabId, job.nodeId) : undefined;
+            targetState = {};
+            try { targetState = JSON.parse(targetNode?.value || '{}'); } catch { }
+            isEditor = targetNode?.type === NodeType.IMAGE_EDITOR;
+            autoInsert = !isEditor || (targetState.autoInsertResults ?? targetState.autoDownload ?? true);
+            shouldRestore = !!targetNode && !!updateNodeInStorage && (options?.forceRestore !== undefined
+                ? options.forceRestore : (restoreFinishedCardsRef.current && autoInsert));
+        };
+        const saveInsertedImage = (item: BatchJobItem, url: string, frame: number, prompt: string) => {
+            const enabled = isEditor ? (targetState.autoSaveImages ?? true)
+                : targetNode?.type === NodeType.IMAGE_OUTPUT && !!targetNode.autoDownload;
+            if (!shouldRestore || !enabled || item.savedToDisk) return;
+            try {
+                const link = document.createElement('a');
+                link.href = url.startsWith('data:image/png') ? addMetadataToPNG(url, 'prompt', prompt) : url;
+                const now = new Date();
+                const date = now.toISOString().split('T')[0];
+                const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+                link.download = `Image_${String(frame).padStart(3, '0')}_${date}_${time}.png`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                item.savedToDisk = true;
+            } catch (error) { console.warn('Saving inserted batch image failed:', error); }
+        };
 
         try {
+            // Read the local archive before contacting the server, even while
+            // background hydration is still running after application startup.
+            try {
+                const archived = await readBatchArchive<{ items: BatchJobItem[]; rawJsonl?: string }>(batchResultKey(job));
+                if (archived && Array.isArray(archived.items)) job = {
+                    ...job, resultsCached: true, rawJsonl: archived.rawJsonl ?? job.rawJsonl,
+                    items: archived.items.map(item => ({ ...job.items.find(old => old.id === item.id), ...item, savedToDisk: job.items.find(old => old.id === item.id)?.savedToDisk ?? item.savedToDisk }))
+                };
+            } catch (error) { console.warn('Local batch cache read failed:', error); }
             // Check if job items already have resultUrl populated
             const existingUrlsCount = (job.items || []).filter(it => !!it.resultUrl).length;
-            if (existingUrlsCount > 0 && existingUrlsCount === (job.items || []).length) {
+            if ((existingUrlsCount > 0 || job.resultsCached) && job.items.length > 0 && job.items.every(item => !!item.resultUrl || item.status === 'failed' || item.status === 'cancelled')) {
                 let successCount = 0;
                 let firstUrl: string | undefined = undefined;
+                const restoredItems = job.items.map(item => ({ ...item }));
                 for (let i = 0; i < job.items.length; i++) {
-                    const item = job.items[i];
+                    const item = { ...job.items[i] };
                     if (item.resultUrl) {
                         successCount++;
                         if (!firstUrl) firstUrl = item.resultUrl;
                         const frameNum = item.frameIndex !== undefined ? item.frameIndex : i;
-                        const thumb = await generateThumbnail(item.resultUrl, 256, 256);
+                        const thumb = item.resultThumbnail || await generateThumbnail(item.resultUrl, 256, 256);
+                        item.resultThumbnail = thumb;
+                        restoredItems[i] = item;
 
+                        refreshTarget();
                         if (shouldRestore) {
-                            if (setFullSizeImage && job.nodeId) {
-                                setFullSizeImage(job.nodeId, job.isSequence ? 1000 + frameNum : frameNum, item.resultUrl);
-                            }
 
                             if (updateNodeInStorage && job.tabId && job.nodeId) {
                                 if (job.isSequence) {
@@ -338,20 +472,34 @@ export const useBatchManager = ({
                                     }, { frame: 0, url: item.resultUrl });
                                 }
                             }
+                            saveInsertedImage(item, item.resultUrl, frameNum, item.prompt);
+                            restoredItems[i] = item;
+                        }
+                    } else if (item.status === 'failed') {
+                        refreshTarget();
+                        if (shouldRestore && restoreFailedCardsRef.current && job.isSequence && job.tabId && updateNodeInStorage) {
+                            const frame = item.frameIndex ?? i;
+                            updateNodeInStorage(job.tabId, job.nodeId, (prev: any) => {
+                                const sequenceOutputs = [...(prev.sequenceOutputs || [])];
+                                sequenceOutputs[frame] = { status: 'error', thumbnail: null };
+                                return { ...prev, sequenceOutputs };
+                            });
                         }
                     }
                 }
+                const resultsCached = await storeResults(job, restoredItems);
+                persistBatchJobs(prev => prev.map(j => j.id === targetJobId ? { ...j, rawJsonl: job.rawJsonl, resultsCached, state: successCount > 0 ? 'SUCCEEDED' : 'FAILED', items: restoredItems } : j));
 
                 if (updateTaskByBatchJob) {
                     const patch = {
-                        status: 'completed' as TaskStatus,
+                        status: (successCount > 0 ? 'completed' : 'failed') as TaskStatus,
                         resultUrl: firstUrl,
                         completedAt: Date.now()
                     };
                     updateTaskByBatchJob(job.id, patch);
                     if (job.name) updateTaskByBatchJob(job.name, patch);
                 }
-                if (completeBatchTasksForNode && job.nodeId) {
+                if (successCount > 0 && completeBatchTasksForNode && job.nodeId) {
                     completeBatchTasksForNode(job.nodeId, firstUrl);
                 }
 
@@ -401,11 +549,9 @@ export const useBatchManager = ({
 
                     const thumb = await generateThumbnail(finalUrl, 256, 256);
 
+                    refreshTarget();
                     // Cache full size image and update canvas node if shouldRestore is true
                     if (shouldRestore) {
-                        if (setFullSizeImage && job.nodeId) {
-                            setFullSizeImage(job.nodeId, job.isSequence ? 1000 + frameNum : frameNum, finalUrl);
-                        }
 
                         // Update canvas node storage
                         if (updateNodeInStorage && job.tabId && job.nodeId) {
@@ -445,31 +591,8 @@ export const useBatchManager = ({
                         }
                     }
 
-                    // Auto-save to disk if enabled on the batch item
-                    const isImageOutputNode = job.nodeTitle === 'Image Output';
-                    const shouldAutoSave = isImageOutputNode
-                        ? !!prevItem?.autoDownload
-                        : !!prevItem?.autoSaveImages;
-                    if (shouldAutoSave) {
-                        try {
-                            let assetUrl = finalUrl;
-                            if (finalUrl.startsWith('data:image/png')) {
-                                assetUrl = addMetadataToPNG(finalUrl, 'prompt', prompt);
-                            }
-                            const link = document.createElement('a');
-                            link.href = assetUrl;
-                            const now = new Date();
-                            const date = now.toISOString().split('T')[0];
-                            const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-                            const paddedFrame = String(frameNum).padStart(3, '0');
-                            link.download = `Image_${paddedFrame}_${date}_${time}.png`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                        } catch (dlErr) {
-                            console.warn("Auto-download for batch item failed:", dlErr);
-                        }
-                    }
+                    const resultItem = { ...prevItem } as BatchJobItem;
+                    saveInsertedImage(resultItem, finalUrl, frameNum, prompt);
 
                     // Add to generation history (skipStats: true so downloads do not re-increment stats)
                     if (addToHistory) {
@@ -484,17 +607,20 @@ export const useBatchManager = ({
                     }
 
                     updatedItems.push({
+                        ...resultItem,
                         id: ext.id || prevItem?.id || `item-${i}`,
                         frameIndex: frameNum,
                         prompt,
                         aspectRatio: prevItem?.aspectRatio,
                         resolution: prevItem?.resolution,
                         status: 'completed',
+                        resultThumbnail: thumb,
                         resultUrl: finalUrl
                     });
                 } else {
                     const err = ext.error || 'Generation failed in batch response';
                     updatedItems.push({
+                        ...prevItem,
                         id: ext.id || prevItem?.id || `item-${i}`,
                         frameIndex: frameNum,
                         prompt,
@@ -518,11 +644,13 @@ export const useBatchManager = ({
             }
 
             // Update job record
+            const resultsCached = await storeResults(job, updatedItems);
             persistBatchJobs(prev => prev.map(j => {
                 if (j.id === targetJobId) {
                     return {
                         ...j,
-                        state: 'SUCCEEDED',
+                        resultsCached,
+                        state: successCount > 0 ? 'SUCCEEDED' : 'FAILED',
                         completedAt: Date.now(),
                         updatedAt: Date.now(),
                         items: updatedItems
@@ -572,9 +700,10 @@ export const useBatchManager = ({
             }
         } finally {
 
+            fetchingJobIdsRef.current[targetJobId] = false;
             setFetchingJobIds(prev => ({ ...prev, [targetJobId]: false }));
         }
-    }, [updateNodeInStorage, setFullSizeImage, addToHistory, addToast, persistBatchJobs, triggerAutoSave, t]);
+    }, [getTargetNode, updateNodeInStorage, setFullSizeImage, addToHistory, addToast, persistBatchJobs, storeResults, triggerAutoSave, t]);
 
     // 4. Poll specific Batch Job status (Update status without auto-downloading large assets)
     const checkBatchJob = useCallback(async (jobIdOrName: string) => {
@@ -582,7 +711,7 @@ export const useBatchManager = ({
         if (!job) return;
 
         try {
-            const sdkJob = await getBatchJobStatus(job.name);
+            const sdkJob = await getBatchJobStatus(job.name, { downloadResults: false });
             const rawState = sdkJob.state || sdkJob.status;
             const mappedState = mapSdkState(rawState);
 
@@ -619,8 +748,8 @@ export const useBatchManager = ({
                     if (job.name) updateTaskByBatchJob(job.name, patch);
                 }
 
-                // Automatically download from server when response is received if autoDownload is enabled
-                const shouldAutoFetch = (job.items && job.items.some(it => it.autoDownload)) || (job as any).autoDownload;
+                // Server retrieval is independent of node insertion and disk saving.
+                const shouldAutoFetch = autoDownloadFromServerRef.current;
                 if (shouldAutoFetch && !fetchingJobIdsRef.current?.[job.id]) {
                     fetchBatchJobResults(job.id);
                 }
@@ -851,6 +980,7 @@ export const useBatchManager = ({
             images?: { base64ImageData: string; mimeType: string }[];
             autoCrop169?: boolean;
             autoDownload?: boolean;
+            autoInsertResults?: boolean;
             autoSaveImages?: boolean;
         }[];
         signal?: AbortSignal;
@@ -942,6 +1072,7 @@ export const useBatchManager = ({
                     images: item.images,
                     autoCrop169: item.autoCrop169,
                     autoDownload: item.autoDownload,
+                    autoInsertResults: item.autoInsertResults,
                     autoSaveImages: item.autoSaveImages,
                     status: 'queued' as TaskStatus
                 }))
@@ -1108,6 +1239,8 @@ export const useBatchManager = ({
 
     // 8. Delete / Remove a batch job record
     const deleteBatchJob = useCallback((jobId: string) => {
+        const job = batchJobsRef.current.find(job => job.id === jobId || job.name === jobId);
+        if (job?.name) deleteStoredOpenAiBatch(job.name);
         deleteStoredOpenAiBatch(jobId);
         persistBatchJobs(prev => prev.filter(j => j.id !== jobId && j.name !== jobId));
     }, [persistBatchJobs]);
@@ -1138,6 +1271,7 @@ export const useBatchManager = ({
                     images: item.images,
                     autoCrop169: item.autoCrop169,
                     autoDownload: item.autoDownload,
+                    autoInsertResults: item.autoInsertResults,
                     autoSaveImages: item.autoSaveImages
                 }))
             });
@@ -1155,6 +1289,8 @@ export const useBatchManager = ({
 
     // 9. Clear completed/failed batch jobs
     const clearFinishedBatchJobs = useCallback(() => {
+        batchJobsRef.current.filter(job => job.state !== 'PENDING' && job.state !== 'RUNNING')
+            .forEach(job => deleteStoredOpenAiBatch(job.name || job.id));
         persistBatchJobs(prev => prev.filter(j => j.state === 'PENDING' || j.state === 'RUNNING'));
     }, [persistBatchJobs]);
 
@@ -1226,6 +1362,10 @@ export const useBatchManager = ({
     }, [getBatchJobJsonl, addToast]);
 
     return {
+        clearUnusedBatchCache,
+        isCleaningBatchCache,
+        autoDownloadFromServer,
+        setAutoDownloadFromServer,
         isBatchMode,
         setIsBatchMode,
         restoreFinishedCards,

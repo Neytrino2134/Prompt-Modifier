@@ -125,7 +125,7 @@ interface OutputPanelProps {
     onOutputClick: () => void;
     onSequenceOutputClick: (index: number, src: string) => void;
     onCheckOutput: (index: number) => void;
-    onCopyFrame: (e: React.MouseEvent, index: number) => void;
+    onCopyFrame: (e: React.MouseEvent, index: number, original?: string | null) => void;
     onDownloadFrame: (e: React.MouseEvent, index: number) => void;
     onRegenerateFrame: (e: React.MouseEvent, index: number) => void;
     onStopFrame: (e: React.MouseEvent, index: number) => void;
@@ -156,7 +156,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     getFullSizeImage, t, upstreamPrompt, upstreamPromptsCount, isTextConnected,
     onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs, onSendToNote
 }) => {
-    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoDownload, autoSaveImages, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
+    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoInsertResults, autoSaveImages, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
     const { isBatchMode, isFormingBatch, getNodeActiveBatchJob, isNodeBatchActive, cancelBatchForNode } = useAppContext();
     const isForming = isFormingBatch ? isFormingBatch(nodeId) : false;
     const activeBatchJob = getNodeActiveBatchJob ? getNodeActiveBatchJob(nodeId) : undefined;
@@ -668,7 +668,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             
             {!isSequenceMode && (
                 <div onClick={onOutputClick} onWheel={(e) => e.stopPropagation()} className="relative w-full flex-grow bg-gray-900/50 rounded-md flex items-center justify-center overflow-hidden group cursor-pointer">
-                    {outputImage ? <img src={fullSizeOutputForCopy || outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { setupImageDragData(e, imageToDrag, `Output_${Date.now()}.png`); e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
+                    {outputImage ? <img src={outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { setupImageDragData(e, imageToDrag, `Output_${Date.now()}.png`); e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
                     {outputImage && !isEditing && !isBatchActive && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-4">
                             <button onClick={(e) => { e.stopPropagation(); onCopy(); }} className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto" aria-label={t('node.action.copy')} title={t('node.action.copy')}>
@@ -765,7 +765,8 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                             }
                             
                             const isPreview = !isGenerated && !isPending && !isGenerating && !isError && displaySrc;
-                            const srcToView = fullSizeUrl || displaySrc;
+                            const originalSlot = slot || (isSequentialEditingWithPrompts ? imageSlots[0] : undefined);
+                            const getSourceToView = () => isGenerated ? (fullSizeUrl || displaySrc) : (originalSlot?.getOriginal?.() || null);
 
                             // Calculate if this frame has an upstream connection for edit (if applicable)
                             const showEditActions = isSequentialEditingWithPrompts;
@@ -775,18 +776,18 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                     key={index} 
                                     className={`absolute rounded-lg border-2 overflow-hidden cursor-pointer border-gray-700 bg-gray-800 group`}
                                     style={{ top, left, width: ITEM_SIZE, height: ITEM_SIZE }}
-                                    onClick={(e) => { e.stopPropagation(); onSequenceOutputClick(index, srcToView || ''); }}
+                                    onClick={(e) => { e.stopPropagation(); onSequenceOutputClick(index, getSourceToView() || ''); }}
                                 >
                                      {displaySrc ? (
                                         <OptimizedThumbnail 
-                                            src={fullSizeUrl || displaySrc} 
+                                            src={displaySrc}
                                             size={128}
                                             alt={`Output ${index + 1}`} 
                                             className={`w-full h-full object-contain ${isPreview ? 'opacity-60' : ''}`}
                                             draggable={true}
                                             onMouseDown={(e) => e.stopPropagation()}
                                             onDragStart={(e) => {
-                                                const srcToDrag = fullSizeUrl || displaySrc;
+                                                const srcToDrag = getSourceToView();
                                                 if (srcToDrag) {
                                                     setupImageDragData(e, srcToDrag, `Frame_${index + 1}_${Date.now()}.png`);
                                                     e.stopPropagation();
@@ -812,7 +813,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                     {isError && <div className="absolute inset-0 flex items-center justify-center bg-red-900/50"><span className="text-xs text-red-200 font-medium">Error</span></div>}
                                     
                                     <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-30">
-                                        <ActionButton title={t('node.action.copy')} onClick={(e) => onCopyFrame(e, index)} className="p-1 text-gray-200 hover:text-white rounded hover:bg-gray-600 transition-colors">
+                                        <ActionButton title={t('node.action.copy')} onClick={(e) => onCopyFrame(e, index, getSourceToView())} className="p-1 text-gray-200 hover:text-white rounded hover:bg-gray-600 transition-colors">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <rect x="8" y="8" width="12" height="12" rx="2" ry="2" />
                                                 <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />

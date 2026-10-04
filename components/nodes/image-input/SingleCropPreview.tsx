@@ -141,7 +141,7 @@ export const SingleCropPreview: React.FC<SingleCropPreviewProps> = ({
                     title="Потяните, чтобы вытащить изображение на холст или в другую ноду"
                 >
                     <img
-                        src={activeImage}
+                        src={croppedImage || activeImage}
                         alt="Cropped preview"
                         className="w-full h-full object-contain pointer-events-none"
                     />

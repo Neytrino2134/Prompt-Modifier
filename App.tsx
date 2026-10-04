@@ -13,6 +13,7 @@ import { SideDockingPanels } from './components/SideDockingPanels';
 import { BottomMediaPanel } from './components/BottomMediaPanel';
 import { DetachedNodeMiniApp } from './components/DetachedNodeMiniApp';
 import { CursorEffects } from './components/cursors/CursorEffects';
+import { createSaveAndExit } from './services/saveAndExit';
 import { 
   matchesDeviceFilter, 
   getDeviceId, 
@@ -59,9 +60,21 @@ const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 const Editor: React.FC = () => {
   const context = useAppContext();
   const contextRef = useRef(context);
-  useEffect(() => {
-      contextRef.current = context;
-  }, [context]);
+  contextRef.current = context;
+  const saveAndExitRef = useRef<ReturnType<typeof createSaveAndExit> | null>(null);
+  if (!saveAndExitRef.current) saveAndExitRef.current = createSaveAndExit(
+      async () => {
+          if (!contextRef.current?.forceSaveSession) throw new Error('Session is not ready');
+          await contextRef.current.forceSaveSession();
+      },
+      () => window.electronAPI?.forceClose(),
+      error => {
+          console.error('Save before exit failed:', error);
+          window.electronAPI?.cancelSaveAndExit?.();
+          window.electronAPI?.bringToFront?.();
+          contextRef.current?.addToast(contextRef.current.t('settings.sessionSaveFailed'), 'error');
+      }
+  );
 
   const [isCanvasReady, setIsCanvasReady] = useState(false);
   const [isAppLoaded, setIsAppLoaded] = useState(false);
@@ -87,9 +100,11 @@ const Editor: React.FC = () => {
 
       // 1. Browser Native Handler (beforeunload)
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-          // Always trigger immediate session save on unload (including Electron) to guarantee data persistence
+          // Electron waits for a confirmed save before closing. Do not start a
+          // second unawaited write while its renderer is being destroyed.
+          if (isElectron) return;
           if (contextRef.current?.forceSaveSession) {
-              contextRef.current.forceSaveSession();
+              contextRef.current.forceSaveSession().catch(err => console.warn('Unload save failed:', err));
           }
 
           // If in Electron, prevent browser default dialog as we rely on the IPC message 'app:close-request'
@@ -110,19 +125,7 @@ const Editor: React.FC = () => {
       if (isElectron) {
           // Listen for Save and Exit requested directly from the system tray
           if ((window as any).electronAPI.onSaveAndExitRequested) {
-              removeSaveAndExitListener = (window as any).electronAPI.onSaveAndExitRequested(async () => {
-                  try {
-                      if (contextRef.current?.forceSaveSession) {
-                          await contextRef.current.forceSaveSession();
-                      }
-                  } catch (err) {
-                      console.error("Failed to save session before exit:", err);
-                  } finally {
-                      setTimeout(() => {
-                          (window as any).electronAPI.forceClose();
-                      }, 150);
-                  }
-              });
+              removeSaveAndExitListener = (window as any).electronAPI.onSaveAndExitRequested(() => saveAndExitRef.current!());
           }
 
           if (setConfirmInfo && t && (window as any).electronAPI.onCloseRequested) {
@@ -155,17 +158,7 @@ const Editor: React.FC = () => {
                                       closeAction: 'tray'
                                   });
                               }
-                              try {
-                                  if (contextRef.current?.forceSaveSession) {
-                                      await contextRef.current.forceSaveSession();
-                                  }
-                              } catch (err) {
-                                  console.error("Failed to save session before exit:", err);
-                              } finally {
-                                  setTimeout(() => {
-                                      (window as any).electronAPI.forceClose();
-                                  }, 200);
-                              }
+                              await saveAndExitRef.current!();
                           },
                           secondaryAction: {
                               label: t('dialog.exitApp.dontSave'),
@@ -289,15 +282,7 @@ const Editor: React.FC = () => {
                     contextRef.current.setIsBatchMode(!contextRef.current.isBatchMode);
                 }
             } else if (action === 'save-and-exit') {
-                if (contextRef.current?.forceSaveSession) {
-                    contextRef.current.forceSaveSession().finally(() => {
-                        setTimeout(() => {
-                            (window as any).electronAPI?.forceClose?.();
-                        }, 150);
-                    });
-                } else {
-                    (window as any).electronAPI?.forceClose?.();
-                }
+                saveAndExitRef.current!();
             }
         });
         return () => removeListener();

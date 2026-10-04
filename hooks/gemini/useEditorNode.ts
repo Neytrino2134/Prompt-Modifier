@@ -197,7 +197,7 @@ export const useEditorNode = ({
                     outputFormat?: string;
                     size?: string;
                     autoCrop169?: boolean;
-                    autoDownload?: boolean;
+                    autoInsertResults?: boolean;
                     autoSaveImages?: boolean;
                     frameIndex: number;
                 }> = [];
@@ -272,7 +272,7 @@ export const useEditorNode = ({
                         outputFormat: parsed.outputFormat,
                         size: parsed.size,
                         autoCrop169: parsed.autoCrop169,
-                        autoDownload: parsed.autoDownload !== undefined ? !!parsed.autoDownload : !!node.autoDownload,
+                        autoInsertResults: !!(parsed.autoInsertResults ?? parsed.autoDownload ?? true),
                         autoSaveImages: !!parsed.autoSaveImages,
                         frameIndex: i
                     });
@@ -349,7 +349,7 @@ export const useEditorNode = ({
                         outputFormat: parsed.outputFormat,
                         size: parsed.size,
                         autoCrop169: parsed.autoCrop169,
-                        autoDownload: parsed.autoDownload !== undefined ? !!parsed.autoDownload : !!node.autoDownload,
+                        autoInsertResults: !!(parsed.autoInsertResults ?? parsed.autoDownload ?? true),
                         autoSaveImages: !!parsed.autoSaveImages,
                         frameIndex: 0
                     }],

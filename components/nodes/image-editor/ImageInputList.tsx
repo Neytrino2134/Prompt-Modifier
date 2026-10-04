@@ -480,18 +480,18 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                 >
                                     {slot.src ? (
                                         <OptimizedThumbnail 
-                                            src={fullRes || slot.src} 
+                                            src={slot.src}
                                             size={64}
                                             alt={`Input ${index + 1}`} 
                                             className={`object-contain w-full h-full max-w-[64px] max-h-[64px] ${!isChecked ? 'opacity-50' : ''}`}
                                             draggable={true} 
                                             onMouseDown={(e) => e.stopPropagation()}
                                             onDragStart={(e) => { 
-                                                const dragSrc = fullRes || slot.src;
+                                                const dragSrc = slot.type === 'connected' ? slot.getOriginal?.() : (fullRes || slot.src);
                                                 if (dragSrc) {
                                                     setupImageDragData(e, dragSrc, `Input_${index + 1}_${Date.now()}.png`); 
                                                     e.stopPropagation(); 
-                                                }
+                                                } else e.preventDefault();
                                             }} 
                                         />
                                     ) : (

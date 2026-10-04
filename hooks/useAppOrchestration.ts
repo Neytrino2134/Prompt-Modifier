@@ -131,7 +131,7 @@ export const useAppOrchestration = (
         };
 
         // Copy cache
-        for (let i = 0; i <= 100; i++) {
+        for (const i of Object.keys(fullSizeImageCache[nodeId] || {}).map(Number)) {
             const cachedImg = getFullSizeImage(nodeId, i);
             if (cachedImg) {
                 setFullSizeImage(newNodeId, i, cachedImg);
@@ -141,7 +141,7 @@ export const useAppOrchestration = (
         setNodes(nds => [...nds, newNode]);
         addToast(t('toast.nodeDuplicated'));
         return newNodeId;
-    }, [nodes, nodesHook.nodeIdCounter, setNodes, addToast, t, getFullSizeImage, setFullSizeImage]);
+    }, [nodes, nodesHook.nodeIdCounter, setNodes, addToast, t, getFullSizeImage, setFullSizeImage, fullSizeImageCache]);
 
     const copyNodeValue = useCallback((nodeId: string) => {
         return nodesHook.handleCopyNodeValue(nodeId);

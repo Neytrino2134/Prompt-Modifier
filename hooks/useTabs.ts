@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { type Tab, type CanvasState, NodeType } from '../types';
 import { clearImagesForTabFromCache } from '../utils/imageMemoryCache';
 import { getTranslation, LanguageCode } from '../localization';
+import { selectLatestSession } from '../services/sessionRecovery';
 import { generateCanvasScreenshot } from '../utils/canvasScreenshot';
 
 // --- IndexedDB Logic for Session Persistence ---
@@ -24,17 +25,35 @@ const getSessionDB = (): Promise<IDBDatabase> => {
     });
 };
 
-export const saveSessionToDB = async (
+let sessionWriteQueue: Promise<void> = Promise.resolve();
+let lastSaveTimestamp = 0;
+
+export const saveSessionToDB = (
     tabs: Tab[],
     activeTabId: string,
     screenshot?: string,
     isSnapshot = false
 ): Promise<void> => {
+    // Detached node windows sync their edits to the main window. Their older
+    // copies of the complete project must not overwrite the shared session.
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('detachedNodeId')) return Promise.resolve();
+    // Capture the requested state and timestamp before joining the write queue.
+    lastSaveTimestamp = Math.max(Date.now(), lastSaveTimestamp + 1);
+    const savedAt = lastSaveTimestamp;
+    const operation = sessionWriteQueue.then(() => persistSession(tabs, activeTabId, screenshot, isSnapshot, savedAt));
+    sessionWriteQueue = operation.catch(() => {});
+    return operation;
+};
+
+const persistSession = async (tabs: Tab[], activeTabId: string, screenshot: string | undefined, isSnapshot: boolean, savedAt: number): Promise<void> => {
+    if (!tabs.length || !tabs.every(tab => tab.state && Array.isArray(tab.state.nodes))) throw new Error('Invalid session');
     // 1. Identify active tab to generate high-fidelity preview for the active canvas
     const activeTab = (activeTabId ? tabs.find(t => t.id === activeTabId) : null) || tabs[0];
-    const screenshotData = screenshot !== undefined && screenshot !== ''
-        ? screenshot
-        : (activeTab?.state ? generateCanvasScreenshot(activeTab.state) : '');
+    let screenshotData = screenshot || '';
+    if (!screenshotData && activeTab?.state) {
+        try { screenshotData = generateCanvasScreenshot(activeTab.state); }
+        catch (error) { console.warn('Could not create session preview:', error); }
+    }
 
     const limitStr = typeof window !== 'undefined' ? localStorage.getItem('settings_autoSaveHistoryLimit') : null;
     const historyLimit = limitStr !== null ? parseInt(limitStr, 10) : 5;
@@ -46,18 +65,25 @@ export const saveSessionToDB = async (
         id: SESSION_KEY,
         tabs,
         activeTabId,
-        savedAt: Date.now(),
+        savedAt,
+        schemaVersion: 2,
         screenshot: screenshotData,
         historyLimit,
         sessionLimit,
         isSnapshot: Boolean(isSnapshot),
     };
 
+    let desktopError: Error | undefined;
+    let idbSaved = false;
+    const isDesktop = !!window.electronAPI?.saveSession;
+
     // 1. Electron File Storage (100% durable & crash-resistant on desktop)
     if (typeof window !== 'undefined' && (window as any).electronAPI?.saveSession) {
         try {
-            await (window as any).electronAPI.saveSession(sessionObj);
+            const result = await window.electronAPI!.saveSession!(sessionObj);
+            if (!result?.success) throw new Error(result?.error || 'Desktop session write was not confirmed');
         } catch (e) {
+            desktopError = e instanceof Error ? e : new Error(String(e));
             console.warn("Failed to save session via Electron API:", e);
         }
     }
@@ -65,14 +91,14 @@ export const saveSessionToDB = async (
     // 2. IndexedDB (primary fast local database)
     try {
         const db = await getSessionDB();
-        await new Promise<void>((resolve, reject) => {
+        try { await new Promise<void>((resolve, reject) => {
             const transaction = db.transaction(SESSION_STORE, 'readwrite');
             const store = transaction.objectStore(SESSION_STORE);
             store.put(sessionObj, SESSION_KEY);
             transaction.oncomplete = () => resolve();
             transaction.onerror = () => reject(transaction.error || new Error("Failed to save session to DB"));
             transaction.onabort = () => reject(transaction.error || new Error("Transaction aborted"));
-        });
+        }); idbSaved = true; } finally { db.close(); }
     } catch (e) {
         console.warn("Failed to save session to IndexedDB:", e);
     }
@@ -138,6 +164,9 @@ export const saveSessionToDB = async (
     } catch (e) {
         // Safe to ignore if LocalStorage quota is exceeded
     }
+    if (desktopError) throw desktopError;
+    if (!isDesktop && !idbSaved) throw new Error('Full session could not be saved to IndexedDB');
+    window.dispatchEvent(new CustomEvent('session-saved', { detail: { savedAt, isSnapshot } }));
 };
 
 export const normalizeTabs = (rawTabs: any[], rawActiveTabId?: string): { tabs: Tab[], activeTabId: string } => {
@@ -263,43 +292,8 @@ export const loadSessionFromDB = async (): Promise<{ tabs: Tab[], activeTabId: s
         console.warn("Could not load session from LocalStorage backup:", e);
     }
 
-    // Helper to evaluate session content substance (avoids picking empty default canvas over actual work)
-    const isSubstantial = (cand: { tabs: Tab[] }) => {
-        if (!cand || !Array.isArray(cand.tabs) || cand.tabs.length === 0) return false;
-        if (cand.tabs.length > 1) return true;
-        const tab = cand.tabs[0];
-        if (!tab) return false;
-        if (tab.name && tab.name !== 'Canvas 1') return true;
-        if (tab.state?.nodes && tab.state.nodes.length > 0) {
-            const nodes = tab.state.nodes;
-            const hasUserVal = nodes.some((n: any) => n?.value && n.value !== '{"messages":[],"currentInput":""}' && n.value !== '{"inputText":"","targetLanguage":"ru","translatedText":"","inputHeight":197}' && n.value !== '');
-            if (hasUserVal) return true;
-            if (nodes.length !== 7) return true;
-        }
-        if (tab.state?.connections && tab.state.connections.length !== 4) return true;
-        if (tab.state?.groups && tab.state.groups.length > 0) return true;
-        return false;
-    };
-
-    // If running in Electron, the disk session is the absolute source of truth
-    if (electronSession && Array.isArray(electronSession.tabs) && electronSession.tabs.length > 0) {
-        return normalizeTabs(electronSession.tabs, electronSession.activeTabId);
-    }
-
-    // Compare available sessions and pick the best / latest one
-    const candidates = [idbSession, localBackupSession].filter(Boolean) as { tabs: Tab[], activeTabId: string, savedAt?: number }[];
-    if (candidates.length === 0) return undefined;
-
-    // Substantial user sessions take priority over a blank default template; then latest savedAt
-    candidates.sort((a, b) => {
-        const subA = isSubstantial(a) ? 1 : 0;
-        const subB = isSubstantial(b) ? 1 : 0;
-        if (subA !== subB) return subB - subA;
-        return (b.savedAt || 0) - (a.savedAt || 0);
-    });
-
-    const chosen = candidates[0];
-    if (!chosen || !Array.isArray(chosen.tabs) || chosen.tabs.length === 0) return undefined;
+    const chosen = selectLatestSession([electronSession, idbSession, localBackupSession]);
+    if (!chosen) return undefined;
 
     return normalizeTabs(chosen.tabs, chosen.activeTabId);
 };
@@ -566,7 +560,7 @@ export const useTabs = () => {
         setActiveTabId(newTab.id);
         
         // Also wipe DB to prevent resurrection of old state
-        saveSessionToDB([newTab], newTab.id);
+        saveSessionToDB([newTab], newTab.id).catch(error => console.error("Failed to save cleared session:", error));
     }, []);
 
     // Function to reset ONLY the current tab to defaults, keeping others intact
@@ -601,6 +595,7 @@ export const useTabs = () => {
             await saveSessionToDB(tabsToSave, tabIdToSave);
         } catch (e) {
             console.error("Failed to force save session:", e);
+            throw e;
         } finally {
             setIsAutoSaving(false);
             setNextAutoSaveTime(null);

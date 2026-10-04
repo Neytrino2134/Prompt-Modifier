@@ -34,7 +34,8 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
 
     const parsedValue = useMemo(() => {
         try {
-            return { ...DEFAULT_EDITOR_STATE, ...JSON.parse(node.value || '{}') } as ImageEditorState;
+            const saved = JSON.parse(node.value || '{}');
+            return { ...DEFAULT_EDITOR_STATE, ...saved, autoInsertResults: saved.autoInsertResults ?? saved.autoDownload ?? true } as ImageEditorState;
         } catch {
             return DEFAULT_EDITOR_STATE;
         }
@@ -43,7 +44,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     const parsedValueRef = useRef(parsedValue);
     parsedValueRef.current = parsedValue;
 
-    const { inputImages, inputImagesB, prompt, outputImage, model, aspectRatio, enableAspectRatio, leftPaneWidth, topPaneHeight, resolution, isSequenceMode, isSequentialCombinationMode, isSequentialEditingWithPrompts, framePrompts, sequenceOutputs, checkedSequenceOutputIndices, checkedInputIndices, enableOutpainting, outpaintingPrompt, autoDownload, autoSaveImages, autoCrop169, isSequentialPromptMode, createZip, selectedSourceFrameIndex } = parsedValue;
+    const { inputImages, inputImagesB, prompt, outputImage, model, aspectRatio, enableAspectRatio, leftPaneWidth, topPaneHeight, resolution, isSequenceMode, isSequentialCombinationMode, isSequentialEditingWithPrompts, framePrompts, sequenceOutputs, checkedSequenceOutputIndices, checkedInputIndices, enableOutpainting, outpaintingPrompt, autoInsertResults, autoSaveImages, autoCrop169, isSequentialPromptMode, createZip, selectedSourceFrameIndex } = parsedValue;
 
     const isOpenAiActive = useOpenAiEnabled();
     const modelOptions = useMemo(() => getImageEditorModelOptions(), [isOpenAiActive]);
@@ -372,14 +373,18 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
             let src: string | null = null;
             if (typeof imgData === 'string') src = imgData;
             else if (imgData && typeof imgData === 'object') src = `data:${imgData.mimeType};base64,${imgData.base64ImageData}`;
-            slots.push({ type: 'connected', src, index });
+            slots.push({ type: 'connected', src, index, getOriginal: () => {
+                const original = getUpstreamNodeValues(node.id, isB ? 'image_b' : 'image', undefined, false)[index];
+                if (typeof original === 'string') return original;
+                return original?.base64ImageData ? `data:${original.mimeType};base64,${original.base64ImageData}` : null;
+            } });
         });
-        local.forEach((src, index) => slots.push({ type: 'local', src, index }));
+        local.forEach((src, index) => slots.push({ type: 'local', src, index, getOriginal: () => getFullSizeImage(node.id, (isB ? 2000 : 0) + index + 1) || src }));
         return slots;
     };
 
-    const imageSlots = useMemo(() => buildSlots(inputImages, upstreamImagesRaw, false), [inputImages, upstreamImagesRaw]);
-    const imageSlotsB = useMemo(() => buildSlots(inputImagesB, upstreamImagesRawB, true), [inputImagesB, upstreamImagesRawB]);
+    const imageSlots = useMemo(() => buildSlots(inputImages, upstreamImagesRaw, false), [inputImages, upstreamImagesRaw, getUpstreamNodeValues, getFullSizeImage, node.id]);
+    const imageSlotsB = useMemo(() => buildSlots(inputImagesB, upstreamImagesRawB, true), [inputImagesB, upstreamImagesRawB, getUpstreamNodeValues, getFullSizeImage, node.id]);
     const isInputConnected = 
         connectedInputs?.has('image') || 
         connectedInputs?.has(undefined) || 
@@ -532,34 +537,41 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
             // New logic: Use last available image from B for preview
             if (imageSlotsB.length > 0) {
                  const lastSlot = imageSlotsB[imageSlotsB.length - 1];
-                 return lastSlot.type === 'local' ? (getFullSizeImage(node.id, 2000 + lastSlot.index + 1) || lastSlot.src) : lastSlot.src;
+                 return lastSlot.type === 'local' ? (getFullSizeImage(node.id, 2000 + lastSlot.index + 1) || lastSlot.src) : lastSlot.getOriginal?.() || null;
             }
         } else {
             const activeSlots = imageSlots.filter((_, i) => !checkedInputIndices || checkedInputIndices.includes(i));
             if (activeSlots.length > 0) {
                 const lastSlot = activeSlots[activeSlots.length - 1];
-                return lastSlot.type === 'local' ? (getFullSizeImage(node.id, lastSlot.index + 1) || lastSlot.src) : lastSlot.src;
+                return lastSlot.type === 'local' ? (getFullSizeImage(node.id, lastSlot.index + 1) || lastSlot.src) : lastSlot.getOriginal?.() || null;
             }
         }
         return null;
     }, [imageSlots, imageSlotsB, getFullSizeImage, node.id, checkedInputIndices, isSequentialEditingWithPrompts]);
 
     useEffect(() => {
+        let cancelled = false;
+        previewHighResRef.current = null;
+        setPreviewImage(null);
         const updatePreview = async () => {
             if (enableAspectRatio && lastImageSource && aspectRatio && aspectRatio !== 'Auto') {
                  try {
                      const { formattedImage } = await formatImageForAspectRatio(lastImageSource, aspectRatio);
+                     if (cancelled) return;
                      previewHighResRef.current = formattedImage;
-                     setPreviewImage(await generateThumbnail(formattedImage, 256, 256));
-                 } catch { setPreviewImage(null); }
+                     const thumbnail = await generateThumbnail(formattedImage, 256, 256);
+                     if (!cancelled) setPreviewImage(thumbnail);
+                 } catch { if (!cancelled) setPreviewImage(null); }
             } else if (enableAspectRatio && lastImageSource) {
                  previewHighResRef.current = lastImageSource;
-                 setPreviewImage(lastImageSource.length > 100000 ? await generateThumbnail(lastImageSource, 256, 256) : lastImageSource);
+                 const thumbnail = await generateThumbnail(lastImageSource, 256, 256);
+                 if (!cancelled) setPreviewImage(thumbnail);
             } else {
                 setPreviewImage(null); previewHighResRef.current = null;
             }
         };
         updatePreview();
+        return () => { cancelled = true; };
     }, [lastImageSource, aspectRatio, enableAspectRatio]);
 
     const handleUseAsInput = async () => {
@@ -570,29 +582,12 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     
     const handleInputClick = (clickedIndex: number, isB: boolean) => {
         const slotsToUse = isB ? imageSlotsB : imageSlots;
-        const offset = isB ? 2000 : 0;
-        const upstreamFull = isB ? [] : getUpstreamNodeValues(node.id, 'image', undefined, false);
-        const upstreamFullB = isB ? getUpstreamNodeValues(node.id, 'image_b', undefined, false) : [];
-        const upstreamToUse = isB ? upstreamFullB : upstreamFull;
-
         const sources = slotsToUse.map((slot, index) => {
-            let src: string | undefined | null = null;
-            if (slot.type === 'local') {
-                src = getFullSizeImage(node.id, offset + slot.index + 1) || slot.src;
-            } else {
-                const raw = upstreamToUse[slot.index];
-                if (typeof raw === 'object' && raw.base64ImageData) {
-                     src = `data:${raw.mimeType};base64,${raw.base64ImageData}`;
-                } else if (typeof raw === 'string') {
-                    src = raw;
-                } else {
-                    src = slot.src; 
-                }
-            }
+            const src = slot.getOriginal?.();
             return src ? { src, frameNumber: index + 1, prompt: `Input ${isB ? 'B ' : ''}Image ${index + 1}` } : null;
         }).filter(Boolean) as any[];
-        
-        if (sources.length > 0) setImageViewer({ sources, initialIndex: clickedIndex });
+        const initialIndex = sources.findIndex(source => source.frameNumber === clickedIndex + 1);
+        if (initialIndex >= 0) setImageViewer({ sources, initialIndex });
     };
 
     const handleDetachAndPasteInput = useCallback(async () => {
@@ -794,27 +789,11 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
 
     const handleSendInputsToNote = useCallback((isB?: boolean) => {
         const slotsToUse = isB ? imageSlotsB : imageSlots;
-        const offset = isB ? 2000 : 0;
-        const upstreamFull = isB ? [] : getUpstreamNodeValues(node.id, 'image', undefined, false);
-        const upstreamFullB = isB ? getUpstreamNodeValues(node.id, 'image_b', undefined, false) : [];
-        const upstreamToUse = isB ? upstreamFullB : upstreamFull;
 
         const references: { id: string; image: string | null; caption: string }[] = [];
 
         slotsToUse.forEach((slot, index) => {
-            let src: string | undefined | null = null;
-            if (slot.type === 'local') {
-                src = getFullSizeImage(node.id, offset + slot.index + 1) || slot.src;
-            } else {
-                const raw = upstreamToUse[slot.index];
-                if (typeof raw === 'object' && raw && raw.base64ImageData) {
-                    src = `data:${raw.mimeType || 'image/png'};base64,${raw.base64ImageData}`;
-                } else if (typeof raw === 'string') {
-                    src = raw;
-                } else {
-                    src = slot.src;
-                }
-            }
+            const src = slot.getOriginal?.();
             if (src) {
                 references.push({
                     id: `ref-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
@@ -874,7 +853,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                         caption: `Frame ${i + 1}`
                     });
                 } else if (imageSlots[i]?.src) {
-                    const slotSrc = getFullSizeImage(node.id, imageSlots[i].index + 1) || imageSlots[i].src;
+                    const slotSrc = imageSlots[i].getOriginal?.() || null;
                     if (slotSrc) {
                         references.push({
                             id: `ref-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
@@ -1148,7 +1127,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                     handleValueUpdate({ checkedSequenceOutputIndices: newChecked });
                 }}
                 
-                onCopyFrame={(e, i) => { e.stopPropagation(); const src = getFullSizeImage(node.id, 1000+i) || sequenceOutputs[i]?.thumbnail; if(src) onCopyImageToClipboard(src); }}
+                onCopyFrame={(e, i, original) => { e.stopPropagation(); const src = original || getFullSizeImage(node.id, 1000+i) || sequenceOutputs[i]?.thumbnail; if(src) onCopyImageToClipboard(src); }}
                 onDownloadFrame={(e, i) => { 
                     e.stopPropagation(); 
                     const src = getFullSizeImage(node.id, 1000+i) || sequenceOutputs[i]?.thumbnail; 

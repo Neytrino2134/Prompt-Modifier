@@ -13,7 +13,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openAutosaveFolder: () => ipcRenderer.invoke('session:open-folder'),
   listSessionBackups: () => ipcRenderer.invoke('session:list-backups'),
   restoreSessionBackup: (backupPath) => ipcRenderer.invoke('session:restore-backup', backupPath),
-  readSessionBackup: (backupPath) => ipcRenderer.invoke('session:restore-backup', backupPath),
+  readSessionBackup: (backupPath) => ipcRenderer.invoke('session:read-backup', backupPath),
+  readBatchArchive: (key) => ipcRenderer.invoke('batch-cache:read', key),
+  writeBatchArchive: (key, payload, hashes, relatedKeys) => ipcRenderer.invoke('batch-cache:write', key, payload, hashes, relatedKeys),
+  clearUnusedBatchArchives: (references) => ipcRenderer.invoke('batch-cache:prune', references),
+  openBatchCacheFolder: () => ipcRenderer.invoke('batch-cache:open-folder'),
   clearSessionBackups: () => ipcRenderer.invoke('session:clear-backups'),
   // Listen for close request from Main
   onCloseRequested: (callback) => {
@@ -36,6 +40,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // Send force close signal to Main
   forceClose: () => ipcRenderer.send('app:force-close'),
+  cancelSaveAndExit: () => ipcRenderer.send('app:save-and-exit-cancelled'),
+  getSessionInfo: () => ipcRenderer.invoke('session:get-info'),
 
   // Window control methods for custom titlebar and dragging
   moveBy: (deltaX, deltaY) => ipcRenderer.send('window:move-by', { deltaX, deltaY }),

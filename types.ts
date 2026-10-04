@@ -12,6 +12,8 @@ declare global {
             showItemInFolder: (path: string) => void;
             onCloseRequested: (callback: () => void) => () => void;
             forceClose: () => void;
+            cancelSaveAndExit?: () => void;
+            getSessionInfo?: () => Promise<any>;
             moveBy?: (deltaX: number, deltaY: number) => void;
             minimize?: () => void;
             maximize?: () => void;
@@ -37,6 +39,10 @@ declare global {
             listSessionBackups?: () => Promise<any[]>;
             restoreSessionBackup?: (backupPath: string) => Promise<any>;
             readSessionBackup?: (backupPath: string) => Promise<any>;
+            readBatchArchive?: (key: string) => Promise<any>;
+            writeBatchArchive?: (key: string, payload: unknown, hashes: string[], relatedKeys: string[]) => Promise<boolean>;
+            clearUnusedBatchArchives?: (references: { keys: string[]; imageHashes: string[]; before: number }) => Promise<{ removed: number; bytes: number; skipped: number }>;
+            openBatchCacheFolder?: () => Promise<string>;
             clearSessionBackups?: () => Promise<any>;
             openNodeMiniApp?: (options: any) => Promise<boolean>;
             closeNodeMiniApp?: (nodeId: string) => Promise<boolean>;
@@ -402,6 +408,9 @@ export interface BatchJobItem {
     images?: { base64ImageData: string; mimeType: string }[];
     autoCrop169?: boolean;
     autoDownload?: boolean;
+    autoInsertResults?: boolean;
+    savedToDisk?: boolean;
+    resultThumbnail?: string;
     autoSaveImages?: boolean;
     status: TaskStatus;
     resultUrl?: string;
@@ -409,6 +418,7 @@ export interface BatchJobItem {
 }
 
 export interface BatchJobRecord {
+    resultsCached?: boolean;
     id: string; // client uuid e.g. "batch-174..."
     name: string; // Gemini resource name, e.g. "batches/..."
     displayName?: string;

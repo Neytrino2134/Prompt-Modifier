@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../localization';
 import { useAppContext } from '../../contexts/AppContext';
 import { FolderIcon, DeleteIcon, SaveIcon, ReloadIcon } from '../icons/AppIcons';
-import { generateCanvasScreenshot } from '../../utils/canvasScreenshot';
-import { saveSessionToDB, clearAllSessionBackups } from '../../hooks/useTabs';
+import { clearAllSessionBackups } from '../../hooks/useTabs';
 
 interface BackupItem {
   filename: string;
@@ -58,6 +57,7 @@ export const AutosaveSettingsSection: React.FC<AutosaveSettingsSectionProps> = (
   const { t } = useLanguage();
   const {
     autoSaveInterval,
+    forceSaveSession,
     setAutoSaveInterval,
     autoSaveHistoryLimit = 5,
     setAutoSaveHistoryLimit,
@@ -80,6 +80,8 @@ export const AutosaveSettingsSection: React.FC<AutosaveSettingsSectionProps> = (
     maxStatesPerLaunch?: number;
     sessionLimit?: number;
     userAutosaveDir?: string;
+    primarySessionFile?: string;
+    lastSavedAt?: number | null;
   } | null>(null);
   const [isLoadingBackups, setIsLoadingBackups] = useState(false);
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
@@ -180,6 +182,13 @@ export const AutosaveSettingsSection: React.FC<AutosaveSettingsSectionProps> = (
     }
   }, [isOpen, isElectron, loadBackups]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const refresh = () => loadBackups();
+    window.addEventListener('session-saved', refresh);
+    return () => window.removeEventListener('session-saved', refresh);
+  }, [isOpen, loadBackups]);
+
   // Open autosave folder in OS explorer
   const handleOpenAutosaveFolder = async () => {
     if (!isElectron) {
@@ -200,15 +209,12 @@ export const AutosaveSettingsSection: React.FC<AutosaveSettingsSectionProps> = (
   const handleCreateSnapshotNow = async () => {
     setIsCreatingSnapshot(true);
     try {
-      const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
-      const screenshot = activeTab?.state ? generateCanvasScreenshot(activeTab.state) : '';
-
-      await saveSessionToDB(tabs, activeTabId, screenshot, true);
+      await forceSaveSession();
       await loadBackups();
       addToast(t('settings.screenshotSuccess' as any) || 'Резервная копия со снимком холста успешно сохранена', 'success');
     } catch (err) {
       console.error('Failed to create canvas snapshot:', err);
-      addToast('Failed to save snapshot', 'error');
+      addToast(t('settings.sessionSaveFailed'), 'error');
     } finally {
       setIsCreatingSnapshot(false);
     }
@@ -528,7 +534,7 @@ export const AutosaveSettingsSection: React.FC<AutosaveSettingsSectionProps> = (
           className="px-3.5 py-2 bg-gradient-to-r from-cyan-950/70 to-blue-950/70 hover:from-cyan-900/80 hover:to-blue-900/80 text-xs font-semibold text-cyan-200 hover:text-white rounded-lg border border-cyan-600/50 flex items-center gap-2 transition-all shadow-sm active:scale-95 disabled:opacity-50"
         >
           <SaveIcon className={`w-3.5 h-3.5 text-cyan-400 ${isCreatingSnapshot ? 'animate-spin' : ''}`} />
-          <span>{isCreatingSnapshot ? (t('settings.takingScreenshot' as any) || 'Saving Snapshot...') : (t('settings.takeScreenshotBackup' as any) || 'Создать снимок холста сейчас')}</span>
+          <span>{isCreatingSnapshot ? (t('settings.takingScreenshot' as any) || 'Saving Snapshot...') : (t('settings.sessionBackupNow') || 'Создать снимок холста сейчас')}</span>
         </button>
 
         <button
@@ -586,6 +592,12 @@ export const AutosaveSettingsSection: React.FC<AutosaveSettingsSectionProps> = (
       )}
 
       {/* 4. Session Backups with Screenshot Previews */}
+      {sessionInfo?.primarySessionFile && (
+        <div className="text-[10px] text-gray-400 space-y-1 break-all">
+          <div>{t('settings.sessionStoragePath')}: {sessionInfo.primarySessionFile}</div>
+          <div>{t('settings.sessionLastSaved')}: {sessionInfo.lastSavedAt ? new Date(sessionInfo.lastSavedAt).toLocaleString() : '—'}</div>
+        </div>
+      )}
       <div className="space-y-2.5 pt-2 border-t border-gray-700/60">
         <div className="flex items-center justify-between">
           <div>
@@ -594,7 +606,7 @@ export const AutosaveSettingsSection: React.FC<AutosaveSettingsSectionProps> = (
               {t('settings.sessionBackupsLabel')}
             </label>
             <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
-              {t('settings.autosaveTabDesc' as any) || 'Сохраненные копии холста по папкам запусков со скриншотами.'}
+              {t('settings.sessionBackupDescription') || 'Сохраненные копии холста по папкам запусков со скриншотами.'}
             </p>
           </div>
           <span className="text-[11px] px-2 py-0.5 rounded font-mono bg-gray-800 text-gray-300 border border-gray-700">
