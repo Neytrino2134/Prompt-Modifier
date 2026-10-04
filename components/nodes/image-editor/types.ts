@@ -24,8 +24,9 @@ export interface ImageEditorState {
     framePrompts: Record<number, string>;
     sequenceOutputs: Array<{ status: string; thumbnail: string | null }>;
     checkedSequenceOutputIndices: number[];
-    autoInsertResults: boolean;
+    autoDownload: boolean;
     autoSaveImages: boolean;
+    autoInsertResults?: boolean;
     createZip: boolean; // New property
     checkedInputIndices: number[];
     selectedSourceFrameIndex?: number | null; // Added for selection tracking
@@ -55,8 +56,9 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     framePrompts: {},
     sequenceOutputs: [],
     checkedSequenceOutputIndices: [],
-    autoInsertResults: true, // Default enabled
+    autoDownload: true, // Default enabled
     autoSaveImages: true,
+    autoInsertResults: true,
     createZip: false, // Default false
     checkedInputIndices: [],
     selectedSourceFrameIndex: null
@@ -66,7 +68,6 @@ export interface ImageSlot {
     type: 'local' | 'connected';
     src: string | null;
     index: number;
-    // Resolve on interaction so connected thumbnails never become data inputs.
     getOriginal?: () => string | null;
 }
 
