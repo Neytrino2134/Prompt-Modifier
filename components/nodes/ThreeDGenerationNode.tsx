@@ -7,14 +7,13 @@ import {
     getTripoApiKey, 
     generateImageTo3D, 
     generateMultiviewTo3D,
-    useTripoEnabled,
     getTripoModelOption,
     DEFAULT_TRIPO_MODEL_VERSION,
-    useTripoBalance,
     downloadTaskMetadataJson,
     importTripoTaskById,
     getTripoFaceLimitRange
 } from '../../services/tripoService';
+import { useTripoEnabled, useTripoBalance } from '../../hooks/useTripoBalance';
 import { ThreeDNodeState, DEFAULT_STATE, ThreeDSlotType } from './three-d/types';
 import { ThreeDHeader } from './three-d/ThreeDHeader';
 import { ThreeDInputSlots } from './three-d/ThreeDInputSlots';

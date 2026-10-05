@@ -2,7 +2,7 @@
   "name": "prompt-modifier",
   "productName": "Prompt Modifier",
   "private": true,
-  "version": "0.2.16",
+  "version": "0.2.17",
   "description": "Prompt Modifier",
   "author": "MeowMaster",
   "type": "module",

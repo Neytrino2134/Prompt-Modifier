@@ -17,7 +17,6 @@ import {
     setDeviceFilterMode as fallbackSetDeviceFilterMode 
 } from '../utils/deviceId';
 import { 
-    useTripoBalance, 
     getTripoRecentTasks, 
     removeTripoRecentTask, 
     fetchTripoRecentTasks, 
@@ -29,6 +28,7 @@ import {
     TripoRecentTask, 
     TRIPO_TASKS_CHANGE_EVENT 
 } from '../services/tripoService';
+import { useTripoBalance } from '../hooks/useTripoBalance';
 import { 
     ThreeDBatchJob,
     getStored3DBatchJobs,

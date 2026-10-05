@@ -33,4 +33,5 @@ export * from './interactions/useHotkeys';
 export * from './useGenerationHistory';
 export * from './useBatchManager';
 export * from './useSoundNotifications';
+export * from './useTripoBalance';
 
