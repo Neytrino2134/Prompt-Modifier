@@ -30,7 +30,7 @@ interface BatchPrepareSliceColumnProps {
     onOpenImageViewer?: (src: string, frameNumber: number) => void;
 }
 
-export const BatchPrepareSliceColumn: React.FC<BatchPrepareSliceColumnProps> = ({
+const BatchPrepareSliceColumnComponent: React.FC<BatchPrepareSliceColumnProps> = ({
     gridConfig,
     localBorderWidth,
     onLocalBorderWidthChange,
@@ -307,3 +307,5 @@ export const BatchPrepareSliceColumn: React.FC<BatchPrepareSliceColumnProps> = (
         </div>
     );
 };
+
+export const BatchPrepareSliceColumn = React.memo(BatchPrepareSliceColumnComponent);

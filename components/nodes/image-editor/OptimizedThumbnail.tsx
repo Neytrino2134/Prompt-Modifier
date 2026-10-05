@@ -9,7 +9,7 @@ const MAX_CACHE_SIZE = 1000;
 
 export const createCachedThumbnail = (
     src: string,
-    targetSize: 64 | 128,
+    targetSize: 48 | 64 | 128 | number,
     callback: (thumbUrl: string) => void
 ) => {
     if (!src) return;
@@ -72,7 +72,7 @@ export const createCachedThumbnail = (
 
 export interface OptimizedThumbnailProps {
     src: string | null | undefined;
-    size: 64 | 128;
+    size: 48 | 64 | 128 | number;
     alt?: string;
     className?: string;
     style?: React.CSSProperties;

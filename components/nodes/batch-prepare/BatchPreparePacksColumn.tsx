@@ -45,7 +45,7 @@ interface BatchPreparePacksColumnProps {
     addToast?: (message: string, type?: 'success' | 'info' | 'error' | 'warning') => void;
 }
 
-export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = ({
+const BatchPreparePacksColumnComponent: React.FC<BatchPreparePacksColumnProps> = ({
     packs,
     activePackId,
     assetBaseName,
@@ -94,7 +94,7 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
         return () => ro.disconnect();
     }, []);
 
-    const PACK_ITEM_HEIGHT = 162; // card height + gap
+    const PACK_ITEM_HEIGHT = 174; // card height + gap
     const PACK_OVERSCAN = 2;
 
     const { visiblePackItems, packTopSpacerHeight, packBottomSpacerHeight } = useMemo(() => {
@@ -382,21 +382,21 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                                         </div>
                                     )}
 
-                                    {/* 4 Mini 64x64 View Thumbnails Strip */}
-                                    <div className="grid grid-cols-4 gap-1 p-1 bg-black/50 rounded border border-gray-800/80">
+                                    {/* 4 Mini 48x48 View Thumbnails Strip */}
+                                    <div className="grid grid-cols-4 gap-1.5 p-1 bg-black/50 rounded border border-gray-800/80 justify-items-center">
                                         {(['front', 'back', 'left', 'right'] as ViewSlotKey[]).map((vKey) => {
                                             const img = pack.views[vKey];
                                             const isSlotMuted = Boolean(pack.mutedViews?.[vKey]);
 
                                             return (
                                                 <div key={`pack-${pack.id}-${vKey}`} className="flex flex-col items-center">
-                                                    <div className={`w-full h-10 rounded bg-gray-900 border overflow-hidden flex items-center justify-center relative ${
+                                                    <div className={`w-12 h-12 rounded bg-gray-900 border overflow-hidden flex items-center justify-center relative ${
                                                         isSlotMuted ? 'border-red-500/60 bg-red-950/30' : 'border-gray-800'
                                                     }`}>
                                                         {img ? (
                                                             <OptimizedThumbnail
                                                                 src={img}
-                                                                size={64}
+                                                                size={48}
                                                                 alt=""
                                                                 className={`w-full h-full object-contain ${isSlotMuted ? 'opacity-25 grayscale' : ''}`}
                                                             />
@@ -405,7 +405,7 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
                                                         )}
                                                         {isSlotMuted && (
                                                             <div className="absolute inset-0 flex items-center justify-center">
-                                                                <EyeOff className="w-3 h-3 text-red-400" />
+                                                                <EyeOff className="w-3.5 h-3.5 text-red-400" />
                                                             </div>
                                                         )}
                                                     </div>
@@ -534,3 +534,5 @@ export const BatchPreparePacksColumn: React.FC<BatchPreparePacksColumnProps> = (
         </div>
     );
 };
+
+export const BatchPreparePacksColumn = React.memo(BatchPreparePacksColumnComponent);

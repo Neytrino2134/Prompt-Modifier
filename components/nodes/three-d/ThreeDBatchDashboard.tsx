@@ -32,7 +32,7 @@ interface ThreeDBatchDashboardProps {
     addToast?: (message: string, type?: 'success' | 'info' | 'error' | 'warning') => void;
 }
 
-export const ThreeDBatchDashboard: React.FC<ThreeDBatchDashboardProps> = ({
+const ThreeDBatchDashboardComponent: React.FC<ThreeDBatchDashboardProps> = ({
     batchJob,
     isBatchRunning,
     onStopBatch,
@@ -335,16 +335,16 @@ export const ThreeDBatchDashboard: React.FC<ThreeDBatchDashboardProps> = ({
 
                                 {/* Mini Thumbnails Strip + Progress Track */}
                                 <div className="flex items-center gap-2">
-                                    <div className="grid grid-cols-4 gap-1 p-1 bg-black/60 rounded border border-gray-800 w-44 shrink-0">
+                                    <div className="grid grid-cols-4 gap-1 p-1 bg-black/60 rounded border border-gray-800 shrink-0">
                                         {(['front', 'back', 'left', 'right'] as const).map(vKey => {
                                             const img = item.views[vKey];
                                             const isMuted = item.mutedViews?.[vKey];
                                             return (
-                                                <div key={`${item.id}-${vKey}`} className="w-9 h-9 rounded bg-gray-900 border border-gray-800 overflow-hidden flex items-center justify-center relative">
+                                                <div key={`${item.id}-${vKey}`} className="w-12 h-12 rounded bg-gray-900 border border-gray-800 overflow-hidden flex items-center justify-center relative">
                                                     {img ? (
                                                         <OptimizedThumbnail
                                                             src={img}
-                                                            size={64}
+                                                            size={48}
                                                             alt=""
                                                             className={`w-full h-full object-contain ${isMuted ? 'opacity-25 grayscale' : ''}`}
                                                         />
@@ -382,10 +382,15 @@ export const ThreeDBatchDashboard: React.FC<ThreeDBatchDashboardProps> = ({
                                     {previewSrc && (
                                         <div 
                                             onClick={() => onOpenImageViewer?.(previewSrc, item.packName)}
-                                            className="w-11 h-11 rounded bg-black border border-gray-700 overflow-hidden shrink-0 cursor-pointer hover:border-cyan-400 transition-colors relative group"
+                                            className="w-12 h-12 rounded bg-black border border-gray-700 overflow-hidden shrink-0 cursor-pointer hover:border-cyan-400 transition-colors relative group"
                                             title="Посмотреть превью"
                                         >
-                                            <img src={previewSrc} alt="" className="w-full h-full object-contain" />
+                                            <OptimizedThumbnail
+                                                src={previewSrc}
+                                                size={48}
+                                                alt=""
+                                                className="w-full h-full object-contain"
+                                            />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                                 <Eye className="w-3.5 h-3.5 text-white" />
                                             </div>
@@ -400,3 +405,5 @@ export const ThreeDBatchDashboard: React.FC<ThreeDBatchDashboardProps> = ({
         </div>
     );
 };
+
+export const ThreeDBatchDashboard = React.memo(ThreeDBatchDashboardComponent);

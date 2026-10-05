@@ -40,7 +40,7 @@ interface ThreeDInputSlotsProps {
     onPromptChange: (val: string) => void;
 }
 
-export const ThreeDInputSlots: React.FC<ThreeDInputSlotsProps> = ({
+const ThreeDInputSlotsComponent: React.FC<ThreeDInputSlotsProps> = ({
     mode,
     hasUpstreamImages,
     upstreamImagesCount,
@@ -390,3 +390,5 @@ export const ThreeDInputSlots: React.FC<ThreeDInputSlotsProps> = ({
         </div>
     );
 };
+
+export const ThreeDInputSlots = React.memo(ThreeDInputSlotsComponent);

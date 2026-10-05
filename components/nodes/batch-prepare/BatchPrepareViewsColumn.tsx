@@ -43,7 +43,7 @@ interface BatchPrepareViewsColumnProps {
     onOpenImageViewer?: (src: string, label: string) => void;
 }
 
-export const BatchPrepareViewsColumn: React.FC<BatchPrepareViewsColumnProps> = ({
+const BatchPrepareViewsColumnComponent: React.FC<BatchPrepareViewsColumnProps> = ({
     activeViews,
     mutedViews,
     activePack,
@@ -273,3 +273,5 @@ export const BatchPrepareViewsColumn: React.FC<BatchPrepareViewsColumnProps> = (
         </div>
     );
 };
+
+export const BatchPrepareViewsColumn = React.memo(BatchPrepareViewsColumnComponent);

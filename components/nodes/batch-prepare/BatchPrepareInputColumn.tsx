@@ -19,7 +19,7 @@ interface BatchPrepareInputColumnProps {
     onOpenImageViewer?: (src: string, index: number) => void;
 }
 
-export const BatchPrepareInputColumn: React.FC<BatchPrepareInputColumnProps> = ({
+const BatchPrepareInputColumnComponent: React.FC<BatchPrepareInputColumnProps> = ({
     allInputImages,
     selectedInputIndex,
     hasIncomingConnections,
@@ -259,3 +259,5 @@ export const BatchPrepareInputColumn: React.FC<BatchPrepareInputColumnProps> = (
         </div>
     );
 };
+
+export const BatchPrepareInputColumn = React.memo(BatchPrepareInputColumnComponent);

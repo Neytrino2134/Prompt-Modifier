@@ -762,91 +762,99 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
     const apiKey = getTripoApiKey();
     const isApiKeyMissing = !isTripoEnabled() || !apiKey;
 
-    // Live Batch Preview derived from connected 3D Batch Prepare Node
-    const connectedBatchJobPreview = useMemo<ThreeDBatchJob | null>(() => {
-        const upstreamPrepNodes = (context?.nodes || []).filter(n => {
-            if (n.type !== NodeType.BATCH_PREPARE) return false;
-            return incomingConnections.some(c => c.fromNodeId === n.id);
+    // Upstream Batch Prepare Node Value & Signature tracking (avoids re-parsing large JSON during canvas drags/resizes)
+    const upstreamBatchNodeInfo = useMemo(() => {
+        const upstreamConn = incomingConnections.find(c => {
+            const found = (context?.nodes || []).find(n => n.id === c.fromNodeId);
+            return found?.type === NodeType.BATCH_PREPARE;
         });
+        if (!upstreamConn) return null;
+        const found = (context?.nodes || []).find(n => n.id === upstreamConn.fromNodeId);
+        return found ? { id: found.id, value: found.value } : null;
+    }, [incomingConnections, context?.nodes]);
 
-        if (upstreamPrepNodes.length === 0) {
-            return state.batchJob || null;
-        }
+    const upstreamBatchNodeId = upstreamBatchNodeInfo?.id;
+    const upstreamBatchNodeValue = upstreamBatchNodeInfo?.value;
 
+    const parsedUpstreamPacksData = useMemo(() => {
+        if (!upstreamBatchNodeValue) return null;
         try {
-            const parsed = JSON.parse(upstreamPrepNodes[0].value || '{}');
+            const parsed = JSON.parse(upstreamBatchNodeValue);
             const allPacks: BatchPreparePack[] = Array.isArray(parsed.packs) ? parsed.packs : [];
             const enabledPacks = allPacks.filter(p => p.enabled !== false);
             const baseName = (parsed.assetBaseName || 'Asset_Name').trim() || 'Asset_Name';
-
-            if (isGenerating && state.batchJob && state.batchJob.status === 'running') {
-                return state.batchJob;
-            }
-
-            const items = enabledPacks.map((p, idx) => {
-                const existingItem = state.batchJob?.items?.find(it => it.id === p.id);
-                return {
-                    id: p.id,
-                    packIndex: idx + 1,
-                    packName: p.name || `${baseName}_${String(idx + 1).padStart(2, '0')}`,
-                    views: p.views,
-                    mutedViews: p.mutedViews,
-                    taskId: p.taskId || existingItem?.taskId,
-                    status: p.status || existingItem?.status || (p.modelUrl ? 'success' : 'queued'),
-                    progress: p.progress || existingItem?.progress || (p.modelUrl ? 100 : 0),
-                    modelUrl: p.modelUrl || existingItem?.modelUrl,
-                    thumbnailUrl: p.thumbnailUrl || existingItem?.thumbnailUrl,
-                    renderedImageUrl: p.renderedImageUrl || existingItem?.renderedImageUrl,
-                    createdAt: p.createdAt || Date.now(),
-                    completedAt: existingItem?.completedAt
-                };
-            });
-
-            const completed = items.filter(it => it.status === 'success').length;
-            const running = items.filter(it => it.status === 'running' || it.status === 'uploading').length;
-            const queued = items.filter(it => it.status === 'queued').length;
-            const failed = items.filter(it => it.status === 'failed' || it.status === 'cancelled').length;
-
             return {
-                id: state.batchJob?.id || `preview-${upstreamPrepNodes[0].id}`,
-                name: `3D Batch: ${baseName}`,
-                assetBaseName: baseName,
-                nodeId: node.id,
-                createdAt: state.batchJob?.createdAt || Date.now(),
-                totalCount: items.length,
-                completedCount: completed,
-                runningCount: running,
-                queuedCount: queued,
-                failedCount: failed,
-                progressPercent: items.length > 0 ? Math.round((completed / items.length) * 100) : 0,
-                status: (items.length > 0 && completed === items.length ? 'completed' : 'queued') as 'completed' | 'queued' | 'running' | 'failed' | 'cancelled',
-                modelVersion: state.modelVersion || 'v3.1',
-                items
+                id: upstreamBatchNodeId || '',
+                baseName,
+                enabledPacks
             };
         } catch {
+            return null;
+        }
+    }, [upstreamBatchNodeId, upstreamBatchNodeValue]);
+
+    // Live Batch Preview derived from connected 3D Batch Prepare Node (STABLE across canvas drag / resize)
+    const connectedBatchJobPreview = useMemo<ThreeDBatchJob | null>(() => {
+        if (!parsedUpstreamPacksData) {
             return state.batchJob || null;
         }
-    }, [context?.nodes, incomingConnections, node.id, state.batchJob, isGenerating, state.modelVersion]);
+
+        const { id: prepNodeId, baseName, enabledPacks } = parsedUpstreamPacksData;
+
+        if (isGenerating && state.batchJob && state.batchJob.status === 'running') {
+            return state.batchJob;
+        }
+
+        const items = enabledPacks.map((p, idx) => {
+            const existingItem = state.batchJob?.items?.find(it => it.id === p.id);
+            return {
+                id: p.id,
+                packIndex: idx + 1,
+                packName: p.name || `${baseName}_${String(idx + 1).padStart(2, '0')}`,
+                views: p.views,
+                mutedViews: p.mutedViews,
+                taskId: p.taskId || existingItem?.taskId,
+                status: p.status || existingItem?.status || (p.modelUrl ? 'success' : 'queued'),
+                progress: p.progress || existingItem?.progress || (p.modelUrl ? 100 : 0),
+                modelUrl: p.modelUrl || existingItem?.modelUrl,
+                thumbnailUrl: p.thumbnailUrl || existingItem?.thumbnailUrl,
+                renderedImageUrl: p.renderedImageUrl || existingItem?.renderedImageUrl,
+                createdAt: p.createdAt || Date.now(),
+                completedAt: existingItem?.completedAt
+            };
+        });
+
+        const completed = items.filter(it => it.status === 'success').length;
+        const running = items.filter(it => it.status === 'running' || it.status === 'uploading').length;
+        const queued = items.filter(it => it.status === 'queued').length;
+        const failed = items.filter(it => it.status === 'failed' || it.status === 'cancelled').length;
+
+        return {
+            id: state.batchJob?.id || `preview-${prepNodeId}`,
+            name: `3D Batch: ${baseName}`,
+            assetBaseName: baseName,
+            nodeId: node.id,
+            createdAt: state.batchJob?.createdAt || Date.now(),
+            totalCount: items.length,
+            completedCount: completed,
+            runningCount: running,
+            queuedCount: queued,
+            failedCount: failed,
+            progressPercent: items.length > 0 ? Math.round((completed / items.length) * 100) : 0,
+            status: (items.length > 0 && completed === items.length ? 'completed' : 'queued') as 'completed' | 'queued' | 'running' | 'failed' | 'cancelled',
+            modelVersion: state.modelVersion || 'v3.1',
+            items
+        };
+    }, [parsedUpstreamPacksData, state.batchJob, isGenerating, state.modelVersion, node.id]);
 
     // Direct Batch Handler from 3D Node
     const handleStartNodeBatch = async () => {
-        // Collect packs from connected BatchPrepare node or batchJob
-        const upstreamPrepNodes = (context?.nodes || []).filter(n => {
-            if (n.type !== NodeType.BATCH_PREPARE) return false;
-            return incomingConnections.some(c => c.fromNodeId === n.id);
-        });
-
         let targetPacks: BatchPreparePack[] = [];
         let baseName = 'Asset_Name';
 
-        if (upstreamPrepNodes.length > 0) {
-            try {
-                const parsed = JSON.parse(upstreamPrepNodes[0].value || '{}');
-                if (Array.isArray(parsed.packs) && parsed.packs.length > 0) {
-                    targetPacks = parsed.packs.filter((p: BatchPreparePack) => p.enabled !== false);
-                    baseName = (parsed.assetBaseName || 'Asset_Name').trim() || 'Asset_Name';
-                }
-            } catch {}
+        if (parsedUpstreamPacksData && parsedUpstreamPacksData.enabledPacks.length > 0) {
+            targetPacks = parsedUpstreamPacksData.enabledPacks;
+            baseName = parsedUpstreamPacksData.baseName;
         }
 
         if (targetPacks.length === 0 && state.batchJob?.items) {

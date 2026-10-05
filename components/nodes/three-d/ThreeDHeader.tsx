@@ -22,7 +22,7 @@ interface ThreeDHeaderProps {
     isBatchRunning?: boolean;
 }
 
-export const ThreeDHeader: React.FC<ThreeDHeaderProps> = ({
+const ThreeDHeaderComponent: React.FC<ThreeDHeaderProps> = ({
     isApiKeyMissing,
     mode,
     onModeChange,
@@ -190,3 +190,5 @@ export const ThreeDHeader: React.FC<ThreeDHeaderProps> = ({
         </>
     );
 };
+
+export const ThreeDHeader = React.memo(ThreeDHeaderComponent);

@@ -70,7 +70,7 @@ export const getModelOptionIcon = (option: TripoModelOption) => {
     return <Box className="w-3.5 h-3.5 text-gray-400" />;
 };
 
-export const ThreeDParametersPanel: React.FC<ThreeDParametersPanelProps> = ({
+const ThreeDParametersPanelComponent: React.FC<ThreeDParametersPanelProps> = ({
     nodeId,
     state,
     isGenerating,
@@ -375,3 +375,5 @@ export const ThreeDParametersPanel: React.FC<ThreeDParametersPanelProps> = ({
         </div>
     );
 };
+
+export const ThreeDParametersPanel = React.memo(ThreeDParametersPanelComponent);

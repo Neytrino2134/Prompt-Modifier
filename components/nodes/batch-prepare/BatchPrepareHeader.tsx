@@ -11,7 +11,7 @@ interface BatchPrepareHeaderProps {
     onDownloadAllPacksZip: () => void;
 }
 
-export const BatchPrepareHeader: React.FC<BatchPrepareHeaderProps> = ({
+const BatchPrepareHeaderComponent: React.FC<BatchPrepareHeaderProps> = ({
     filledActiveViewCount,
     activePack,
     packsCount,
@@ -67,3 +67,5 @@ export const BatchPrepareHeader: React.FC<BatchPrepareHeaderProps> = ({
         </div>
     );
 };
+
+export const BatchPrepareHeader = React.memo(BatchPrepareHeaderComponent);

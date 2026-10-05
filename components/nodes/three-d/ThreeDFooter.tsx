@@ -17,7 +17,7 @@ interface ThreeDFooterProps {
     onGenerate: () => void;
 }
 
-export const ThreeDFooter: React.FC<ThreeDFooterProps> = ({
+const ThreeDFooterComponent: React.FC<ThreeDFooterProps> = ({
     isGenerating,
     localStatusMsg,
     localProgress,
@@ -131,3 +131,5 @@ export const ThreeDFooter: React.FC<ThreeDFooterProps> = ({
         </div>
     );
 };
+
+export const ThreeDFooter = React.memo(ThreeDFooterComponent);

@@ -16,7 +16,7 @@ interface ThreeDViewportProps {
     onUnloadModel: () => void;
 }
 
-export const ThreeDViewport: React.FC<ThreeDViewportProps> = ({
+const ThreeDViewportComponent: React.FC<ThreeDViewportProps> = ({
     activeTab,
     modelUrl,
     thumbnailUrl,
@@ -175,3 +175,5 @@ export const ThreeDViewport: React.FC<ThreeDViewportProps> = ({
         </div>
     );
 };
+
+export const ThreeDViewport = React.memo(ThreeDViewportComponent);
