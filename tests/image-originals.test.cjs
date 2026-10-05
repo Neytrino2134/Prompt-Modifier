@@ -1,20 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const ts = require('typescript');
 const { File } = require('node:buffer');
+const { loadTypeScript } = require('./helpers/load-typescript.cjs');
 const NodeType = new Proxy({}, { get: (_, name) => name });
 const original = 'data:image/png;base64,' + Buffer.from('original bytes at full resolution').toString('base64');
 const thumbnail = 'data:image/jpeg;base64,' + Buffer.from('small preview').toString('base64');
 function load(file, mocks, globals = {}) {
-    const exports = {};
-    const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React } }).outputText.replaceAll('import.meta.env', '({ DEV: false })');
-    vm.runInNewContext(code, { exports, require: name => {
-        if (name in mocks) return mocks[name];
-        throw Error('Unexpected import ' + name);
-    }, console, Date, Map, Set, File, Uint8Array, atob, ...globals });
-    return exports;
+    return loadTypeScript(file, mocks, { File, ...globals });
 }
 function reactHarness() {
     let cursor = 0; const refs = [];

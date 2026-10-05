@@ -2,9 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const vm = require('node:vm');
 const { createHash, webcrypto } = require('node:crypto');
-const ts = require('typescript');
+const { loadTypeScript } = require('./helpers/load-typescript.cjs');
 const hash = value => createHash('sha256').update(value).digest('hex');
 const image = 'data:image/png;base64,aW1hZ2U=';
 const thumb = 'data:image/png;base64,dGh1bWI=';
@@ -22,15 +21,7 @@ async function fixture(t) {
     return { root, cache: createBatchCache(root), reopen: () => createBatchCache(root) };
 }
 function loadTS(file, mocks = {}, globals = {}) {
-    const output = ts.transpileModule(require('node:fs').readFileSync(path.resolve(file), 'utf8'), {
-        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
-    }).outputText;
-    const exports = {};
-    vm.runInNewContext(output, { exports, require: name => {
-        if (name in mocks) return mocks[name];
-        throw new Error('Unexpected module: ' + name);
-    }, console, Date, TextEncoder, Blob, crypto: webcrypto, AbortController, setInterval, clearInterval, ...globals }, { filename: file });
-    return exports;
+    return loadTypeScript(file, mocks, { crypto: webcrypto, ...globals });
 }
 const referencesModule = () => loadTS('utils/cacheReferences.ts', { '../types': types });
 const archiveModule = cache => loadTS('services/batchResultsCache.ts', {}, { window: { electronAPI: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BatchJobRecord, TaskStatus } from '../../types';
 import { getBatchJobStatus, listAllRemoteBatchJobs } from '../../services/geminiService';
 import { playBatchErrorSound } from '../../services/soundNotificationService';
@@ -291,20 +291,24 @@ export const useBatchPolling = ({
         }
     }, [batchJobsRef, checkBatchJob, persistBatchJobs, restoreFinishedCardsRef, restoreFailedCardsRef, addToast, t]);
 
+    // Keep the timer stable while using the latest callbacks and settings.
+    const pollActiveBatchJobsRef = useRef(pollActiveBatchJobs);
+    pollActiveBatchJobsRef.current = pollActiveBatchJobs;
+
     // Auto polling on mount and every 30s for active jobs
     useEffect(() => {
         // Initial poll on startup
-        pollActiveBatchJobs();
+        pollActiveBatchJobsRef.current();
 
         const interval = setInterval(() => {
             const hasActive = batchJobsRef.current.some(j => j.state === 'PENDING' || j.state === 'RUNNING');
             if (hasActive) {
-                pollActiveBatchJobs();
+                pollActiveBatchJobsRef.current();
             }
         }, 30000); // Poll every 30 seconds
 
         return () => clearInterval(interval);
-    }, [pollActiveBatchJobs, batchJobsRef]);
+    }, [batchJobsRef]);
 
     return {
         isPolling,
