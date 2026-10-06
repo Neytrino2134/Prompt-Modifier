@@ -9,6 +9,7 @@ import { generateThumbnail, formatImageForAspectRatio, cropImageTo169 } from '..
 import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { GeminiGenerationCommonProps } from './types';
 import { resolveImageEditorModel } from '../../services/modelConfig';
+import { notifyImageEditorSuccess } from '../../services/trayNotificationService';
 
 // Helper for local download triggering within the hook
 const triggerDownload = (url: string, prompt: string, frameNumber: number = 0) => {
@@ -462,6 +463,14 @@ export const useEditorNode = ({
                     if (shouldAutoSave) {
                          triggerDownload(finalImageUrl, promptToUse, i + 1);
                     }
+
+                    notifyImageEditorSuccess({
+                        nodeTitle: node.title || 'AI Image Editor',
+                        prompt: promptToUse,
+                        thumbnail: thumb,
+                        frameIndex: i,
+                        nodeId
+                    });
                 };
 
                 const onError = (err: any) => {
@@ -559,6 +568,13 @@ export const useEditorNode = ({
                 if (shouldAutoSave) {
                      triggerDownload(finalImageUrl, promptToUse);
                 }
+
+                notifyImageEditorSuccess({
+                    nodeTitle: node.title || 'AI Image Editor',
+                    prompt: promptToUse,
+                    thumbnail: thumb,
+                    nodeId
+                });
             };
 
             const onError = (e: any) => {

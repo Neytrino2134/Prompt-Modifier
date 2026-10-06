@@ -13,6 +13,7 @@ import {
     TripoRecentTask
 } from './tripoService';
 import { playBatchSuccessSound, playBatchErrorSound, playTaskSuccessSound } from './soundNotificationService';
+import { notifyThreeDBatchStart, notifyThreeDBatchSuccess } from './trayNotificationService';
 import { BatchPreparePack, ViewSlotKey } from '../components/nodes/batch-prepare/types';
 
 export interface ThreeDBatchItemState {

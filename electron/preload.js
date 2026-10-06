@@ -73,6 +73,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // System Tray methods
   minimizeToTray: () => ipcRenderer.send('tray:minimize-to-tray'),
   showWindow: () => ipcRenderer.send('tray:show-window'),
+  showTrayNotification: (options) => ipcRenderer.send('tray:show-notification', options),
   getTraySettings: () => ipcRenderer.invoke('tray:get-settings'),
   setTraySettings: (settings) => ipcRenderer.invoke('tray:set-settings', settings),
   onTraySettingsUpdated: (callback) => {

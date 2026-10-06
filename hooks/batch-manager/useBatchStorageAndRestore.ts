@@ -6,6 +6,7 @@ import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { batchResultKey, readBatchArchive, writeBatchArchive, clearUnusedBatchArchives, imageHashes } from '../../services/batchResultsCache';
 import { collectCacheReferences } from '../../utils/cacheReferences';
 import { playBatchSuccessSound, playBatchErrorSound } from '../../services/soundNotificationService';
+import { notifyBatchSuccess } from '../../services/trayNotificationService';
 import { STORAGE_KEY_BATCH_JOBS, UseBatchManagerProps } from './types';
 
 interface UseBatchStorageAndRestoreOptions extends UseBatchManagerProps {
@@ -301,6 +302,14 @@ export const useBatchStorageAndRestore = ({
                         .replace('{count}', String(successCount));
                     addToast(toastMsg, 'success');
                 }
+                if (successCount > 0) {
+                    notifyBatchSuccess({
+                        nodeTitle: job.nodeTitle || 'Batch Operation',
+                        itemsCount: successCount,
+                        thumbnail: firstUrl,
+                        nodeId: job.nodeId
+                    });
+                }
                 return;
             }
 
@@ -472,6 +481,13 @@ export const useBatchStorageAndRestore = ({
             }
 
             if (successCount > 0) {
+                const firstCompleted = updatedItems.find(it => it.status === 'completed' && (it.resultThumbnail || it.resultUrl));
+                notifyBatchSuccess({
+                    nodeTitle: job.nodeTitle || 'Batch Operation',
+                    itemsCount: successCount,
+                    thumbnail: firstCompleted?.resultThumbnail || firstCompleted?.resultUrl,
+                    nodeId: job.nodeId
+                });
                 playBatchSuccessSound();
             } else {
                 playBatchErrorSound();

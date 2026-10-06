@@ -13,6 +13,7 @@ import { SideDockingPanels } from './components/SideDockingPanels';
 import { BottomMediaPanel } from './components/BottomMediaPanel';
 import { DetachedNodeMiniApp } from './components/DetachedNodeMiniApp';
 import { CursorEffects } from './components/cursors/CursorEffects';
+import { TrayNotificationDock } from './components/TrayNotificationDock';
 import { createSaveAndExit } from './services/saveAndExit';
 import { 
   matchesDeviceFilter, 
@@ -440,6 +441,9 @@ const Editor: React.FC = () => {
         
         {/* 3.1 Side Docking Panels (Left/Right) */}
         <SideDockingPanels />
+
+        {/* 3.2 Floating Tray Notification Dock */}
+        <TrayNotificationDock />
 
         {/* 4. Global Modals & Dialogs */}
         <DialogLayer />

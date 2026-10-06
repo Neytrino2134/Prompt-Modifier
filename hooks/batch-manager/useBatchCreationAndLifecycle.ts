@@ -14,6 +14,7 @@ import {
 } from '../../services/openaiService';
 import { recordGenerationEvent } from '../../utils/generationStats';
 import { getDeviceId, formatWithDeviceTag } from '../../utils/deviceId';
+import { notifyBatchStart } from '../../services/trayNotificationService';
 import {
     CreateBatchGenerationParams,
     mapSdkState,
@@ -238,6 +239,14 @@ export const useBatchCreationAndLifecycle = ({
                     .replace('{count}', String(items.length));
                 addToast(submittedMsg, 'info');
             }
+
+            // Trigger stylish compact Tray notification for Batch Start
+            notifyBatchStart({
+                nodeTitle: nodeTitle || 'Batch API',
+                itemsCount: items.length,
+                model,
+                nodeId
+            });
 
             // 6. Immediately trigger auto-save so current project state is securely persisted on batch launch
             if (triggerAutoSave) {

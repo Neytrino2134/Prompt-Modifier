@@ -7,6 +7,7 @@ import { NodeType } from '../../types';
 import { RATIO_INDICES } from '../../utils/nodeUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { resolveImageModel } from '../../services/modelConfig';
+import { notifyImageOutputSuccess } from '../../services/trayNotificationService';
 
 const triggerDownload = (url: string, prompt: string) => {
     let assetUrl = url;
@@ -226,6 +227,14 @@ export const useImageNode = ({
             if (addToast) {
                 addToast(t('node.action.generateSuccess') || 'Image generated successfully', 'success');
             }
+            notifyImageOutputSuccess({
+                nodeTitle: node.title || (node.type === NodeType.CHARACTER_CARD ? 'Character Card' : 'Image Output'),
+                prompt,
+                thumbnail: thumbnailUrl,
+                model: effectiveModel,
+                aspectRatio,
+                nodeId
+            });
         };
 
         const onError = (e: any) => {

@@ -1,4 +1,4 @@
-import { app, Tray, Menu, shell, BrowserWindow, ipcMain } from 'electron';
+import { app, Tray, Menu, shell, BrowserWindow, ipcMain, Notification } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { getTrayIcon } from './config.js';
@@ -410,6 +410,46 @@ export function createTray(trayContext) {
 }
 
 export function setupTrayIPC(trayContext) {
+  ipcMain.on('tray:show-notification', (event, payload) => {
+    if (!payload || typeof payload !== 'object') return;
+    const { title = 'Prompt Modifier', message = '', type = 'info' } = payload;
+    
+    // 1. Balloon notification on Windows system tray
+    if (tray && !tray.isDestroyed()) {
+      try {
+        const iconType = type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'info');
+        tray.displayBalloon({
+          title: String(title),
+          content: String(message),
+          iconType
+        });
+      } catch (err) {
+        // Ignored if balloon is unsupported on platform
+      }
+    }
+
+    // 2. Native OS desktop Notification
+    try {
+      if (Notification && Notification.isSupported && Notification.isSupported()) {
+        const notif = new Notification({
+          title: String(title),
+          body: String(message),
+          icon: getTrayIcon(),
+          silent: false
+        });
+        notif.show();
+        notif.on('click', () => {
+          const mainWindow = trayContext.getMainWindow();
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            trayContext.bringWindowToFront(mainWindow);
+          }
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Native notification failed:', notifErr);
+    }
+  });
+
   ipcMain.on('batch:sync-status', (event, status) => {
     if (status && typeof status === 'object') {
       currentBatchStatus = { ...currentBatchStatus, ...status };

@@ -29,6 +29,7 @@ import {
 } from '../../services/tripoBatchService';
 import { BatchPreparePack } from './batch-prepare/types';
 import { NodeType } from '../../types';
+import { notifyThreeDBatchStart, notifyThreeDBatchSuccess } from '../../services/trayNotificationService';
 
 export type { ThreeDNodeState };
 
@@ -893,6 +894,13 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
             statusMessage: `3D Batch: 0/${targetPacks.length} (0%)`
         });
 
+        // Trigger stylish compact Tray notification for 3D Batch start
+        notifyThreeDBatchStart({
+            name: baseName,
+            packsCount: targetPacks.length,
+            nodeId: node.id
+        });
+
         try {
             await run3DBatchGeneration({
                 packs: targetPacks,
@@ -938,6 +946,15 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                         statusMessage: `3D Batch: Завершено (${finalJob.completedCount}/${finalJob.totalCount})`
                     });
                     if (addToast) addToast(`🎉 3D Batch завершён: ${finalJob.completedCount}/${finalJob.totalCount} готово!`, 'success');
+                    
+                    const firstThumb = finalJob.items.find(it => it.thumbnailUrl || it.renderedImageUrl);
+                    notifyThreeDBatchSuccess({
+                        name: finalJob.assetBaseName || finalJob.name,
+                        completedCount: finalJob.completedCount,
+                        totalCount: finalJob.totalCount,
+                        thumbnail: firstThumb?.thumbnailUrl || firstThumb?.renderedImageUrl,
+                        nodeId: node.id
+                    });
                 },
                 addToHistory: context?.addToHistory
             });
