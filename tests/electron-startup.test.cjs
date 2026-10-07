@@ -40,7 +40,7 @@ test('startup waits for Electron readiness before installing downloads and creat
   } };
   const electron = { app, ipcMain, session, BrowserWindow: {} };
   const fileHandlers = load('electron/fileHandlers.js', {
-    electron, 'node:path': path, 'node:fs': fs, './batchCache.js': {}
+    electron, 'node:path': path, 'node:fs': { ...fs, mkdirSync() {} }, './batchCache.js': {}
   });
   let windowCount = 0;
   const sent = [];
@@ -81,7 +81,7 @@ test('startup waits for Electron readiness before installing downloads and creat
   const downloadNotifications = [];
   const webContents = { isDestroyed: () => false, send: (...args) => downloadNotifications.push(args) };
   defaultSession.emit('will-download', {}, item, webContents);
-  assert.equal(savePath, path.join(__dirname, 'result.png'));
+  assert.equal(savePath, path.join(__dirname, 'Image', 'result.png'));
   item.emit('done', {}, 'completed');
   assert.equal(sent.length, 1);
   assert.equal(downloadNotifications.length, 1);
