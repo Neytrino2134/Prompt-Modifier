@@ -18,7 +18,7 @@ function reactHarness() {
 function derived(nodes, connections, images) {
     const harness = reactHarness();
     const { useDerivedMemo } = load('hooks/useDerivedMemo.ts', {
-        react: harness.react, '../types': { NodeType }, '../utils/nodeUtils': { RATIO_INDICES: { '1:1': 1 }, getOutputHandleType: () => 'image' }
+        react: harness.react, '../types': { NodeType }, '../utils/nodeUtils': { RATIO_INDICES: { '1:1': 1 }, getOutputHandleType: (_node, handle) => handle === 'all_prompts' ? 'text' : 'image' }
     });
     const render = (nextNodes = nodes, nextConnections = connections, getter = (id, frame) => images[id]?.[frame]) => {
         harness.reset(); return useDerivedMemo({ nodes: nextNodes, connections: nextConnections, selectedNodeIds: [], getFullSizeImage: getter });
@@ -28,6 +28,16 @@ function derived(nodes, connections, images) {
 const node = (type, value, id = 'source') => ({ id, type, value: typeof value === 'string' ? value : JSON.stringify(value), position: { x: 0, y: 0 }, width: 400, height: 300 });
 const connection = (fromNodeId = 'source', toNodeId = 'target', fromHandleId = 'image') => ({ id: fromNodeId + toNodeId, fromNodeId, toNodeId, fromHandleId, toHandleId: 'image' });
 function dataUrl(value) { return typeof value === 'string' ? value : `data:${value.mimeType};base64,${value.base64ImageData}`; }
+
+test('MultiView compacted card sends original on image and prompt data ports while UI reads preview', () => {
+    const source = node('PROMPT_SEQUENCE_EDITOR', { activeTab: 'multiview', multiviewItems: [{ id: 'item', image: thumbnail, thumbnailUrl: thumbnail, originalImage: original, originalArchiveKey: 'original-image:test', originalSourceVersion: 2, prompt: 'turnaround', index: 1 }] });
+    const hook = derived([source], [connection(), { ...connection('source', 'textTarget', 'all_prompts'), toHandleId: 'text' }], {}).render();
+    assert.equal(dataUrl(hook.getUpstreamNodeValues('target', 'image')[0]), original);
+    assert.equal(dataUrl(hook.getUpstreamNodeValues('target', 'image', undefined, true)[0]), thumbnail);
+    const prompts = JSON.parse(hook.getUpstreamNodeValues('textTarget', 'text')[0]);
+    assert.equal(prompts.items[0].image, original);
+    assert.equal(prompts.prompts[0].image, original);
+});
 
 for (const [type, value, cache] of [
     ['IMAGE_INPUT', { image: thumbnail, mode: 'full' }, { 0: original }],
@@ -217,7 +227,7 @@ test('AI Editor sequence input preview opens original in viewer and drags origin
         '../../../components/icons/AppIcons': {}, '../../Tooltip': {}, './EditorTooltip': {}, jszip: {},
         '../../CustomCheckbox': {}, '../../DebouncedTextarea': {}, '../../ConfirmDialog': {},
         '../../../utils/imageUtils': load('utils/imageUtils.ts', {}),
-        '../../../contexts/AppContext': { useAppContext: () => ({ isBatchMode: false }) },
+        '../../../contexts/AppContext': { useAppContext: () => ({ isBatchMode: false }), useAppSelector: selector => selector({ isBatchMode: false }) },
         '../../../services/modelConfig': { resolveImageEditorModel: value => value, isGptImage2Model: () => false, isOpenAiImageModel: () => false },
         './OptimizedThumbnail': { OptimizedThumbnail }
     });

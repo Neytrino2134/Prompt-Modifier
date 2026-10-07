@@ -1,5 +1,6 @@
+import { VirtualList } from '../../VirtualList';
 
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { ActionButton } from '../../ActionButton';
 
@@ -42,24 +43,11 @@ export const SequencedPromptList = forwardRef<SequencedPromptListRef, SequencedP
 }, ref) => {
     const listRef = useRef<HTMLDivElement>(null);
     const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const [scrollRequest, setScrollRequest] = useState({ index: -1, revision: 0 });
     const isUpstreamConnected = upstreamPrompts && upstreamPrompts.size > 0;
 
     useImperativeHandle(ref, () => ({
-        scrollToIndex: (index: number) => {
-            const el = itemRefs.current[index];
-            if (el && listRef.current) {
-                // Scroll into view logic
-                const container = listRef.current;
-                const top = el.offsetTop;
-                const bottom = top + el.offsetHeight;
-                const containerTop = container.scrollTop;
-                const containerBottom = containerTop + container.clientHeight;
-
-                if (top < containerTop || bottom > containerBottom) {
-                     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }
-        }
+        scrollToIndex: (index: number) => setScrollRequest(prev => ({ index, revision: prev.revision + 1 }))
     }));
 
     // Create a range of indices to render
@@ -141,10 +129,10 @@ export const SequencedPromptList = forwardRef<SequencedPromptListRef, SequencedP
             
             <div 
                 ref={listRef}
-                className="overflow-y-auto custom-scrollbar p-2 space-y-2 flex-grow min-h-0"
+                className="overflow-y-auto custom-scrollbar p-2 flex-grow min-h-0"
                 onWheel={(e) => e.stopPropagation()}
             >
-                {framesToRender.map((index) => {
+                <VirtualList items={framesToRender} estimatedRowHeight={96} getKey={index => index} scrollToIndex={framesToRender.indexOf(scrollRequest.index)} scrollRequestId={scrollRequest.revision} renderItem={(index) => {
                     // Resolution Priority: Upstream -> Local Frame -> Global
                     const upstreamVal = upstreamPrompts?.get(index + 1); // Upstream is 1-based usually
                     const localVal = framePrompts[index];
@@ -218,7 +206,7 @@ export const SequencedPromptList = forwardRef<SequencedPromptListRef, SequencedP
                             />
                         </div>
                     );
-                })}
+                }} />
                 {totalFrames === 0 && (
                     <div className="text-center text-gray-500 text-xs py-4">
                         Add input images or prompts to define frames.

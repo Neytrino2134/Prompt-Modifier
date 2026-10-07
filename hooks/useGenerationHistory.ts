@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { storeOriginalImage } from '../services/originalImageStore';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { recordGenerationEvent, syncWithHistoryItems } from '../utils/generationStats';
 import { generateThumbnail } from '../utils/imageUtils';
 
@@ -6,6 +7,7 @@ export interface HistoryItem {
   id: string;
   url: string;
   thumbnailUrl?: string;
+  originalArchiveKey?: string;
   prompt: string;
   timestamp: number;
   model?: string;
@@ -17,7 +19,7 @@ export interface HistoryItem {
 
 const DB_NAME = 'GenerationHistoryDB';
 const STORE_NAME = 'Images';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const getDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -28,6 +30,8 @@ const getDB = (): Promise<IDBDatabase> => {
       if (!request.result.objectStoreNames.contains(STORE_NAME)) {
         request.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
       }
+      const store = request.transaction!.objectStore(STORE_NAME);
+      if (!store.indexNames.contains('timestamp')) store.createIndex('timestamp', 'timestamp');
     };
   });
 };
@@ -55,65 +59,62 @@ export const useGenerationHistory = () => {
     return items;
   }, []);
 
-  const loadHistory = useCallback(async () => {
+  const loadRevision = useRef(0);
+  const compactItem = async (item: HistoryItem): Promise<HistoryItem> => {
+    if (!item.url.startsWith('data:image') || item.originalArchiveKey) return item;
     try {
-      const db = await getDB();
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.getAll();
-      
-      request.onsuccess = async () => {
-        const items = request.result as HistoryItem[];
-        // Sort by timestamp descending
-        items.sort((a, b) => b.timestamp - a.timestamp);
-        const limitedItems = await enforceLimit(items, db, historyLimit);
-        setHistoryItems(limitedItems);
-
-        // Sync existing history with persistent stats log
-        syncWithHistoryItems(limitedItems);
-
-        // Asynchronously generate and backfill 128x128 thumbnails for older items missing them
-        const missingThumbs = limitedItems.filter(item => !item.thumbnailUrl && item.url);
-        if (missingThumbs.length > 0) {
-          Promise.all(
-            missingThumbs.map(async (item) => {
-              try {
-                const thumb = await generateThumbnail(item.url, 128, 128);
-                return { id: item.id, thumb };
-              } catch {
-                return null;
-              }
-            })
-          ).then(async (results) => {
-            const valid = results.filter((r): r is { id: string; thumb: string } => r !== null);
-            if (valid.length > 0) {
-              const thumbMap = new Map(valid.map(v => [v.id, v.thumb]));
-              setHistoryItems(prev => prev.map(item => thumbMap.has(item.id) ? { ...item, thumbnailUrl: thumbMap.get(item.id) } : item));
-              
-              try {
-                const db2 = await getDB();
-                const writeTx = db2.transaction([STORE_NAME], 'readwrite');
-                const writeStore = writeTx.objectStore(STORE_NAME);
-                for (const { id, thumb } of valid) {
-                  const getReq = writeStore.get(id);
-                  getReq.onsuccess = () => {
-                    if (getReq.result) {
-                      getReq.result.thumbnailUrl = thumb;
-                      writeStore.put(getReq.result);
-                    }
-                  };
-                }
-              } catch (err) {
-                console.warn("Could not backfill thumbnails in DB:", err);
-              }
-            }
-          });
-        }
-      };
-    } catch (e) {
-      console.error("Failed to load generation history", e);
+      const originalArchiveKey = await storeOriginalImage(item.url);
+      let thumbnailUrl = item.thumbnailUrl;
+      if (!thumbnailUrl || thumbnailUrl === item.url) {
+        try { thumbnailUrl = await generateThumbnail(item.url, 128, 128); }
+        catch { thumbnailUrl = ''; }
+      }
+      return { ...item, url: '', thumbnailUrl, originalArchiveKey };
+    } catch (error) {
+      console.warn('History original retained inline because storage failed:', error);
+      return item;
     }
-  }, [historyLimit, enforceLimit]);
+  };
+  const loadHistory = useCallback(async () => {
+    const revision = ++loadRevision.current;
+    const db = await getDB();
+    try {
+      const items = await new Promise<HistoryItem[]>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const request = tx.objectStore(STORE_NAME).index('timestamp').openCursor(null, 'prev');
+        const records: HistoryItem[] = [];
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          if (records.length < historyLimit) records.push(cursor.value);
+          else cursor.delete();
+          cursor.continue();
+        };
+        tx.oncomplete = () => resolve(records);
+        tx.onerror = tx.onabort = () => reject(tx.error);
+      });
+      for (let index = 0; index < items.length; index++) {
+        if (revision !== loadRevision.current) return;
+        const old = items[index];
+        const compact = await compactItem(old);
+        items[index] = compact;
+        if (compact !== old) await new Promise<void>((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          const existing = store.get(compact.id);
+          // A concurrent delete must not be undone by migration.
+          existing.onsuccess = () => { if (existing.result) store.put(compact); };
+          tx.oncomplete = () => resolve();
+          tx.onerror = tx.onabort = () => reject(tx.error);
+        });
+      }
+      if (revision === loadRevision.current) {
+        setHistoryItems(items);
+        syncWithHistoryItems(items);
+      }
+    } catch (error) { console.error('Failed to load history:', error); }
+    finally { db.close(); }
+  }, [historyLimit]);
 
   useEffect(() => {
     loadHistory();
@@ -209,32 +210,38 @@ export const useGenerationHistory = () => {
     }
 
     try {
+      const compact = await compactItem(newItem);
+      loadRevision.current++;
       const db = await getDB();
       const transaction = db.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-      store.add(newItem);
+      store.add(compact);
       
       transaction.oncomplete = () => {
         setHistoryItems(prev => {
-           const newItems = [newItem, ...prev];
+           const newItems = [compact, ...prev];
            if (newItems.length > historyLimit) {
                // Schedule cleanup of DB in background
                getDB().then(db2 => {
                    const t2 = db2.transaction([STORE_NAME], 'readwrite');
                    const s2 = t2.objectStore(STORE_NAME);
                    newItems.slice(historyLimit).forEach(item => s2.delete(item.id));
+                   t2.oncomplete = t2.onerror = t2.onabort = () => db2.close();
                });
                return newItems.slice(0, historyLimit);
            }
            return newItems;
         });
+        db.close();
+        void loadHistory();
       };
     } catch (e) {
       console.error("Failed to add to generation history", e);
     }
-  }, [historyLimit]);
+  }, [historyLimit, loadHistory]);
 
   const removeHistoryItems = useCallback(async (ids: string[]) => {
+    loadRevision.current++;
     try {
       const db = await getDB();
       const transaction = db.transaction([STORE_NAME], 'readwrite');
@@ -244,13 +251,16 @@ export const useGenerationHistory = () => {
       
       transaction.oncomplete = () => {
         setHistoryItems(prev => prev.filter(item => !ids.includes(item.id)));
+        db.close();
+        void loadHistory();
       };
     } catch (e) {
       console.error("Failed to remove history items", e);
     }
-  }, []);
+  }, [loadHistory]);
 
   const clearHistory = useCallback(async () => {
+    loadRevision.current++;
     try {
       const db = await getDB();
       const transaction = db.transaction([STORE_NAME], 'readwrite');
@@ -259,6 +269,7 @@ export const useGenerationHistory = () => {
       
       transaction.oncomplete = () => {
         setHistoryItems([]);
+        db.close();
       };
     } catch (e) {
       console.error("Failed to clear history", e);

@@ -700,7 +700,7 @@ const CanvasLayer: React.FC = () => {
                     {/* VIRTUALIZED NODES */}
                     {visibleEntities.visibleNodes.map((node: any) => (
                         <NodeView 
-                            key={node.id} 
+                            key={`${context.activeTabId}:${node.id}`}
                             node={node} 
                             {...getNodeViewProps(node)} 
                             isProxy={!!node.dockState} // Classic proxy on canvas only if docked

@@ -35,7 +35,7 @@ interface BatchTabProps {
     onDeleteJob: (jobId: string) => void;
     onDownloadJsonl?: (jobId: string) => void;
     onViewJsonl: (data: ViewingJsonlData) => void;
-    getBatchJobJsonl?: (jobId: string) => string | undefined;
+    getBatchJobJsonl?: (jobId: string) => Promise<string | undefined>;
     setImageViewer?: (viewer: any) => void;
     addToast?: (msg: string, type: 'info' | 'success' | 'error' | 'warning') => void;
     t: (key: string) => string;

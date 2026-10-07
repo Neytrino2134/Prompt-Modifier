@@ -117,7 +117,7 @@ const job = () => ({ id: 'job', name: 'batches/job', nodeId: 'editor', tabId: 'i
 const node = insert => ({ id: 'editor', type: 'IMAGE_EDITOR', value: JSON.stringify({ autoInsertResults: insert, autoSaveImages: true }) });
 const results = [{ id: 'good', imageUrl: image }, { id: 'bad', error: 'failed generation' }];
 
-test('startup hydrates archives automatically without server calls or node insertion', async t => {
+test('startup keeps archived results cold without server calls or node insertion', async t => {
     const { cache } = await fixture(t);
     const archivedItems = [{ id: 'good', prompt: 'p', status: 'completed', resultUrl: image }];
     await cache.put('results:batches/job', { items: archivedItems });
@@ -126,11 +126,8 @@ test('startup hydrates archives automatically without server calls or node inser
     restarted.render();
     const cleanups = restarted.mount();
     t.after(() => cleanups.forEach(cleanup => cleanup?.()));
-    for (let attempt = 0; attempt < 100; attempt++) {
-        if (restarted.render().batchJobs[0].items[0].resultUrl) break;
-        await new Promise(resolve => setTimeout(resolve, 2));
-    }
-    assert.equal(restarted.render().batchJobs[0].items[0].resultUrl, image);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(restarted.render().batchJobs[0].items[0].resultUrl, undefined);
     assert.deepEqual(restarted.counts(), { network: 0, downloads: 0, inserted: 0 });
 });
 
@@ -152,8 +149,10 @@ test('cold restart loads mixed success/error results from disk without server re
     await restarted.render().fetchBatchJobResults('job', { forceRestore: true });
     assert.deepEqual(restarted.counts(), { network: 0, downloads: 0, inserted: 2 });
     assert.equal(restarted.render().batchJobs[0].items[1].error, 'failed generation');
-    assert.equal(restarted.render().getBatchJobJsonl('job'), 'original request JSONL');
-    assert.equal(restarted.render().batchJobs[0].items[0].images[0].base64ImageData, 'input-image');
+    assert.equal(await restarted.render().getBatchJobJsonl('job'), 'original request JSONL');
+    assert.equal(restarted.render().batchJobs[0].items[0].images, undefined);
+    const archive = await cache.get('results:batches/job');
+    assert.equal(archive.items[0].images[0].base64ImageData, 'input-image');
 });
 
 test('download-only results persist and later manual insertion saves only the destination node', async t => {

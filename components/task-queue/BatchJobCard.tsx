@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { acquireBatchJobPayload } from '../../services/batchJobPayload';
+import { OptimizedThumbnail } from '../nodes/image-editor/OptimizedThumbnail';
 import { BatchJobRecord } from '../../types';
 import { BatchStatusBadge } from './TaskQueueBadges';
 import { ViewingJsonlData } from './types';
@@ -25,7 +27,7 @@ interface BatchJobCardProps {
     onDeleteJob: (jobId: string) => void;
     onDownloadJsonl?: (jobId: string) => void;
     onViewJsonl: (data: ViewingJsonlData) => void;
-    getBatchJobJsonl?: (jobId: string) => string | undefined;
+    getBatchJobJsonl?: (jobId: string) => Promise<string | undefined>;
     setImageViewer?: (viewer: any) => void;
     addToast?: (msg: string, type: 'info' | 'success' | 'error' | 'warning') => void;
     t: (key: string) => string;
@@ -59,10 +61,19 @@ export const BatchJobCard: React.FC<BatchJobCardProps> = ({
     t
 }) => {
     const jobId = job.id || job.name;
-    const jobItems = Array.isArray(job.items) ? job.items : [];
+    const [payload, setPayload] = useState<BatchJobRecord | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        setPayload(null);
+        if (isExpanded) void acquireBatchJobPayload(job).then(data => {
+            if (!cancelled) setPayload(data);
+        }).catch(error => { if (!cancelled) addToast?.(String(error), 'error'); });
+        return () => { cancelled = true; };
+    }, [isExpanded, job]);
+    const jobItems = (isExpanded && payload ? payload.items : job.items) || [];
     const totalCount = jobItems.length || 0;
     const completedItems = jobItems.filter(it => !!it?.resultUrl);
-    const hasImages = completedItems.length > 0;
+    const hasImages = completedItems.length > 0 || (!!job.resultsCached && job.items.some(item => item.status === 'completed'));
     const completedCount = completedItems.length || (job.state === 'SUCCEEDED' ? totalCount : jobItems.filter(it => it?.status === 'completed')?.length || 0);
     const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : (job.state === 'SUCCEEDED' ? 100 : 20);
 
@@ -131,7 +142,7 @@ export const BatchJobCard: React.FC<BatchJobCardProps> = ({
                     <span>
                         {t('batch.jobs') || 'Items'}:{' '}
                         <span className="text-gray-200 font-mono">
-                            {hasImages ? `${completedItems.length}/${totalCount}` : (job.state === 'SUCCEEDED' ? `${totalCount} ${t('batch.readyOnServer') || '(готов на сервере)'}` : `${completedCount}/${totalCount}`)}
+                            {hasImages ? `${completedCount}/${totalCount}` : (job.state === 'SUCCEEDED' ? `${totalCount} ${t('batch.readyOnServer') || '(готов на сервере)'}` : `${completedCount}/${totalCount}`)}
                         </span>
                     </span>
                     <span className="truncate max-w-[140px] text-right font-mono text-[10px] text-gray-400">{job.model}</span>
@@ -245,7 +256,7 @@ export const BatchJobCard: React.FC<BatchJobCardProps> = ({
                         <span>
                             {isExpanded
                                 ? (t('node.action.hideImages') || 'Скрыть')
-                                : (t('batch.viewGeneratedImages') || 'Изображения ({count})').replace('{count}', String(completedItems.length))}
+                                : (t('batch.viewGeneratedImages') || 'Изображения ({count})').replace('{count}', String(completedCount))}
                         </span>
                     </button>
                 </div>
@@ -272,7 +283,7 @@ export const BatchJobCard: React.FC<BatchJobCardProps> = ({
                                     })}
                                     title={item.prompt || `Кадр #${frameNum}`}
                                 >
-                                    <img
+                                    <OptimizedThumbnail size={128}
                                         src={item.resultUrl!}
                                         alt={`Batch Frame ${frameNum}`}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
@@ -367,8 +378,10 @@ export const BatchJobCard: React.FC<BatchJobCardProps> = ({
                     </button>
 
                     <button
-                        onClick={() => {
-                            const content = getBatchJobJsonl ? getBatchJobJsonl(jobId) : job.rawJsonl;
+                        onClick={async () => {
+                            let content: string | undefined;
+                            try { content = getBatchJobJsonl ? await getBatchJobJsonl(jobId) : job.rawJsonl; }
+                            catch (error) { addToast?.(String(error), 'error'); return; }
                             if (content) {
                                 onViewJsonl({
                                     id: jobId,

@@ -350,7 +350,7 @@ export type AppContextType =
   deleteBatchJob: (jobId: string) => void;
   clearFinishedBatchJobs: () => void;
   clearAllBatchJobs: () => void;
-  getBatchJobJsonl?: (jobId: string) => string | undefined;
+  getBatchJobJsonl?: (jobId: string) => Promise<string | undefined>;
   downloadBatchJsonl?: (jobId: string) => void;
   deviceId?: string;
   deviceName?: string;

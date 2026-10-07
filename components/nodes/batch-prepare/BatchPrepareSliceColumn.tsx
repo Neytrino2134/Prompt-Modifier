@@ -1,3 +1,4 @@
+import { VisibleImage } from '../../VisibleImage';
 import React from 'react';
 import { useLanguage } from '../../../localization';
 import { Scissors, RotateCcw, Grid, Eye, Zap, ArrowRight, Loader2 } from 'lucide-react';
@@ -170,7 +171,7 @@ const BatchPrepareSliceColumnComponent: React.FC<BatchPrepareSliceColumnProps> =
                             height: 'auto',
                         }}
                     >
-                        <img 
+                        <VisibleImage
                             src={activeSourceImage} 
                             alt="" 
                             className="w-full h-full object-contain pointer-events-none select-none block rounded" 
@@ -193,7 +194,7 @@ const BatchPrepareSliceColumnComponent: React.FC<BatchPrepareSliceColumnProps> =
                         />
                     </div>
                 ) : activeSourceImage ? (
-                    <img src={activeSourceImage} alt="" className="max-w-full max-h-full object-contain rounded" />
+                    <VisibleImage src={activeSourceImage} alt="" className="max-w-full max-h-full object-contain rounded" />
                 ) : (
                     <span className="text-[11px] text-gray-500">Выберите кадр в Колонке 1</span>
                 )}

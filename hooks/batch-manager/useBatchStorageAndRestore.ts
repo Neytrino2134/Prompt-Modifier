@@ -8,6 +8,7 @@ import { collectCacheReferences } from '../../utils/cacheReferences';
 import { playBatchSuccessSound, playBatchErrorSound } from '../../services/soundNotificationService';
 import { notifyBatchSuccess } from '../../services/trayNotificationService';
 import { STORAGE_KEY_BATCH_JOBS, UseBatchManagerProps } from './types';
+import { batchJobMetadata } from '../../services/batchJobPayload';
 
 interface UseBatchStorageAndRestoreOptions extends UseBatchManagerProps {
     restoreFinishedCardsRef: React.MutableRefObject<boolean>;
@@ -35,7 +36,7 @@ export const useBatchStorageAndRestore = ({
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed)) {
-                    return parsed.filter(j => j && typeof j === 'object' && (j.id || j.name) && Array.isArray(j.items));
+                    return parsed.filter(j => j && typeof j === 'object' && (j.id || j.name) && Array.isArray(j.items)).map(batchJobMetadata);
                 }
             }
         } catch (e) {
@@ -56,7 +57,7 @@ export const useBatchStorageAndRestore = ({
     // Save batch jobs to localStorage whenever changed
     const persistBatchJobs = useCallback((updater: (prev: BatchJobRecord[]) => BatchJobRecord[]) => {
         setBatchJobs(prev => {
-            const next = updater(prev);
+            const next = updater(prev).map(batchJobMetadata);
             batchJobsRef.current = next;
             try {
                 // Large binary responses live in durable archives, not 5 MB localStorage.
@@ -91,12 +92,13 @@ export const useBatchStorageAndRestore = ({
         }
     }, [addToast, t]);
 
-    // Hydrate results without calling any provider or replaying node autosaves.
+    // Migrate legacy inline results once. Cached archives stay cold at startup.
     useEffect(() => {
         let cancelled = false;
         const initialJobs = batchJobsRef.current;
         (async () => {
             for (const job of initialJobs) {
+                if (job.resultsCached || !job.items.some(item => !!item.resultUrl)) continue;
                 try {
                     let archived = await readBatchArchive<{ items: BatchJobItem[]; rawJsonl?: string }>(batchResultKey(job));
                     if (!archived && job.items.some(item => !!item.resultUrl)) {

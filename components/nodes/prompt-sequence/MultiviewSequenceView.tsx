@@ -1,4 +1,8 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useAppSelector } from '../../../contexts/AppContext';
+import { subscribeMultiviewTasks, getMultiviewTask, runMultiviewTask, cancelMultiviewTask } from '../../../services/multiviewTasks';
+import { VirtualList } from '../../VirtualList';
+import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
+import React, { useState, useRef, useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { ActionButton } from '../../ActionButton';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { Tooltip } from '../../Tooltip';
@@ -8,11 +12,16 @@ import { generateMultiviewTurnaroundPrompt } from '../../../services/geminiServi
 import { generateThumbnail } from '../../../utils/imageUtils';
 import { useLLMModelConfig } from '../../../hooks/useLLMModelConfig';
 import { useLanguage } from '../../../localization';
+import { acquireOriginalImage, prepareStoredImage } from '../../../services/originalImageStore';
 
 export interface MultiviewBatchItem {
     id: string;
     index: number; // 1-based (01, 02, etc.)
     image: string; // Data URL or base64
+    thumbnailUrl?: string;
+    originalArchiveKey?: string;
+    originalImage?: string;
+    originalSourceVersion?: number;
     prompt: string; // Generated turnaround prompt
     status?: 'idle' | 'generating' | 'completed' | 'error';
     error?: string;
@@ -36,7 +45,7 @@ interface MultiviewSequenceViewProps {
 export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
     nodeId,
     parsedValue,
-    onValueUpdate,
+    onValueUpdate: onLocalValueUpdate,
     connectedInputs,
     getUpstreamNodeValues,
     addToast,
@@ -50,9 +59,15 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
     const { flashModel, proModel, flashLabel, proLabel } = useLLMModelConfig();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
-    const [isGeneratingBatch, setIsGeneratingBatch] = useState(false);
-    const [currentGeneratingIndex, setCurrentGeneratingIndex] = useState<number | null>(null);
-    const abortRef = useRef<boolean>(false);
+    const context = useAppSelector(context => ({ activeTabId: context.activeTabId, updateNodeInStorage: context.updateNodeInStorage }));
+    const originTab = useRef(context.activeTabId).current;
+    const taskKey = originTab + ':' + nodeId;
+    const task = useSyncExternalStore(subscribeMultiviewTasks, () => getMultiviewTask(taskKey));
+    const isGeneratingBatch = !!task;
+    const currentGeneratingIndex = task?.index ?? null;
+    const onValueUpdate = useCallback((updates: any) => {
+        context.updateNodeInStorage(originTab, nodeId, (previous: any) => ({ ...previous, ...updates }));
+    }, [context.updateNodeInStorage, originTab, nodeId]);
 
     // Multiview architect prompt
     const multiviewPrompt = parsedValue.multiviewPrompt !== undefined
@@ -95,6 +110,7 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
                 id: `upstream-${idx + 1}-${Date.now()}`,
                 index: idx + 1,
                 image: `data:${img.mimeType || 'image/png'};base64,${img.base64ImageData}`,
+                originalSourceVersion: 2,
                 prompt: '',
                 status: 'idle',
                 isSelected: true
@@ -103,12 +119,31 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
         }
     }, [upstreamImages, items.length, onValueUpdate]);
 
+    // Compact verified inline sources one at a time. Patch only the matching
+    // source: edits or deletion made during storage must not be overwritten.
+    useEffect(() => {
+        const source = items.find(item => item.originalSourceVersion === 2 && !item.originalArchiveKey && !item.thumbnailUrl);
+        if (!source) return;
+        let cancelled = false;
+        void (async () => {
+            const thumb = await generateThumbnail(source.image, 256, 256);
+            if (cancelled) return;
+            const stored = await prepareStoredImage(source.image, thumb);
+            if (cancelled) return;
+            context.updateNodeInStorage(originTab, nodeId, (previous: any) => ({ ...previous,
+                multiviewItems: (previous.multiviewItems || []).map((item: MultiviewBatchItem) =>
+                    item.id === source.id && item.image === source.image ? { ...item, ...stored } : item)
+            }));
+        })().catch(error => console.warn('MultiView preview preparation failed:', error));
+        return () => { cancelled = true; };
+    }, [items, context.updateNodeInStorage, originTab, nodeId]);
+
     const handleImportUpstreamImages = () => {
         if (upstreamImages.length === 0) {
             if (addToast) addToast(language === 'ru' ? 'Нет подключенных входных изображений' : 'No upstream images found', 'warning');
             return;
         }
-        const existingUrls = new Set(items.map(it => it.image));
+        const existingUrls = new Set(items.map(it => it.originalImage || it.image));
         const newItems: MultiviewBatchItem[] = [...items];
         let addedCount = 0;
 
@@ -119,6 +154,7 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
                     id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
                     index: newItems.length + 1,
                     image: dataUrl,
+                    originalSourceVersion: 2,
                     prompt: '',
                     status: 'idle',
                     isSelected: true
@@ -182,28 +218,28 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
 
     const handleAddImages = async (newImages: string[]) => {
         if (newImages.length === 0) return;
-        const currentItems = [...items];
-        const processedItems: MultiviewBatchItem[] = [...currentItems];
+        const processedItems: MultiviewBatchItem[] = [];
 
         for (const dataUrl of newImages) {
             let thumb = dataUrl;
             try {
-                thumb = await generateThumbnail(dataUrl, 512, 512);
+                thumb = await generateThumbnail(dataUrl, 256, 256);
             } catch {
                 thumb = dataUrl;
             }
             processedItems.push({
                 id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
                 index: processedItems.length + 1,
-                image: thumb,
+                ...await prepareStoredImage(dataUrl, thumb),
                 prompt: '',
                 status: 'idle',
                 isSelected: true
             });
         }
 
-        const reindexed = processedItems.map((item, idx) => ({ ...item, index: idx + 1 }));
-        onValueUpdate({ multiviewItems: reindexed });
+        context.updateNodeInStorage(originTab, nodeId, (previous: any) => ({ ...previous,
+            multiviewItems: [...(previous.multiviewItems || []), ...processedItems].map((item, idx) => ({ ...item, index: idx + 1 }))
+        }));
         if (addToast) {
             addToast(
                 language === 'ru'
@@ -214,21 +250,25 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
         }
     };
 
+    const importFiles = async (files: File[]) => {
+        try {
+            for (const file of files) {
+                const url = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = () => reject(reader.error);
+                    reader.readAsDataURL(file);
+                });
+                await handleAddImages([url]);
+            }
+        } catch (error) { addToast?.(`Не удалось импортировать изображение: ${String(error)}`, 'error'); }
+    };
+
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
-        const promises = files.map((file) => {
-            return new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (ev) => resolve(ev.target?.result as string);
-                reader.readAsDataURL(file);
-            });
-        });
-
-        Promise.all(promises).then((urls) => {
-            handleAddImages(urls.filter(Boolean));
-        });
+        void importFiles(files);
 
         if (e.target) e.target.value = '';
     };
@@ -241,17 +281,7 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
         const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'));
         if (files.length === 0) return;
 
-        const promises = files.map((file) => {
-            return new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (ev) => resolve(ev.target?.result as string);
-                reader.readAsDataURL(file);
-            });
-        });
-
-        Promise.all(promises).then((urls) => {
-            handleAddImages(urls.filter(Boolean));
-        });
+        void importFiles(files);
     };
 
     const handlePasteImageFromClipboard = async () => {
@@ -308,105 +338,28 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
         onValueUpdate({ multiviewItems: updated });
     };
 
-    // Single item generation
-    const handleGenerateSingleItem = async (item: MultiviewBatchItem) => {
-        if (!item.image) return;
-        const currentItems = [...items];
-        const updatedStart = currentItems.map(it => it.id === item.id ? { ...it, status: 'generating' as const, error: undefined } : it);
-        onValueUpdate({ multiviewItems: updatedStart });
-
-        try {
-            const parts = item.image.split(',');
-            const mime = item.image.match(/:(.*?);/)?.[1] || 'image/png';
-            const base64Data = parts[1];
-
-            const result = await generateMultiviewTurnaroundPrompt(
-                { base64ImageData: base64Data, mimeType: mime },
-                multiviewPrompt,
-                multiviewModel
-            );
-
-            const updatedEnd = parsedValue.multiviewItems?.map((it: MultiviewBatchItem) =>
-                it.id === item.id ? { ...it, prompt: result, status: 'completed' as const } : it
-            ) || [];
-            onValueUpdate({ multiviewItems: updatedEnd });
-
-            if (addToast) {
-                addToast(
-                    language === 'ru'
-                        ? `Промпт для изображения ${String(item.index).padStart(2, '0')} успешно сгенерирован`
-                        : `Turnaround prompt for image ${String(item.index).padStart(2, '0')} generated`,
-                    'success'
-                );
-            }
-        } catch (err: any) {
-            const updatedErr = parsedValue.multiviewItems?.map((it: MultiviewBatchItem) =>
-                it.id === item.id ? { ...it, status: 'error' as const, error: err?.message || 'Failed' } : it
-            ) || [];
-            onValueUpdate({ multiviewItems: updatedErr });
-            if (addToast) addToast(err?.message || 'Generation failed', 'error');
-        }
+    const generateItem = async (item: MultiviewBatchItem) => {
+        const original = await acquireOriginalImage(item);
+        const comma = original.indexOf(',');
+        return generateMultiviewTurnaroundPrompt(
+            { base64ImageData: original.slice(comma + 1), mimeType: original.match(/:(.*?);/)?.[1] || 'image/png' },
+            multiviewPrompt, multiviewModel
+        );
     };
-
-    // Sequential batch generation
+    const patchItem = (id: string, updates: Record<string, unknown>) => {
+        context.updateNodeInStorage(originTab, nodeId, (previous: any) => ({
+            ...previous, multiviewItems: (previous.multiviewItems || []).map((item: MultiviewBatchItem) => item.id === id ? { ...item, ...updates } : item)
+        }));
+    };
+    const handleGenerateSingleItem = (item: MultiviewBatchItem) => runMultiviewTask(taskKey, [item], generateItem, patchItem);
     const handleStartBatchGeneration = async () => {
-        const targetItems = items.filter(it => it.isSelected !== false);
-        if (targetItems.length === 0) {
-            if (addToast) addToast(language === 'ru' ? 'Выберите хотя бы одно изображение' : 'Please select at least one image', 'warning');
-            return;
-        }
-
-        setIsGeneratingBatch(true);
-        abortRef.current = false;
-
-        let workingItems = [...items];
-
-        for (let i = 0; i < targetItems.length; i++) {
-            if (abortRef.current) break;
-            const currentTarget = targetItems[i];
-            setCurrentGeneratingIndex(currentTarget.index);
-
-            // Mark current item generating
-            workingItems = workingItems.map(it => it.id === currentTarget.id ? { ...it, status: 'generating', error: undefined } : it);
-            onValueUpdate({ multiviewItems: workingItems });
-
-            try {
-                const parts = currentTarget.image.split(',');
-                const mime = currentTarget.image.match(/:(.*?);/)?.[1] || 'image/png';
-                const base64Data = parts[1];
-
-                const result = await generateMultiviewTurnaroundPrompt(
-                    { base64ImageData: base64Data, mimeType: mime },
-                    multiviewPrompt,
-                    multiviewModel
-                );
-
-                workingItems = workingItems.map(it => it.id === currentTarget.id ? { ...it, prompt: result, status: 'completed' } : it);
-                onValueUpdate({ multiviewItems: workingItems });
-            } catch (err: any) {
-                workingItems = workingItems.map(it => it.id === currentTarget.id ? { ...it, status: 'error', error: err?.message || 'Error' } : it);
-                onValueUpdate({ multiviewItems: workingItems });
-            }
-        }
-
-        setIsGeneratingBatch(false);
-        setCurrentGeneratingIndex(null);
-
-        if (!abortRef.current && addToast) {
-            addToast(
-                language === 'ru'
-                    ? `Пакетная генерация мультивью промптов завершена!`
-                    : `Batch turnaround prompt generation complete!`,
-                'success'
-            );
-        }
+        const targets = items.filter(item => item.isSelected !== false);
+        if (!targets.length) { addToast?.(language === 'ru' ? 'Выберите хотя бы одно изображение' : 'Please select an image', 'warning'); return; }
+        await runMultiviewTask(taskKey, targets, generateItem, patchItem);
     };
-
     const handleStopGeneration = () => {
-        abortRef.current = true;
-        setIsGeneratingBatch(false);
-        setCurrentGeneratingIndex(null);
-        if (addToast) addToast(language === 'ru' ? 'Генерация остановлена' : 'Generation stopped', 'info');
+        cancelMultiviewTask(taskKey);
+        addToast?.(language === 'ru' ? 'Остановка генерации' : 'Stopping generation', 'info');
     };
 
     const handleCopyAllPrompts = () => {
@@ -609,7 +562,7 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
                     {/* Image Cards List / Drop Zone */}
                     {items.length > 0 ? (
                         <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar min-h-0">
-                            {items.map((item) => {
+                            <VirtualList items={items} estimatedRowHeight={76} getKey={item => item.id} renderItem={(item) => {
                                 const idxStr = String(item.index).padStart(2, '0');
                                 const isCurrent = currentGeneratingIndex === item.index;
                                 const isDone = !!item.prompt && item.prompt.trim() !== '';
@@ -639,8 +592,8 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
 
                                         {/* Thumbnail Preview */}
                                         <div className="w-12 h-12 rounded bg-black/50 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
-                                            <img
-                                                src={item.image}
+                                            <OptimizedThumbnail size={128}
+                                                src={item.thumbnailUrl || item.image}
                                                 alt={`Batch item ${idxStr}`}
                                                 className="w-full h-full object-contain"
                                             />
@@ -700,7 +653,7 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
                                         </div>
                                     </div>
                                 );
-                            })}
+                            }} />
                         </div>
                     ) : (
                         <div
@@ -769,7 +722,7 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
                 {/* Right Pane Cards List */}
                 {items.length > 0 ? (
                     <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar min-h-0">
-                        {items.map((item) => {
+                        <VirtualList items={items} estimatedRowHeight={180} getKey={item => item.id} renderItem={(item) => {
                             const idxStr = String(item.index).padStart(2, '0');
                             const hasPrompt = !!item.prompt && item.prompt.trim() !== '';
 
@@ -832,8 +785,8 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
                                     <div className="flex space-x-2.5 items-stretch min-h-[110px]">
                                         {/* Left Thumbnail */}
                                         <div className="w-28 rounded-lg bg-black/50 border border-gray-800 p-1 flex items-center justify-center flex-shrink-0 relative overflow-hidden group/img">
-                                            <img
-                                                src={item.image}
+                                            <OptimizedThumbnail size={128}
+                                                src={item.thumbnailUrl || item.image}
                                                 alt={`Thumbnail ${idxStr}`}
                                                 className="max-h-full max-w-full object-contain drop-shadow"
                                             />
@@ -841,7 +794,7 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
                                                 <button
                                                     onClick={async () => {
                                                         try {
-                                                            const res = await fetch(item.image);
+                                                            const res = await fetch(await acquireOriginalImage(item));
                                                             const blob = await res.blob();
                                                             await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
                                                             if (addToast) addToast(t('toast.copiedToClipboard'));
@@ -875,7 +828,7 @@ export const MultiviewSequenceView: React.FC<MultiviewSequenceViewProps> = ({
                                     </div>
                                 </div>
                             );
-                        })}
+                        }} />
                     </div>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-gray-800 rounded-lg bg-gray-950/30 p-4 text-center">

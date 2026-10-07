@@ -5,7 +5,7 @@ import type { NodeContentProps, ConnectingInfo } from '../types';
 import { NodeType } from '../types';
 import { useLanguage } from '../localization';
 import { getMinNodeSize, getEmptyValueForNodeType, getInputHandleType } from '../utils/nodeUtils';
-import { useAppContext } from '../contexts/AppContext';
+import { useAppSelector } from '../contexts/AppContext';
 import { NodeHeader } from './node-ui/NodeHeader';
 import { InputHandles, OutputHandles } from './node-ui/NodeHandles';
 import { NodeContent } from './node-ui/NodeContent';
@@ -49,7 +49,17 @@ interface NodeViewProps extends Omit<NodeContentProps, 'onOutputHandleTouchStart
 const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
     const { node, activeTool, onOutputHandleMouseDown, onOutputHandleTouchStart, onInputHandleMouseDown, onInputHandleTouchStart, isHovered, isSelected, onNodeMouseEnter, onNodeMouseLeave, onDeleteNode, connectingInfo, connectionTarget, onDetachNodeFromGroup, isGlobalProcessing, isProxy, isFocused, isGrouped, isGroupDragging } = props;
 
-    const context = useAppContext();
+    const context = useAppSelector(context => ({
+        handleOpenNodeContextMenu: context.handleOpenNodeContextMenu,
+        requestDeleteNodes: context.requestDeleteNodes,
+        handleUndockNode: context.handleUndockNode,
+        selectNode: context.selectNode,
+        nodeAnimationMode: context.nodeAnimationMode,
+        connectedInputTypes: context.connectedInputTypes,
+        handleClearNodeNewFlag: context.handleClearNodeNewFlag,
+        isHoverHighlightEnabled: context.isHoverHighlightEnabled,
+        isBringToFrontOnHoverEnabled: context.isBringToFrontOnHoverEnabled
+    }));
     // Default isHoverHighlightEnabled and isBringToFrontOnHoverEnabled to true if context is not yet available, but prefer context value
     const { handleOpenNodeContextMenu, requestDeleteNodes, handleUndockNode, selectNode, nodeAnimationMode, connectedInputTypes, handleClearNodeNewFlag, isHoverHighlightEnabled: contextHoverHighlightEnabled, isBringToFrontOnHoverEnabled: contextBringToFrontOnHoverEnabled } = context || {};
     const isHoverHighlightEnabled = contextHoverHighlightEnabled === undefined ? true : contextHoverHighlightEnabled;

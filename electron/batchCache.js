@@ -63,7 +63,8 @@ export function createBatchCache(root) {
         try {
           const entry = await read(absolute);
           if (entry.version !== 1 || filename(entry.key) !== file.name || !Array.isArray(entry.imageHashes) || !Array.isArray(entry.relatedKeys)) throw new Error('Invalid archive');
-          entries.push({ ...entry, absolute });
+          const { payload, ...metadata } = entry;
+          entries.push({ ...metadata, absolute });
           if (entry.savedAt >= before || entry.imageHashes.some(hash => retainedImages.has(hash))) retainedKeys.add(entry.key);
         } catch { skipped++; } // An unreadable archive is retained for recovery.
       }

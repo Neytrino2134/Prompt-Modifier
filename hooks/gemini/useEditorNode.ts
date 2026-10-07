@@ -134,9 +134,15 @@ export const useEditorNode = ({
         });
 
         // Prepare local inputs A
+        const missingA = (parsed.inputImages || []).some((preview: string, index: number) => preview && !getFullSizeImage(node.id, index + 1));
+        const missingB = (parsed.inputImagesB || []).some((preview: string, index: number) => preview && !getFullSizeImage(node.id, 2001 + index));
+        if (missingA || missingB) {
+            setError('Original input images are unavailable. Reimport the source images; previews cannot be used for server processing.');
+            return;
+        }
         const localImages = (parsed.inputImages || []).map((thumbnailUrl: string, index: number) => {
              const fullRes = getFullSizeImage(node.id, index + 1);
-             const imgDataUrl = fullRes || thumbnailUrl;
+             const imgDataUrl = fullRes;
              if (!imgDataUrl || typeof imgDataUrl !== 'string') return null;
              const parts = imgDataUrl.includes(',') ? imgDataUrl.split(',') : ['', imgDataUrl];
              return {
@@ -148,7 +154,7 @@ export const useEditorNode = ({
         // Prepare local inputs B
         const localImagesB = (parsed.inputImagesB || []).map((thumbnailUrl: string, index: number) => {
              const fullRes = getFullSizeImage(node.id, 2000 + index + 1); 
-             const imgDataUrl = fullRes || thumbnailUrl;
+             const imgDataUrl = fullRes;
              if (!imgDataUrl || typeof imgDataUrl !== 'string') return null;
              const parts = imgDataUrl.includes(',') ? imgDataUrl.split(',') : ['', imgDataUrl];
              return {

@@ -1,3 +1,5 @@
+import { scheduleImageWork } from './imageWorkQueue';
+import { tryWorkerThumbnail } from './thumbnailWorker';
 export const convertToPNG = async (dataUrl: string): Promise<string> => {
     if (dataUrl.startsWith('data:image/png')) {
         return dataUrl;
@@ -175,49 +177,49 @@ export const cropImageTo1x1 = (base64Image: string): Promise<string> => {
     });
 };
 
-export const generateThumbnail = async (
-    base64Image: string,
-    maxWidth: number,
-    maxHeight: number
-): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        if (!base64Image) {
-            return reject(new Error('Source image is empty.'));
-        }
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
+export const generateThumbnail = (
+    base64Image: string, maxWidth: number, maxHeight: number, signal?: AbortSignal
+): Promise<string> => scheduleImageWork(async workSignal => {
+    const workerPreview = await tryWorkerThumbnail(base64Image, maxWidth, maxHeight, workSignal);
+    if (workSignal.aborted) throw new DOMException('Thumbnail cancelled', 'AbortError');
+    if (workerPreview) return workerPreview;
+    return new Promise<string>((resolve, reject) => {
+    if (!base64Image) { reject(new Error('Source image is empty.')); return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    let canvas: HTMLCanvasElement | undefined;
+    let reader: FileReader | undefined;
+    const clean = () => {
+        workSignal.removeEventListener('abort', abort);
+        img.onload = img.onerror = null; img.src = '';
+        if (canvas) canvas.width = canvas.height = 0;
+    };
+    const abort = () => { reader?.abort(); clean(); reject(new DOMException('Thumbnail cancelled', 'AbortError')); };
+    workSignal.addEventListener('abort', abort, { once: true });
+    if (workSignal.aborted) { abort(); return; }
+    img.onload = () => {
+        try {
+            canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                return reject(new Error('Could not get canvas context'));
-            }
-
-            let { width, height } = img;
-            const ratio = width / height;
-            
-            if (width > maxWidth) {
-                width = maxWidth;
-                height = width / ratio;
-            }
-            if (height > maxHeight) {
-                height = maxHeight;
-                width = height * ratio;
-            }
-            
-            canvas.width = width;
-            canvas.height = height;
-
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            resolve(canvas.toDataURL('image/jpeg', 0.8));
-        };
-        img.onerror = (err) => {
-            console.error("Failed to load image for thumbnail generation:", err);
-            reject(new Error('Failed to load the provided image for thumbnailing.'));
-        };
-        img.src = base64Image;
+            if (!ctx) throw new Error('Could not get canvas context');
+            const ratio = Math.min(1, maxWidth / img.width, maxHeight / img.height);
+            canvas.width = Math.max(1, Math.round(img.width * ratio));
+            canvas.height = Math.max(1, Math.round(img.height * ratio));
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(blob => {
+                if (workSignal.aborted) return;
+                if (!blob) { clean(); reject(new Error('Could not encode thumbnail')); return; }
+                reader = new FileReader();
+                reader.onload = () => { const data = reader!.result as string; clean(); resolve(data); };
+                reader.onerror = () => { clean(); reject(new Error('Could not read thumbnail')); };
+                reader.readAsDataURL(blob);
+            }, 'image/webp', 0.82);
+        } catch (error) { clean(); reject(error); }
+    };
+    img.onerror = () => { clean(); reject(new Error('Failed to load image for thumbnailing.')); };
+    img.src = base64Image;
     });
-};
+}, signal);
 
 export const getModelDisplayName = (model?: string): string => {
     if (!model) return 'Imagen 4.0';

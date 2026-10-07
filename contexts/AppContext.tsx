@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useMemo, useCallback, useRef, useEffect, useState } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useCallback, useRef, useEffect, useState, useLayoutEffect, useSyncExternalStore } from 'react';
 import type { AppContextType } from './AppContextTypes';
 import { useLanguage, LanguageCode } from '../localization';
 import { NodeType, Tool } from '../types';
@@ -45,6 +45,32 @@ import {
 import type { Tab, CanvasState } from '../types';
 
 const AppContext = createContext<AppContextType | null>(null);
+interface AppSelectionStore {
+    snapshot: AppContextType;
+    listeners: Set<() => void>;
+    subscribe: (listener: () => void) => () => void;
+}
+const AppSelectionContext = createContext<AppSelectionStore | null>(null);
+
+// Consumers receive only changes to their selected fields, instead of every
+// pointer move, history insertion or completed image in the whole application.
+export function useAppSelector<T>(selector: (context: AppContextType) => T): T {
+    const store = useContext(AppSelectionContext);
+    if (!store) throw new Error('useAppSelector must be used within AppProvider');
+    const selection = useRef<{ value: T } | null>(null);
+    const read = () => {
+        const next = selector(store.snapshot);
+        const prev = selection.current?.value;
+        if (selection.current && (Object.is(prev, next) || (
+            prev && next && typeof prev === 'object' && typeof next === 'object'
+            && Object.keys(prev).length === Object.keys(next).length
+            && Object.keys(next).every(key => Object.is((prev as any)[key], (next as any)[key]))
+        ))) return prev as T;
+        selection.current = { value: next };
+        return next;
+    };
+    return useSyncExternalStore(store.subscribe, read, read);
+}
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { t, language, setLanguage, secondaryLanguage, setSecondaryLanguage } = useLanguage();
@@ -872,7 +898,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isStatusBarOpen, setIsStatusBarOpen, headerHeight, setHeaderHeight, isCanvasLoading
     ]);
 
-    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+    const selectionStore = useRef<AppSelectionStore | null>(null);
+    if (!selectionStore.current) {
+        const listeners = new Set<() => void>();
+        selectionStore.current = { snapshot: value, listeners, subscribe: listener => {
+            listeners.add(listener); return () => { listeners.delete(listener); };
+        } };
+    }
+    const store = selectionStore.current;
+    store.snapshot = value;
+    useLayoutEffect(() => {
+        store.snapshot = value;
+        store.listeners.forEach(listener => listener());
+    }, [store, value]);
+    return <AppSelectionContext.Provider value={store}><AppContext.Provider value={value}>{children}</AppContext.Provider></AppSelectionContext.Provider>;
 };
 
 export const useAppContext = () => {

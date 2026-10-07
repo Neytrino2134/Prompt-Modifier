@@ -1,3 +1,4 @@
+import { acquireBatchJobPayload } from '../services/batchJobPayload';
 import React, { useState, useMemo, useEffect } from 'react';
 import JSZip from 'jszip';
 import { useAppContext } from '../contexts/AppContext';
@@ -282,6 +283,8 @@ export const TaskQueuePanel: React.FC = () => {
     };
 
     const handleDownloadBatchZip = async (job: BatchJobRecord) => {
+        try { job = await acquireBatchJobPayload(job); }
+        catch (error) { addToast?.(String(error), 'error'); return; }
         const itemsWithImages = (job.items || []).filter(it => !!it.resultUrl);
         if (itemsWithImages.length === 0) {
             addToast?.(t('batch.noImages') || 'Нет сгенерированных изображений для скачивания', 'info');
@@ -347,6 +350,8 @@ export const TaskQueuePanel: React.FC = () => {
     };
 
     const handleSendToBatchInput = async (job: BatchJobRecord) => {
+        try { job = await acquireBatchJobPayload(job); }
+        catch (error) { addToast?.(String(error), 'error'); return; }
         const itemsWithImages = (job.items || []).filter(it => !!it.resultUrl);
         if (itemsWithImages.length === 0) {
             addToast?.(t('batch.noImages') || 'Нет сгенерированных изображений для отправки', 'info');
@@ -423,6 +428,8 @@ export const TaskQueuePanel: React.FC = () => {
     };
 
     const handleSendToNoteReferences = async (job: BatchJobRecord) => {
+        try { job = await acquireBatchJobPayload(job); }
+        catch (error) { addToast?.(String(error), 'error'); return; }
         const itemsWithImages = (job.items || []).filter(it => !!it.resultUrl);
         if (itemsWithImages.length === 0) {
             addToast?.(t('batch.noImages') || 'Нет сгенерированных изображений для отправки', 'info');
@@ -541,6 +548,8 @@ export const TaskQueuePanel: React.FC = () => {
     };
 
     const handleSendTo3DBatchPrepare = async (job: BatchJobRecord) => {
+        try { job = await acquireBatchJobPayload(job); }
+        catch (error) { addToast?.(String(error), 'error'); return; }
         const itemsWithImages = (job.items || []).filter(it => !!it.resultUrl);
         if (itemsWithImages.length === 0) {
             addToast?.(t('batch.noImages') || 'Нет сгенерированных изображений для отправки', 'info');

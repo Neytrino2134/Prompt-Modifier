@@ -4,6 +4,8 @@ import { Tooltip } from './Tooltip';
 import { getModelDisplayName, setupImageDragData } from '../utils/imageUtils';
 import { StatisticsTab } from './StatisticsTab';
 import { StatisticsModal } from './StatisticsModal';
+import { acquireOriginalImage } from '../services/originalImageStore';
+import type { HistoryItem } from '../hooks/useGenerationHistory';
 
 export const HistoryPanel: React.FC = () => {
   const context = useAppContext();
@@ -15,6 +17,20 @@ export const HistoryPanel: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const warmedOriginal = useRef<{ id: string; url: string } | null>(null);
+  const originalFor = (item: HistoryItem) => acquireOriginalImage({ image: item.url, originalArchiveKey: item.originalArchiveKey, originalSourceVersion: 2 });
+  const warmRequest = useRef(0);
+  const warmOriginal = async (item: HistoryItem) => {
+    const request = ++warmRequest.current;
+    warmedOriginal.current = null;
+    try {
+      const url = await originalFor(item);
+      if (request === warmRequest.current) warmedOriginal.current = { id: item.id, url };
+    } catch (error) { context.addToast?.(String(error), 'error'); }
+  };
+  useEffect(() => {
+    if (!isHistoryPanelOpen) { warmRequest.current++; warmedOriginal.current = null; }
+  }, [isHistoryPanelOpen]);
 
   // Virtualization State
   const containerRef = useRef<HTMLDivElement>(null);
@@ -349,14 +365,17 @@ export const HistoryPanel: React.FC = () => {
                       {/* Square Image Preview (Uses 128x128 compressed thumbnail for fast display, original for full view/drag/copy) */}
                       <div 
                         className="relative w-full flex-1 bg-gray-900 cursor-pointer overflow-hidden flex items-center justify-center select-none"
-                        onClick={() => {
+                        onClick={async () => {
                           if (isSelectMode) {
                             toggleSelection(item.id);
-                          } else if (item.url && setImageViewer) {
+                          } else if ((item.url || item.originalArchiveKey) && setImageViewer) {
+                            let original: string;
+                            try { original = await originalFor(item); }
+                            catch (error) { context.addToast?.(String(error), 'error'); return; }
                             // Opens the full-resolution original image
                             setImageViewer({
                               sources: [{ 
-                                src: item.url, 
+                                src: original,
                                 frameNumber: 0, 
                                 prompt: item.prompt,
                                 model: item.model,
@@ -386,7 +405,14 @@ export const HistoryPanel: React.FC = () => {
                             className="w-full h-full object-contain select-none"
                             loading="lazy"
                             draggable={!isSelectMode}
-                            onDragStart={(e) => !isSelectMode && handleDragStart(e, item.url, item.prompt)}
+                            onMouseEnter={() => { if (!isSelectMode) void warmOriginal(item); }}
+                            onPointerDown={() => { if (!isSelectMode && warmedOriginal.current?.id !== item.id) void warmOriginal(item); }}
+                            onDragStart={e => {
+                              if (isSelectMode) { e.preventDefault(); return; }
+                              const original = item.url || (warmedOriginal.current?.id === item.id ? warmedOriginal.current.url : undefined);
+                              if (!original) { e.preventDefault(); void warmOriginal(item); return; }
+                              handleDragStart(e, original, item.prompt);
+                            }}
                           />
                         </Tooltip>
                         
@@ -414,7 +440,7 @@ export const HistoryPanel: React.FC = () => {
                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </button>
                             <button 
-                              onClick={(e) => { e.stopPropagation(); handleCopyImage(item.url); }}
+                              onClick={async e => { e.stopPropagation(); try { await handleCopyImage(await originalFor(item)); } catch (error) { context.addToast?.(String(error), 'error'); } }}
                               className="text-gray-300 hover:text-white p-1 rounded hover:bg-white/20 transition-colors"
                               title={t('ui.copy') || 'Copy Image'}
                             >
@@ -482,5 +508,3 @@ export const HistoryPanel: React.FC = () => {
     </>
   );
 };
-
-

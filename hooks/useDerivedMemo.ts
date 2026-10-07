@@ -98,7 +98,7 @@ const getBatchPrepareSignature = (val: string) => {
     }
 };
 
-const getNodeValueSignature = (node: Node | undefined): string => {
+const computeNodeValueSignature = (node: Node | undefined): string => {
     if (!node || !node.value) return 'empty';
     if (node.type === NodeType.BATCH_PREPARE) {
         return getBatchPrepareSignature(node.value);
@@ -115,7 +115,16 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
     // Cache refs to avoid re-parsing JSON during layout updates (drags)
     const characterDataCache = useRef<{ signature: string, data: Map<string, any[]> }>({ signature: '', data: new Map() });
     const imageSourcesCache = useRef<{ signature: string, data: Map<string, (string | null)[]> }>({ signature: '', data: new Map() });
-    const upstreamValuesCache = useRef<Map<string, { signature: string, values: any[] }>>(new Map());
+    const upstreamValuesCache = useRef<Map<string, { nodeId: string, signature: string, values: any[] }>>(new Map());
+    const signatures = useRef(new Map<string, { value: string; type: Node['type']; signature: string }>());
+    const getNodeValueSignature = (node: Node | undefined) => {
+        if (!node) return 'empty';
+        const cached = signatures.current.get(node.id);
+        if (cached?.value === node.value && cached.type === node.type) return cached.signature;
+        const signature = computeNodeValueSignature(node);
+        signatures.current.set(node.id, { value: node.value, type: node.type, signature });
+        return signature;
+    };
     const imageCacheInputs = useRef<{ values: Array<[string, string]>; connections: Connection[]; getter: typeof getFullSizeImage } | null>(null);
     const previous = imageCacheInputs.current;
     // Exact value comparisons avoid collisions in sampled JSON signatures, and
@@ -124,7 +133,29 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
     if (!previous || previous.getter !== getFullSizeImage || previous.connections !== connections
         || previous.values.length !== nodes.length
         || nodes.some((node, i) => previous.values[i][0] !== node.id || previous.values[i][1] !== node.value)) {
-        upstreamValuesCache.current.clear();
+        const beforeCache = (previous?.getter as any)?.cacheSnapshot;
+        const afterCache = (getFullSizeImage as any).cacheSnapshot;
+        if (!previous || previous.connections !== connections || (previous.getter !== getFullSizeImage && (!beforeCache || !afterCache))) {
+            upstreamValuesCache.current.clear();
+        } else {
+            const oldValues = new Map(previous.values);
+            const changed = new Set<string>();
+            for (const node of nodes) {
+                if (oldValues.get(node.id) !== node.value || beforeCache?.[node.id] !== afterCache?.[node.id]) changed.add(node.id);
+                oldValues.delete(node.id);
+            }
+            oldValues.forEach((_, id) => { changed.add(id); signatures.current.delete(id); });
+            const outputs = new Map<string, string[]>();
+            for (const edge of connections) {
+                const targets = outputs.get(edge.fromNodeId) || [];
+                targets.push(edge.toNodeId); outputs.set(edge.fromNodeId, targets);
+            }
+            const pending = [...changed];
+            for (let index = 0; index < pending.length; index++) {
+                for (const target of outputs.get(pending[index]) || []) if (!changed.has(target)) { changed.add(target); pending.push(target); }
+            }
+            for (const [key, entry] of upstreamValuesCache.current) if (changed.has(entry.nodeId)) upstreamValuesCache.current.delete(key);
+        }
         imageSourcesCache.current.signature = '\0';
         characterDataCache.current.signature = '\0';
         imageCacheInputs.current = { values: nodes.map(node => [node.id, node.value]), connections, getter: getFullSizeImage };
@@ -226,7 +257,9 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
             }
             case NodeType.PROMPT_SEQUENCE_EDITOR: {
                 if (parsed.activeTab === 'multiview' && Array.isArray(parsed.multiviewItems) && parsed.multiviewItems.length > 0) {
-                    return parsed.multiviewItems[0]?.image || null;
+                    const first = parsed.multiviewItems[0];
+                    return optimizedForUI ? (first?.thumbnailUrl || first?.image || null)
+                        : (first?.originalImage || (first?.originalSourceVersion === 2 && !first?.originalArchiveKey ? first.image : null));
                 }
                 const inputConn = connections.find(c => c.toNodeId === fromNodeId && (c.toHandleId === 'image' || c.toHandleId === undefined));
                 if (inputConn) {
@@ -597,7 +630,10 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                         }
                     } else if (fromNode.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
                         if (parsed.activeTab === 'multiview') {
-                            const items = Array.isArray(parsed.multiviewItems) ? parsed.multiviewItems : [];
+                            const sourceItems = Array.isArray(parsed.multiviewItems) ? parsed.multiviewItems : [];
+                            const items = optimizedForUI ? sourceItems : sourceItems.map((item: any) => ({ ...item,
+                                image: item.originalImage || (item.originalSourceVersion === 2 && !item.originalArchiveKey ? item.image : null)
+                            }));
                             const promptsList = items.map((it: any, i: number) => ({
                                 frameNumber: it.index !== undefined ? it.index : (i + 1),
                                 prompt: it.prompt || '',
@@ -795,7 +831,8 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                         if (parsed.activeTab === 'multiview' && Array.isArray(parsed.multiviewItems) && parsed.multiviewItems.length > 0) {
                             let pushedAny = false;
                             parsed.multiviewItems.forEach((item: any) => {
-                                const url = item.image;
+                                const url = optimizedForUI ? (item.thumbnailUrl || item.image)
+                                    : (item.originalImage || (item.originalSourceVersion === 2 && !item.originalArchiveKey ? item.image : null));
                                 if (url && url.startsWith('data:')) {
                                     const parts = url.split(',');
                                     const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
@@ -965,7 +1002,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                 values.push(fromNode.value);
             }
         }
-        if (!currentNodes || currentNodes === nodes) upstreamValuesCache.current.set(cacheKey, { signature: incomingSig, values });
+        if (!currentNodes || currentNodes === nodes) upstreamValuesCache.current.set(cacheKey, { nodeId, signature: incomingSig, values });
         return values;
     }, [nodes, connections, findImageDataSource, getFullSizeImage]);
 

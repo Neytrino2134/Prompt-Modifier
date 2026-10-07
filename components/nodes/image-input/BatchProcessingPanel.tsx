@@ -28,7 +28,7 @@ interface BatchProcessingPanelProps {
     progress: { current: number; total: number; currentName: string; percent: number } | null;
     onStartBatchProcess: () => void;
     onCancelBatchProcess: () => void;
-    batchResult: { zipBlob: Blob; totalImages: number; totalSlices: number; timestamp: string; filename: string; folders?: any[] } | null;
+    batchResult: { zipBlob?: Blob; archiveKey?: string; totalImages: number; totalSlices: number; timestamp: string; filename: string; folders?: any[] } | null;
     onDownloadZip: () => void;
     onOpenArchiveFolder?: () => void;
     onNavigatePrev?: () => void;

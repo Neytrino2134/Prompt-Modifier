@@ -3,6 +3,7 @@ import React, { useCallback, useRef } from 'react';
 import { Node, NodeType, CanvasState, Tab, LibraryItem } from '../types';
 import { getEmptyValueForNodeType, RATIO_INDICES } from '../utils/nodeUtils';
 import { generateThumbnail } from '../utils/imageUtils';
+import { inlineStoredOriginals } from '../services/originalImageStore';
 
 interface UseCanvasIOProps {
     getCurrentCanvasState: () => CanvasState;
@@ -121,7 +122,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
 
     // --- SAVE CANVAS / PROJECT ---
 
-    const handleSaveCanvas = useCallback(() => {
+    const handleSaveCanvas = useCallback(async () => {
         const state = getCurrentCanvasState();
         const data = {
             type: 'prompt-modifier-canvas',
@@ -138,7 +139,10 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
             timestamp: new Date().toISOString()
         };
         
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        let portableData;
+        try { portableData = await inlineStoredOriginals(data); }
+        catch (error) { addToast(`Не удалось загрузить оригиналы для экспорта: ${String(error)}`, 'error'); return; }
+        const blob = new Blob([JSON.stringify(portableData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -151,7 +155,7 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
         addToast(t('toast.canvasSaved') || 'Холст сохранен', 'success');
     }, [getCurrentCanvasState, activeTabName, addToast, t]);
 
-    const handleSaveProject = useCallback(() => {
+    const handleSaveProject = useCallback(async () => {
         const currentActiveState = getCurrentCanvasState();
         const updatedTabs = tabs.map(tab => 
             tab.id === activeTabId ? { ...tab, name: tab.name, state: currentActiveState } : tab
@@ -202,7 +206,10 @@ export const useCanvasIO = (props: UseCanvasIOProps) => {
             }
         };
 
-        const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+        let portableData;
+        try { portableData = await inlineStoredOriginals(projectData); }
+        catch (error) { addToast(`Не удалось загрузить оригиналы для экспорта: ${String(error)}`, 'error'); return; }
+        const blob = new Blob([JSON.stringify(portableData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

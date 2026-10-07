@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BatchResultData, BatchResultFolder, BatchResultFileItem } from './types';
 import { ActionButton } from '../../ActionButton';
+import { acquireBatchExportFolders } from '../../../services/batchExportStore';
+import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
 
 interface ArchiveFolderModalProps {
     isOpen: boolean;
@@ -21,6 +23,17 @@ export const ArchiveFolderModal: React.FC<ArchiveFolderModalProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFilterType, setSelectedFilterType] = useState<'all' | 'original' | 'slice' | 'crop'>('all');
     const [previewImage, setPreviewImage] = useState<BatchResultFileItem | null>(null);
+    const [loadedFolders, setLoadedFolders] = useState<BatchResultFolder[]>([]);
+    useEffect(() => {
+        let cancelled = false;
+        setLoadedFolders([]);
+        if (isOpen && batchResult) {
+            void acquireBatchExportFolders(batchResult).then(folders => {
+                if (!cancelled) setLoadedFolders(folders);
+            }).catch(error => { if (!cancelled) addToast?.(`Не удалось прочитать архив: ${String(error)}`, 'error'); });
+        }
+        return () => { cancelled = true; };
+    }, [isOpen, batchResult]);
 
     const isElectron = typeof window !== 'undefined' && Boolean((window as any).electronAPI?.showItemInFolder);
 
@@ -48,7 +61,7 @@ export const ArchiveFolderModal: React.FC<ArchiveFolderModalProps> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, previewImage, onClose]);
 
-    const folders = batchResult?.folders || [];
+    const folders = isOpen ? loadedFolders : [];
 
     // Filtered files
     const displayedFiles = useMemo(() => {
@@ -359,7 +372,7 @@ export const ArchiveFolderModal: React.FC<ArchiveFolderModalProps> = ({
                                                 onClick={() => setPreviewImage(file)}
                                                 className="relative aspect-square w-full bg-gray-900 overflow-hidden cursor-pointer flex items-center justify-center p-1"
                                             >
-                                                <img
+                                                <OptimizedThumbnail size={192}
                                                     src={file.dataUrl}
                                                     alt={file.name}
                                                     loading="lazy"

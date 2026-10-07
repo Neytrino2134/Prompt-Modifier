@@ -4,6 +4,7 @@ import { type Tab, type CanvasState, NodeType } from '../types';
 import { clearImagesForTabFromCache } from '../utils/imageMemoryCache';
 import { getTranslation, LanguageCode } from '../localization';
 import { generateCanvasScreenshot } from '../utils/canvasScreenshot';
+import { selectLatestSession } from '../services/sessionRecovery';
 
 // --- IndexedDB Logic for Session Persistence ---
 const SESSION_DB_NAME = 'PromptModifierSessionDB';
@@ -24,7 +25,18 @@ const getSessionDB = (): Promise<IDBDatabase> => {
     });
 };
 
-export const saveSessionToDB = async (
+let pendingSessionSave: Promise<void> = Promise.resolve();
+let lastSessionTimestamp = 0;
+export const saveSessionToDB = (
+    tabs: Tab[], activeTabId: string, screenshot?: string, isSnapshot = false
+): Promise<void> => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location?.search || '').has('detachedNodeId')) return Promise.resolve();
+    const operation = pendingSessionSave.then(() => persistSessionToDB(tabs, activeTabId, screenshot, isSnapshot));
+    pendingSessionSave = operation.catch(() => {});
+    return operation;
+};
+
+const persistSessionToDB = async (
     tabs: Tab[],
     activeTabId: string,
     screenshot?: string,
@@ -46,18 +58,22 @@ export const saveSessionToDB = async (
         id: SESSION_KEY,
         tabs,
         activeTabId,
-        savedAt: Date.now(),
+        savedAt: lastSessionTimestamp = Math.max(Date.now(), lastSessionTimestamp + 1),
         screenshot: screenshotData,
         historyLimit,
         sessionLimit,
         isSnapshot: Boolean(isSnapshot),
     };
 
+    let diskError: unknown;
+    let recoveryError: unknown;
     // 1. Electron File Storage (100% durable & crash-resistant on desktop)
     if (typeof window !== 'undefined' && (window as any).electronAPI?.saveSession) {
         try {
-            await (window as any).electronAPI.saveSession(sessionObj);
+            const result = await (window as any).electronAPI.saveSession(sessionObj);
+            if (result?.success === false) throw new Error(result.error || 'Desktop session save failed');
         } catch (e) {
+            diskError = e;
             console.warn("Failed to save session via Electron API:", e);
         }
     }
@@ -65,15 +81,16 @@ export const saveSessionToDB = async (
     // 2. IndexedDB (primary fast local database)
     try {
         const db = await getSessionDB();
-        await new Promise<void>((resolve, reject) => {
+        try { await new Promise<void>((resolve, reject) => {
             const transaction = db.transaction(SESSION_STORE, 'readwrite');
             const store = transaction.objectStore(SESSION_STORE);
             store.put(sessionObj, SESSION_KEY);
             transaction.oncomplete = () => resolve();
             transaction.onerror = () => reject(transaction.error || new Error("Failed to save session to DB"));
             transaction.onabort = () => reject(transaction.error || new Error("Transaction aborted"));
-        });
+        }); } finally { db.close(); }
     } catch (e) {
+        recoveryError = e;
         console.warn("Failed to save session to IndexedDB:", e);
     }
 
@@ -138,6 +155,8 @@ export const saveSessionToDB = async (
     } catch (e) {
         // Safe to ignore if LocalStorage quota is exceeded
     }
+    if (diskError) throw diskError;
+    if (recoveryError && !window.electronAPI?.saveSession) throw recoveryError;
 };
 
 export const normalizeTabs = (rawTabs: any[], rawActiveTabId?: string): { tabs: Tab[], activeTabId: string } => {
@@ -167,6 +186,7 @@ export const normalizeTabs = (rawTabs: any[], rawActiveTabId?: string): { tabs: 
         }
 
         const normalizedState: CanvasState = {
+            canvasOriginalArchiveKey: typeof rawState.canvasOriginalArchiveKey === 'string' ? rawState.canvasOriginalArchiveKey : undefined,
             nodes: normalizedNodes,
             connections: normalizedConnections,
             groups: normalizedGroups,
@@ -263,45 +283,8 @@ export const loadSessionFromDB = async (): Promise<{ tabs: Tab[], activeTabId: s
         console.warn("Could not load session from LocalStorage backup:", e);
     }
 
-    // Helper to evaluate session content substance (avoids picking empty default canvas over actual work)
-    const isSubstantial = (cand: { tabs: Tab[] }) => {
-        if (!cand || !Array.isArray(cand.tabs) || cand.tabs.length === 0) return false;
-        if (cand.tabs.length > 1) return true;
-        const tab = cand.tabs[0];
-        if (!tab) return false;
-        if (tab.name && tab.name !== 'Canvas 1') return true;
-        if (tab.state?.nodes && tab.state.nodes.length > 0) {
-            const nodes = tab.state.nodes;
-            const hasUserVal = nodes.some((n: any) => n?.value && n.value !== '{"messages":[],"currentInput":""}' && n.value !== '{"inputText":"","targetLanguage":"ru","translatedText":"","inputHeight":197}' && n.value !== '');
-            if (hasUserVal) return true;
-            if (nodes.length !== 7) return true;
-        }
-        if (tab.state?.connections && tab.state.connections.length !== 4) return true;
-        if (tab.state?.groups && tab.state.groups.length > 0) return true;
-        return false;
-    };
-
-    // If running in Electron, the disk session is the absolute source of truth
-    if (electronSession && Array.isArray(electronSession.tabs) && electronSession.tabs.length > 0) {
-        return normalizeTabs(electronSession.tabs, electronSession.activeTabId);
-    }
-
-    // Compare available sessions and pick the best / latest one
-    const candidates = [idbSession, localBackupSession].filter(Boolean) as { tabs: Tab[], activeTabId: string, savedAt?: number }[];
-    if (candidates.length === 0) return undefined;
-
-    // Substantial user sessions take priority over a blank default template; then latest savedAt
-    candidates.sort((a, b) => {
-        const subA = isSubstantial(a) ? 1 : 0;
-        const subB = isSubstantial(b) ? 1 : 0;
-        if (subA !== subB) return subB - subA;
-        return (b.savedAt || 0) - (a.savedAt || 0);
-    });
-
-    const chosen = candidates[0];
-    if (!chosen || !Array.isArray(chosen.tabs) || chosen.tabs.length === 0) return undefined;
-
-    return normalizeTabs(chosen.tabs, chosen.activeTabId);
+    const chosen = selectLatestSession([electronSession, idbSession, localBackupSession]);
+    return chosen ? normalizeTabs(chosen.tabs, chosen.activeTabId) : undefined;
 };
 // --- End IndexedDB Logic ---
 

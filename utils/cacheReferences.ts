@@ -35,6 +35,7 @@ export function collectCacheReferences(roots: unknown[]): { images: Set<string>;
     const images = new Set<string>(), keys = new Set<string>(), seen = new Set<object>();
     const visit = (value: any, field = '') => {
         if (typeof value === 'string') {
+            if (/^(originalArchiveKey|canvasOriginalArchiveKey)$/.test(field)) keys.add(value);
             if (/^(data:image\/|blob:|https?:\/\/|file:)/.test(value)) images.add(value);
             else if (/^(batchJobName|batchJobId|batchJobIdOrName|nativeBatchId)$/.test(field)) {
                 keys.add(`results:${value}`);

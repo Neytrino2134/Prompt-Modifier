@@ -1,3 +1,4 @@
+import { VisibleImage } from '../../VisibleImage';
 import React from 'react';
 import { NodeType } from '../../../types';
 import { ActionButton } from '../../ActionButton';
@@ -119,7 +120,7 @@ export const ImageCanvasContainer: React.FC<ImageCanvasContainerProps> = ({
                                 maxHeight: '100%'
                             } : { width: '100%', height: '100%' }}
                         >
-                            <img
+                            <VisibleImage
                                 src={getFullSizeImage(nodeId, 0) || image}
                                 alt="Input"
                                 className="w-full h-full object-contain pointer-events-auto block"

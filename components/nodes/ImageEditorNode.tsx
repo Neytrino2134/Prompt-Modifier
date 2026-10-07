@@ -1,3 +1,4 @@
+import { VisibleImage } from '../VisibleImage';
 
 
 
@@ -748,7 +749,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
              <div className="relative group flex-shrink-0 mt-2 h-40 bg-gray-900/50 rounded-md flex items-center justify-center">
                 {previewImage ? (
                     <>
-                        <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain" draggable={true} onDragStart={(e) => { const srcToDrag = previewHighResRef.current || previewImage; if(srcToDrag) { setupImageDragData(e, srcToDrag, `Preview_${Date.now()}.png`); e.stopPropagation(); }}} />
+                        <VisibleImage src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain" draggable={true} onDragStart={(e) => { const srcToDrag = previewHighResRef.current || previewImage; if(srcToDrag) { setupImageDragData(e, srcToDrag, `Preview_${Date.now()}.png`); e.stopPropagation(); }}} />
                         <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ActionButton title="Copy" onClick={(e) => { e.stopPropagation(); onCopyImageToClipboard(previewHighResRef.current || previewImage!); }}>
                                 <CopyIcon className="h-4 w-4" />

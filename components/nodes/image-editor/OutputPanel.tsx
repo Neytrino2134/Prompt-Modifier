@@ -1,3 +1,4 @@
+import { VisibleImage } from '../../VisibleImage';
 
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -13,7 +14,7 @@ import { CustomCheckbox } from '../../CustomCheckbox';
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { setupImageDragData } from '../../../utils/imageUtils';
 import ConfirmDialog from '../../ConfirmDialog';
-import { useAppContext } from '../../../contexts/AppContext';
+import { useAppSelector } from '../../../contexts/AppContext';
 import { isGptImage2Model, isOpenAiImageModel, resolveImageEditorModel } from '../../../services/modelConfig';
 import { OptimizedThumbnail } from './OptimizedThumbnail';
 
@@ -157,10 +158,13 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs, onSendToNote
 }) => {
     const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoInsertResults, autoSaveImages, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
-    const { isBatchMode, isFormingBatch, getNodeActiveBatchJob, isNodeBatchActive, cancelBatchForNode } = useAppContext();
-    const isForming = isFormingBatch ? isFormingBatch(nodeId) : false;
-    const activeBatchJob = getNodeActiveBatchJob ? getNodeActiveBatchJob(nodeId) : undefined;
-    const isBatchActive = isNodeBatchActive ? isNodeBatchActive(nodeId) : false;
+    const { isBatchMode, isForming, activeBatchJob, isBatchActive, cancelBatchForNode } = useAppSelector(context => ({
+        isBatchMode: context.isBatchMode,
+        isForming: context.isFormingBatch?.(nodeId) || false,
+        activeBatchJob: context.getNodeActiveBatchJob?.(nodeId),
+        isBatchActive: context.isNodeBatchActive?.(nodeId) || false,
+        cancelBatchForNode: context.cancelBatchForNode
+    }));
     
     // Range State
     const [rangeStart, setRangeStart] = useState('');
@@ -668,7 +672,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             
             {!isSequenceMode && (
                 <div onClick={onOutputClick} onWheel={(e) => e.stopPropagation()} className="relative w-full flex-grow bg-gray-900/50 rounded-md flex items-center justify-center overflow-hidden group cursor-pointer">
-                    {outputImage ? <img src={outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { setupImageDragData(e, imageToDrag, `Output_${Date.now()}.png`); e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
+                    {outputImage ? <VisibleImage src={outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { setupImageDragData(e, imageToDrag, `Output_${Date.now()}.png`); e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
                     {outputImage && !isEditing && !isBatchActive && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-4">
                             <button onClick={(e) => { e.stopPropagation(); onCopy(); }} className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto" aria-label={t('node.action.copy')} title={t('node.action.copy')}>

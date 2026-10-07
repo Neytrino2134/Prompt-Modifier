@@ -1,3 +1,4 @@
+import { VisibleImage } from '../../VisibleImage';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import JSZip from 'jszip';
 import { StickyNote } from 'lucide-react';
@@ -302,7 +303,7 @@ export const ImageSlicesPreview: React.FC<ImageSlicesPreviewProps> = ({
                                 className="bg-gray-900 border border-gray-700/70 rounded overflow-hidden group/cell hover:border-cyan-400 transition-all cursor-grab active:cursor-grabbing shadow-sm"
                                 title={`Ассет #${idx + 1} — Потяните мышью для вытаскивания на холст или в ноды`}
                             >
-                                <img
+                                <VisibleImage
                                     src={sliceUrl}
                                     alt={`Asset ${idx + 1}`}
                                     loading="lazy"

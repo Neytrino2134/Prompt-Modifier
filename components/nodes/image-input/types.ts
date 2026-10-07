@@ -97,7 +97,8 @@ export interface BatchResultFolder {
 }
 
 export interface BatchResultData {
-    zipBlob: Blob;
+    zipBlob?: Blob;
+    archiveKey?: string;
     totalImages: number;
     totalSlices: number;
     timestamp: string;
@@ -120,4 +121,3 @@ export interface ImageInputValue {
     showSlicesDrawer?: boolean;
     showControls?: boolean;
 }
-

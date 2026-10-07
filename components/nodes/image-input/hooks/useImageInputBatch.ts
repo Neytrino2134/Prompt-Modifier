@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import JSZip from 'jszip';
+import { persistBatchExport, acquireBatchExportBlob, deleteBatchExport } from '../../../../services/batchExportStore';
 import { generateThumbnail, cropImageNormalized, sliceImageGrid, getImageTimestampString } from '../../../../utils/imageUtils';
 import {
     ImageBatchItem,
@@ -64,6 +65,15 @@ export const useImageInputBatch = ({
     const [batchResult, setBatchResult] = useState<BatchResultData | null>(null);
     const [isArchiveFolderModalOpen, setIsArchiveFolderModalOpen] = useState<boolean>(false);
     const abortBatchRef = useRef<boolean>(false);
+    const mounted = useRef(true);
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; abortBatchRef.current = true; };
+    }, []);
+    useEffect(() => {
+        const key = batchResult?.archiveKey;
+        return () => { if (key) void deleteBatchExport(key).catch(console.warn); };
+    }, [batchResult?.archiveKey]);
 
     const [batchSubMode, setBatchSubMode] = useState<ImageBatchSubMode>(() => {
         return batchConfig?.subMode || 'crop';
@@ -665,7 +675,18 @@ export const useImageInputBatch = ({
                 folders: generatedFolders
             };
 
-            setBatchResult(result);
+            try {
+                const stored = await persistBatchExport(result);
+                if (!mounted.current) {
+                    if (stored.archiveKey) await deleteBatchExport(stored.archiveKey);
+                    return;
+                }
+                setBatchResult(stored);
+            } catch (error) {
+                console.warn('Export storage failed; retaining archive for recovery:', error);
+                if (!mounted.current) return;
+                setBatchResult(result);
+            }
 
             const downloadUrl = URL.createObjectURL(zipBlob);
             const link = document.createElement('a');
@@ -692,9 +713,12 @@ export const useImageInputBatch = ({
         abortBatchRef.current = true;
     };
 
-    const handleDownloadZip = () => {
-        if (!batchResult?.zipBlob) return;
-        const downloadUrl = URL.createObjectURL(batchResult.zipBlob);
+    const handleDownloadZip = async () => {
+        if (!batchResult) return;
+        let blob: Blob;
+        try { blob = await acquireBatchExportBlob(batchResult); }
+        catch (error) { addToast?.(`Не удалось прочитать ZIP: ${String(error)}`, 'error'); return; }
+        const downloadUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = downloadUrl;
         link.download = batchResult.filename;

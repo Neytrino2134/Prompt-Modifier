@@ -200,7 +200,8 @@ test('extracted session hook restores tabs, saves current originals and retains 
         'services/sessionAutosave': { startSessionAutosave: (interval, ready, save) => { autosaves.push({ interval, ready, save }); return () => {}; } },
         'utils/imageMemoryCache': {},
         'services/soundNotificationService': { playAutosaveSound() {} },
-        'utils/canvasScreenshot': { generateCanvasScreenshot: () => 'preview' }
+        'utils/canvasScreenshot': { generateCanvasScreenshot: () => 'preview' },
+        'services/canvasOriginalStore': { hydrateCanvasOriginals: async state => state, hasWarmCanvasImages: () => false }
     }, { window: { location: { search: '' } }, URLSearchParams, setTimeout: fn => timers.push(fn) });
     const { useSessionSyncAndAutosave } = load('contexts/app-context/useSessionSyncAndAutosave.ts');
     const canvas = id => ({ nodes: [{ id }], connections: [], groups: [], viewTransform: { scale: 1, translate: { x: 0, y: 0 } },
@@ -216,6 +217,8 @@ test('extracted session hook restores tabs, saves current originals and retains 
         props[setter] = next => { props[field] = typeof next === 'function' ? next(props[field]) : next; };
     }
     let actions = runner.render(() => useSessionSyncAndAutosave(props));
+    await new Promise(setImmediate);
+    actions = runner.render(() => useSessionSyncAndAutosave(props));
     assert.equal(props.nodes[0].id, 'a');
     assert.equal(writes.length, 0, 'restoration must not replay a save');
     assert.equal(autosaves[0].interval, 30000);

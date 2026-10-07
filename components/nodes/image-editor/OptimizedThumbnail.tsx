@@ -1,131 +1,82 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
+import { generateThumbnail } from '../../../utils/imageUtils';
+import { scheduleImageWork } from '../../../utils/imageWorkQueue';
 
-// ==========================================
-// High Performance In-Memory Thumbnail Cache
-// ==========================================
-
-const THUMBNAIL_CACHE = new Map<string, string>();
-const MAX_CACHE_SIZE = 1000;
-
-export const createCachedThumbnail = (
-    src: string,
-    targetSize: 48 | 64 | 128 | number,
-    callback: (thumbUrl: string) => void
-) => {
-    if (!src) return;
-
-    // Cache key based on source prefix, length, and requested target thumbnail size
-    const cacheKey = `${src.slice(0, 80)}_${src.length}_${targetSize}`;
-    const cached = THUMBNAIL_CACHE.get(cacheKey);
-    if (cached) {
-        callback(cached);
-        return;
+const cache = new Map<string, string>();
+const pending = new Map<string, { controller: AbortController; consumers: Set<(url: string) => void> }>();
+const MAX_BYTES = 12 * 1024 * 1024;
+let bytes = 0;
+function cachePut(key: string, url: string) {
+    const previous = cache.get(key);
+    if (previous) bytes -= previous.length * 2;
+    cache.delete(key); cache.set(key, url); bytes += url.length * 2;
+    while (bytes > MAX_BYTES && cache.size) {
+        const oldest = cache.keys().next().value!;
+        bytes -= cache.get(oldest)!.length * 2; cache.delete(oldest);
     }
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-        try {
-            const canvas = document.createElement('canvas');
-            const naturalW = img.naturalWidth || img.width || 1;
-            const naturalH = img.naturalHeight || img.height || 1;
-            const aspect = naturalW / naturalH;
-
-            let w: number = targetSize;
-            let h: number = targetSize;
-            if (aspect > 1) {
-                h = Math.max(1, Math.round(targetSize / aspect));
-            } else {
-                w = Math.max(1, Math.round(targetSize * aspect));
-            }
-
-            canvas.width = targetSize;
-            canvas.height = targetSize;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'medium';
-                // Center inside target square
-                const offsetX = (targetSize - w) / 2;
-                const offsetY = (targetSize - h) / 2;
-                ctx.drawImage(img, offsetX, offsetY, w, h);
-                const thumbData = canvas.toDataURL('image/jpeg', 0.85);
-
-                if (THUMBNAIL_CACHE.size >= MAX_CACHE_SIZE) {
-                    const firstKey = THUMBNAIL_CACHE.keys().next().value;
-                    if (firstKey) THUMBNAIL_CACHE.delete(firstKey);
-                }
-                THUMBNAIL_CACHE.set(cacheKey, thumbData);
-                callback(thumbData);
-            } else {
-                callback(src);
-            }
-        } catch {
-            callback(src);
-        }
+}
+async function sourceKey(src: string, size: number) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(src));
+    return `${size}:${Array.from(new Uint8Array(digest), n => n.toString(16).padStart(2, '0')).join('')}`;
+}
+// Disposing the last consumer cancels queued and active decoding work.
+export function createCachedThumbnail(src: string, size: number, callback: (url: string) => void): () => void {
+    let disposed = false;
+    let key: string | undefined;
+    const hashing = new AbortController();
+    void scheduleImageWork(() => sourceKey(src, size), hashing.signal).then(k => {
+        if (disposed) return;
+        key = k;
+        const cached = cache.get(k);
+        if (cached) { cache.delete(k); cache.set(k, cached); callback(cached); return; }
+        const existing = pending.get(k);
+        if (existing) { existing.consumers.add(callback); return; }
+        const entry = { controller: new AbortController(), consumers: new Set([callback]) };
+        pending.set(k, entry);
+        void generateThumbnail(src, size, size, entry.controller.signal).then(url => {
+            if (entry.controller.signal.aborted) return;
+            cachePut(k, url); entry.consumers.forEach(consumer => consumer(url));
+        }).catch(() => {
+            // Never use a full-resolution source as the DOM fallback.
+        }).finally(() => { if (pending.get(k) === entry) pending.delete(k); });
+    }).catch(() => {});
+    return () => {
+        disposed = true;
+        hashing.abort();
+        if (!key) return;
+        const entry = pending.get(key);
+        entry?.consumers.delete(callback);
+        if (entry && !entry.consumers.size) { pending.delete(key); entry.controller.abort(); }
     };
-    img.onerror = () => {
-        callback(src);
-    };
-    img.src = src;
-};
-
+}
 export interface OptimizedThumbnailProps {
     src: string | null | undefined;
-    size: 48 | 64 | 128 | number;
+    size: number;
     alt?: string;
     className?: string;
     style?: React.CSSProperties;
     draggable?: boolean;
+    loading?: 'eager' | 'lazy';
+    referrerPolicy?: React.HTMLAttributeReferrerPolicy;
     onDragStart?: (e: React.DragEvent<HTMLImageElement>) => void;
     onMouseDown?: (e: React.MouseEvent<HTMLImageElement>) => void;
 }
-
-export const OptimizedThumbnail: React.FC<OptimizedThumbnailProps> = memo(({
-    src,
-    size,
-    alt = '',
-    className = '',
-    style,
-    draggable = false,
-    onDragStart,
-    onMouseDown
-}) => {
-    const [thumbSrc, setThumbSrc] = useState<string>(() => {
-        if (!src) return '';
-        const key = `${src.slice(0, 80)}_${src.length}_${size}`;
-        return THUMBNAIL_CACHE.get(key) || src;
-    });
-
+export const OptimizedThumbnail: React.FC<OptimizedThumbnailProps> = memo(({ src, size, alt = '', ...props }) => {
+    const ref = useRef<HTMLImageElement>(null);
+    const [visible, setVisible] = useState(false);
+    const [thumbnail, setThumbnail] = useState<{ source: string; size: number; url: string } | null>(null);
     useEffect(() => {
-        if (!src) {
-            setThumbSrc('');
-            return;
-        }
-        let isMounted = true;
-        createCachedThumbnail(src, size, (t) => {
-            if (isMounted) {
-                setThumbSrc(t);
-            }
-        });
-        return () => {
-            isMounted = false;
-        };
-    }, [src, size]);
-
-    if (!src) return null;
-
-    return (
-        <img
-            src={thumbSrc || src}
-            alt={alt}
-            loading="lazy"
-            decoding="async"
-            draggable={draggable}
-            onDragStart={onDragStart}
-            onMouseDown={onMouseDown}
-            className={className}
-            style={style}
-        />
-    );
+        const element = ref.current;
+        if (!element) return;
+        if (typeof IntersectionObserver === 'undefined') { setVisible(true); return; }
+        const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { rootMargin: '120px' });
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
+    useEffect(() => {
+        if (!src || !visible) { setThumbnail(null); return; }
+        return createCachedThumbnail(src, size, url => setThumbnail({ source: src, size, url }));
+    }, [src, size, visible]);
+    const url = thumbnail && thumbnail.source === src && thumbnail.size === size ? thumbnail.url : undefined;
+    return <img ref={ref} src={visible ? url : undefined} alt={alt} loading="lazy" decoding="async" {...props} />;
 });

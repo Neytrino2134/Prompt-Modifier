@@ -23,6 +23,13 @@ export const DebouncedTextarea: React.FC<DebouncedTextareaProps> = ({
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isTypingRef = useRef(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const latestChange = useRef(onDebouncedChange);
+    latestChange.current = onDebouncedChange;
+    const pendingValue = useRef<string | null>(null);
+    useEffect(() => () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        if (pendingValue.current !== null) latestChange.current(pendingValue.current);
+    }, []);
     
     // Custom context menu hook (safely optional if outside provider)
     let contextMenu: ReturnType<typeof useTextContextMenu> | null = null;
@@ -44,13 +51,16 @@ export const DebouncedTextarea: React.FC<DebouncedTextareaProps> = ({
         const newValue = e.target.value;
         setLocalValue(newValue);
         isTypingRef.current = true;
+        pendingValue.current = newValue;
 
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
         }
 
         timeoutRef.current = setTimeout(() => {
-            onDebouncedChange(newValue);
+            timeoutRef.current = null;
+            pendingValue.current = null;
+            latestChange.current(newValue);
             isTypingRef.current = false;
         }, debounceTime);
         
@@ -62,6 +72,8 @@ export const DebouncedTextarea: React.FC<DebouncedTextareaProps> = ({
     const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+            pendingValue.current = null;
             // Flush changes immediately on blur
             onDebouncedChange(localValue);
             isTypingRef.current = false;

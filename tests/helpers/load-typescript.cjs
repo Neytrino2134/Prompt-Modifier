@@ -17,7 +17,7 @@ function loadTypeScript(file, mocks = {}, globals = {}) {
         cache.set(sourceFile, exports);
         const code = ts.transpileModule(fs.readFileSync(sourceFile, 'utf8'), {
             compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React }
-        }).outputText.replaceAll('import.meta.env', '({ DEV: false })');
+        }).outputText.replaceAll('import.meta.env', '({ DEV: false })').replaceAll('import.meta.url', "'file:///test-module.ts'");
 
         vm.runInNewContext(code, {
             exports, console, Date, Map, Set, TextEncoder, Blob, Uint8Array, ArrayBuffer, atob,

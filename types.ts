@@ -365,6 +365,7 @@ export interface ContentCatalogItem {
 
 // New types for the Tab System
 export interface CanvasState {
+  canvasOriginalArchiveKey?: string;
   nodes: Node[];
   connections: Connection[];
   groups: Group[];

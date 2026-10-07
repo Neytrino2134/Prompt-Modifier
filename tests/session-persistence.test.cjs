@@ -165,10 +165,14 @@ test('actual Electron save writes full files; backup listing includes latest sav
         getAllCandidateSessionPaths: () => [primary, path.join(root, 'backup.json'), path.join(user, launch, 'latest_session.json')],
     });
     // Exercise the real main-process implementations with only paths redirected.
-    const source = ts.createSourceFile('main.js', fs.readFileSync('electron/main.js', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+    const source = ts.createSourceFile('sessionManager.js', fs.readFileSync('electron/sessionManager.js', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
     for (const statement of source.statements) {
-        if (ts.isFunctionDeclaration(statement) && ['atomicWriteFile', 'saveStateToLaunchDir', 'persistDesktopSession'].includes(statement.name?.text)) vm.runInContext(statement.getText(source), context);
-        if (["ipcMain.handle('session:list-backups'", "ipcMain.handle('session:load'"].some(prefix => statement.getText(source).startsWith(prefix))) vm.runInContext(statement.getText(source), context);
+        if (ts.isFunctionDeclaration(statement) && ['atomicWriteFile', 'saveStateToLaunchDir', 'persistDesktopSession'].includes(statement.name?.text)) vm.runInContext(statement.getText(source).replace(/^export\s+/, ''), context);
+        if (ts.isFunctionDeclaration(statement) && statement.name?.text === 'setupSessionIPC') {
+            for (const handler of statement.body.statements) {
+                if (["ipcMain.handle('session:list-backups'", "ipcMain.handle('session:load'"].some(prefix => handler.getText(source).startsWith(prefix))) vm.runInContext(handler.getText(source), context);
+            }
+        }
     }
     const data = { ...candidate(100), isSnapshot: false };
     assert.equal((await context.persistDesktopSession({}, data)).success, true);

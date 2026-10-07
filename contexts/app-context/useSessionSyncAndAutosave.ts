@@ -7,6 +7,7 @@ import { startSessionAutosave } from '../../services/sessionAutosave';
 import { clearImagesForTabFromCache } from '../../utils/imageMemoryCache';
 import { playAutosaveSound } from '../../services/soundNotificationService';
 import { generateCanvasScreenshot } from '../../utils/canvasScreenshot';
+import { coolCanvasOriginals, hydrateCanvasOriginals, hasWarmCanvasImages } from '../../services/canvasOriginalStore';
 
 interface UseSessionSyncAndAutosaveParams {
     tabs: Tab[];
@@ -61,6 +62,40 @@ export const useSessionSyncAndAutosave = ({
     const lastLoadedTabIdRef = useRef<string | null>(null);
     const isTabLoadedFromDBRef = useRef(false);
     const [isCanvasLoading, setIsCanvasLoading] = useState(true);
+    const latestTabs = useRef(tabs);
+    latestTabs.current = tabs;
+    const activeCanvas = useRef(activeTabId);
+    activeCanvas.current = activeTabId;
+    const switchRequest = useRef(0);
+    const liveState = useRef<CanvasState>({ nodes, connections, groups, viewTransform, nodeIdCounter: nodeIdCounter.current, fullSizeImageCache });
+    liveState.current = { nodes, connections, groups, viewTransform, nodeIdCounter: nodeIdCounter.current, fullSizeImageCache };
+    const cooling = useRef(new Set<string>());
+
+    // Inactive canvases keep a durable cache reference instead of all originals.
+    // Identity checks prevent a slow disk write from overwriting background results.
+    useEffect(() => {
+        if (!isTabsLoaded || isCanvasLoading) return;
+        const timer = setTimeout(() => {
+            for (const tab of latestTabs.current) {
+                if (tab.id === activeCanvas.current || cooling.current.has(tab.id)
+                    || tab.state.nodes.some(node => node.isDetachedWindow)
+                    || !hasWarmCanvasImages(tab.state)) continue;
+                cooling.current.add(tab.id);
+                void coolCanvasOriginals(tab.state).then(cold => {
+                    setTabs(current => current.map(candidate => candidate.id === tab.id
+                        && candidate.id !== activeCanvas.current
+                        && candidate.state.fullSizeImageCache === tab.state.fullSizeImageCache
+                        && candidate.state.nodes === tab.state.nodes
+                        && candidate.state.canvasOriginalArchiveKey === tab.state.canvasOriginalArchiveKey
+                        && cold !== tab.state
+                        ? { ...candidate, state: { ...candidate.state, nodes: cold.nodes, fullSizeImageCache: cold.fullSizeImageCache,
+                            canvasOriginalArchiveKey: cold.canvasOriginalArchiveKey } } : candidate));
+                }).catch(error => console.warn('Inactive originals retained because storage failed:', error))
+                    .finally(() => cooling.current.delete(tab.id));
+            }
+        }, 1500);
+        return () => clearTimeout(timer);
+    }, [tabs, activeTabId, isTabsLoaded, isCanvasLoading, setTabs]);
 
     const getCurrentCanvasState = useCallback((): CanvasState => ({
         nodes,
@@ -105,11 +140,18 @@ export const useSessionSyncAndAutosave = ({
         }, 100);
     }, [activeTabId, setNodes, setConnections, setGroups, setViewTransform, nodeIdCounter, setFullSizeImageCache, setTabs]);
 
-    const restoreSession = useCallback((newTabs: Tab[], targetActiveTabId?: string, persist = true) => {
+    const restoreSession = useCallback(async (newTabs: Tab[], targetActiveTabId?: string, persist = true) => {
         if (!Array.isArray(newTabs) || newTabs.length === 0) return;
 
         const { tabs: normalizedTabs, activeTabId: validActiveId } = normalizeTabs(newTabs, targetActiveTabId);
-        const targetTab = normalizedTabs.find(t => t.id === validActiveId) || normalizedTabs[0];
+        let targetTab = normalizedTabs.find(t => t.id === validActiveId) || normalizedTabs[0];
+        try {
+            targetTab = { ...targetTab, state: await hydrateCanvasOriginals(targetTab.state) };
+            normalizedTabs[normalizedTabs.findIndex(tab => tab.id === targetTab.id)] = targetTab;
+        } catch (error) {
+            addToast(`Не удалось загрузить оригиналы холста: ${String(error)}`, 'error');
+            throw error;
+        }
 
         isLoadingStateRef.current = true;
         lastLoadedTabIdRef.current = validActiveId;
@@ -138,8 +180,8 @@ export const useSessionSyncAndAutosave = ({
         if (!isTabsLoaded) return;
         if (!isTabLoadedFromDBRef.current) {
             isTabLoadedFromDBRef.current = true;
-            restoreSession(tabs, activeTabId, false);
-            setIsCanvasLoading(false);
+            void restoreSession(tabs, activeTabId, false).then(() => setIsCanvasLoading(false))
+                .catch(error => console.error('Session originals could not be restored:', error));
         }
     }, [isTabsLoaded, tabs, activeTabId, restoreSession]);
 
@@ -274,26 +316,40 @@ export const useSessionSyncAndAutosave = ({
         return stopAutosave;
     }, [autoSaveInterval, isTabsLoaded, setNextAutoSaveTime, setIsAutoSaving, addToast, t]);
 
-    const handleSwitchTab = useCallback((targetTabId: string) => {
+    const handleSwitchTab = useCallback(async (targetTabId: string) => {
         if (targetTabId === activeTabId) return;
 
-        const targetTab = tabs.find(t => t.id === targetTabId);
+        let targetTab = latestTabs.current.find(t => t.id === targetTabId);
         if (!targetTab) return;
+        const request = ++switchRequest.current;
+        if (targetTab.state.canvasOriginalArchiveKey) {
+            setIsCanvasLoading(true);
+            try {
+                const hydrated = await hydrateCanvasOriginals(targetTab.state);
+                if (request !== switchRequest.current) return;
+                const latest = latestTabs.current.find(tab => tab.id === targetTabId);
+                if (!latest) { setIsCanvasLoading(false); return; }
+                const cache = { ...hydrated.fullSizeImageCache };
+                for (const [id, images] of Object.entries(latest.state.fullSizeImageCache || {})) cache[id] = { ...cache[id], ...images };
+                // If background operations edited node values during the read,
+                // resolve their remaining image markers against the same archive.
+                const latestWarm = latest.state.nodes === targetTab.state.nodes ? hydrated : await hydrateCanvasOriginals(latest.state);
+                if (request !== switchRequest.current) return;
+                targetTab = { ...latest, state: { ...latestWarm, fullSizeImageCache: cache, canvasOriginalArchiveKey: undefined } };
+            } catch (error) {
+                if (request === switchRequest.current) setIsCanvasLoading(false);
+                addToast(`Не удалось загрузить оригиналы холста: ${String(error)}`, 'error');
+                return;
+            }
+        }
 
-        const currentLiveState: CanvasState = {
-            nodes,
-            connections,
-            groups,
-            viewTransform,
-            nodeIdCounter: nodeIdCounter.current,
-            fullSizeImageCache,
-        };
+        const currentLiveState = liveState.current;
 
         isLoadingStateRef.current = true;
         lastLoadedTabIdRef.current = targetTabId;
 
-        const updatedTabs = tabs.map(tab => 
-            tab.id === activeTabId ? { ...tab, state: currentLiveState } : tab
+        const updatedTabs = latestTabs.current.map(tab =>
+            tab.id === activeCanvas.current ? { ...tab, state: currentLiveState } : tab.id === targetTabId ? targetTab! : tab
         );
         setTabs(updatedTabs);
         setActiveTabId(targetTabId);
@@ -304,6 +360,7 @@ export const useSessionSyncAndAutosave = ({
         setViewTransform(targetTab.state.viewTransform || { scale: 1, translate: { x: 0, y: 0 } });
         nodeIdCounter.current = targetTab.state.nodeIdCounter || 0;
         setFullSizeImageCache(targetTab.state.fullSizeImageCache || {});
+        setIsCanvasLoading(false);
 
         saveSessionToDB(updatedTabs, targetTabId).catch(error => console.error('Background session save failed:', error));
 
@@ -313,6 +370,8 @@ export const useSessionSyncAndAutosave = ({
     }, [activeTabId, tabs, setTabs, setActiveTabId, nodes, setNodes, connections, setConnections, groups, setGroups, viewTransform, setViewTransform, nodeIdCounter, fullSizeImageCache, setFullSizeImageCache]);
 
     const handleAddTab = useCallback((customName?: string | unknown) => {
+        ++switchRequest.current;
+        setIsCanvasLoading(false);
         const currentLiveState: CanvasState = {
             nodes,
             connections,
@@ -349,19 +408,31 @@ export const useSessionSyncAndAutosave = ({
         }, 80);
     }, [activeTabId, tabs, setTabs, setActiveTabId, nodes, setNodes, connections, setConnections, groups, setGroups, viewTransform, setViewTransform, nodeIdCounter, fullSizeImageCache, setFullSizeImageCache]);
 
-    const handleCloseTab = useCallback((tabIdToClose: string) => {
-        clearImagesForTabFromCache(tabIdToClose);
+    const handleCloseTab = useCallback(async (tabIdToClose: string) => {
         if (tabs.length <= 1) return;
 
         const closingIndex = tabs.findIndex(t => t.id === tabIdToClose);
-        const newTabs = tabs.filter(t => t.id !== tabIdToClose);
+        let newTabs = tabs.filter(t => t.id !== tabIdToClose);
 
         if (activeTabId === tabIdToClose) {
+            const request = ++switchRequest.current;
             const nextActiveIndex = Math.max(0, closingIndex - 1);
-            const nextActiveTab = newTabs[nextActiveIndex] || newTabs[0];
+            let nextActiveTab = newTabs[nextActiveIndex] || newTabs[0];
+            try {
+                nextActiveTab = { ...nextActiveTab, state: await hydrateCanvasOriginals(nextActiveTab.state) };
+                if (request !== switchRequest.current) return;
+                const latest = latestTabs.current.find(tab => tab.id === nextActiveTab.id);
+                if (!latest) return;
+                nextActiveTab = { ...latest, state: await hydrateCanvasOriginals(latest.state) };
+                if (request !== switchRequest.current) return;
+                newTabs = latestTabs.current.filter(tab => tab.id !== tabIdToClose);
+                newTabs[newTabs.findIndex(tab => tab.id === nextActiveTab.id)] = nextActiveTab;
+            } catch (error) { addToast(`Не удалось загрузить оригиналы холста: ${String(error)}`, 'error'); return; }
 
             isLoadingStateRef.current = true;
             lastLoadedTabIdRef.current = nextActiveTab.id;
+            clearImagesForTabFromCache(tabIdToClose);
+            setIsCanvasLoading(false);
 
             setTabs(newTabs);
             setActiveTabId(nextActiveTab.id);
@@ -379,6 +450,7 @@ export const useSessionSyncAndAutosave = ({
                 isLoadingStateRef.current = false;
             }, 80);
         } else {
+            clearImagesForTabFromCache(tabIdToClose);
             setTabs(newTabs);
             saveSessionToDB(newTabs, activeTabId).catch(error => console.error('Background session save failed:', error));
         }

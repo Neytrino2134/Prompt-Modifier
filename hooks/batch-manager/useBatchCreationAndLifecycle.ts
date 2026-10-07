@@ -15,6 +15,7 @@ import {
 import { recordGenerationEvent } from '../../utils/generationStats';
 import { getDeviceId, formatWithDeviceTag } from '../../utils/deviceId';
 import { notifyBatchStart } from '../../services/trayNotificationService';
+import { acquireBatchJobPayload } from '../../services/batchJobPayload';
 import {
     CreateBatchGenerationParams,
     mapSdkState,
@@ -339,10 +340,11 @@ export const useBatchCreationAndLifecycle = ({
 
     // Retry a failed batch job
     const retryBatchJob = useCallback(async (jobId: string) => {
-        const targetJob = batchJobsRef.current.find(j => j.id === jobId || j.name === jobId);
+        let targetJob = batchJobsRef.current.find(j => j.id === jobId || j.name === jobId);
         if (!targetJob || !targetJob.items || targetJob.items.length === 0) return;
 
         try {
+            targetJob = await acquireBatchJobPayload(targetJob);
             deleteBatchJob(jobId);
             await createBatchGeneration({
                 nodeId: targetJob.nodeId,
@@ -415,8 +417,9 @@ export const useBatchCreationAndLifecycle = ({
         return formingBatchNodeIds.includes(nodeId) || !!batchJobs.find(j => j.nodeId === nodeId && (j.state === 'PENDING' || j.state === 'RUNNING'));
     }, [formingBatchNodeIds, batchJobs]);
 
-    const getBatchJobJsonl = useCallback((jobId: string): string | undefined => {
-        const job = batchJobsRef.current.find(j => j.id === jobId || j.name === jobId);
+    const getBatchJobJsonl = useCallback(async (jobId: string): Promise<string | undefined> => {
+        let job = batchJobsRef.current.find(j => j.id === jobId || j.name === jobId);
+        if (job?.resultsCached) job = await acquireBatchJobPayload(job);
         if (job?.rawJsonl) return job.rawJsonl;
         const fromOpenAi = getStoredOpenAiBatchJsonl(jobId);
         if (fromOpenAi) return fromOpenAi;
@@ -426,8 +429,8 @@ export const useBatchCreationAndLifecycle = ({
         return undefined;
     }, [batchJobsRef]);
 
-    const downloadBatchJsonl = useCallback((jobId: string) => {
-        const jsonl = getBatchJobJsonl(jobId);
+    const downloadBatchJsonl = useCallback(async (jobId: string) => {
+        const jsonl = await getBatchJobJsonl(jobId);
         if (!jsonl) {
             if (addToast) addToast('JSONL-файл не найден для этой задачи', 'error');
             return;
