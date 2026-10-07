@@ -94,6 +94,13 @@ export const saveTrayNotificationSettings = (partial: Partial<TrayNotificationSe
         const current = getTrayNotificationSettings();
         const updated = { ...current, ...partial };
         localStorage.setItem(STORAGE_KEY_TRAY_NOTIFICATIONS, JSON.stringify(updated));
+
+        // If notifications are disabled/muted, clear any active notifications so nothing accumulates
+        if (updated.enabled === false) {
+            activeNotifications = [];
+            notifySubscribers();
+        }
+
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(TRAY_SETTINGS_CHANGED_EVENT, { detail: updated }));
         }

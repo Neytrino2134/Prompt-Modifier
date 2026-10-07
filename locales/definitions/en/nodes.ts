@@ -338,6 +338,8 @@ export const nodes = {
     'image_sequence.shot_type.LS': "Integrate the Entity with a Long Shot (LS) into the scene to show scale.",
     'node.content.technicalPrompt': 'Technical Prompt',
     
+    'node.promptProcessor.tabStandard': 'Prompt Enhancer',
+    'node.promptProcessor.tabMultiview': 'Multiview Generator',
     'node.promptProcessor.safePromptTooltip': 'Rewrites the prompt to comply with safety guidelines and avoid policy violations.',
     'node.promptProcessor.technicalPromptTooltip': 'Converts the prompt into a highly detailed technical specification (lighting, camera, render settings).',
     'node.promptProcessor.enhanceTooltip': 'Uses AI to expand and enrich the prompt with descriptive details.',

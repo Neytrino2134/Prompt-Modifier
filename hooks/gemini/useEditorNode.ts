@@ -87,7 +87,10 @@ export const useEditorNode = ({
         const isSequenceMode = parsed.isSequenceMode;
 
         // Gather Inputs A
-        const textInputs = getUpstreamNodeValues(nodeId, 'text').filter(v => typeof v === 'string') as string[];
+        const textInputs = [
+            ...getUpstreamNodeValues(nodeId, 'text'),
+            ...getUpstreamNodeValues(nodeId, 'all_data')
+        ].filter(v => typeof v === 'string') as string[];
         const imageInputs = getUpstreamNodeValues(nodeId, 'image').filter(v => typeof v === 'object') as { base64ImageData: string, mimeType: string }[];
         
         // Gather Inputs B (for sequence combination)
@@ -112,14 +115,17 @@ export const useEditorNode = ({
                 } 
                 else if (json.type === 'script-prompt-modifier-data') {
                     prompts = json.finalPrompts || json.prompts || [];
+                } else if (json.type === 'multiview-batch-data') {
+                    prompts = json.finalPrompts || json.prompts || json.items || [];
                 } else if (Array.isArray(json)) {
                     prompts = json;
                 }
                 
                 if (prompts.length > 0) {
                     prompts.forEach((p: any, i: number) => {
-                        const frameIdx = (p.frameNumber !== undefined ? p.frameNumber : i + 1) - 1;
-                        if (p.prompt) upstreamPromptMap.set(frameIdx, p.prompt);
+                        const frameIdx = (p.frameNumber !== undefined ? p.frameNumber : (p.index !== undefined ? p.index : i + 1)) - 1;
+                        const promptText = typeof p === 'string' ? p : (p.prompt || p.text || '');
+                        if (promptText) upstreamPromptMap.set(frameIdx, promptText);
                     });
                 }
             } catch {
@@ -233,7 +239,7 @@ export const useEditorNode = ({
 
                     // PROMPT LOGIC
                     let basePrompt = parsed.prompt;
-                    if (parsed.isSequentialPromptMode || parsed.isSequentialEditingWithPrompts) {
+                    if (parsed.isSequentialPromptMode || parsed.isSequentialEditingWithPrompts || parsed.isSequentialCombinationMode || upstreamPromptMap.has(i)) {
                         if (upstreamPromptMap.has(i)) {
                             basePrompt = upstreamPromptMap.get(i);
                         } else if (parsed.framePrompts && parsed.framePrompts[i]) {
@@ -398,7 +404,7 @@ export const useEditorNode = ({
 
                 // PROMPT LOGIC
                 let basePrompt = parsed.prompt;
-                if (parsed.isSequentialPromptMode || parsed.isSequentialEditingWithPrompts) {
+                if (parsed.isSequentialPromptMode || parsed.isSequentialEditingWithPrompts || parsed.isSequentialCombinationMode || upstreamPromptMap.has(i)) {
                     if (upstreamPromptMap.has(i)) {
                         basePrompt = upstreamPromptMap.get(i);
                     } else if (parsed.framePrompts && parsed.framePrompts[i]) {

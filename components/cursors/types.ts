@@ -114,6 +114,18 @@ ${selector} .cursor-text {
     cursor: ${cursors.text} !important;
 }
 
+/* Scrollbars & scrollbar thumb (Show normal arrow cursor on scrollbar hover) */
+${selector} ::-webkit-scrollbar,
+${selector} ::-webkit-scrollbar-track,
+${selector} ::-webkit-scrollbar-thumb,
+${selector} ::-webkit-scrollbar-corner,
+${selector} textarea::-webkit-scrollbar,
+${selector} textarea::-webkit-scrollbar-track,
+${selector} textarea::-webkit-scrollbar-thumb,
+${selector} textarea::-webkit-scrollbar-corner {
+    cursor: ${cursors.default} !important;
+}
+
 /* Grabbable elements / Pan canvas */
 ${selector} .cursor-grab,
 ${selector} [data-tool="pan"],

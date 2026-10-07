@@ -51,7 +51,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     
     const effectiveModel = resolveImageEditorModel(model);
     const isNanoBanana = effectiveModel === 'gemini-3-pro-image-preview';
-    const isTextConnected = connectedInputs?.has('text');
+    const isTextConnected = connectedInputs?.has('text') || connectedInputs?.has('all_data');
     
     const viewScale = viewTransform?.scale || 1;
 
@@ -165,7 +165,10 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     // Upstream parsing
     const upstreamPromptsMap = useMemo(() => {
         if (!isTextConnected) return undefined;
-        const texts = getUpstreamNodeValues(node.id, 'text', undefined, true).filter(v => typeof v === 'string') as string[];
+        const texts = [
+            ...getUpstreamNodeValues(node.id, 'text', undefined, true),
+            ...getUpstreamNodeValues(node.id, 'all_data', undefined, true)
+        ].filter(v => typeof v === 'string') as string[];
         const map = new Map<number, string>();
         let hasJson = false;
         texts.forEach(text => {
@@ -186,14 +189,18 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                     else if (json.type === 'script-prompt-modifier-data') {
                         prompts = json.finalPrompts || json.prompts || [];
                         hasJson = true;
+                    } else if (json.type === 'multiview-batch-data') {
+                        prompts = json.finalPrompts || json.prompts || json.items || [];
+                        hasJson = true;
                     } else if (Array.isArray(json)) {
                         prompts = json;
                         hasJson = true;
                     }
                     if (prompts.length > 0) {
                         prompts.forEach((p: any, i: number) => {
-                             const frameNum = (p.frameNumber !== undefined ? p.frameNumber : i + 1);
-                             if (p.prompt) map.set(frameNum, p.prompt);
+                             const frameNum = (p.frameNumber !== undefined ? p.frameNumber : (p.index !== undefined ? p.index : i + 1));
+                             const promptText = typeof p === 'string' ? p : (p.prompt || p.text || '');
+                             if (promptText) map.set(frameNum, promptText);
                         });
                     }
                 } catch {}
@@ -204,7 +211,11 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
 
     const upstreamPrompt = useMemo(() => {
         if (isTextConnected && !upstreamPromptsMap) {
-            return (getUpstreamNodeValues(node.id, 'text', undefined, true).filter(v => typeof v === 'string') as string[]).join('\n\n');
+            const texts = [
+                ...getUpstreamNodeValues(node.id, 'text', undefined, true),
+                ...getUpstreamNodeValues(node.id, 'all_data', undefined, true)
+            ].filter(v => typeof v === 'string') as string[];
+            return texts.join('\n\n');
         }
         return '';
     }, [isTextConnected, getUpstreamNodeValues, node.id, upstreamPromptsMap]);

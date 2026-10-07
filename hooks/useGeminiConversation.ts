@@ -3,7 +3,8 @@ import React, { useState, useCallback, useRef } from 'react';
 import type { Node, Tab } from '../types';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { getApiKey } from '../services/geminiService'; // Import the key getter
-import { getModelForMode } from '../services/modelConfig';
+import { getModelForMode, isOpenAiTextModel } from '../services/modelConfig';
+import { callOpenAiChatCompletion } from '../services/openaiService';
 
 interface UseGeminiConversationProps {
     nodes: Node[];
@@ -168,6 +169,56 @@ export const useGeminiConversation = ({ nodes, setNodes, setError, t, getUpstrea
         }));
     
         try {
+            if (isOpenAiTextModel(resolvedModel)) {
+                const systemInstruction = PERSONAS[style] || PERSONAS['general'];
+                
+                // Convert message history to OpenAI Chat format
+                const openAiMessages: any[] = [];
+                for (const msg of newMessages) {
+                    if (msg.role === 'user') {
+                        if (msg.images && msg.images.length > 0) {
+                            const parts: any[] = [{ type: 'text', text: msg.content || '' }];
+                            for (const img of msg.images) {
+                                if (img) {
+                                    parts.push({
+                                        type: 'image_url',
+                                        image_url: { url: img }
+                                    });
+                                }
+                            }
+                            openAiMessages.push({ role: 'user', content: parts });
+                        } else {
+                            openAiMessages.push({ role: 'user', content: msg.content || '' });
+                        }
+                    } else if (msg.role === 'model') {
+                        openAiMessages.push({ role: 'assistant', content: msg.content || '' });
+                    }
+                }
+
+                const modelResponse = await callOpenAiChatCompletion({
+                    model: resolvedModel,
+                    systemInstruction,
+                    messages: openAiMessages
+                });
+
+                const promptMatch = modelResponse.match(/```prompt\n([\s\S]*?)\n```/);
+                const extractedPrompt = promptMatch ? promptMatch[1].trim() : '';
+
+                const finalMessages = [...newMessages, { 
+                    role: 'model', 
+                    content: modelResponse 
+                }];
+
+                updateNodeInStorage(currentTabId, nodeId, (prev) => ({ 
+                    ...prev, 
+                    messages: finalMessages, 
+                    currentInput: '', 
+                    attachments: [], 
+                    lastPrompt: extractedPrompt || prev.lastPrompt 
+                }));
+                return;
+            }
+
             // Check if session exists AND if the style/model matches
             const existingSession = chatSessions.current.get(nodeId);
             

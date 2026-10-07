@@ -3,6 +3,7 @@
 
 
 import { Node, NodeType, Connection, Point } from '../types';
+import { DEFAULT_MULTIVIEW_PROMPT } from '../services/gemini/constants';
 
 export const HEADER_HEIGHT = 40;
 export const CONTENT_PADDING = 12;
@@ -92,13 +93,27 @@ export const calculateGroupBounds = (nodesInGroup: Node[]) => {
     };
 };
 
+export const isPromptProcessorMultiview = (node: Node): boolean => {
+    if (node.type !== NodeType.PROMPT_PROCESSOR) return false;
+    try {
+        const parsed = JSON.parse(node.value || '{}');
+        return parsed.activeTab === 'multiview' || parsed.mode === 'multiview';
+    } catch {
+        return false;
+    }
+};
+
 export const getOutputHandleType = (node: Node, handleId?: string): 'text' | 'image' | 'character_data' | 'video' | 'audio' | null => {
     switch (node.type) {
         case NodeType.TEXT_INPUT: return 'text';
         case NodeType.IMAGE_INPUT:
             if (handleId === 'text') return 'text';
             return 'image';
-        case NodeType.PROMPT_PROCESSOR: return 'text';
+        case NodeType.PROMPT_PROCESSOR:
+            if (handleId === 'image') {
+                return isPromptProcessorMultiview(node) ? 'image' : null;
+            }
+            return 'text';
         case NodeType.PROMPT_SANITIZER: return 'text';
         case NodeType.VIDEO_PROMPT_PROCESSOR: return 'text';
         case NodeType.TRANSLATOR: return 'text';
@@ -124,9 +139,9 @@ export const getOutputHandleType = (node: Node, handleId?: string): 'text' | 'im
             if (handleId === 'all-image-prompts' || handleId === 'all-video-prompts' || handleId === 'full-json') return 'text';
             return 'text';
         case NodeType.PROMPT_SEQUENCE_EDITOR:
-             if (handleId === 'all_data') return 'text';
-             // Removed 'prompt_data' output
-             return null;
+             if (handleId === 'image' || handleId === 'all_images') return 'image';
+             if (handleId === 'text' || handleId === 'all_prompts' || handleId === 'all_data') return 'text';
+             return 'text';
         case NodeType.IMAGE_SEQUENCE_GENERATOR:
             if (handleId === 'all_images') return 'image';
             return null;
@@ -178,7 +193,11 @@ export const getInputHandleType = (node: Node, handleId?: string): 'text' | 'ima
         case NodeType.IMAGE_INPUT:
             if (handleId === 'text') return 'text';
             return 'image';
-        case NodeType.PROMPT_PROCESSOR: return 'text';
+        case NodeType.PROMPT_PROCESSOR:
+            if (handleId === 'image') {
+                return isPromptProcessorMultiview(node) ? 'image' : null;
+            }
+            return 'text';
         case NodeType.PROMPT_SANITIZER: return 'text';
         case NodeType.VIDEO_PROMPT_PROCESSOR: return 'text';
         case NodeType.TRANSLATOR: return 'text';
@@ -188,6 +207,7 @@ export const getInputHandleType = (node: Node, handleId?: string): 'text' | 'ima
         case NodeType.IMAGE_ANALYZER: return 'image';
         case NodeType.IMAGE_EDITOR: 
             if (handleId === 'image_b') return 'image';
+            if (handleId === 'all_data' || handleId === 'all_prompt_data') return 'text';
             return handleId as 'text' | 'image';
         case NodeType.IMAGE_OUTPUT: return 'text';
         case NodeType.VIDEO_OUTPUT: return 'text';
@@ -198,9 +218,9 @@ export const getInputHandleType = (node: Node, handleId?: string): 'text' | 'ima
         case NodeType.SCRIPT_GENERATOR: return 'text';
         case NodeType.SCRIPT_VIEWER: return null;
         case NodeType.PROMPT_SEQUENCE_EDITOR: 
-            // Changed from reference_data to prompts_sequence and ensure it returns text
+            if (handleId === 'image') return 'image';
             if (handleId === 'prompts_sequence') return 'text';
-            return null;
+            return 'text';
         case NodeType.DATA_READER: return null;
         case NodeType.REROUTE_DOT: return null;
         case NodeType.VIDEO_EDITOR: 
@@ -304,7 +324,7 @@ export const getEmptyValueForNodeType = (node: Node): string => {
         case NodeType.VIDEO_OUTPUT:
             return '';
         case NodeType.NOTE: return JSON.stringify({ text: '', references: [], activeTab: 'note' });
-        case NodeType.PROMPT_PROCESSOR: return JSON.stringify({ inputPrompt: '', prompt: '', safePrompt: true });
+        case NodeType.PROMPT_PROCESSOR: return JSON.stringify({ activeTab: 'standard', inputPrompt: '', prompt: '', safePrompt: true, technicalPrompt: false, model: 'flash', multiviewPrompt: DEFAULT_MULTIVIEW_PROMPT, multiviewOutput: '', multiviewInputImage: null, multiviewModel: 'flash' });
         case NodeType.VIDEO_PROMPT_PROCESSOR: return JSON.stringify({ inputPrompt: '', prompt: '' });
         case NodeType.IMAGE_INPUT: return JSON.stringify({ image: null, prompt: '' });
         case NodeType.PROMPT_ANALYZER: return JSON.stringify({ environment: '', characters: [], action: '', emotion: '', style: '', softPrompt: false });
@@ -352,7 +372,7 @@ export const getDuplicatedValueForNodeType = (node: Node): string => {
                     totalDuration: parsedOriginal.totalDuration || 30,
                     mediaFiles: parsedOriginal.mediaFiles || []
                 });
-             case NodeType.PROMPT_PROCESSOR: return JSON.stringify({ inputPrompt: parsedOriginal.inputPrompt || '', prompt: '', safePrompt: parsedOriginal.safePrompt !== undefined ? parsedOriginal.safePrompt : true });
+             case NodeType.PROMPT_PROCESSOR: return JSON.stringify({ ...parsedOriginal, prompt: '', multiviewOutput: '' });
              case NodeType.VIDEO_PROMPT_PROCESSOR: return JSON.stringify({ inputPrompt: parsedOriginal.inputPrompt || '', prompt: '' });
              case NodeType.TRANSLATOR: return JSON.stringify({ ...parsedEmpty, targetLanguage: parsedOriginal.targetLanguage || 'ru' });
              case NodeType.IMAGE_EDITOR: return JSON.stringify({ ...parsedEmpty, aspectRatio: parsedOriginal.aspectRatio || '1:1', enableAspectRatio: parsedOriginal.enableAspectRatio !== undefined ? parsedOriginal.enableAspectRatio : false, enableOutpainting: parsedOriginal.enableOutpainting !== undefined ? parsedOriginal.enableOutpainting : false, outpaintingPrompt: parsedOriginal.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.', model: parsedOriginal.model || 'gemini-3-pro-image-preview', autoInsertResults: parsedOriginal.autoInsertResults ?? parsedOriginal.autoDownload ?? true, autoSaveImages: parsedOriginal.autoSaveImages !== undefined ? parsedOriginal.autoSaveImages : true, autoCrop169: parsedOriginal.autoCrop169 !== undefined ? parsedOriginal.autoCrop169 : false, leftPaneWidth: parsedOriginal.leftPaneWidth || 400, topPaneHeight: parsedOriginal.topPaneHeight || 330 });
@@ -416,7 +436,7 @@ export const getMinNodeSize = (nodeType: NodeType): { minWidth: number, minHeigh
         case NodeType.VIDEO_EDITOR: return { minWidth: 920, minHeight: 640 };
         case NodeType.TEXT_INPUT: return { minWidth: 460, minHeight: 300 };
         case NodeType.IMAGE_INPUT: return { minWidth: 600, minHeight: 940 };
-        case NodeType.PROMPT_PROCESSOR: return { minWidth: 460, minHeight: 410 };
+        case NodeType.PROMPT_PROCESSOR: return { minWidth: 540, minHeight: 480 };
         case NodeType.PROMPT_SANITIZER: return { minWidth: 460, minHeight: 280 };
         case NodeType.VIDEO_PROMPT_PROCESSOR: return { minWidth: 460, minHeight: 410 };
         case NodeType.IMAGE_OUTPUT: return { minWidth: 520, minHeight: 700 };
@@ -472,6 +492,7 @@ export const getProxyHandles = (node: Node, isInput: boolean): ProxyHandleDefini
                 handles.push({ handleId: 'image_b', type: 'image', title: 'Image B' });
             }
             handles.push({ handleId: 'text', type: 'text', title: 'Text' });
+            handles.push({ handleId: 'all_data', type: 'text', title: 'All Data' });
             return handles;
         } else if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {
             return [
@@ -479,9 +500,23 @@ export const getProxyHandles = (node: Node, isInput: boolean): ProxyHandleDefini
                 { handleId: 'prompt_input', type: 'text', title: 'Text' }
             ];
         } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
-            return [{ handleId: 'prompts_sequence', type: 'text', title: 'Prompts Sequence Input' }];
+            return [
+                { handleId: 'image', type: 'image', title: 'Batch Images' },
+                { handleId: 'prompts_sequence', type: 'text', title: 'Prompts Sequence' }
+            ];
         } else if (node.type === NodeType.NOTE) {
             return [{ handleId: 'prompt_data', type: 'text', title: 'Prompt Input' }];
+        } else if (node.type === NodeType.PROMPT_PROCESSOR) {
+            const isMultiview = isPromptProcessorMultiview(node);
+            if (isMultiview) {
+                return [
+                    { handleId: 'image', type: 'image', title: 'Image' },
+                    { handleId: 'text', type: 'text', title: 'Text' }
+                ];
+            }
+            return [
+                { handleId: 'text', type: 'text', title: 'Text' }
+            ];
         } else if (node.type === NodeType.VIDEO_EDITOR) {
             return [
                 { handleId: 'video', type: 'video', title: 'Video' },
@@ -527,7 +562,22 @@ export const getProxyHandles = (node: Node, isInput: boolean): ProxyHandleDefini
                 { handleId: 'all_captions', type: 'text', title: 'Captions' }
             ];
         } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
-            return [{ handleId: 'all_data', type: 'text', title: 'All Data' }];
+            return [
+                { handleId: 'image', type: 'image', title: 'All Images' },
+                { handleId: 'text', type: 'text', title: 'All Prompts' },
+                { handleId: 'all_data', type: 'text', title: 'All Data' }
+            ];
+        } else if (node.type === NodeType.PROMPT_PROCESSOR) {
+            const isMultiview = isPromptProcessorMultiview(node);
+            if (isMultiview) {
+                return [
+                    { handleId: 'image', type: 'image', title: 'Image' },
+                    { handleId: 'text', type: 'text', title: 'Prompt' }
+                ];
+            }
+            return [
+                { handleId: 'text', type: 'text', title: 'Prompt' }
+            ];
         } else if (node.type === NodeType.CHARACTER_CARD) {
             return [{ handleId: 'all_data', type: 'character_data', title: 'All Data' }];
         } else if (node.type === NodeType.SCRIPT_GENERATOR) {
@@ -634,6 +684,19 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                 } else {
                     y = COLLAPSED_NODE_HEIGHT / 2;
                 }
+            } else if (node.type === NodeType.PROMPT_PROCESSOR) {
+                const isMultiview = isPromptProcessorMultiview(node);
+                if (isMultiview) {
+                    const ids = ['image', 'text'];
+                    const handleIndex = ids.indexOf(handleId || 'text');
+                    if (handleIndex !== -1) {
+                        y = (handleIndex + 1) * (COLLAPSED_NODE_HEIGHT / (ids.length + 1));
+                    } else {
+                        y = COLLAPSED_NODE_HEIGHT / 2;
+                    }
+                } else {
+                    y = COLLAPSED_NODE_HEIGHT / 2;
+                }
             } else if (node.type === NodeType.NOTE && isInput) {
                 y = COLLAPSED_NODE_HEIGHT / 2;
             } else {
@@ -671,7 +734,13 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                     const textTop = topY + topPaneHeight + resizerHeight;
                     // Remaining height
                     const textH = h - textTop - CONTENT_PADDING;
-                    y = textTop + (textH / 2);
+                    y = textTop + (textH * 0.35);
+                }
+                else if (handleId === 'all_data' || handleId === 'all_prompt_data') {
+                    const resizerHeight = 16;
+                    const textTop = topY + topPaneHeight + resizerHeight;
+                    const textH = h - textTop - CONTENT_PADDING;
+                    y = textTop + (textH * 0.75);
                 }
             } else if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR && isInput) {
                 let conceptsMode = 'normal';
@@ -806,6 +875,33 @@ export const getConnectionPoints = (fromNode: Node, toNode: Node, connection: Co
                     y = h * 0.75;
                 } else {
                     y = h * 0.5;
+                }
+            } else if (node.type === NodeType.PROMPT_PROCESSOR) {
+                const isMultiview = isPromptProcessorMultiview(node);
+                if (isMultiview) {
+                    if (handleId === 'image') {
+                        y = h * 0.28;
+                    } else {
+                        y = h * 0.75;
+                    }
+                } else {
+                    y = h / 2;
+                }
+            } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR && isInput) {
+                if (handleId === 'image') {
+                    y = h * 0.35;
+                } else {
+                    y = h * 0.75;
+                }
+            } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR && !isInput) {
+                if (handleId === 'image' || handleId === 'all_images') {
+                    y = h * 0.30;
+                } else if (handleId === 'text' || handleId === 'all_prompts') {
+                    y = h * 0.60;
+                } else if (handleId === 'all_data' || handleId === 'all_prompt_data') {
+                    y = h * 0.85;
+                } else {
+                    y = h * 0.60;
                 }
             }
         }

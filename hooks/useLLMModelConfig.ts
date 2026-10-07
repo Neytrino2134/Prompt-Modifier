@@ -57,8 +57,8 @@ export const useLLMModelConfig = (): LLMModelConfigState => {
     const [imageModel, setImageModel] = useState<string>(getConfiguredImageModel);
     const [imageEditorModel, setImageEditorModel] = useState<string>(getConfiguredImageEditorModel);
 
-    const [availableFlash, setAvailableFlash] = useState<ModelOption[]>(getAvailableFlashModels);
-    const [availablePro, setAvailablePro] = useState<ModelOption[]>(getAvailableProModels);
+    const [availableFlash, setAvailableFlash] = useState<ModelOption[]>(() => getAvailableFlashModels(isOpenAiEnabled()));
+    const [availablePro, setAvailablePro] = useState<ModelOption[]>(() => getAvailableProModels(isOpenAiEnabled()));
     const [availableTranscribe, setAvailableTranscribe] = useState<ModelOption[]>(getAvailableTranscribeModels);
     const [availableVideo, setAvailableVideo] = useState<VideoModelOption[]>(getAvailableVideoModels);
     const [availableImage, setAvailableImage] = useState<ImageModelOption[]>(() => getImageModelOptions(isOpenAiEnabled()));
@@ -73,8 +73,8 @@ export const useLLMModelConfig = (): LLMModelConfigState => {
             setImageModel(getConfiguredImageModel());
             setImageEditorModel(getConfiguredImageEditorModel());
 
-            setAvailableFlash(getAvailableFlashModels());
-            setAvailablePro(getAvailableProModels());
+            setAvailableFlash(getAvailableFlashModels(isOpenAiEnabled()));
+            setAvailablePro(getAvailableProModels(isOpenAiEnabled()));
             setAvailableTranscribe(getAvailableTranscribeModels());
             setAvailableVideo(getAvailableVideoModels());
             setAvailableImage(getImageModelOptions(isOpenAiEnabled()));

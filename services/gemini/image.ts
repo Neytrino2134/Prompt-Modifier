@@ -2,7 +2,13 @@ import { Modality } from "@google/genai";
 import { convertToPNG } from '../../utils/imageUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { getModelForMode } from '../modelConfig';
-import { generateOpenAiImage } from '../openaiService';
+import { 
+    generateOpenAiImage, 
+    isOpenAiTextModel, 
+    openAiDescribeImage, 
+    openAiGeneratePromptFromImage, 
+    openAiExtractTextFromImage 
+} from '../openaiService';
 import { createAIClient, callWithRetry } from './client';
 
 export const generateImage = async (
@@ -159,6 +165,11 @@ export const generateImage = async (
 };
 
 export const describeImage = async (base64ImageData: string, mimeType: string, softPrompt: boolean | undefined): Promise<string> => {
+    const flashModel = getModelForMode('flash');
+    if (isOpenAiTextModel(flashModel)) {
+        return openAiDescribeImage(base64ImageData, mimeType, softPrompt, flashModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const softInstruction = softPrompt ? `Important: Use neutral, safe terms.` : '';
@@ -166,7 +177,7 @@ export const describeImage = async (base64ImageData: string, mimeType: string, s
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: flashModel,
                 contents: { parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] },
             });
             return response.text || "";
@@ -178,6 +189,11 @@ export const describeImage = async (base64ImageData: string, mimeType: string, s
 };
 
 export const generatePromptFromImage = async (base64ImageData: string, mimeType: string): Promise<string> => {
+    const flashModel = getModelForMode('flash');
+    if (isOpenAiTextModel(flashModel)) {
+        return openAiGeneratePromptFromImage(base64ImageData, mimeType, flashModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const prompt = `Analyze the visual appearance of the character in this image to create a text-to-image prompt.
@@ -195,7 +211,7 @@ export const generatePromptFromImage = async (base64ImageData: string, mimeType:
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: flashModel,
                 contents: { parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] },
             });
             return response.text || "";
@@ -207,13 +223,18 @@ export const generatePromptFromImage = async (base64ImageData: string, mimeType:
 };
 
 export const extractTextFromImage = async (base64ImageData: string, mimeType: string): Promise<string> => {
+    const flashModel = getModelForMode('flash');
+    if (isOpenAiTextModel(flashModel)) {
+        return openAiExtractTextFromImage(base64ImageData, mimeType, flashModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const prompt = `Extract all text from this image. Return only the text found, without any description. If no text is found, say "No text found".`;
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: flashModel,
                 contents: { parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] },
             });
             return response.text || "";

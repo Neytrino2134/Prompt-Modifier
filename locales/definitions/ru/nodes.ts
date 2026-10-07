@@ -338,6 +338,8 @@ export const nodes = {
     'image_sequence.shot_type.LS': "Интегрируйте Сущность с дальним планом (LS) в сцену, чтобы показать масштаб.",
 
     'node.content.technicalPrompt': 'Технический промпт',
+    'node.promptProcessor.tabStandard': 'Улучшение промпта',
+    'node.promptProcessor.tabMultiview': 'Генератор Мультивью',
     'node.promptProcessor.safePromptTooltip': 'Переписывает промпт для соблюдения правил безопасности.',
     'node.promptProcessor.technicalPromptTooltip': 'Преобразует промпт в детальное техническое описание (свет, камера, рендер).',
     'node.promptProcessor.enhanceTooltip': 'Использует ИИ для улучшения и обогащения промпта деталями.',

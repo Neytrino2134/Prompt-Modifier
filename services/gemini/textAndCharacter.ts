@@ -1,8 +1,32 @@
 import { Type } from "@google/genai";
 import { getModelForMode } from '../modelConfig';
 import { createAIClient, callWithRetry } from './client';
+import {
+    isOpenAiTextModel,
+    openAiEnhancePrompt,
+    openAiSanitizePrompt,
+    openAiEnhanceVideoPrompt,
+    openAiAnalyzePrompt,
+    openAiAnalyzeCharacter,
+    openAiUpdateCharacterDescription,
+    openAiUpdateCharacterSection,
+    openAiUpdateCharacterPersonality,
+    openAiModifyCharacter,
+    openAiTranslateText,
+    openAiGenerateScript,
+    openAiGenerateCharacters,
+    openAiTranslateScript,
+    openAiModifyPromptSequence,
+    openAiGenerateMultiviewPrompt
+} from '../openaiService';
+import { DEFAULT_MULTIVIEW_PROMPT } from './constants';
 
 export const enhancePrompt = async (texts: string[], safePrompt: boolean, technicalPrompt: boolean, model: string = 'flash'): Promise<string> => {
+    const targetModel = getModelForMode(model);
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiEnhancePrompt(texts, safePrompt, technicalPrompt, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const validTexts = texts.filter(text => text && text.trim() !== '');
@@ -49,7 +73,7 @@ export const enhancePrompt = async (texts: string[], safePrompt: boolean, techni
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode(model),
+                model: targetModel,
                 contents: prompt,
                 config: { systemInstruction }
             });
@@ -62,6 +86,11 @@ export const enhancePrompt = async (texts: string[], safePrompt: boolean, techni
 };
 
 export const sanitizePrompt = async (promptToSanitize: string): Promise<string> => {
+    const targetModel = getModelForMode('flash');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiSanitizePrompt(promptToSanitize, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         if (!promptToSanitize || promptToSanitize.trim() === '') return "";
@@ -70,7 +99,7 @@ export const sanitizePrompt = async (promptToSanitize: string): Promise<string> 
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: targetModel,
                 contents: `Sanitize: "${promptToSanitize}"`,
                 config: { systemInstruction },
             });
@@ -83,6 +112,11 @@ export const sanitizePrompt = async (promptToSanitize: string): Promise<string> 
 };
 
 export const enhanceVideoPrompt = async (texts: string[]): Promise<string> => {
+    const targetModel = getModelForMode('flash');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiEnhanceVideoPrompt(texts, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const validTexts = texts.filter(text => text && text.trim() !== '');
@@ -99,7 +133,7 @@ export const enhanceVideoPrompt = async (texts: string[]): Promise<string> => {
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: targetModel,
                 contents: prompt,
             });
             return response.text || "";
@@ -111,6 +145,11 @@ export const enhanceVideoPrompt = async (texts: string[]): Promise<string> => {
 };
 
 export const analyzePrompt = async (text: string, softPrompt: boolean | undefined): Promise<{ environment: string; characters: string[]; action: string; emotion: string; style: string; }> => {
+    const targetModel = getModelForMode('pro');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiAnalyzePrompt(text, softPrompt, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         if (!text || text.trim() === '') {
@@ -199,6 +238,11 @@ export const analyzePrompt = async (text: string, softPrompt: boolean | undefine
 };
 
 export const analyzeCharacter = async (text: string): Promise<{ character: string; clothing: string; }> => {
+    const targetModel = getModelForMode('flash');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiAnalyzeCharacter(text, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         if (!text || text.trim() === '') throw new Error("Input cannot be empty.");
@@ -222,7 +266,7 @@ export const analyzeCharacter = async (text: string): Promise<{ character: strin
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: targetModel,
                 contents: prompt,
                 config: { responseMimeType: "application/json", responseSchema: schema },
             });
@@ -235,6 +279,11 @@ export const analyzeCharacter = async (text: string): Promise<{ character: strin
 };
 
 export const updateCharacterDescription = async (imagePrompt: string, currentFullDescription: string, targetLanguageName: string): Promise<string> => {
+    const targetModel = getModelForMode('flash');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiUpdateCharacterDescription(imagePrompt, currentFullDescription, targetLanguageName, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         if (!imagePrompt || !imagePrompt.trim()) throw new Error("Image prompt is required.");
@@ -271,7 +320,7 @@ export const updateCharacterDescription = async (imagePrompt: string, currentFul
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: targetModel,
                 contents,
                 config: { systemInstruction },
             });
@@ -284,6 +333,11 @@ export const updateCharacterDescription = async (imagePrompt: string, currentFul
 };
 
 export const updateCharacterSection = async (sectionName: string, imagePrompt: string, currentText: string, targetLanguageName: string): Promise<string> => {
+    const targetModel = getModelForMode('flash');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiUpdateCharacterSection(sectionName, imagePrompt, currentText, targetLanguageName, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
 
@@ -309,7 +363,7 @@ export const updateCharacterSection = async (sectionName: string, imagePrompt: s
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: targetModel,
                 contents,
                 config: { systemInstruction },
             });
@@ -322,6 +376,11 @@ export const updateCharacterSection = async (sectionName: string, imagePrompt: s
 };
 
 export const updateCharacterPersonality = async (currentPersonality: string, targetLanguageName: string): Promise<string> => {
+    const targetModel = getModelForMode('flash');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiUpdateCharacterPersonality(currentPersonality, targetLanguageName, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
 
@@ -342,7 +401,7 @@ export const updateCharacterPersonality = async (currentPersonality: string, tar
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: targetModel,
                 contents,
                 config: { systemInstruction },
             });
@@ -355,6 +414,11 @@ export const updateCharacterPersonality = async (currentPersonality: string, tar
 };
 
 export const modifyCharacter = async (instruction: string, currentPrompt: string, currentDescription: string, targetLanguageName: string): Promise<{ newPrompt: string, newDescription: string }> => {
+    const targetModel = getModelForMode('pro');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiModifyCharacter(instruction, currentPrompt, currentDescription, targetLanguageName, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
 
@@ -385,7 +449,7 @@ export const modifyCharacter = async (instruction: string, currentPrompt: string
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('pro'),
+                model: targetModel,
                 contents,
                 config: { systemInstruction, responseMimeType: "application/json", responseSchema: schema },
             });
@@ -398,13 +462,18 @@ export const modifyCharacter = async (instruction: string, currentPrompt: string
 };
 
 export const translateText = async (text: string, targetLanguageName: string, model: string = 'flash'): Promise<string> => {
+    const targetModel = getModelForMode(model);
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiTranslateText(text, targetLanguageName, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         if (!text || text.trim() === '') throw new Error("Input empty.");
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode(model),
+                model: targetModel,
                 contents: text,
                 config: { systemInstruction: `Translate to ${targetLanguageName}. Return only translated text.` },
             });
@@ -417,6 +486,11 @@ export const translateText = async (text: string, targetLanguageName: string, mo
 };
 
 export const generateScript = async (prompt: string, targetLanguageName: string): Promise<any> => {
+    const targetModel = getModelForMode('pro');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiGenerateScript(prompt, targetLanguageName, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const schema = {
@@ -437,7 +511,7 @@ export const generateScript = async (prompt: string, targetLanguageName: string)
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('pro'),
+                model: targetModel,
                 contents: prompt,
                 config: {
                     systemInstruction: `Generate a script structure in ${targetLanguageName}. Use markdown in fullDescription.`,
@@ -454,6 +528,11 @@ export const generateScript = async (prompt: string, targetLanguageName: string)
 };
 
 export const generateCharacters = async (prompt: string): Promise<any[]> => {
+    const targetModel = getModelForMode('flash');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiGenerateCharacters(prompt, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const schema = {
@@ -472,7 +551,7 @@ export const generateCharacters = async (prompt: string): Promise<any[]> => {
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('flash'),
+                model: targetModel,
                 contents: prompt,
                 config: {
                     systemInstruction: "Generate detailed characters. Use markdown headings in fullDescription. Ensure 'index' is provided (e.g. 'Entity-1', 'Entity-2').",
@@ -489,13 +568,18 @@ export const generateCharacters = async (prompt: string): Promise<any[]> => {
 };
 
 export const translateScript = async (script: any, targetLanguageName: string): Promise<any> => {
+    const targetModel = getModelForMode('pro');
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiTranslateScript(script, targetLanguageName, targetModel);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const systemInstruction = `Translate user-facing fields to ${targetLanguageName}. Preserve structure and markdown.`;
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode('pro'),
+                model: targetModel,
                 contents: `Translate:\n${JSON.stringify(script)}`,
                 config: { systemInstruction, responseMimeType: "application/json" }
             });
@@ -514,6 +598,11 @@ export const modifyPromptSequence = async (
     includeVideoPrompts: boolean = false,
     sceneContexts: Record<string, string> = {}
 ): Promise<{ modifiedFrames: any[], modifiedSceneContexts: { sceneNumber: number, context: string }[] }> => {
+    const targetModel = getModelForMode(modelName);
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiModifyPromptSequence(prompts, instruction, targetLanguage, targetModel, includeVideoPrompts, sceneContexts);
+    }
+
     return callWithRetry(async () => {
         const ai = createAIClient();
         const schema = {
@@ -580,7 +669,7 @@ export const modifyPromptSequence = async (
 
         try {
             const response = await ai.models.generateContent({
-                model: getModelForMode(modelName),
+                model: targetModel,
                 contents: `Instruction: ${instruction}\n${contextInstruction}\nData: ${JSON.stringify(prompts)}`,
                 config: {
                     systemInstruction: `Modify prompts based on instruction. Return a structured object with modified frames and modified scene contexts. ${languageInstruction} ${videoInstruction} For every frame, you MUST either preserve or generate a logical 'shotType' value (e.g., WS, MS, CU, etc.) representing the camera angle. Also, always ensure to return the correct 'sceneNumber' for each frame corresponding to the source.`,
@@ -597,6 +686,44 @@ export const modifyPromptSequence = async (
 
         } catch (error: any) {
             console.error("Error modifying sequence:", error);
+            throw error;
+        }
+    });
+};
+
+export const generateMultiviewTurnaroundPrompt = async (
+    image: { base64ImageData: string; mimeType: string } | null,
+    prompt: string,
+    model: string = 'flash'
+): Promise<string> => {
+    const targetModel = getModelForMode(model);
+    if (isOpenAiTextModel(targetModel)) {
+        return openAiGenerateMultiviewPrompt(image, prompt || DEFAULT_MULTIVIEW_PROMPT, targetModel);
+    }
+
+    return callWithRetry(async () => {
+        const ai = createAIClient();
+        const parts: any[] = [];
+        if (image && image.base64ImageData) {
+            parts.push({
+                inlineData: {
+                    data: image.base64ImageData,
+                    mimeType: image.mimeType || 'image/png'
+                }
+            });
+        }
+        parts.push({
+            text: prompt && prompt.trim() ? prompt : DEFAULT_MULTIVIEW_PROMPT
+        });
+
+        try {
+            const response = await ai.models.generateContent({
+                model: targetModel,
+                contents: { parts }
+            });
+            return response.text || "";
+        } catch (error: any) {
+            console.error("Error generating multiview turnaround prompt:", error);
             throw error;
         }
     });

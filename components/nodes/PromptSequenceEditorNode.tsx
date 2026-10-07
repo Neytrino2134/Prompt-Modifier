@@ -9,12 +9,29 @@ import { useAppContext } from '../../contexts/AppContext';
 import { PromptSequenceControls } from './prompt-sequence/PromptSequenceControls';
 import { SourcePromptList, SourcePromptListRef } from './prompt-sequence/SourcePromptList';
 import { ModifiedPromptList } from './prompt-sequence/ModifiedPromptList';
+import { MultiviewSequenceView } from './prompt-sequence/MultiviewSequenceView';
 import { CopyIcon } from '../icons/AppIcons'; // Added import
 
 const MIN_LEFT_PANE_WIDTH = 620;
 const MIN_RIGHT_PANE_WIDTH = 400;
 
-export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onModifyPromptSequence, isModifyingPromptSequence, t, onLoadPromptSequenceFile, onSaveSequenceToCatalog, onSaveScriptToDisk, setError, connectedInputs, getUpstreamNodeValues, addToast, viewTransform }) => {
+export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({
+    node,
+    onValueChange,
+    onModifyPromptSequence,
+    isModifyingPromptSequence,
+    t,
+    onLoadPromptSequenceFile,
+    onSaveSequenceToCatalog,
+    onSaveScriptToDisk,
+    setError,
+    connectedInputs,
+    getUpstreamNodeValues,
+    addToast,
+    viewTransform,
+    onSelectNode,
+    onSavePromptToLibrary
+}) => {
     const { setConnections } = useAppContext();
     const contentRef = useRef<HTMLDivElement>(null);
     const sourceListRef = useRef<SourcePromptListRef>(null);
@@ -25,14 +42,69 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
     
     const parsedValue = useMemo(() => {
         try {
-            return JSON.parse(node.value || '{}');
+            const parsed = JSON.parse(node.value || '{}');
+            return {
+                activeTab: (parsed.activeTab === 'multiview' || parsed.mode === 'multiview') ? 'multiview' : 'sequence',
+                instruction: parsed.instruction || '',
+                sourcePrompts: parsed.sourcePrompts || [],
+                modifiedPrompts: parsed.modifiedPrompts || [],
+                leftPaneWidth: parsed.leftPaneWidth || MIN_LEFT_PANE_WIDTH,
+                leftPaneRatio: parsed.leftPaneRatio || undefined,
+                checkedSourceFrameNumbers: parsed.checkedSourceFrameNumbers || [],
+                selectedFrameNumber: parsed.selectedFrameNumber || null,
+                styleOverride: parsed.styleOverride || '',
+                isStyleSelected: parsed.isStyleSelected || false,
+                isStyleCollapsed: parsed.isStyleCollapsed !== false,
+                isUsedCharsCollapsed: parsed.isUsedCharsCollapsed !== false,
+                usedCharacters: parsed.usedCharacters || [],
+                collapsedSourceScenes: parsed.collapsedSourceScenes || [],
+                collapsedModifiedScenes: parsed.collapsedModifiedScenes || [],
+                targetLanguage: parsed.targetLanguage || 'en',
+                modificationModel: parsed.modificationModel || 'gemini-3-flash-preview',
+                includeVideoPrompts: parsed.includeVideoPrompts || false,
+                sceneContexts: parsed.sceneContexts || {},
+                modifiedSceneContexts: parsed.modifiedSceneContexts || {},
+                expandedSceneContexts: parsed.expandedSceneContexts || [],
+                checkedContextScenes: parsed.checkedContextScenes || [],
+                // Multiview fields
+                multiviewPrompt: parsed.multiviewPrompt,
+                multiviewItems: parsed.multiviewItems || [],
+                multiviewModel: parsed.multiviewModel || 'flash'
+            };
         } catch {
-            return { instruction: '', sourcePrompts: [], modifiedPrompts: [], leftPaneWidth: MIN_LEFT_PANE_WIDTH, checkedSourceFrameNumbers: [], selectedFrameNumber: null, styleOverride: '', isStyleSelected: false, isStyleCollapsed: true, isUsedCharsCollapsed: true, usedCharacters: [], collapsedSourceScenes: [], collapsedModifiedScenes: [], targetLanguage: 'en', modificationModel: 'gemini-3-flash-preview', includeVideoPrompts: false, sceneContexts: {}, modifiedSceneContexts: {}, expandedSceneContexts: [], checkedContextScenes: [] };
+            return {
+                activeTab: 'sequence',
+                instruction: '',
+                sourcePrompts: [],
+                modifiedPrompts: [],
+                leftPaneWidth: MIN_LEFT_PANE_WIDTH,
+                leftPaneRatio: undefined,
+                checkedSourceFrameNumbers: [],
+                selectedFrameNumber: null,
+                styleOverride: '',
+                isStyleSelected: false,
+                isStyleCollapsed: true,
+                isUsedCharsCollapsed: true,
+                usedCharacters: [],
+                collapsedSourceScenes: [],
+                collapsedModifiedScenes: [],
+                targetLanguage: 'en',
+                modificationModel: 'gemini-3-flash-preview',
+                includeVideoPrompts: false,
+                sceneContexts: {},
+                modifiedSceneContexts: {},
+                expandedSceneContexts: [],
+                checkedContextScenes: [],
+                multiviewItems: [],
+                multiviewModel: 'flash'
+            };
         }
     }, [node.value]);
 
     const parsedValueRef = useRef(parsedValue);
     useEffect(() => { parsedValueRef.current = parsedValue; }, [parsedValue]);
+
+    const activeTab = parsedValue.activeTab;
 
     let initialWidth = parsedValue.leftPaneWidth;
     if (!initialWidth && parsedValue.leftPaneRatio) {
@@ -50,6 +122,10 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
         parsedValueRef.current = newValue;
         onValueChange(node.id, JSON.stringify(newValue));
     }, [node.id, onValueChange]);
+
+    const handleModeChange = (mode: 'sequence' | 'multiview') => {
+        handleValueUpdate({ activeTab: mode });
+    };
 
     // Auto-scroll to selected frame when it changes (e.g. from "Edit in Source")
     useEffect(() => {
@@ -298,6 +374,56 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
         handleValueUpdate({ checkedContextScenes: newChecked });
     };
 
+    if (activeTab === 'multiview') {
+        return (
+            <div 
+                ref={contentRef} 
+                className="relative h-full w-full flex flex-col space-y-2" 
+                onMouseDown={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
+            >
+                {/* Mode Switcher Bar */}
+                <div className="flex bg-gray-900/90 p-1 rounded-lg border border-gray-800 space-x-1 flex-shrink-0" onMouseDown={e => e.stopPropagation()}>
+                    <button
+                        onClick={() => handleModeChange('sequence')}
+                        className="flex-1 py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all duration-150 text-gray-400 hover:text-gray-200 hover:bg-gray-800/60"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                            <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                        </svg>
+                        <span>{t('prompt_sequence_editor.title') || 'Редактор сценария'}</span>
+                    </button>
+                    <button
+                        onClick={() => handleModeChange('multiview')}
+                        className="flex-1 py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all duration-150 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm shadow-purple-500/30"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                        </svg>
+                        <span>Multiview Prompt Generator</span>
+                    </button>
+                </div>
+
+                <div className="flex-1 min-h-0">
+                    <MultiviewSequenceView
+                        nodeId={node.id}
+                        parsedValue={parsedValue}
+                        onValueUpdate={handleValueUpdate}
+                        connectedInputs={connectedInputs}
+                        getUpstreamNodeValues={getUpstreamNodeValues}
+                        addToast={addToast}
+                        onSelectNode={onSelectNode}
+                        onSavePromptToLibrary={onSavePromptToLibrary}
+                        leftPaneWidth={leftPaneWidth}
+                        onResizeLeftPane={handleHorizontalResize}
+                        t={t}
+                    />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div 
             ref={contentRef} 
@@ -323,6 +449,8 @@ export const PromptSequenceEditorNode: React.FC<NodeContentProps> = ({ node, onV
                     checkedContextCount={checkedContextScenes.length} // Pass checked contexts count
                     totalPrompts={sourcePrompts.length}
                     instructionInputId={instructionInputId}
+                    activeTab={activeTab}
+                    onModeChange={handleModeChange}
                     t={t}
                 />
 

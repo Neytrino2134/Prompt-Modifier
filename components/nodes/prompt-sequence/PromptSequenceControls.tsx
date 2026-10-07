@@ -22,6 +22,8 @@ interface PromptSequenceControlsProps {
     checkedContextCount?: number; // Added
     totalPrompts: number;
     instructionInputId?: string;
+    activeTab?: string;
+    onModeChange?: (mode: 'sequence' | 'multiview') => void;
     t: (key: string, options?: any) => string;
 }
 
@@ -40,9 +42,11 @@ export const PromptSequenceControls: React.FC<PromptSequenceControlsProps> = ({
     checkedContextCount = 0,
     totalPrompts,
     instructionInputId,
+    activeTab = 'sequence',
+    onModeChange,
     t
 }) => {
-    const { secondaryLanguage } = useLanguage();
+    const { language, secondaryLanguage } = useLanguage();
     const { flashModel, proModel, flashLabel, proLabel } = useLLMModelConfig();
 
     const isFlash = modificationModel === 'flash' || modificationModel.includes('flash') || (!modificationModel.includes('pro') && modificationModel !== 'pro');
@@ -126,6 +130,39 @@ export const PromptSequenceControls: React.FC<PromptSequenceControlsProps> = ({
                         </button>
                     </Tooltip>
                 </div>
+
+                {/* Mode Switcher Tabs under Language & Model selection */}
+                {onModeChange && (
+                    <div className="flex bg-gray-900/90 p-1 rounded-lg border border-gray-800 space-x-1 flex-shrink-0" onMouseDown={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => onModeChange('sequence')}
+                            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all duration-150 ${
+                                activeTab !== 'multiview'
+                                    ? 'bg-blue-600/90 text-white shadow-sm shadow-blue-500/30'
+                                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                            }`}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                            </svg>
+                            <span>{language === 'ru' ? 'Редактор сценария' : 'Script Sequence Modifier'}</span>
+                        </button>
+                        <button
+                            onClick={() => onModeChange('multiview')}
+                            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all duration-150 ${
+                                activeTab === 'multiview'
+                                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm shadow-purple-500/30'
+                                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                            }`}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                            </svg>
+                            <span>Multiview Prompt Generator</span>
+                        </button>
+                    </div>
+                )}
             </div>
          </div>
     );

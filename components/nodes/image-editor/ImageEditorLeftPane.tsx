@@ -259,7 +259,7 @@ export const ImageEditorLeftPane = forwardRef<SequencedPromptListRef, ImageEdito
                 <div className="flex-grow flex flex-col min-h-0 mt-2 space-y-2 relative">
                     <div className="relative flex-grow min-h-0 flex flex-col overflow-hidden">
                          {/* Show clear prompt button only in normal mode */}
-                         {!isSequentialPromptMode && !isSequentialEditingWithPrompts && (
+                         {!isSequentialPromptMode && !isSequentialCombinationMode && !isSequentialEditingWithPrompts && !(isSequenceMode && !!upstreamPromptsMap && upstreamPromptsMap.size > 0) && (
                             <div className="flex-shrink-0 flex items-center space-x-1 mb-1">
                                 <div className="flex-grow min-w-0">
                                     <PromptLibraryToolbar libraryItems={libraryItems} onPromptInsert={(text) => onUpdateState({ prompt: prompt ? `${prompt.trim()}, ${text}` : text })} />
@@ -273,7 +273,7 @@ export const ImageEditorLeftPane = forwardRef<SequencedPromptListRef, ImageEdito
                         )}
 
                         <div className="flex-grow min-h-0 mt-1 relative">
-                            {(isSequentialPromptMode && isSequenceMode) || isSequentialEditingWithPrompts ? (
+                            {(isSequentialPromptMode && isSequenceMode) || (isSequentialCombinationMode && isSequenceMode) || isSequentialEditingWithPrompts || (isSequenceMode && !!upstreamPromptsMap && upstreamPromptsMap.size > 0) ? (
                                 <SequencedPromptList 
                                     ref={ref}
                                     totalFrames={isSequentialEditingWithPrompts ? seqTotalFrames : imageSlots.length}

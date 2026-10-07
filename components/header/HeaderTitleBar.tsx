@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PromptModifierIcon, ClearCacheIcon, SettingsIcon, FullScreenIcon, ExitFullScreenIcon, ReloadIcon } from '../icons/AppIcons';
+import { Bell, BellOff, Volume2, VolumeX } from 'lucide-react';
 import { Tooltip } from '../Tooltip';
 import LanguageSelector from '../LanguageSelector';
 import HelpPanel from '../HelpPanel';
@@ -9,6 +10,19 @@ import { CursorSkinDropdownMenu } from './CursorSkinDropdownMenu';
 import { APP_VERSION } from '../../version';
 import { Theme, PanelAnimation, CursorSkin } from '../../types';
 import { QueueStats, BatchStats } from './types';
+import { 
+    getTrayNotificationSettings, 
+    saveTrayNotificationSettings, 
+    clearAllTrayNotifications,
+    TRAY_SETTINGS_CHANGED_EVENT, 
+    TrayNotificationSettings 
+} from '../../services/trayNotificationService';
+import { 
+    getSoundSettings, 
+    saveSoundSettings, 
+    SOUND_CONFIG_CHANGED_EVENT, 
+    SoundNotificationSettings 
+} from '../../services/soundNotificationService';
 
 interface HeaderTitleBarProps {
     hasAnyActiveWork: boolean;
@@ -95,6 +109,54 @@ export const HeaderTitleBar: React.FC<HeaderTitleBarProps> = ({
     handleTitleBarDoubleClick,
     t
 }) => {
+    const [isNotificationsEnabled, setIsNotificationsEnabled] = useState<boolean>(() => {
+        return getTrayNotificationSettings().enabled;
+    });
+
+    const [isSoundEnabled, setIsSoundEnabled] = useState<boolean>(() => {
+        return getSoundSettings().soundEnabled;
+    });
+
+    useEffect(() => {
+        const handleTraySettingsChange = (e: CustomEvent<TrayNotificationSettings>) => {
+            if (e.detail && typeof e.detail.enabled === 'boolean') {
+                setIsNotificationsEnabled(e.detail.enabled);
+            } else {
+                setIsNotificationsEnabled(getTrayNotificationSettings().enabled);
+            }
+        };
+        const handleSoundSettingsChange = (e: CustomEvent<SoundNotificationSettings>) => {
+            if (e.detail && typeof e.detail.soundEnabled === 'boolean') {
+                setIsSoundEnabled(e.detail.soundEnabled);
+            } else {
+                setIsSoundEnabled(getSoundSettings().soundEnabled);
+            }
+        };
+
+        window.addEventListener(TRAY_SETTINGS_CHANGED_EVENT as any, handleTraySettingsChange as EventListener);
+        window.addEventListener(SOUND_CONFIG_CHANGED_EVENT as any, handleSoundSettingsChange as EventListener);
+
+        return () => {
+            window.removeEventListener(TRAY_SETTINGS_CHANGED_EVENT as any, handleTraySettingsChange as EventListener);
+            window.removeEventListener(SOUND_CONFIG_CHANGED_EVENT as any, handleSoundSettingsChange as EventListener);
+        };
+    }, []);
+
+    const toggleNotifications = () => {
+        const next = !isNotificationsEnabled;
+        if (!next) {
+            clearAllTrayNotifications();
+        }
+        saveTrayNotificationSettings({ enabled: next });
+        setIsNotificationsEnabled(next);
+    };
+
+    const toggleSound = () => {
+        const next = !isSoundEnabled;
+        saveSoundSettings({ soundEnabled: next });
+        setIsSoundEnabled(next);
+    };
+
     return (
         <div 
             onDoubleClick={handleTitleBarDoubleClick}
@@ -218,6 +280,58 @@ export const HeaderTitleBar: React.FC<HeaderTitleBarProps> = ({
 
             {/* Right Section: Toolbar Controls, Status Toggle & Windows Window Controls */}
             <div className="flex items-center gap-1 flex-shrink-0 app-region-no-drag">
+                {/* Mute / Unmute Visual Notifications Button */}
+                <Tooltip 
+                    content={isNotificationsEnabled 
+                        ? (t('titlebar.muteNotifications') || 'Заглушить всплывающие уведомления') 
+                        : (t('titlebar.unmuteNotifications') || 'Включить всплывающие уведомления')
+                    } 
+                    position="bottom"
+                >
+                    <button
+                        type="button"
+                        onClick={toggleNotifications}
+                        className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border relative ${
+                            isNotificationsEnabled 
+                                ? 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white border-gray-700/50' 
+                                : 'bg-rose-950/50 text-rose-400 hover:bg-rose-900/60 hover:text-rose-300 border-rose-800/60 shadow-xs'
+                        }`}
+                        aria-label={isNotificationsEnabled ? 'Mute Notifications' : 'Unmute Notifications'}
+                    >
+                        {isNotificationsEnabled ? (
+                            <Bell className="w-3.5 h-3.5 text-cyan-400" />
+                        ) : (
+                            <BellOff className="w-3.5 h-3.5 text-rose-400" />
+                        )}
+                    </button>
+                </Tooltip>
+
+                {/* Mute / Unmute Notification Sounds Button */}
+                <Tooltip 
+                    content={isSoundEnabled 
+                        ? (t('titlebar.muteSound') || 'Заглушить звук уведомлений (батч, сохранение, задачи)') 
+                        : (t('titlebar.unmuteSound') || 'Включить звук уведомлений')
+                    } 
+                    position="bottom"
+                >
+                    <button
+                        type="button"
+                        onClick={toggleSound}
+                        className={`p-1.5 rounded-md transition-colors duration-200 focus:outline-none flex items-center justify-center h-7 w-7 border relative ${
+                            isSoundEnabled 
+                                ? 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white border-gray-700/50' 
+                                : 'bg-rose-950/50 text-rose-400 hover:bg-rose-900/60 hover:text-rose-300 border-rose-800/60 shadow-xs'
+                        }`}
+                        aria-label={isSoundEnabled ? 'Mute Notification Sounds' : 'Unmute Notification Sounds'}
+                    >
+                        {isSoundEnabled ? (
+                            <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                        ) : (
+                            <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                        )}
+                    </button>
+                </Tooltip>
+
                 {/* Status Bar Visibility Toggle Button */}
                 <Tooltip content={t('titlebar.statusBarToggle') || 'Статусная строка'} position="bottom">
                     <button

@@ -252,8 +252,12 @@ export const useConnectionHandling = ({
                                 targetHandleId = 'image';
                                 isValid = true;
                             }
-                        } else if (fromType === 'text') {
-                            targetHandleId = 'text';
+                        } else if (fromType === 'text' || fromType === 'character_data') {
+                            if (connectingInfo.fromHandleId === 'all_data' || connectingInfo.fromHandleId === 'all_prompt_data') {
+                                targetHandleId = 'all_data';
+                            } else {
+                                targetHandleId = 'text';
+                            }
                             isValid = true;
                         }
                     } else if (targetNode.type === NodeType.VIDEO_EDITOR) {

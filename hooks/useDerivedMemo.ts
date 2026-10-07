@@ -217,6 +217,23 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                 }
                 return (optimizedForUI && parsed.image) ? parsed.image : (fullRes || parsed.image || null);
             }
+            case NodeType.PROMPT_PROCESSOR: {
+                const inputConn = connections.find(c => c.toNodeId === fromNodeId && (c.toHandleId === 'image' || c.toHandleId === undefined));
+                if (inputConn) {
+                    return findImageDataSource(inputConn.fromNodeId, inputConn.fromHandleId, visited, optimizedForUI, imageGetter);
+                }
+                return parsed.multiviewInputImage || parsed.image || fullRes || null;
+            }
+            case NodeType.PROMPT_SEQUENCE_EDITOR: {
+                if (parsed.activeTab === 'multiview' && Array.isArray(parsed.multiviewItems) && parsed.multiviewItems.length > 0) {
+                    return parsed.multiviewItems[0]?.image || null;
+                }
+                const inputConn = connections.find(c => c.toNodeId === fromNodeId && (c.toHandleId === 'image' || c.toHandleId === undefined));
+                if (inputConn) {
+                    return findImageDataSource(inputConn.fromNodeId, inputConn.fromHandleId, visited, optimizedForUI, imageGetter);
+                }
+                return null;
+            }
             case NodeType.POSE_CREATOR: return parsed.renderedImage || fullRes || null;
             case NodeType.IMAGE_ANALYZER:
                 return optimizedForUI ? (parsed.image || fullRes || null) : (fullRes || parsed.image || null);
@@ -544,7 +561,7 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                     } else if (fromNode.type === NodeType.IMAGE_ANALYZER && conn.fromHandleId === 'text') {
                         values.push(parsed.description || '');
                     } else if (fromNode.type === NodeType.PROMPT_PROCESSOR || fromNode.type === NodeType.VIDEO_PROMPT_PROCESSOR) {
-                        values.push(parsed.prompt || '');
+                        values.push(parsed.prompt || parsed.multiviewOutput || '');
                     } else if (fromNode.type === NodeType.CHARACTER_CARD) {
                         const charArr = Array.isArray(parsed) ? parsed : [parsed];
                         const char = charArr.find((c:any) => c.isOutput) || charArr[0];
@@ -577,6 +594,46 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             values.push(captions.join('\n\n'));
                         } else {
                             values.push(parsed.text || '');
+                        }
+                    } else if (fromNode.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
+                        if (parsed.activeTab === 'multiview') {
+                            const items = Array.isArray(parsed.multiviewItems) ? parsed.multiviewItems : [];
+                            const promptsList = items.map((it: any, i: number) => ({
+                                frameNumber: it.index !== undefined ? it.index : (i + 1),
+                                prompt: it.prompt || '',
+                                image: it.image || null
+                            }));
+
+                            if (conn.fromHandleId === 'text' || conn.fromHandleId === 'all_prompts') {
+                                values.push(JSON.stringify({
+                                    type: 'multiview-batch-data',
+                                    multiviewPrompt: parsed.multiviewPrompt || '',
+                                    prompts: promptsList,
+                                    finalPrompts: promptsList,
+                                    items: items
+                                }));
+                            } else if (conn.fromHandleId === 'all_data' || conn.fromHandleId === 'all_prompt_data') {
+                                values.push(JSON.stringify({
+                                    type: 'multiview-batch-data',
+                                    multiviewPrompt: parsed.multiviewPrompt || '',
+                                    items: items,
+                                    prompts: promptsList,
+                                    finalPrompts: promptsList
+                                }));
+                            } else {
+                                values.push(fromNode.value);
+                            }
+                        } else {
+                            if (conn.fromHandleId === 'all_data' || conn.fromHandleId === 'all_prompt_data') {
+                                values.push(JSON.stringify({
+                                    type: 'script-prompt-modifier-data',
+                                    sourcePrompts: parsed.sourcePrompts || [],
+                                    modifiedPrompts: parsed.modifiedPrompts || [],
+                                    finalPrompts: parsed.finalPrompts || []
+                                }));
+                            } else {
+                                values.push(fromNode.value);
+                            }
                         }
                     } else {
                         values.push(fromNode.value);
@@ -724,6 +781,38 @@ export const useDerivedMemo = (props: UseDerivedMemoProps) => {
                             }
                         }
                     } catch {}
+                } else if (fromNode.type === NodeType.PROMPT_PROCESSOR) {
+                    const imgUrl = findImageDataSource(fromNode.id, 'image', new Set(), optimizedForUI, imageGetter);
+                    if (imgUrl && imgUrl.startsWith('data:')) {
+                        const parts = imgUrl.split(',');
+                        const mime = imgUrl.match(/:(.*?);/)?.[1] || 'image/png';
+                        values.push({ base64ImageData: parts[1], mimeType: mime });
+                        continue;
+                    }
+                } else if (fromNode.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
+                    try {
+                        const parsed = JSON.parse(fromNode.value || '{}');
+                        if (parsed.activeTab === 'multiview' && Array.isArray(parsed.multiviewItems) && parsed.multiviewItems.length > 0) {
+                            let pushedAny = false;
+                            parsed.multiviewItems.forEach((item: any) => {
+                                const url = item.image;
+                                if (url && url.startsWith('data:')) {
+                                    const parts = url.split(',');
+                                    const mime = url.match(/:(.*?);/)?.[1] || 'image/png';
+                                    values.push({ base64ImageData: parts[1], mimeType: mime });
+                                    pushedAny = true;
+                                }
+                            });
+                            if (pushedAny) continue;
+                        }
+                    } catch {}
+                    const imgUrl = findImageDataSource(fromNode.id, conn.fromHandleId, new Set(), optimizedForUI, imageGetter);
+                    if (imgUrl && imgUrl.startsWith('data:')) {
+                        const parts = imgUrl.split(',');
+                        const mime = imgUrl.match(/:(.*?);/)?.[1] || 'image/png';
+                        values.push({ base64ImageData: parts[1], mimeType: mime });
+                        continue;
+                    }
                 } else if (fromNode.type === NodeType.BATCH_PREPARE) {
                     try {
                         const parsed = JSON.parse(fromNode.value || '{}');

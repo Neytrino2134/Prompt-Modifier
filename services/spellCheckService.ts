@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { getApiKey } from './geminiService';
-import { getModelForMode } from './modelConfig';
+import { getModelForMode, isOpenAiTextModel } from './modelConfig';
+import { callOpenAiChatCompletion } from './openaiService';
 
 // Keyboard layout mappings for English (QWERTY) <-> Russian (ЙЦУКЕН)
 const EN_TO_RU_MAP: Record<string, string> = {
@@ -394,12 +395,6 @@ export async function correctTextWithAI(
   targetLanguage: string = 'auto',
   instructionMode: 'spelling' | 'enhance' | 'translate_ru' | 'translate_en' = 'spelling'
 ): Promise<string> {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    throw new Error('API key is not configured');
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
   const modelName = getModelForMode('flash') || 'gemini-3.8-flash';
 
   let systemInstruction = '';
@@ -433,6 +428,22 @@ export async function correctTextWithAI(
       Return ONLY the English translation.
     `;
   }
+
+  if (isOpenAiTextModel(modelName)) {
+    const res = await callOpenAiChatCompletion({
+      model: modelName,
+      systemInstruction,
+      prompt: text
+    });
+    return res.trim();
+  }
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error('API key is not configured');
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
 
   const response = await ai.models.generateContent({
     model: modelName,

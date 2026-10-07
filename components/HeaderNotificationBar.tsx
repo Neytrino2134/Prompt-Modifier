@@ -1,6 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { Toast, ToastType } from '../types';
+import { 
+    getTrayNotificationSettings, 
+    TRAY_SETTINGS_CHANGED_EVENT, 
+    TrayNotificationSettings 
+} from '../services/trayNotificationService';
 
 interface HeaderToastItemProps {
     toast: Toast;
@@ -174,6 +179,23 @@ export const HeaderNotificationBar: React.FC = () => {
     const context = useAppContext();
     const toasts = context?.toasts;
     const removeToast = context?.removeToast;
+    const [isNotificationsEnabled, setIsNotificationsEnabled] = useState<boolean>(() => {
+        return getTrayNotificationSettings().enabled;
+    });
+
+    useEffect(() => {
+        const handleTraySettingsChange = (e: CustomEvent<TrayNotificationSettings>) => {
+            if (e.detail && typeof e.detail.enabled === 'boolean') {
+                setIsNotificationsEnabled(e.detail.enabled);
+            } else {
+                setIsNotificationsEnabled(getTrayNotificationSettings().enabled);
+            }
+        };
+        window.addEventListener(TRAY_SETTINGS_CHANGED_EVENT as any, handleTraySettingsChange as EventListener);
+        return () => {
+            window.removeEventListener(TRAY_SETTINGS_CHANGED_EVENT as any, handleTraySettingsChange as EventListener);
+        };
+    }, []);
 
     const handleDismiss = useCallback((id: number) => {
         if (removeToast) {
@@ -181,7 +203,7 @@ export const HeaderNotificationBar: React.FC = () => {
         }
     }, [removeToast]);
 
-    if (!context || !toasts || toasts.length === 0) {
+    if (!context || !toasts || toasts.length === 0 || !isNotificationsEnabled) {
         return null;
     }
 

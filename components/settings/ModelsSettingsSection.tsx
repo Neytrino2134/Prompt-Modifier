@@ -25,6 +25,9 @@ import {
   VideoModelOption,
   ImageModelOption,
   isOpenAiEnabled,
+  setOpenAiEnabled,
+  getOpenAiApiKey,
+  isOpenAiTextModel,
   isTripoEnabled,
   getTripoModelVersion,
   setTripoModelVersion,
@@ -54,8 +57,8 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
   const [tripoModel, setTripoModel] = useState<string>(getTripoModelVersion);
   const [tripoActive, setTripoActive] = useState<boolean>(isTripoEnabled);
 
-  const [availableFlash, setAvailableFlash] = useState<ModelOption[]>(getAvailableFlashModels);
-  const [availablePro, setAvailablePro] = useState<ModelOption[]>(getAvailableProModels);
+  const [availableFlash, setAvailableFlash] = useState<ModelOption[]>(() => getAvailableFlashModels(isOpenAiEnabled()));
+  const [availablePro, setAvailablePro] = useState<ModelOption[]>(() => getAvailableProModels(isOpenAiEnabled()));
   const [availableTranscribe, setAvailableTranscribe] = useState<ModelOption[]>(getAvailableTranscribeModels);
   const [availableVideo, setAvailableVideo] = useState<VideoModelOption[]>(getAvailableVideoModels);
   const [availableImage, setAvailableImage] = useState<ImageModelOption[]>(() => getImageModelOptions(isOpenAiEnabled()));
@@ -63,6 +66,8 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
 
   const [customModelInput, setCustomModelInput] = useState('');
   const [customModelTier, setCustomModelTier] = useState<'flash' | 'pro' | 'video'>('flash');
+
+  const openAiActive = openAiEnabled !== undefined ? openAiEnabled : isOpenAiEnabled();
 
   useEffect(() => {
     if (isOpen) {
@@ -74,15 +79,43 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
       setImageEditorModel(getConfiguredImageEditorModel());
       setTripoModel(getTripoModelVersion());
       setTripoActive(isTripoEnabled());
-      setAvailableFlash(getAvailableFlashModels());
-      setAvailablePro(getAvailableProModels());
+      const activeOpenAi = openAiEnabled !== undefined ? openAiEnabled : isOpenAiEnabled();
+      setAvailableFlash(getAvailableFlashModels(activeOpenAi));
+      setAvailablePro(getAvailableProModels(activeOpenAi));
       setAvailableTranscribe(getAvailableTranscribeModels());
       setAvailableVideo(getAvailableVideoModels());
-      const openAiActive = openAiEnabled !== undefined ? openAiEnabled : isOpenAiEnabled();
-      setAvailableImage(getImageModelOptions(openAiActive));
-      setAvailableImageEditor(getImageEditorModelOptions(openAiActive));
+      setAvailableImage(getImageModelOptions(activeOpenAi));
+      setAvailableImageEditor(getImageEditorModelOptions(activeOpenAi));
     }
   }, [isOpen, openAiEnabled]);
+
+  const handleFlashModelChange = (val: string) => {
+    setFlashModel(val);
+    setConfiguredFlashModel(val);
+    if (isOpenAiTextModel(val)) {
+      if (!isOpenAiEnabled()) {
+        setOpenAiEnabled(true);
+        addToast(t('settings.openaiActive') || 'OpenAI API enabled', 'info');
+      }
+      if (!getOpenAiApiKey()) {
+        addToast(t('settings.openaiKeyMissingWarning') || 'Please set your OpenAI API key in API Settings', 'info');
+      }
+    }
+  };
+
+  const handleProModelChange = (val: string) => {
+    setProModel(val);
+    setConfiguredProModel(val);
+    if (isOpenAiTextModel(val)) {
+      if (!isOpenAiEnabled()) {
+        setOpenAiEnabled(true);
+        addToast(t('settings.openaiActive') || 'OpenAI API enabled', 'info');
+      }
+      if (!getOpenAiApiKey()) {
+        addToast(t('settings.openaiKeyMissingWarning') || 'Please set your OpenAI API key in API Settings', 'info');
+      }
+    }
+  };
 
   const handleAddCustomModel = () => {
     const trimmed = customModelInput.trim();
@@ -109,23 +142,23 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
       setConfiguredVideoModel(trimmed);
       setAvailableVideo(getAvailableVideoModels());
     } else {
+      const isOpenAi = isOpenAiTextModel(trimmed);
       const newModel: ModelOption = {
         id: trimmed,
         name: trimmed,
         description: `Custom ${customModelTier.toUpperCase()} Model`,
         tier: customModelTier,
+        provider: isOpenAi ? 'openai' : 'google',
       };
 
       addCustomModel(newModel);
-      setAvailableFlash(getAvailableFlashModels());
-      setAvailablePro(getAvailableProModels());
+      setAvailableFlash(getAvailableFlashModels(openAiActive));
+      setAvailablePro(getAvailableProModels(openAiActive));
 
       if (customModelTier === 'flash') {
-        setFlashModel(trimmed);
-        setConfiguredFlashModel(trimmed);
+        handleFlashModelChange(trimmed);
       } else {
-        setProModel(trimmed);
-        setConfiguredProModel(trimmed);
+        handleProModelChange(trimmed);
       }
     }
 
@@ -142,20 +175,30 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
             <span className="text-amber-400">⚡</span>
             {t('settings.llmFlashModelLabel')}
           </label>
-          <span className="text-[10px] text-amber-400/80 font-mono">{flashModel}</span>
+          <div className="flex items-center gap-1.5">
+            {isOpenAiTextModel(flashModel) ? (
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 font-semibold">
+                OpenAI
+              </span>
+            ) : (
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-600/40 font-semibold">
+                Google
+              </span>
+            )}
+            <span className="text-[10px] text-amber-400/80 font-mono">{flashModel}</span>
+          </div>
         </div>
         <p className="text-[11px] text-gray-400 leading-tight">
           {t('settings.llmFlashModelDesc')}
         </p>
         <CustomSelect
           value={flashModel}
-          onChange={(val) => {
-            setFlashModel(val);
-            setConfiguredFlashModel(val);
-          }}
+          onChange={handleFlashModelChange}
           options={availableFlash.map((m) => ({
             value: m.id,
             label: `${m.name} (${m.id})`,
+            badge: m.provider === 'openai' ? 'OpenAI' : 'Google',
+            description: m.description,
           }))}
         />
       </div>
@@ -167,22 +210,40 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
             <span className="text-purple-400">✨</span>
             {t('settings.llmProModelLabel')}
           </label>
-          <span className="text-[10px] text-purple-400/80 font-mono">{proModel}</span>
+          <div className="flex items-center gap-1.5">
+            {isOpenAiTextModel(proModel) ? (
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 font-semibold">
+                OpenAI
+              </span>
+            ) : (
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-950/80 text-purple-300 border border-purple-600/40 font-semibold">
+                Google
+              </span>
+            )}
+            <span className="text-[10px] text-purple-400/80 font-mono">{proModel}</span>
+          </div>
         </div>
         <p className="text-[11px] text-gray-400 leading-tight">
           {t('settings.llmProModelDesc')}
         </p>
         <CustomSelect
           value={proModel}
-          onChange={(val) => {
-            setProModel(val);
-            setConfiguredProModel(val);
-          }}
+          onChange={handleProModelChange}
           options={availablePro.map((m) => ({
             value: m.id,
             label: `${m.name} (${m.id})`,
+            badge: m.provider === 'openai' ? 'OpenAI' : 'Google',
+            description: m.description,
           }))}
         />
+        {!openAiActive && (
+          <div className="p-2 rounded bg-emerald-950/20 border border-emerald-800/30 text-[11px] text-emerald-300/90 flex items-center justify-between mt-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-400">🤖</span>
+              <span>{t('settings.openaiHint')}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Audio Transcription Model Selection */}
@@ -231,6 +292,8 @@ export const ModelsSettingsSection: React.FC<ModelsSettingsSectionProps> = ({
           options={availableImage.map((m) => ({
             value: m.value,
             label: m.label,
+            badge: m.provider === 'openai' ? 'OpenAI' : 'Google',
+            description: m.description,
           }))}
         />
       </div>

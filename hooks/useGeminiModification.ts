@@ -9,7 +9,7 @@
 /* Fix: Added missing React import to resolve namespace errors */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NodeType, type Node, type Tab, type ActiveOperation, type ToastType } from '../types';
-import { enhancePrompt, enhanceVideoPrompt, translateText, generateScript, generateCharacters, sanitizePrompt, translateScript, modifyPromptSequence, updateCharacterDescription, modifyCharacter, extractTextFromImage, updateCharacterPersonality, updateCharacterSection } from '../services/geminiService';
+import { enhancePrompt, enhanceVideoPrompt, translateText, generateScript, generateCharacters, sanitizePrompt, translateScript, modifyPromptSequence, updateCharacterDescription, modifyCharacter, extractTextFromImage, updateCharacterPersonality, updateCharacterSection, generateMultiviewTurnaroundPrompt, DEFAULT_MULTIVIEW_PROMPT } from '../services/geminiService';
 import { languages } from '../localization';
 
 interface UseGeminiModificationProps {
@@ -103,21 +103,63 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
                 parsedValue = { prompt: node.value };
             }
             
-            const safePrompt = parsedValue.safePrompt !== false;
-            const technicalPrompt = parsedValue.technicalPrompt === true;
-            const model = parsedValue.model || 'gemini-3-flash-preview';
+            const isMultiviewMode = parsedValue.activeTab === 'multiview' || parsedValue.mode === 'multiview';
 
-            let texts = getUpstreamNodeValues(nodeId).filter(v => typeof v === 'string') as string[];
-            if (texts.length === 0 && parsedValue.inputPrompt) {
-                texts = [parsedValue.inputPrompt];
+            if (isMultiviewMode) {
+                // Multiview Prompt Generator mode
+                const model = parsedValue.multiviewModel || parsedValue.model || 'flash';
+                const prompt = parsedValue.multiviewPrompt && parsedValue.multiviewPrompt.trim() ? parsedValue.multiviewPrompt : DEFAULT_MULTIVIEW_PROMPT;
+
+                // 1. Check for upstream connected image
+                const upstreamValues = getUpstreamNodeValues(nodeId);
+                let imageObj: { base64ImageData: string; mimeType: string } | null = null;
+
+                const foundUpstreamImage = upstreamValues.find(v => typeof v === 'object' && v !== null && 'base64ImageData' in v) as { base64ImageData: string; mimeType: string } | undefined;
+                if (foundUpstreamImage) {
+                    imageObj = foundUpstreamImage;
+                } else {
+                    // Check local node image
+                    const localImg = parsedValue.multiviewInputImage || parsedValue.image;
+                    if (localImg && typeof localImg === 'string' && localImg.startsWith('data:')) {
+                        const parts = localImg.split(',');
+                        const mime = localImg.match(/:(.*?);/)?.[1] || 'image/png';
+                        if (parts.length === 2) {
+                            imageObj = { base64ImageData: parts[1], mimeType: mime };
+                        }
+                    }
+                }
+
+                if (!imageObj) {
+                    throw new Error("Please connect or paste an input image to generate a multiview turnaround prompt.");
+                }
+
+                const generated = await generateMultiviewTurnaroundPrompt(imageObj, prompt, model);
+
+                updateNodeInStorage(currentTabId, nodeId, (prev) => ({
+                    ...prev,
+                    multiviewOutput: generated,
+                    prompt: generated
+                }));
+
+                addToast("Multiview prompt generated successfully", "success");
+            } else {
+                // Standard Prompt Enhancer mode
+                const safePrompt = parsedValue.safePrompt !== false;
+                const technicalPrompt = parsedValue.technicalPrompt === true;
+                const model = parsedValue.model || 'gemini-3-flash-preview';
+
+                let texts = getUpstreamNodeValues(nodeId).filter(v => typeof v === 'string') as string[];
+                if (texts.length === 0 && parsedValue.inputPrompt) {
+                    texts = [parsedValue.inputPrompt];
+                }
+
+                const enhanced = await enhancePrompt(texts, safePrompt, technicalPrompt, model);
+                
+                updateNodeInStorage(currentTabId, nodeId, (prev) => ({ 
+                    ...prev, 
+                    prompt: enhanced
+                }));
             }
-
-            const enhanced = await enhancePrompt(texts, safePrompt, technicalPrompt, model);
-            
-            updateNodeInStorage(currentTabId, nodeId, (prev) => ({ 
-                ...prev, 
-                prompt: enhanced
-            }));
 
         } catch (e: any) {
             setError(e.message);
@@ -125,7 +167,7 @@ export const useGeminiModification = ({ nodes, setNodes, getUpstreamNodeValues, 
             setIsEnhancing(null);
             unregisterOperation(nodeId);
         }
-    }, [nodes, getUpstreamNodeValues, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName]);
+    }, [nodes, getUpstreamNodeValues, setError, t, updateNodeInStorage, registerOperation, unregisterOperation, activeTabId, activeTabName, addToast]);
 
     const handleSanitizePrompt = useCallback(async (nodeId: string) => {
         const currentTabId = activeTabIdRef.current;

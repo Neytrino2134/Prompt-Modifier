@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Node, NodeType } from '../../types';
-import { getInputHandleType, getOutputHandleType, COLLAPSED_NODE_HEIGHT, HEADER_HEIGHT, CONTENT_PADDING, getProxyHandles, PROXY_NODE_HEIGHT, DETACHED_GHOST_HEIGHT } from '../../utils/nodeUtils';
+import { getInputHandleType, getOutputHandleType, COLLAPSED_NODE_HEIGHT, HEADER_HEIGHT, CONTENT_PADDING, getProxyHandles, PROXY_NODE_HEIGHT, DETACHED_GHOST_HEIGHT, isPromptProcessorMultiview } from '../../utils/nodeUtils';
 
 interface HandleProps {
   node: Node;
@@ -138,6 +138,7 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
             }
             
             handles.push({ handleId: 'text', type: 'text', title: 'Text Input' });
+            handles.push({ handleId: 'all_data', type: 'text', title: 'All Data Input' });
 
         } else if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {
             handles = [
@@ -151,7 +152,22 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
              } catch {}
              handles = [{ handleId: 'prompt_data', type: 'text', title: 'Prompt Data Input' }];
         } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
-             handles = [{ handleId: 'prompts_sequence', type: 'text', title: 'Prompts Sequence Input' }];
+             handles = [
+                 { handleId: 'image', type: 'image', title: 'Batch Images Input' },
+                 { handleId: 'prompts_sequence', type: 'text', title: 'Prompts Sequence Input' }
+             ];
+        } else if (node.type === NodeType.PROMPT_PROCESSOR) {
+             const isMultiview = isPromptProcessorMultiview(node);
+             if (isMultiview) {
+                 handles = [
+                     { handleId: 'image', type: 'image', title: 'Image Input' },
+                     { handleId: 'text', type: 'text', title: 'Text Input' }
+                 ];
+             } else {
+                 handles = [
+                     { handleId: 'text', type: 'text', title: 'Text Input' }
+                 ];
+             }
         } else if (node.type === NodeType.THREE_D_GENERATOR || node.type === NodeType.THREE_D_VIEWER || node.type === NodeType.BATCH_PREPARE) {
              handles = [
                  { handleId: 'image', type: 'image', title: 'Image / 3D Model Input' },
@@ -206,7 +222,8 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
         const realTextSectionTop = realImageSectionTop + topPaneHeight + resizerHeight; 
         const contentBottom = node.height - CONTENT_PADDING;
         const textSectionHeight = contentBottom - realTextSectionTop;
-        const textHandleY = realTextSectionTop + (textSectionHeight / 2);
+        const textHandleY = realTextSectionTop + (textSectionHeight * 0.35);
+        const allDataHandleY = realTextSectionTop + (textSectionHeight * 0.75);
         
         return (
             <>
@@ -216,7 +233,8 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
                 {/* Render Input B if Sequential Combined OR Sequential Editing with Prompts */}
                 {(isImageEditorSequential || isSequentialEditingWithPrompts) && imageBHandleY && renderHandle({ type: 'image', handleId: 'image_b', title: 'Image Input B' }, `${imageBHandleY}px`, 'image_b')}
                 
-                {renderHandle({ type: 'text', handleId: 'text', title: 'Text Input' }, `${textHandleY}px`, 'text')}
+                {renderHandle({ type: 'text', handleId: 'text', title: 'Text / Prompts Input' }, `${textHandleY}px`, 'text')}
+                {renderHandle({ type: 'text', handleId: 'all_data', title: 'All Data Input' }, `${allDataHandleY}px`, 'all_data')}
             </>
         );
     }
@@ -273,7 +291,24 @@ export const InputHandles: React.FC<HandleProps> = ({ node, getHandleColor, hand
         return renderHandle({ type: 'text', handleId: 'prompt_data', title: 'Prompt Data Input' }, `${y}px`, 'prompt_data');
     }
     if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
-         return renderHandle({ type: 'text', handleId: 'prompts_sequence', title: 'Prompts Sequence Input' }, '50%', 'prompts_sequence');
+         return (
+             <>
+                 {renderHandle({ type: 'image', handleId: 'image', title: 'Batch Images Input' }, '35%', 'prompts_seq_input_image')}
+                 {renderHandle({ type: 'text', handleId: 'prompts_sequence', title: 'Prompts Sequence / Text Input' }, '75%', 'prompts_seq_input_text')}
+             </>
+         );
+    }
+    if (node.type === NodeType.PROMPT_PROCESSOR) {
+        const isMultiview = isPromptProcessorMultiview(node);
+        if (isMultiview) {
+            return (
+                <>
+                    {renderHandle({ type: 'image', handleId: 'image', title: 'Image Input' }, '28%', 'prompt_proc_input_image')}
+                    {renderHandle({ type: 'text', handleId: 'text', title: 'Text Input' }, '75%', 'prompt_proc_input_text')}
+                </>
+            );
+        }
+        return renderHandle({ type: 'text', handleId: 'text', title: 'Text Input' }, '50%', 'prompt_proc_input_text');
     }
     if (node.type === NodeType.IMAGE_INPUT) {
         const y = HEADER_HEIGHT + 410;
@@ -371,8 +406,22 @@ export const OutputHandles: React.FC<HandleProps> = ({ node, getHandleColor, han
             handles = handleIds.map(id => ({ handleId: id, type: 'text', title: id.startsWith('character-') ? `${t('node.content.character')} ${parseInt(id.split('-')[1], 10) + 1}` : t(`node.content.${id}`) }));
         } else if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
             handles = [
-                { handleId: 'all_data', type: 'text' as const, title: t('node.output.allPromptData') },
+                { handleId: 'image', type: 'image' as const, title: 'All Images Output (01-N)' },
+                { handleId: 'text', type: 'text' as const, title: 'All Prompts Output (01-N)' },
+                { handleId: 'all_data', type: 'text' as const, title: t('node.output.allPromptData') || 'All Prompt Data Output (01-N)' }
             ];
+        } else if (node.type === NodeType.PROMPT_PROCESSOR) {
+            const isMultiview = isPromptProcessorMultiview(node);
+            if (isMultiview) {
+                handles = [
+                    { handleId: 'image', type: 'image', title: 'Image Output' },
+                    { handleId: 'text', type: 'text', title: 'Prompt Output' }
+                ];
+            } else {
+                handles = [
+                    { handleId: 'text', type: 'text', title: 'Prompt Output' }
+                ];
+            }
         } else if (node.type === NodeType.CHARACTER_ANALYZER) {
             handles = [
                 { handleId: 'character', type: 'text', title: t('node.content.character') },
@@ -485,7 +534,26 @@ export const OutputHandles: React.FC<HandleProps> = ({ node, getHandleColor, han
     }
 
     if (node.type === NodeType.PROMPT_SEQUENCE_EDITOR) {
-        return renderHandle({ type: 'text', handleId: 'all_data', title: t('node.output.allPromptData') }, '50%', 'all_data');
+        return (
+            <>
+                {renderHandle({ type: 'image', handleId: 'image', title: 'All Images Output (01-N)' }, '30%', 'prompts_seq_out_images')}
+                {renderHandle({ type: 'text', handleId: 'text', title: 'All Prompts Output (01-N)' }, '60%', 'prompts_seq_out_text')}
+                {renderHandle({ type: 'text', handleId: 'all_data', title: t('node.output.allPromptData') || 'All Prompt Data Output (01-N)' }, '85%', 'all_data')}
+            </>
+        );
+    }
+
+    if (node.type === NodeType.PROMPT_PROCESSOR) {
+        const isMultiview = isPromptProcessorMultiview(node);
+        if (isMultiview) {
+            return (
+                <>
+                    {renderHandle({ type: 'image', handleId: 'image', title: 'Image Output' }, '28%', 'prompt_proc_out_image')}
+                    {renderHandle({ type: 'text', handleId: 'text', title: 'Prompt Output' }, '75%', 'prompt_proc_out_text')}
+                </>
+            );
+        }
+        return renderHandle({ type: 'text', handleId: 'text', title: 'Prompt Output' }, '50%', 'prompt_proc_out_text');
     }
 
     if (node.type === NodeType.IMAGE_SEQUENCE_GENERATOR) {

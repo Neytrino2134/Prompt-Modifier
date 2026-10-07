@@ -8,6 +8,11 @@ import {
   DEFAULT_BUBBLE_CONFIG,
   DEFAULT_CYBER_CONFIG,
 } from '../components/settings/appearance/panelAnimationDefinitions';
+import {
+  getTrayNotificationSettings,
+  TRAY_SETTINGS_CHANGED_EVENT,
+  TrayNotificationSettings,
+} from '../services/trayNotificationService';
 
 export const useGlobalState = (currentNodes: Node[]) => {
     // Logs & Debug Console
@@ -69,18 +74,36 @@ export const useGlobalState = (currentNodes: Node[]) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
     const toastIdCounter = useRef(0);
 
+    // Synchronize toasts with mute settings - clear any accumulated toasts when muted
+    useEffect(() => {
+        const handleTraySettingsChange = (e: CustomEvent<TrayNotificationSettings>) => {
+            if (e.detail && e.detail.enabled === false) {
+                setToasts([]);
+            }
+        };
+        window.addEventListener(TRAY_SETTINGS_CHANGED_EVENT as any, handleTraySettingsChange as EventListener);
+        return () => {
+            window.removeEventListener(TRAY_SETTINGS_CHANGED_EVENT as any, handleTraySettingsChange as EventListener);
+        };
+    }, []);
+
     const removeToast = useCallback((id: number) => {
         setToasts(prev => prev.filter(t => t.id !== id));
     }, []);
 
     const addToast = useCallback((message: string, type: ToastType = 'info', action?: { label: string, onClick: () => void }) => {
-        const id = toastIdCounter.current++;
-        const newToast: Toast = { id, message, type, action };
-        setToasts(prev => [...prev, newToast]);
-        
-        // Log every toast notification to System Logs
+        // Always log every toast notification to System Logs regardless of mute state
         const logLevel: LogLevel = type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : 'info';
         addLog(logLevel, `[Notification] ${message}`, action ? { actionLabel: action.label } : undefined);
+
+        // Check if notifications are muted - if muted, do NOT accumulate in toasts queue
+        if (!getTrayNotificationSettings().enabled) {
+            return;
+        }
+
+        const id = toastIdCounter.current++;
+        const newToast: Toast = { id, message, type, action };
+        setToasts(prev => [...prev.slice(-3), newToast]);
     }, [addLog]);
 
     // Full Size Image Cache (In-Memory + React State for reactivity if needed)

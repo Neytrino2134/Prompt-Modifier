@@ -5,7 +5,8 @@ import {
     getOpenAiApiKey, 
     setOpenAiApiKey, 
     OPENAI_CONFIG_CHANGE_EVENT, 
-    notifyOpenAiConfigChanged 
+    notifyOpenAiConfigChanged,
+    isOpenAiTextModel
 } from './openaiService';
 import {
     isTripoEnabled,
@@ -30,6 +31,7 @@ export {
     setOpenAiApiKey, 
     OPENAI_CONFIG_CHANGE_EVENT, 
     notifyOpenAiConfigChanged,
+    isOpenAiTextModel,
     isTripoEnabled,
     setTripoEnabled,
     getTripoApiKey,
@@ -52,6 +54,7 @@ export interface ModelOption {
     name: string;
     description: string;
     tier: LLMMode;
+    provider?: 'google' | 'openai';
 }
 
 export interface ImageModelOption {
@@ -72,12 +75,9 @@ export const GOOGLE_IMAGE_MODELS: ImageModelOption[] = [
 ];
 
 export const OPENAI_IMAGE_MODELS: ImageModelOption[] = [
-    { value: 'gpt-image-2.5-flare', label: 'GPT-Image-2.5 Flare (Fast / Primary)', provider: 'openai', description: 'Fast, primary next-generation OpenAI image model' },
-    { value: 'gpt-image-2.5-sunburst', label: 'GPT-Image-2.5 Sunburst (High Precision / Edits)', provider: 'openai', description: 'High precision, production-grade OpenAI model for complex edits' },
-    { value: 'gpt-image-2', label: 'GPT-Image-2 (OpenAI)', provider: 'openai', description: 'Next-generation OpenAI image model with custom resolution & quality' },
-    { value: 'dall-e-3', label: 'DALL·E 3 (OpenAI - Natural/HD)', provider: 'openai', description: 'Latest OpenAI high quality image generation model' },
-    { value: 'dall-e-3-vivid', label: 'DALL·E 3 Vivid (OpenAI - Hyperrealistic)', provider: 'openai', description: 'Vivid, dramatic aesthetic' },
-    { value: 'dall-e-2', label: 'DALL·E 2 (OpenAI - Fast)', provider: 'openai', description: 'Fast standard model' }
+    { value: 'gpt-image-2.5-sunburst', label: 'GPT-Image-2.5 Sunburst (High Precision / 4-View Turnaround)', provider: 'openai', description: 'Максимальное качество и тонкие детали, оптимален для 4-view turnaround и концепт-арта' },
+    { value: 'gpt-image-2.5-flare', label: 'GPT-Image-2.5 Flare (Fast / Primary)', provider: 'openai', description: 'Быстрый и практичный основной вариант генерации нового поколения' },
+    { value: 'gpt-image-2', label: 'GPT-Image-2 (OpenAI)', provider: 'openai', description: 'Базовая модель GPT-Image с кастомным разрешением' }
 ];
 
 export const IMAGE_EDITOR_GOOGLE_MODELS: ImageModelOption[] = [
@@ -103,14 +103,14 @@ export const isGptImage2Model = (model?: string): boolean => {
     return model.startsWith('gpt-image') || model.includes('gpt-image');
 };
 
-export const getImageModelOptions = (includeOpenAi: boolean = isOpenAiEnabled()): ImageModelOption[] => {
+export const getImageModelOptions = (includeOpenAi: boolean = true): ImageModelOption[] => {
     if (includeOpenAi) {
         return [...GOOGLE_IMAGE_MODELS, ...OPENAI_IMAGE_MODELS];
     }
     return GOOGLE_IMAGE_MODELS;
 };
 
-export const getImageEditorModelOptions = (includeOpenAi: boolean = isOpenAiEnabled()): ImageModelOption[] => {
+export const getImageEditorModelOptions = (includeOpenAi: boolean = true): ImageModelOption[] => {
     // Specifically ignore legacy Imagen and DALL-E models for Image Editor as requested
     const googleModels = IMAGE_EDITOR_GOOGLE_MODELS.filter(m => !m.value.startsWith('imagen-') && !m.value.startsWith('dall-e'));
     if (includeOpenAi) {
@@ -150,24 +150,40 @@ export const useOpenAiEnabled = (): boolean => {
 };
 
 
-// Built-in pool of Flash and Pro models that can easily be extended as Google releases new versions
+// Google Flash and Pro models
+export const GOOGLE_FLASH_MODELS: ModelOption[] = [
+    { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', description: 'Next-gen ultra-fast multimodal reasoning model', tier: 'flash', provider: 'google' },
+    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', description: 'Next-gen hybrid reasoning & high-speed model', tier: 'flash', provider: 'google' },
+    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', description: 'Ultra-fast & intelligent Flash model (Default)', tier: 'flash', provider: 'google' },
+    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', description: 'Advanced Flash model with enhanced multimodal performance', tier: 'flash', provider: 'google' },
+    { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite', description: 'Ultra lightweight, cost-efficient, and fast', tier: 'flash', provider: 'google' },
+];
+
+export const OPENAI_FLASH_MODELS: ModelOption[] = [
+    { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol (OpenAI)', description: '⚡ Оптимальный баланс: near-Astra интеллект по доступной цене ($2/$10 за 1M, 1.05M ctx)', tier: 'flash', provider: 'openai' },
+    { id: 'gpt-6-luna', name: 'GPT-6 Luna (OpenAI)', description: '💰 Сверхбыстрая и экономичная модель для массовых задач ($0.10/$0.50 за 1M, 1.05M ctx)', tier: 'flash', provider: 'openai' },
+    { id: 'o3-mini', name: 'o3-mini (OpenAI)', description: 'Высокоскоростной специализированный reasoning для кода, математики и STEM', tier: 'flash', provider: 'openai' },
+];
+
+export const GOOGLE_PRO_MODELS: ModelOption[] = [
+    { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro Preview', description: 'Highest intelligence & complex reasoning (Default)', tier: 'pro', provider: 'google' },
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro Preview', description: 'Advanced reasoning and large context', tier: 'pro', provider: 'google' },
+];
+
+export const OPENAI_PRO_MODELS: ModelOption[] = [
+    { id: 'gpt-6-astra', name: 'GPT-6 Astra (OpenAI)', description: '🏆 Максимальное качество и глубокий reasoning. Флагман линейки GPT-6 ($10/$50 за 1M, 1.05M ctx, 128K out)', tier: 'pro', provider: 'openai' },
+    { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol (OpenAI)', description: '⚡ Near-Astra интеллект: идеален для сложного 3D/Turnaround анализа и деконструкции промптов', tier: 'pro', provider: 'openai' },
+    { id: 'o3', name: 'o3 (OpenAI)', description: 'Фронтирный глубокий логический reasoning с настраиваемым chain-of-thought', tier: 'pro', provider: 'openai' },
+];
+
 export const DEFAULT_FLASH_MODELS: ModelOption[] = [
-    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', description: 'Next-gen hybrid reasoning & high-speed model', tier: 'flash' },
-    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', description: 'Ultra-fast & intelligent Flash model (Default)', tier: 'flash' },
-    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', description: 'Advanced Flash model with enhanced multimodal performance', tier: 'flash' },
-    { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite', description: 'Ultra lightweight, cost-efficient, and fast', tier: 'flash' },
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3.0 Flash Preview', description: 'Fast multimodal reasoning model', tier: 'flash' },
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Balanced speed, cost, and multimodal capabilities', tier: 'flash' },
-    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', description: 'High-speed production model', tier: 'flash' },
-    { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite', description: 'Cost-effective high throughput model', tier: 'flash' },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'High throughput, low latency', tier: 'flash' },
+    ...GOOGLE_FLASH_MODELS,
+    ...OPENAI_FLASH_MODELS
 ];
 
 export const DEFAULT_PRO_MODELS: ModelOption[] = [
-    { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro Preview', description: 'Highest intelligence & complex reasoning (Default)', tier: 'pro' },
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro Preview', description: 'Advanced reasoning and large context', tier: 'pro' },
-    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', description: 'Deep reasoning, coding, and structured analysis', tier: 'pro' },
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Extended context 2M tokens reasoning model', tier: 'pro' },
+    ...GOOGLE_PRO_MODELS,
+    ...OPENAI_PRO_MODELS
 ];
 
 export const DEFAULT_CONFIG = {
@@ -257,28 +273,34 @@ export const LLM_CONFIG_CHANGE_EVENT = 'llm-models-config-changed';
 /**
  * Get all available Flash models (built-in + user added)
  */
-export const getAvailableFlashModels = (): ModelOption[] => {
+export const getAvailableFlashModels = (includeOpenAi: boolean = true): ModelOption[] => {
     try {
         const custom: ModelOption[] = JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS) || '[]');
         const customFlash = custom.filter(m => m.tier === 'flash');
         const customIds = new Set(customFlash.map(m => m.id));
-        return [...DEFAULT_FLASH_MODELS.filter(m => !customIds.has(m.id)), ...customFlash];
+        const base = (includeOpenAi || isOpenAiTextModel(getConfiguredFlashModel()))
+            ? [...GOOGLE_FLASH_MODELS, ...OPENAI_FLASH_MODELS]
+            : GOOGLE_FLASH_MODELS;
+        return [...base.filter(m => !customIds.has(m.id)), ...customFlash];
     } catch {
-        return DEFAULT_FLASH_MODELS;
+        return includeOpenAi ? [...GOOGLE_FLASH_MODELS, ...OPENAI_FLASH_MODELS] : GOOGLE_FLASH_MODELS;
     }
 };
 
 /**
  * Get all available Pro models (built-in + user added)
  */
-export const getAvailableProModels = (): ModelOption[] => {
+export const getAvailableProModels = (includeOpenAi: boolean = true): ModelOption[] => {
     try {
         const custom: ModelOption[] = JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS) || '[]');
         const customPro = custom.filter(m => m.tier === 'pro');
         const customIds = new Set(customPro.map(m => m.id));
-        return [...DEFAULT_PRO_MODELS.filter(m => !customIds.has(m.id)), ...customPro];
+        const base = (includeOpenAi || isOpenAiTextModel(getConfiguredProModel()))
+            ? [...GOOGLE_PRO_MODELS, ...OPENAI_PRO_MODELS]
+            : GOOGLE_PRO_MODELS;
+        return [...base.filter(m => !customIds.has(m.id)), ...customPro];
     } catch {
-        return DEFAULT_PRO_MODELS;
+        return includeOpenAi ? [...GOOGLE_PRO_MODELS, ...OPENAI_PRO_MODELS] : GOOGLE_PRO_MODELS;
     }
 };
 
@@ -304,7 +326,17 @@ export const getConfiguredFlashModel = (): string => {
     try {
         const saved = localStorage.getItem(STORAGE_KEY_FLASH_MODEL);
         if (saved && saved.trim()) {
-            return saved.trim();
+            const trimmed = saved.trim();
+            const deprecated = [
+                'gemini-1.5-flash',
+                'gemini-2.0-flash',
+                'gemini-2.0-flash-lite',
+                'gemini-2.5-flash',
+                'gemini-3-flash-preview',
+            ];
+            if (!deprecated.includes(trimmed)) {
+                return trimmed;
+            }
         }
     } catch {}
     return DEFAULT_CONFIG.flashModel;
@@ -329,7 +361,15 @@ export const getConfiguredProModel = (): string => {
     try {
         const saved = localStorage.getItem(STORAGE_KEY_PRO_MODEL);
         if (saved && saved.trim()) {
-            return saved.trim();
+            const trimmed = saved.trim();
+            const deprecated = [
+                'gemini-1.5-pro',
+                'gemini-2.0-pro',
+                'gemini-2.5-pro',
+            ];
+            if (!deprecated.includes(trimmed)) {
+                return trimmed;
+            }
         }
     } catch {}
     return DEFAULT_CONFIG.proModel;
@@ -418,6 +458,11 @@ export const getModelForMode = (modeOrModel?: string | null): string => {
         return getConfiguredProModel();
     }
 
+    // Direct OpenAI text model identifier - return as-is
+    if (isOpenAiTextModel(trimmed)) {
+        return trimmed;
+    }
+
     // Transcribe model aliases
     if (trimmed === 'gemini-3.5-transcribe' || trimmed === 'transcribe' || trimmed === 'audio-transcribe') {
         return getConfiguredTranscribeModel();
@@ -453,7 +498,7 @@ export const getModelForMode = (modeOrModel?: string | null): string => {
 export const getModelLabelForMode = (modeOrModel?: string | null): string => {
     const mode = normalizeModelMode(modeOrModel);
     const modelId = mode === 'pro' ? getConfiguredProModel() : getConfiguredFlashModel();
-    const available = mode === 'pro' ? getAvailableProModels() : getAvailableFlashModels();
+    const available = mode === 'pro' ? getAvailableProModels(true) : getAvailableFlashModels(true);
     const found = available.find(m => m.id === modelId);
     return found ? found.name : modelId;
 };

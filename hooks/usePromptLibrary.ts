@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { LibraryItem, LibraryItemType } from '../types';
+import { DEFAULT_MULTIVIEW_PROMPT } from '../services/gemini/constants';
 
 const STORAGE_KEY = 'prompt-library-items';
 
@@ -12,7 +13,8 @@ const defaultLibraryItems: LibraryItem[] = [
     { id: 'folder-1', type: LibraryItemType.FOLDER, name: 'Basic Promts', parentId: null },
     { id: 'prompt-1', type: LibraryItemType.PROMPT, name: 'Fill background', parentId: 'folder-1', content: 'Fill the white background with the surroundings' },
     { id: 'prompt-2', type: LibraryItemType.PROMPT, name: 'Remove all watermarks', parentId: 'folder-1', content: 'Remove all watermarks, logos, text overlays, and advertisement banners from the image. Restore the original background naturally, blending colors and textures smoothly. Keep all other visual elements unchanged and realistic.' },
-    { id: 'prompt-3', type: LibraryItemType.PROMPT, name: 'Character concept', parentId: 'folder-1', content: 'Create a character concept based on the provided image. The character is standing full-length against a gray background.' }
+    { id: 'prompt-3', type: LibraryItemType.PROMPT, name: 'Character concept', parentId: 'folder-1', content: 'Create a character concept based on the provided image. The character is standing full-length against a gray background.' },
+    { id: 'prompt-multiview-architect', type: LibraryItemType.PROMPT, name: '3D Multiview Turnaround Architect', parentId: 'folder-1', content: DEFAULT_MULTIVIEW_PROMPT }
 ];
 
 const getTimestamp = () => {
@@ -23,7 +25,21 @@ export const usePromptLibrary = (t: (key: string) => string, onRedirectImport?: 
     const [libraryItems, setLibraryItems] = useState<LibraryItem[]>(() => {
         try {
             const stored = localStorage.getItem(STORAGE_KEY);
-            return stored ? JSON.parse(stored) : defaultLibraryItems;
+            if (stored) {
+                const parsed: LibraryItem[] = JSON.parse(stored);
+                // Ensure default multiview prompt exists
+                const hasMultiview = parsed.some(item => item.id === 'prompt-multiview-architect' || item.name === '3D Multiview Turnaround Architect');
+                if (!hasMultiview) {
+                    const merged = [
+                        ...parsed,
+                        { id: 'prompt-multiview-architect', type: LibraryItemType.PROMPT, name: '3D Multiview Turnaround Architect', parentId: parsed.some(i => i.id === 'folder-1') ? 'folder-1' : null, content: DEFAULT_MULTIVIEW_PROMPT }
+                    ];
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+                    return merged;
+                }
+                return parsed;
+            }
+            return defaultLibraryItems;
         } catch (error) {
             console.error("Failed to load prompt library from storage", error);
             return defaultLibraryItems;
