@@ -9,8 +9,7 @@ import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { expandImageAspectRatio } from '../../services/imageActions';
 import { generateThumbnail, setupImageDragData } from '../../utils/imageUtils';
-import { Brain, Globe } from 'lucide-react';
-import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel, resolveImageModel } from '../../services/modelConfig';
+import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel, resolveImageModel, isNanoBanana21Model } from '../../services/modelConfig';
 
 export const ImageOutputNode: React.FC<NodeContentProps> = ({ 
     node, 
@@ -22,8 +21,6 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
     onSizeChange,
     onAspectRatioChange, 
     onResolutionChange, 
-    onThinkingLevelChange,
-    onUseSearchChange,
     onAutoDownloadChange, 
     onGenerateImage, 
     onStopChainExecution, 
@@ -81,6 +78,18 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
             onSizeChange(node.id, val);
         } else if (context?.handleSizeChange) {
             context.handleSizeChange(node.id, val);
+        }
+    };
+
+    const handleThinkingLevelSelect = (val: string) => {
+        if (context?.setNodes) {
+            context.setNodes((nds: any[]) => nds.map(n => n.id === node.id ? { ...n, thinkingLevel: val } : n));
+        }
+    };
+
+    const handleSearchGroundingSelect = (val: string) => {
+        if (context?.setNodes) {
+            context.setNodes((nds: any[]) => nds.map(n => n.id === node.id ? { ...n, searchGrounding: val } : n));
         }
     };
 
@@ -149,15 +158,13 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
     const isDalle2 = effectiveModel === 'dall-e-2';
     const isOpenAiModel = isOpenAiImageModel(effectiveModel);
 
-    const isNanoBanana21 = effectiveModel === 'gemini-nano-banana-2.1' || effectiveModel === 'gemini-3.6-flash-image' || effectiveModel === 'gemini-3.6-image';
-    const isNanoBananaPro = effectiveModel === 'gemini-3-pro-image' || effectiveModel === 'gemini-3-pro-image-preview';
-    const isFlashImagePreview = isNanoBanana21 || isNanoBananaPro || effectiveModel === 'gemini-3.1-flash-image-preview' || effectiveModel === 'gemini-3.1-flash-image';
+    const isNanoBanana21 = isNanoBanana21Model(effectiveModel);
+    const isNanoBananaPro = effectiveModel === 'gemini-3-pro-image-preview';
+    const isFlashImage31 = effectiveModel === 'gemini-3.1-flash-image-preview' || effectiveModel === 'gemini-3.1-flash-image';
+    const isFlashImagePreview = isNanoBanana21 || isFlashImage31;
     const isFlashImage = effectiveModel === 'gemini-2.5-flash-image';
-    const showThinking = isNanoBanana21 || isNanoBananaPro || effectiveModel === 'gemini-3.1-flash-image';
-    const showSearchGrounding = isNanoBanana21;
-
     // An 'imagen' model is selected if the model string is not set (default) or starts with 'imagen-4.0'
-    const isImagenModel = !effectiveModel || effectiveModel.startsWith('imagen-4.0') || effectiveModel.startsWith('imagen-3.0');
+    const isImagenModel = !effectiveModel || effectiveModel.startsWith('imagen-4.0');
     const isAspectRatioEnabled = !isGpt2 && (isImagenModel || isNanoBananaPro || isFlashImage || isFlashImagePreview || isOpenAiModel);
 
     let availableResolutions = [
@@ -166,7 +173,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
         { value: '4K', label: '4K' },
     ];
 
-    if (isFlashImagePreview) {
+    if (isFlashImage31) {
         availableResolutions = [
             { value: '512px', label: '512px' },
             ...availableResolutions
@@ -174,7 +181,9 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
     }
 
     let availableAspectRatios = aspectRatios;
-    if (isFlashImagePreview) {
+    if (isNanoBanana21 || isNanoBananaPro) {
+        availableAspectRatios = [...aspectRatios, "3:2", "2:3", "4:5", "5:4", "21:9", "1:4", "1:8", "4:1", "8:1"];
+    } else if (isFlashImage31) {
         availableAspectRatios = [...aspectRatios, "1:4", "1:8", "4:1", "8:1"];
     } else if (isDalle3) {
         availableAspectRatios = ["1:1", "16:9", "9:16"];
@@ -182,11 +191,28 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
         availableAspectRatios = ["1:1"];
     }
 
-    const thinkingOptions = [
-        { value: 'minimal', label: 'Minimal (Fast)' },
-        { value: 'medium', label: 'Medium (Default)' },
-        { value: 'high', label: 'High (Deep Reasoning)' }
+    const showThinkingMode = isNanoBanana21 || isNanoBananaPro || isFlashImage31;
+    const showSearchGrounding = isNanoBanana21 || isNanoBananaPro;
+
+    const thinkingLevelOptions = [
+        { value: 'AUTO', label: 'Auto (Default)' },
+        { value: 'MINIMAL', label: 'Minimal (Fastest)' },
+        { value: 'LOW', label: 'Low' },
+        { value: 'MEDIUM', label: 'Medium (Balanced)' },
+        { value: 'HIGH', label: 'High (Deep Reasoning)' },
     ];
+
+    const searchGroundingOptions = isNanoBanana21
+        ? [
+            { value: 'none', label: 'Off' },
+            { value: 'web', label: 'Google Web Search' },
+            { value: 'image', label: 'Google Image Search' },
+            { value: 'both', label: 'Web + Image Search' },
+        ]
+        : [
+            { value: 'none', label: 'Off' },
+            { value: 'web', label: 'Google Web Search' },
+        ];
 
     const gpt2QualityOptions = [
         { value: 'standard', label: 'Standard' },
@@ -455,41 +481,28 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                 </div>
             )}
 
-            {showThinking && (
+            {showThinkingMode && (
                 <div className="mb-2">
-                    <label className="block text-xs font-medium text-amber-400 mb-1 flex items-center gap-1">
-                        <Brain className="w-3.5 h-3.5" />
-                        <span>Thinking Mode</span>
-                    </label>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Thinking Mode</label>
                     <CustomSelect
-                        value={node.thinkingLevel || 'medium'}
-                        onChange={(value) => {
-                            if (onThinkingLevelChange) {
-                                onThinkingLevelChange(node.id, value as any);
-                            } else if (context?.handleThinkingLevelChange) {
-                                context.handleThinkingLevelChange(node.id, value as any);
-                            }
-                        }}
+                        id={`thinking-select-${node.id}`}
+                        value={node.thinkingLevel || 'AUTO'}
+                        onChange={handleThinkingLevelSelect}
                         disabled={isGeneratingImage || isExecutingChain}
-                        options={thinkingOptions}
+                        options={thinkingLevelOptions}
                     />
                 </div>
             )}
 
             {showSearchGrounding && (
                 <div className="mb-2">
-                    <CustomCheckbox
-                        id={`search-grounding-toggle-${node.id}`}
-                        checked={!!node.useSearch}
-                        onChange={(checked) => {
-                            if (onUseSearchChange) {
-                                onUseSearchChange(node.id, checked);
-                            } else if (context?.handleUseSearchChange) {
-                                context.handleUseSearchChange(node.id, checked);
-                            }
-                        }}
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Search Grounding</label>
+                    <CustomSelect
+                        id={`grounding-select-${node.id}`}
+                        value={node.searchGrounding || 'none'}
+                        onChange={handleSearchGroundingSelect}
                         disabled={isGeneratingImage || isExecutingChain}
-                        label="Google Search Grounding"
+                        options={searchGroundingOptions}
                     />
                 </div>
             )}

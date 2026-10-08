@@ -141,6 +141,8 @@ export const useImageNode = ({
                             quality: node.quality,
                             outputFormat: node.outputFormat,
                             size: node.size,
+                            thinkingLevel: node.thinkingLevel,
+                            searchGrounding: node.searchGrounding,
                             autoDownload: !!node.autoDownload
                         }]
                     });
@@ -161,6 +163,8 @@ export const useImageNode = ({
                             quality: node.quality,
                             outputFormat: node.outputFormat,
                             size: node.size,
+                            thinkingLevel: node.thinkingLevel,
+                            searchGrounding: node.searchGrounding,
                             autoDownload: !!node.autoDownload
                         }]
                     });
@@ -181,8 +185,8 @@ export const useImageNode = ({
                     quality: node.quality,
                     outputFormat: node.outputFormat,
                     size: node.size,
-                    thinkingLevel: (node as any).thinkingLevel,
-                    useSearch: (node as any).useSearch
+                    thinkingLevel: node.thinkingLevel,
+                    searchGrounding: node.searchGrounding
                 }),
                 signal
             );

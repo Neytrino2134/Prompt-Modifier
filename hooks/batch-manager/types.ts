@@ -36,6 +36,8 @@ export interface CreateBatchGenerationParams {
         quality?: string;
         outputFormat?: string;
         size?: string;
+        thinkingLevel?: string;
+        searchGrounding?: string;
         images?: { base64ImageData: string; mimeType: string }[];
         autoCrop169?: boolean;
         autoDownload?: boolean;

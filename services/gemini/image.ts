@@ -1,7 +1,7 @@
 import { Modality } from "@google/genai";
 import { convertToPNG } from '../../utils/imageUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
-import { getModelForMode } from '../modelConfig';
+import { getModelForMode, normalizeImageModelId } from '../modelConfig';
 import { 
     generateOpenAiImage, 
     isOpenAiTextModel, 
@@ -11,64 +11,17 @@ import {
 } from '../openaiService';
 import { createAIClient, callWithRetry } from './client';
 
-export interface GenerateImageOptions {
-    quality?: string;
-    outputFormat?: string;
-    size?: string;
-    thinkingLevel?: 'minimal' | 'medium' | 'high';
-    thinkingBudget?: number;
-    useSearch?: boolean;
-    images?: { base64ImageData: string, mimeType: string }[];
-}
-
-/**
- * Normalizes any legacy or alias model string into an official valid Gemini API image model identifier.
- */
-export const normalizeImageModelName = (model?: string): string => {
-    if (!model) return 'gemini-nano-banana-2.1';
-    const clean = model.trim();
-    if (
-        clean === 'gemini-3.6-flash-image' ||
-        clean === 'gemini-3.6-image' ||
-        clean === 'gemini-3.6-flash' ||
-        clean === 'gemini-nano-banana-2.1' ||
-        clean.includes('banana-2.1') ||
-        clean.includes('banana 2.1') ||
-        clean.includes('nana banana')
-    ) {
-        return 'gemini-nano-banana-2.1';
-    }
-    if (
-        clean === 'gemini-3-pro-image' ||
-        clean === 'gemini-3-pro-image-preview' ||
-        clean.includes('banana-pro') ||
-        clean.includes('banana pro')
-    ) {
-        return 'gemini-3-pro-image';
-    }
-    if (clean === 'gemini-3.1-flash-image' || clean.includes('banana 2')) {
-        return 'gemini-3.1-flash-image';
-    }
-    if (clean === 'gemini-3.1-flash-image-preview') {
-        return 'gemini-3.1-flash-image-preview';
-    }
-    if (clean === 'gemini-2.5-flash-image' || clean.includes('banana')) {
-        return 'gemini-2.5-flash-image';
-    }
-    if (clean === 'gemini-3-flash-preview' || clean.startsWith('gemini-3.5') || clean.startsWith('gemini-3.7') || clean.startsWith('gemini-3.8')) {
-        return 'gemini-nano-banana-2.1';
-    }
-    return clean;
-};
-
 export const generateImage = async (
     prompt: string,
     aspectRatio: string = '1:1',
     images: { base64ImageData: string, mimeType: string }[] | undefined,
-    model: string = 'gemini-nano-banana-2.1', // Default to Gemini Nano Banana 2.1
+    model: string = 'gemini-2.5-flash-image', // Default to nano banana for image gen
     resolution: string = '1K',
-    options?: GenerateImageOptions
+    options?: { quality?: string; outputFormat?: string; size?: string; thinkingLevel?: string; searchGrounding?: string }
 ): Promise<string> => {
+    const normalizedModel = normalizeImageModelId(model) || 'gemini-2.5-flash-image';
+
+    // Wrapping generateImage with retry as well, although usually less prone to 503s on Imagen
     return callWithRetry(async () => {
         const ai = createAIClient();
 
@@ -85,9 +38,9 @@ export const generateImage = async (
         };
 
         try {
-            if (model.startsWith('dall-e') || model.startsWith('openai') || model.startsWith('gpt-image') || model.includes('gpt-image')) {
+            if (normalizedModel.startsWith('dall-e') || normalizedModel.startsWith('openai') || normalizedModel.startsWith('gpt-image') || normalizedModel.includes('gpt-image')) {
                 return await generateOpenAiImage(prompt, {
-                    model,
+                    model: normalizedModel,
                     aspectRatio,
                     resolution,
                     quality: options?.quality,
@@ -97,96 +50,152 @@ export const generateImage = async (
                 });
             }
 
-            // Imagen 3 & 4 generation models
-            if (model.startsWith('imagen-')) {
-                if (!prompt || prompt.trim() === '') throw new Error("Prompt required for Imagen.");
-                const response = await ai.models.generateImages({
-                    model: model,
-                    prompt: prompt,
-                    config: {
-                        numberOfImages: 1,
-                        outputMimeType: options?.outputFormat === 'jpeg' ? 'image/jpeg' : 'image/png',
-                        aspectRatio: (aspectRatio && aspectRatio !== 'Auto') ? aspectRatio : '1:1'
-                    },
-                });
-                if (response.generatedImages?.[0]?.image?.imageBytes) {
-                    return await processReturnedImage('image/png', response.generatedImages[0].image.imageBytes || '', prompt || '');
+            if (
+                normalizedModel === 'gemini-nano-banana-2.1' ||
+                normalizedModel === 'gemini-3-pro-image-preview' ||
+                normalizedModel === 'gemini-3-pro-image' ||
+                normalizedModel === 'gemini-3.1-flash-image-preview' ||
+                normalizedModel === 'gemini-3.1-flash-image'
+            ) {
+                const imageParts = (images || []).map(image => ({
+                    inlineData: { data: image.base64ImageData, mimeType: image.mimeType },
+                }));
+                const parts: any[] = [...imageParts];
+                if (prompt && prompt.trim() !== '') {
+                    parts.push({ text: prompt });
+                } else if (parts.length === 0) {
+                    parts.push({ text: 'High quality image' });
                 }
-                throw new Error("No image returned from Imagen.");
-            }
 
-            // Gemini Multimodal Native Image Models (Nano Banana 2.1, Nano Banana Pro, Nano Banana 2, etc.)
-            const normalizedModel = normalizeImageModelName(model);
-
-            // Assemble input parts: Images (up to 14) + Text prompt
-            const allImages = images || options?.images || [];
-            const imageParts = allImages.map(image => ({
-                inlineData: { data: image.base64ImageData, mimeType: image.mimeType || 'image/png' },
-            }));
-            const parts: any[] = [...imageParts];
-            if (prompt && prompt.trim() !== '') {
-                parts.push({ text: prompt });
-            } else if (parts.length === 0) {
-                throw new Error("Prompt or input image required.");
-            } else {
-                parts.push({ text: " " });
-            }
-
-            // Build config for generateContent
-            const config: any = {
-                responseModalities: [Modality.IMAGE],
-            };
-
-            // Image Aspect Ratio & Size configuration
-            const imageConfig: any = {};
-            if (aspectRatio && aspectRatio !== 'Auto') {
-                imageConfig.aspectRatio = aspectRatio;
-            }
-            if (resolution && resolution !== 'Auto') {
-                imageConfig.imageSize = resolution; // '512px', '1K', '2K', '4K'
-            }
-            if (Object.keys(imageConfig).length > 0) {
-                config.imageConfig = imageConfig;
-            }
-
-            // Configurable Thinking Mode (minimal, medium, high)
-            if (options?.thinkingLevel) {
-                config.thinkingConfig = {
-                    thinkingLevel: options.thinkingLevel
+                const requestConfig: any = {
+                    imageConfig: {
+                        aspectRatio: aspectRatio || '1:1',
+                        imageSize: resolution || '1K' // '512px', '1K', '2K', '4K'
+                    }
                 };
-            } else if (options?.thinkingBudget !== undefined) {
-                config.thinkingConfig = {
-                    thinkingBudget: options.thinkingBudget
-                };
+
+                // Configurable Thinking Mode (Nano Banana 2.1 / Gemini 3 series)
+                if (
+                    options?.thinkingLevel &&
+                    options.thinkingLevel !== 'AUTO' &&
+                    options.thinkingLevel !== 'DEFAULT' &&
+                    (normalizedModel === 'gemini-nano-banana-2.1' || normalizedModel.startsWith('gemini-3'))
+                ) {
+                    requestConfig.thinkingConfig = {
+                        thinkingLevel: options.thinkingLevel
+                    };
+                }
+
+                // Search Grounding (Web Search & Image Search for Nano Banana 2.1 / Gemini 3 Pro Image)
+                if (options?.searchGrounding && options.searchGrounding !== 'none') {
+                    if (normalizedModel === 'gemini-nano-banana-2.1') {
+                        const searchTypes: any = {};
+                        if (options.searchGrounding === 'web' || options.searchGrounding === 'both') {
+                            searchTypes.webSearch = {};
+                        }
+                        if (options.searchGrounding === 'image' || options.searchGrounding === 'both') {
+                            searchTypes.imageSearch = {};
+                        }
+                        if (Object.keys(searchTypes).length > 0) {
+                            requestConfig.tools = [{ googleSearch: { searchTypes } }];
+                        }
+                    } else if (normalizedModel === 'gemini-3-pro-image-preview' || normalizedModel === 'gemini-3-pro-image') {
+                        if (options.searchGrounding === 'web' || options.searchGrounding === 'both') {
+                            requestConfig.tools = [{ googleSearch: {} }];
+                        }
+                    }
+                }
+
+                const response = await ai.models.generateContent({
+                    model: normalizedModel,
+                    contents: { parts },
+                    config: requestConfig
+                });
+
+                const candidate = response.candidates?.[0];
+                const candidateParts = candidate?.content?.parts || [];
+                const part = candidateParts.find((p: any) => p.inlineData && !p.thought) || candidateParts.find((p: any) => p.inlineData);
+                if (part?.inlineData) {
+                    return await processReturnedImage(part.inlineData.mimeType || 'image/png', part.inlineData.data || '', prompt || '');
+                }
+                throw new Error("No image returned. The prompt may have been blocked or the model encountered an error.");
             }
 
-            // Search Grounding support for Gemini Nano Banana 2.1
-            if (options?.useSearch) {
-                config.tools = [{ googleSearch: {} }];
+            // Editing Mode (Input Images present)
+            if (images && images.length > 0) {
+                const imageParts = images.map(image => ({
+                    inlineData: { data: image.base64ImageData, mimeType: image.mimeType },
+                }));
+                const parts: any[] = [...imageParts];
+                if (prompt && prompt.trim() !== '') {
+                    parts.push({ text: prompt });
+                } else {
+                    // Ensure we send at least an empty text part if prompt is missing, as 2.5 editing expects text
+                    parts.push({ text: " " });
+                }
+
+                // Use the passed model if available, otherwise default logic
+                // Fix: Ensure we use a valid image model for editing. 3-flash-preview (text) cannot generate/edit images.
+                let editingModel = model || 'gemini-2.5-flash-image';
+                if (editingModel === 'gemini-3-flash-preview') {
+                    editingModel = 'gemini-2.5-flash-image';
+                }
+
+                const config: any = { responseModalities: [Modality.IMAGE] };
+
+                // Allow aspectRatio config for 2.5 flash image in editing mode if specified
+                if (editingModel === 'gemini-2.5-flash-image' && aspectRatio && aspectRatio !== '1:1') {
+                    config.imageConfig = { aspectRatio: aspectRatio };
+                }
+
+                const response = await ai.models.generateContent({
+                    model: editingModel,
+                    contents: { parts },
+                    config: config,
+                });
+
+                const candidate = response.candidates?.[0];
+                const part = candidate?.content?.parts?.find(p => p.inlineData);
+                if (part?.inlineData) {
+                    return await processReturnedImage(part.inlineData.mimeType || 'image/png', part.inlineData.data || '', prompt || '');
+                }
+                throw new Error("No image returned. The prompt may have been blocked.");
+
             }
+            // Generation Mode
+            else {
+                if (!prompt || prompt.trim() === '') throw new Error("Prompt required.");
 
-            const response = await ai.models.generateContent({
-                model: normalizedModel,
-                contents: { parts },
-                config
-            });
+                if (model.startsWith('imagen-4.0')) {
+                    const response = await ai.models.generateImages({
+                        model: model,
+                        prompt: prompt,
+                        config: { numberOfImages: 1, outputMimeType: 'image/png', aspectRatio: aspectRatio },
+                    });
+                    if (response.generatedImages?.[0]?.image?.imageBytes) {
+                        return await processReturnedImage('image/png', response.generatedImages[0].image.imageBytes || '', prompt || '');
+                    }
+                    throw new Error("No image returned.");
+                } else {
+                    // Ensure we use the correct model for image gen. 
+                    // If user passed a text model by mistake, fallback to 2.5 flash image.
+                    const modelToUse = (model === 'gemini-3-flash-preview' || !model) ? 'gemini-2.5-flash-image' : model;
 
-            const candidate = response.candidates?.[0];
-            const part = candidate?.content?.parts?.find(p => p.inlineData);
-            if (part?.inlineData?.data) {
-                return await processReturnedImage(
-                    part.inlineData.mimeType || 'image/png',
-                    part.inlineData.data,
-                    prompt || ''
-                );
+                    const response = await ai.models.generateContent({
+                        model: modelToUse,
+                        contents: { parts: [{ text: prompt }] },
+                        config: {
+                            responseModalities: [Modality.IMAGE],
+                            imageConfig: { aspectRatio } // Enabled aspect ratio for gemini-2.5-flash-image
+                        },
+                    });
+                    const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+                    if (part?.inlineData) {
+                        return await processReturnedImage(part.inlineData.mimeType || 'image/png', part.inlineData.data || '', prompt || '');
+                    }
+                    throw new Error("No image returned.");
+                }
             }
-
-            const textPart = candidate?.content?.parts?.find(p => p.text);
-            if (textPart?.text) {
-                throw new Error(`Model returned text response instead of image: ${textPart.text}`);
-            }
-
-            throw new Error("No image returned. The prompt may have been blocked or the model encountered an error.");
         } catch (error: any) {
             let message = error.message || '';
             if (error.status) message += ` Status: ${error.status}`;

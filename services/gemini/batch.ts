@@ -2,7 +2,7 @@ import { Modality } from "@google/genai";
 import { convertToPNG } from '../../utils/imageUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { getDeviceId, formatWithDeviceTag, extractDeviceId } from '../../utils/deviceId';
-import { getModelForMode } from '../modelConfig';
+import { getModelForMode, normalizeImageModelId } from '../modelConfig';
 import {
     createOpenAiBatchImageJob,
     getOpenAiBatchJobStatus,
@@ -12,7 +12,6 @@ import {
 } from '../openaiService';
 import { createAIClient, callWithRetry, getApiKey } from './client';
 import { BatchRequestItemInput } from './types';
-import { normalizeImageModelName } from './image';
 
 // ==========================================
 // BATCH API (Delayed Async Processing)
@@ -26,60 +25,113 @@ export const createBatchImageJob = async (
     model: string = 'gemini-3-pro-image-preview',
     displayName?: string
 ): Promise<{ name: string; state: string; rawJsonl?: string }> => {
+    const normalizedModel = normalizeImageModelId(model) || 'gemini-3-pro-image-preview';
     const currentDeviceId = getDeviceId();
     const taggedDisplayName = formatWithDeviceTag(displayName || `Gemini Batch`, currentDeviceId);
 
-    const isOpenAi = model.startsWith('dall-e') || model.startsWith('openai') || model.startsWith('gpt-image') || model.includes('gpt-image');
+    const isOpenAi = normalizedModel.startsWith('dall-e') || normalizedModel.startsWith('openai') || normalizedModel.startsWith('gpt-image') || normalizedModel.includes('gpt-image');
     if (isOpenAi) {
-        return await createOpenAiBatchImageJob(items, model, taggedDisplayName);
+        return await createOpenAiBatchImageJob(items, normalizedModel, taggedDisplayName);
     }
 
     return callWithRetry(async () => {
         const ai = createAIClient();
 
-        const normalizedModel = normalizeImageModelName(model);
-
         // Build inlined requests
         const inlinedRequests = items.map(item => {
-            const parts: any[] = [];
-            if (item.images && item.images.length > 0) {
-                item.images.forEach(img => {
-                    parts.push({
-                        inlineData: {
-                            data: img.base64ImageData,
-                            mimeType: img.mimeType || 'image/png'
-                        }
+            const isNanoBananaProOrFlash = normalizedModel === 'gemini-nano-banana-2.1' ||
+                normalizedModel === 'gemini-3-pro-image-preview' ||
+                normalizedModel === 'gemini-3-pro-image' ||
+                normalizedModel === 'gemini-3.1-flash-image-preview' ||
+                normalizedModel === 'gemini-3.1-flash-image';
+
+            if (isNanoBananaProOrFlash) {
+                const parts: any[] = [];
+                if (item.images && item.images.length > 0) {
+                    item.images.forEach(img => {
+                        parts.push({
+                            inlineData: {
+                                data: img.base64ImageData,
+                                mimeType: img.mimeType || 'image/png'
+                            }
+                        });
                     });
-                });
-            }
-            if (item.prompt && item.prompt.trim() !== '') {
-                parts.push({ text: item.prompt });
+                }
+                if (item.prompt && item.prompt.trim() !== '') {
+                    parts.push({ text: item.prompt });
+                } else {
+                    parts.push({ text: "High quality image" });
+                }
+
+                const itemConfig: any = {
+                    imageConfig: {
+                        aspectRatio: item.aspectRatio || '1:1',
+                        imageSize: item.resolution || '1K'
+                    }
+                };
+
+                if (
+                    item.thinkingLevel &&
+                    item.thinkingLevel !== 'AUTO' &&
+                    item.thinkingLevel !== 'DEFAULT' &&
+                    (normalizedModel === 'gemini-nano-banana-2.1' || normalizedModel.startsWith('gemini-3'))
+                ) {
+                    itemConfig.thinkingConfig = {
+                        thinkingLevel: item.thinkingLevel
+                    };
+                }
+
+                if (item.searchGrounding && item.searchGrounding !== 'none') {
+                    if (normalizedModel === 'gemini-nano-banana-2.1') {
+                        const searchTypes: any = {};
+                        if (item.searchGrounding === 'web' || item.searchGrounding === 'both') {
+                            searchTypes.webSearch = {};
+                        }
+                        if (item.searchGrounding === 'image' || item.searchGrounding === 'both') {
+                            searchTypes.imageSearch = {};
+                        }
+                        if (Object.keys(searchTypes).length > 0) {
+                            itemConfig.tools = [{ googleSearch: { searchTypes } }];
+                        }
+                    } else if (normalizedModel === 'gemini-3-pro-image-preview' || normalizedModel === 'gemini-3-pro-image') {
+                        if (item.searchGrounding === 'web' || item.searchGrounding === 'both') {
+                            itemConfig.tools = [{ googleSearch: {} }];
+                        }
+                    }
+                }
+
+                return {
+                    contents: [{ parts }],
+                    config: itemConfig
+                };
             } else {
-                parts.push({ text: "High quality image" });
-            }
+                // Fallback for gemini-2.5-flash-image or others
+                const parts: any[] = [];
+                if (item.images && item.images.length > 0) {
+                    item.images.forEach(img => {
+                        parts.push({
+                            inlineData: {
+                                data: img.base64ImageData,
+                                mimeType: img.mimeType || 'image/png'
+                            }
+                        });
+                    });
+                }
+                parts.push({ text: item.prompt || " " });
 
-            const config: any = {
-                responseModalities: [Modality.IMAGE],
-            };
+                const config: any = { responseModalities: [Modality.IMAGE] };
+                if (item.aspectRatio && item.aspectRatio !== '1:1') {
+                    config.imageConfig = { aspectRatio: item.aspectRatio };
+                }
 
-            const imageConfig: any = {};
-            if (item.aspectRatio && item.aspectRatio !== 'Auto') {
-                imageConfig.aspectRatio = item.aspectRatio;
+                return {
+                    contents: [{ parts }],
+                    config
+                };
             }
-            if (item.resolution && item.resolution !== 'Auto') {
-                imageConfig.imageSize = item.resolution;
-            }
-            if (Object.keys(imageConfig).length > 0) {
-                config.imageConfig = imageConfig;
-            }
-
-            return {
-                contents: [{ parts }],
-                config
-            };
         });
 
-        const targetModel = normalizedModel;
+        const targetModel = getModelForMode(normalizedModel);
         const batchJob = await ai.batches.create({
             model: targetModel,
             src: inlinedRequests,

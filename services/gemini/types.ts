@@ -17,5 +17,7 @@ export interface BatchRequestItemInput {
     size?: string;
     quality?: string;
     outputFormat?: string;
+    thinkingLevel?: string;
+    searchGrounding?: string;
     images?: { base64ImageData: string; mimeType: string }[];
 }

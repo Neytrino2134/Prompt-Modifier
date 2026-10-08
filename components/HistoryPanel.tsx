@@ -56,12 +56,18 @@ export const HistoryPanel: React.FC = () => {
 
   const [filterModel, setFilterModel] = useState<string>('all');
 
-  // Available unique models in history + Nano Banana 2.1
+  // Available unique models in history + Nana Banana 2.1
   const availableFilterModels = useMemo(() => {
     const set = new Set<string>();
     set.add('gemini-nano-banana-2.1');
     historyItems.forEach(item => {
-      if (item.model) set.add(item.model);
+      if (item.model) {
+        if (item.model === 'gemini-3.6-flash-image' || item.model === 'gemini-3.6-image') {
+          set.add('gemini-nano-banana-2.1');
+        } else {
+          set.add(item.model);
+        }
+      }
     });
     return Array.from(set);
   }, [historyItems]);

@@ -7,6 +7,7 @@ import { SequencedPromptList, SequencedPromptListRef } from './SequencedPromptLi
 import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { PromptLibraryToolbar } from '../../PromptLibraryToolbar';
 import { ActionButton } from '../../ActionButton';
+import { isNanoBanana21Model } from '../../../services/modelConfig';
 import { ImageEditorState, ImageSlot, MIN_TOP_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT_WITH_PREVIEW } from './types';
 import { ActionButton as CopyActionButton } from '../../ActionButton';
 import { CopyIcon } from '../../../components/icons/AppIcons';
@@ -107,9 +108,7 @@ export const ImageEditorLeftPane = forwardRef<SequencedPromptListRef, ImageEdito
     const contentRef = useRef<HTMLDivElement>(null);
     const { getFullSizeImage, onCheck, onSelectAll, onSelectNone, onClear, onClick, onMove, onRemove, onMoveToB, onFileClick, onDropFiles, onDropData, onSlotDrop } = inputListActions;
 
-    const isModernBanana = state.model === 'gemini-nano-banana-2.1' || state.model === 'gemini-3.6-flash-image' || state.model === 'gemini-3.6-image';
-    const isBananaPro = state.model === 'gemini-3-pro-image' || state.model === 'gemini-3-pro-image-preview';
-    const maxInputImages = isModernBanana ? 14 : isBananaPro ? 8 : 4;
+    const maxInputImages = (state.model === 'gemini-3-pro-image-preview' || isNanoBanana21Model(state.model)) ? 8 : 4;
     const inputPanelHeader = t('node.content.inputImage');
     const inputSubtitleA = isSequenceMode && isSequentialCombinationMode ? t('imageEditor.inputA') : t('imageEditor.input'); 
     const inputSubtitleB = `${t('imageEditor.inputB')} (Max ${maxInputImages - 1})`;

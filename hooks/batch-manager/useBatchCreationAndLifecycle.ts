@@ -101,6 +101,8 @@ export const useBatchCreationAndLifecycle = ({
                 quality: item.quality,
                 outputFormat: item.outputFormat,
                 size: item.size,
+                thinkingLevel: item.thinkingLevel,
+                searchGrounding: item.searchGrounding,
                 images: item.images
             }));
 
@@ -154,6 +156,8 @@ export const useBatchCreationAndLifecycle = ({
                     quality: item.quality,
                     outputFormat: item.outputFormat,
                     size: item.size,
+                    thinkingLevel: item.thinkingLevel,
+                    searchGrounding: item.searchGrounding,
                     images: item.images,
                     autoCrop169: item.autoCrop169,
                     autoDownload: item.autoDownload,

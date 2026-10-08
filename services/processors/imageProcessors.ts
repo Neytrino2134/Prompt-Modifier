@@ -7,6 +7,7 @@ import { NodeProcessor } from './types';
 import { generateImage } from '../geminiService';
 import { generateThumbnail, formatImageForAspectRatio, cropImageTo169 } from '../../utils/imageUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
+import { isNanoBanana21Model, resolveImageEditorModel } from '../modelConfig';
 
 const triggerDownload = (url: string, prompt: string) => {
     let assetUrl = url;
@@ -47,7 +48,13 @@ export const processImageOutput: NodeProcessor = async ({ node, upstreamData, sa
         throw new Error("Prompt is empty. Make sure a node with text is connected and has been processed.");
     }
     
-    const imageUrl = await generateImage(prompt, node.aspectRatio, undefined, node.model, node.resolution);
+    const imageUrl = await generateImage(prompt, node.aspectRatio, undefined, node.model, node.resolution, {
+        quality: node.quality,
+        outputFormat: node.outputFormat,
+        size: node.size,
+        thinkingLevel: node.thinkingLevel,
+        searchGrounding: node.searchGrounding
+    });
     const thumbnailUrl = await generateThumbnail(imageUrl, 256, 256);
     
     saveImageToCache(0, imageUrl);
@@ -68,15 +75,15 @@ export const processImageEditor = async (
     saveImageToCache: (frame: number, url: string) => void
 ) => {
     const parsed = JSON.parse(node.value);
+    const effectiveModel = resolveImageEditorModel(parsed.model);
     
     const allInputImages = [...localImages, ...imageInputs];
     const allInputImagesB = [...localImagesB, ...imageInputsB];
 
     // Validation Logic - Relaxed for text-only potential
-    const isTextToImageModel = parsed.model === 'gemini-nano-banana-2.1' || parsed.model === 'gemini-3-pro-image' || parsed.model === 'gemini-3-pro-image-preview' || parsed.model === 'gemini-3.6-flash-image' || parsed.model === 'gemini-3.6-image' || parsed.model === 'gemini-3.1-flash-image';
     if (!parsed.isSequentialEditingWithPrompts) {
-         // Standard modes require Input A unless text-to-image supported
-         if (allInputImages.length === 0 && !isTextToImageModel) {
+         // Standard modes require Input A
+         if (allInputImages.length === 0 && effectiveModel !== 'gemini-3-pro-image-preview' && !isNanoBanana21Model(effectiveModel)) {
             throw new Error("No input image provided for editing.");
         }
     }
@@ -106,7 +113,7 @@ export const processImageEditor = async (
     
     // Check if we are running in Single Mode (non-sequence)
     if (!parsed.isSequenceMode) {
-        if (imagesForFrame.length === 0 && !isTextToImageModel) {
+        if (imagesForFrame.length === 0 && effectiveModel !== 'gemini-3-pro-image-preview' && !isNanoBanana21Model(effectiveModel)) {
              throw new Error("No images selected for processing.");
         }
         
@@ -132,12 +139,14 @@ export const processImageEditor = async (
         }
 
         // WRAP GENERATION IN RACE WITH ABORT SIGNAL
-        const imageUrl = await generateImage(promptToUse, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution, {
+        // Note: Chain execution passes an undefined signal usually, or we need to handle it.
+        // For this refactor, we assume simple execution unless the hook provides a signal.
+        const imageUrl = await generateImage(promptToUse, parsed.aspectRatio, processedImages, effectiveModel, parsed.resolution, {
             quality: parsed.quality,
             outputFormat: parsed.outputFormat,
             size: parsed.size,
             thinkingLevel: parsed.thinkingLevel,
-            useSearch: parsed.useSearch
+            searchGrounding: parsed.searchGrounding
         });
         
         let finalImageUrl = imageUrl;
@@ -172,7 +181,7 @@ export const processImageEditor = async (
         imagesToProcess = allInputImagesB; // Send ALL images from B
     } else {
         const imgSource = allInputImages[targetIndex] || (allInputImages.length > 0 ? allInputImages[0] : undefined);
-        if (!imgSource && !isTextToImageModel) {
+        if (!imgSource && effectiveModel !== 'gemini-3-pro-image-preview' && !isNanoBanana21Model(effectiveModel)) {
              throw new Error("No image found for sequence chain execution.");
         }
         if (imgSource) imagesToProcess = [imgSource];
@@ -202,17 +211,18 @@ export const processImageEditor = async (
     const processedImages = await Promise.all(formattingPromises);
     
     // Handle Prompt for Sequence (Generic + Specific)
+    // For chain execution, we just use the base prompt + inputs
     if (parsed.enableOutpainting) {
          const outpaintingTemplate = parsed.outpaintingPrompt || '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.';
          promptToUse = outpaintingTemplate.replace('{main_prompt}', promptToUse);
     }
 
-    const imageUrl = await generateImage(promptToUse, parsed.aspectRatio, processedImages, parsed.model, parsed.resolution, {
+    const imageUrl = await generateImage(promptToUse, parsed.aspectRatio, processedImages, effectiveModel, parsed.resolution, {
         quality: parsed.quality,
         outputFormat: parsed.outputFormat,
         size: parsed.size,
         thinkingLevel: parsed.thinkingLevel,
-        useSearch: parsed.useSearch
+        searchGrounding: parsed.searchGrounding
     });
     
     let finalImageUrl = imageUrl;

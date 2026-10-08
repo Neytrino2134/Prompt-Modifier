@@ -8,7 +8,7 @@ import { generateImage } from '../../services/geminiService';
 import { generateThumbnail, formatImageForAspectRatio, cropImageTo169 } from '../../utils/imageUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { GeminiGenerationCommonProps } from './types';
-import { resolveImageEditorModel } from '../../services/modelConfig';
+import { resolveImageEditorModel, isNanoBanana21Model } from '../../services/modelConfig';
 import { notifyImageEditorSuccess } from '../../services/trayNotificationService';
 
 // Helper for local download triggering within the hook
@@ -170,7 +170,7 @@ export const useEditorNode = ({
         if (!parsed.isSequentialEditingWithPrompts) {
              const genericTextsForCheck = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
              const hasPrompt = !!(parsed.prompt || genericTextsForCheck.length > 0);
-             if (allInputImages.length === 0 && parsed.model !== 'gemini-3-pro-image-preview' && parsed.model !== 'gemini-3.6-flash-image' && parsed.model !== 'gemini-3.6-image' && !hasPrompt) {
+             if (allInputImages.length === 0 && effectiveModel !== 'gemini-3-pro-image-preview' && !isNanoBanana21Model(effectiveModel) && !hasPrompt) {
                  setError("No input image or prompt provided for generation/editing.");
                  return;
              }
@@ -209,6 +209,8 @@ export const useEditorNode = ({
                     quality?: string;
                     outputFormat?: string;
                     size?: string;
+                    thinkingLevel?: string;
+                    searchGrounding?: string;
                     autoCrop169?: boolean;
                     autoInsertResults?: boolean;
                     autoSaveImages?: boolean;
@@ -233,7 +235,7 @@ export const useEditorNode = ({
                         } else if (!imgA && allInputImages.length > 0) {
                             imgA = allInputImages[i % allInputImages.length];
                         }
-                        if (!imgA && parsed.model !== 'gemini-3-pro-image-preview' && parsed.model !== 'gemini-3.6-flash-image' && parsed.model !== 'gemini-3.6-image') continue;
+                        if (!imgA && effectiveModel !== 'gemini-3-pro-image-preview' && !isNanoBanana21Model(effectiveModel)) continue;
                         if (imgA) imagesForFrame = [imgA];
                         
                         if (parsed.isSequentialCombinationMode) {
@@ -284,6 +286,8 @@ export const useEditorNode = ({
                         quality: parsed.quality,
                         outputFormat: parsed.outputFormat,
                         size: parsed.size,
+                        thinkingLevel: parsed.thinkingLevel,
+                        searchGrounding: parsed.searchGrounding,
                         autoCrop169: parsed.autoCrop169,
                         autoInsertResults: !!(parsed.autoInsertResults ?? parsed.autoDownload ?? true),
                         autoSaveImages: !!parsed.autoSaveImages,
@@ -361,6 +365,8 @@ export const useEditorNode = ({
                         quality: parsed.quality,
                         outputFormat: parsed.outputFormat,
                         size: parsed.size,
+                        thinkingLevel: parsed.thinkingLevel,
+                        searchGrounding: parsed.searchGrounding,
                         autoCrop169: parsed.autoCrop169,
                         autoInsertResults: !!(parsed.autoInsertResults ?? parsed.autoDownload ?? true),
                         autoSaveImages: !!parsed.autoSaveImages,
@@ -398,7 +404,7 @@ export const useEditorNode = ({
                     } else if (!imgA && parsed.checkedInputIndices && parsed.checkedInputIndices.length === 1) {
                         imgA = allInputImages[parsed.checkedInputIndices[0]];
                     }
-                    if (!imgA && effectiveModel !== 'gemini-3-pro-image-preview' && effectiveModel !== 'gemini-3.6-flash-image' && effectiveModel !== 'gemini-3.6-image') continue;
+                    if (!imgA && effectiveModel !== 'gemini-3-pro-image-preview' && !isNanoBanana21Model(effectiveModel)) continue;
                     if (imgA) imagesForFrame = [imgA];
                     
                     if (parsed.isSequentialCombinationMode) {
@@ -453,7 +459,7 @@ export const useEditorNode = ({
                             outputFormat: parsed.outputFormat,
                             size: parsed.size,
                             thinkingLevel: parsed.thinkingLevel,
-                            useSearch: parsed.useSearch
+                            searchGrounding: parsed.searchGrounding
                         }),
                         signal
                     );
@@ -564,7 +570,7 @@ export const useEditorNode = ({
                          outputFormat: parsed.outputFormat,
                          size: parsed.size,
                          thinkingLevel: parsed.thinkingLevel,
-                         useSearch: parsed.useSearch
+                         searchGrounding: parsed.searchGrounding
                      }),
                      signal
                 );

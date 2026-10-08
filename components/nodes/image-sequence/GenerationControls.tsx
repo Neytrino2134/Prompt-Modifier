@@ -43,7 +43,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
     
     const modelOptions = [
         { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0' },
-        { value: 'gemini-3.6-flash-image', label: 'Gemini 3.6 Flash Image (Nana Banana 2.1)' },
+        { value: 'gemini-nano-banana-2.1', label: 'Gemini 3.6 Flash Image (Nana Banana 2.1)' },
         { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)' },
         { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)' },
         { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nana Banana 2 Lite)' },
@@ -64,7 +64,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
         { value: '4K', label: '4K' },
     ];
 
-    const isPro = model === 'gemini-3.6-flash-image' || model === 'gemini-3.6-image' || model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
+    const isPro = model === 'gemini-nano-banana-2.1' || model === 'gemini-3.6-flash-image' || model === 'gemini-3.6-image' || model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
 
     return (
         <div className="flex-shrink-0 space-y-2 mt-2">

@@ -3,7 +3,7 @@ import { VisibleImage } from '../../VisibleImage';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ActionButton } from '../../ActionButton';
-import { ChevronLeft, ChevronRight, Banana, Sparkles, Zap, Image as ImageIcon, X, Square, StickyNote, Brain, Globe, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Banana, Sparkles, Zap, Image as ImageIcon, X, Square, StickyNote } from 'lucide-react';
 import CustomSelect from '../../CustomSelect';
 import { ImageEditorState, ImageSlot } from './types';
 import { CopyIcon } from '../../../components/icons/AppIcons';
@@ -15,14 +15,14 @@ import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { setupImageDragData } from '../../../utils/imageUtils';
 import ConfirmDialog from '../../ConfirmDialog';
 import { useAppSelector } from '../../../contexts/AppContext';
-import { isGptImage2Model, isOpenAiImageModel, resolveImageEditorModel } from '../../../services/modelConfig';
+import { isGptImage2Model, isOpenAiImageModel, resolveImageEditorModel, isNanoBanana21Model } from '../../../services/modelConfig';
 import { OptimizedThumbnail } from './OptimizedThumbnail';
 
 // Helper component for input with stylish spinners
 
 const getModelIcon = (modelValue: string) => {
-    if (modelValue === 'gemini-nano-banana-2.1' || modelValue === 'gemini-3.6-flash-image' || modelValue === 'gemini-3.6-image') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-amber-400" /><Sparkles className="w-3 h-3 text-amber-300 relative -top-1" /></div>;
-    if (modelValue === 'gemini-3-pro-image' || modelValue === 'gemini-3-pro-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Sparkles className="w-3 h-3 text-yellow-300 relative -top-1" /></div>;
+    if (isNanoBanana21Model(modelValue)) return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-amber-400" /><Sparkles className="w-3 h-3 text-amber-300 relative -top-1" /></div>;
+    if (modelValue === 'gemini-3-pro-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Sparkles className="w-3 h-3 text-yellow-300 relative -top-1" /></div>;
     if (modelValue === 'gemini-3.1-flash-image') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Zap className="w-3 h-3 text-blue-400 relative -top-1" /></div>;
     if (modelValue === 'gemini-3.1-flash-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-gray-400" /><Zap className="w-3 h-3 text-blue-300 relative -top-1" /></div>;
     if (modelValue === 'gemini-2.5-flash-image') return <Banana className="w-4 h-4 text-yellow-500" />;
@@ -30,8 +30,8 @@ const getModelIcon = (modelValue: string) => {
 };
 
 const getModelShortName = (modelValue: string, label: string) => {
-    if (modelValue === 'gemini-nano-banana-2.1' || modelValue === 'gemini-3.6-flash-image' || modelValue === 'gemini-3.6-image') return 'Nano Banana 2.1 (Fast & Quality)';
-    if (modelValue === 'gemini-3-pro-image' || modelValue === 'gemini-3-pro-image-preview') return 'Nano Banana Pro (3.0)';
+    if (isNanoBanana21Model(modelValue)) return 'Nana Banana 2.1 (3.6)';
+    if (modelValue === 'gemini-3-pro-image-preview') return 'Nano Banana Pro 3.0';
     if (modelValue === 'gemini-3.1-flash-image') return 'Nano Banana 2 (3.1)';
     if (modelValue === 'gemini-3.1-flash-image-preview') return 'Nano Banana 2 Lite (3.1)';
     if (modelValue === 'gemini-2.5-flash-image') return 'Nano Banana (2.5)';
@@ -159,7 +159,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     getFullSizeImage, t, upstreamPrompt, upstreamPromptsCount, isTextConnected,
     onEditPrompt, onEditInSource, deselectAllNodes, nodeId, onClearOutputs, onSendToNote
 }) => {
-    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoInsertResults, autoSaveImages, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
+    const { isSequenceMode, sequenceOutputs, checkedSequenceOutputIndices, model, autoCrop169, autoInsertResults, autoSaveImages, checkedInputIndices, prompt, outputImage, resolution, quality, outputFormat, size, thinkingLevel, searchGrounding, isSequentialEditingWithPrompts, createZip, enableAspectRatio, enableOutpainting, outpaintingPrompt, aspectRatio } = state;
     const { isBatchMode, isForming, activeBatchJob, isBatchActive, cancelBatchForNode } = useAppSelector(context => ({
         isBatchMode: context.isBatchMode,
         isForming: context.isFormingBatch?.(nodeId) || false,
@@ -224,9 +224,9 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
     const [containerWidth, setContainerWidth] = useState(0);
 
     const effectiveModel = resolveImageEditorModel(model);
-    const isNanoBanana21 = effectiveModel === 'gemini-nano-banana-2.1' || effectiveModel === 'gemini-3.6-flash-image' || effectiveModel === 'gemini-3.6-image';
-    const isPro = effectiveModel === 'gemini-3-pro-image' || effectiveModel === 'gemini-3-pro-image-preview';
+    const isNanoBanana21 = isNanoBanana21Model(effectiveModel);
     const isFlashImage = effectiveModel === 'gemini-2.5-flash-image' || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview' || isNanoBanana21;
+    const isPro = effectiveModel === 'gemini-3-pro-image-preview';
     const isGpt2 = isGptImage2Model(effectiveModel);
     const isDalle3 = effectiveModel === 'dall-e-3';
     const isDalle2 = effectiveModel === 'dall-e-2';
@@ -234,25 +234,35 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
     const showAspectRatio = !isGpt2 && !isDalle2 && (isFlashImage || isPro || effectiveModel?.startsWith('imagen') || isOpenAi);
     const showResolution = isPro || isNanoBanana21 || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview';
-    const showThinking = isNanoBanana21 || isPro || effectiveModel === 'gemini-3.1-flash-image';
-    const showSearchGrounding = isNanoBanana21;
+    const showThinking = isNanoBanana21 || isPro || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview';
+    const showSearchGrounding = isNanoBanana21 || isPro;
     const showQuality = isGpt2 || isDalle3;
     const showGptSize = isGpt2 || isDalle2;
     const showOutputFormat = isGpt2;
 
-    const availableAspectRatios = isNanoBanana21 || isPro || effectiveModel === 'gemini-3.1-flash-image'
-        ? ['1:1', '16:9', '9:16', '4:3', '3:4', '1:4', '4:1', '1:8', '8:1']
+    const availableAspectRatios = (isNanoBanana21 || isPro || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview')
+        ? ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '4:5', '5:4', '21:9', '1:4', '1:8', '4:1', '8:1']
         : ['1:1', '16:9', '9:16', '4:3', '3:4'];
 
-    const availableResolutions = isNanoBanana21 
-        ? ['512px', '1K', '2K', '4K']
-        : ['1K', '2K', '4K'];
-
     const thinkingOptions = [
-        { value: 'minimal', label: 'Minimal' },
-        { value: 'medium', label: 'Medium' },
-        { value: 'high', label: 'High' }
+        { value: 'AUTO', label: 'Think: Auto' },
+        { value: 'MINIMAL', label: 'Think: Minimal' },
+        { value: 'LOW', label: 'Think: Low' },
+        { value: 'MEDIUM', label: 'Think: Medium' },
+        { value: 'HIGH', label: 'Think: High' },
     ];
+
+    const searchGroundingOptions = isNanoBanana21
+        ? [
+            { value: 'none', label: 'Search: Off' },
+            { value: 'web', label: 'Search: Web' },
+            { value: 'image', label: 'Search: Images' },
+            { value: 'both', label: 'Search: Web+Img' },
+        ]
+        : [
+            { value: 'none', label: 'Search: Off' },
+            { value: 'web', label: 'Search: Web' },
+        ];
 
     const gpt2QualityOptions = [
         { value: 'standard', label: 'Standard' },
@@ -978,7 +988,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
                     {/* Aspect Ratio Selector */}
                     {showAspectRatio && (
-                        <div className="flex-shrink-0 min-w-[76px]">
+                        <div className="flex-shrink-0 w-20">
                              <CustomSelect
                                 value={aspectRatio || '1:1'}
                                 onChange={(value) => onUpdateState({ aspectRatio: value })}
@@ -992,69 +1002,44 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
                      {/* Resolution Selector (Only for Pro / Flash Preview / Nano Banana 2.1) */}
                      {showResolution && (
-                        <div className="flex-shrink-0 min-w-[76px]">
+                        <div className="flex-shrink-0 w-20">
                              <CustomSelect
                                 value={resolution || '1K'}
                                 onChange={(value) => onUpdateState({ resolution: value })}
                                 disabled={isEditing}
-                                options={availableResolutions.map(r => ({ value: r, label: r }))}
+                                options={['1K', '2K', '4K'].map(r => ({ value: r, label: r }))}
                                  id="resolution-selector"
                                  title="Resolution"
                             />
                         </div>
                     )}
 
-                    {/* Thinking Level Selector for Gemini Image Models */}
+                    {/* Thinking Mode Selector (Nano Banana 2.1 / Gemini 3) */}
                     {showThinking && (
-                        <div className="flex-shrink-0 min-w-[100px]">
-                            <EditorTooltip
-                                title="Thinking Mode"
-                                description="Режим рассуждения модели (Thinking Level) для лучшего понимания сложных инструкций, текста и композиции"
-                            >
-                                <CustomSelect
-                                    value={state.thinkingLevel || 'medium'}
-                                    onChange={(value) => onUpdateState({ thinkingLevel: value as any })}
-                                    disabled={isEditing}
-                                    options={thinkingOptions}
-                                    id="thinking-level-selector"
-                                    title="Thinking Level"
-                                    renderTriggerContent={(selected) => (
-                                        <div className="flex items-center gap-1.5 font-medium text-xs truncate text-amber-300">
-                                            <Brain className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                                            <span className="truncate">{selected?.label || 'Thinking'}</span>
-                                        </div>
-                                    )}
-                                />
-                            </EditorTooltip>
+                        <div className="flex-shrink-0 min-w-[110px]">
+                            <CustomSelect
+                                value={thinkingLevel || 'AUTO'}
+                                onChange={(value) => onUpdateState({ thinkingLevel: value })}
+                                disabled={isEditing}
+                                options={thinkingOptions}
+                                id="thinking-level-selector"
+                                title="Thinking Mode (Reasoning Depth)"
+                            />
                         </div>
                     )}
 
-                    {/* Google Search Grounding Toggle */}
+                    {/* Search Grounding Selector (Nano Banana 2.1 / Nano Banana Pro) */}
                     {showSearchGrounding && (
-                        <EditorTooltip
-                            title="Google Search Grounding"
-                            status={{
-                                enabled: !!state.useSearch,
-                                labelOn: t('common.enabled') || 'Включено',
-                                labelOff: t('common.disabled') || 'Выключено'
-                            }}
-                            description="Поиск Google для фактологической точности генерации и актуальных данных реального мира"
-                        >
-                            <button
-                                type="button"
-                                onClick={() => onUpdateState({ useSearch: !state.useSearch })}
+                        <div className="flex-shrink-0 min-w-[115px]">
+                            <CustomSelect
+                                value={searchGrounding || 'none'}
+                                onChange={(value) => onUpdateState({ searchGrounding: value })}
                                 disabled={isEditing}
-                                className={`h-[36px] px-2.5 flex-shrink-0 flex items-center justify-center rounded-md cursor-pointer transition-all border outline-none gap-1.5 text-xs font-medium ${
-                                    state.useSearch
-                                        ? 'bg-blue-950/60 border-blue-500/60 text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.25)]'
-                                        : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200'
-                                }`}
-                                aria-label={`Search Grounding: ${state.useSearch ? 'ON' : 'OFF'}`}
-                            >
-                                <Globe className="w-3.5 h-3.5 text-blue-400" />
-                                <span>Search</span>
-                            </button>
-                        </EditorTooltip>
+                                options={searchGroundingOptions}
+                                id="search-grounding-selector"
+                                title="Google Search & Image Search Grounding"
+                            />
+                        </div>
                     )}
                 </div>
 

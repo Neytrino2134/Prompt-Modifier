@@ -218,14 +218,14 @@ export const getModelCategory = (modelRaw?: string): ModelCategory => {
   if (!modelRaw) return 'other';
   const model = modelRaw.toLowerCase().trim();
 
-  // 0. Nana / Nano Banana 2.1 Check (Gemini Nano Banana 2.1)
+  // 0. Nana / Nano Banana 2.1 Check (Gemini 3.6 Flash Image / Nana Banana 2.1)
   if (
     model === 'gemini-nano-banana-2.1' ||
     model === 'gemini-3.6-flash-image' ||
     model === 'gemini-3.6-image' ||
     model.includes('3.6') ||
+    model.includes('banana-2.1') ||
     model.includes('banana 2.1') ||
-    model.includes('nano banana 2.1') ||
     model.includes('nana banana')
   ) {
     return 'banana_2_1';
@@ -309,13 +309,12 @@ export const getStandardModelName = (modelRaw?: string): string => {
   const model = modelRaw.trim();
 
   const nameMap: Record<string, string> = {
-    'gemini-nano-banana-2.1': 'Gemini Nano Banana 2.1',
-    'gemini-3.6-flash-image': 'Gemini Nano Banana 2.1',
-    'gemini-3.6-image': 'Gemini Nano Banana 2.1',
+    'gemini-nano-banana-2.1': 'Gemini 3.6 Flash Image (Nana Banana 2.1)',
+    'gemini-3.6-flash-image': 'Gemini 3.6 Flash Image (Nana Banana 2.1)',
+    'gemini-3.6-image': 'Gemini 3.6 Flash Image (Nana Banana 2.1)',
     'gpt-image-2': 'GPT-Image-2',
     'dall-e-3': 'DALL-E 3',
     'dall-e-2': 'DALL-E 2',
-    'gemini-3-pro-image': 'Gemini 3.0 Pro Image (Nano Banana Pro)',
     'gemini-3-pro-image-preview': 'Gemini 3.0 Pro Image (Nano Banana Pro)',
     'gemini-3.1-flash-image': 'Gemini 3.1 Flash Image (Nano Banana 2)',
     'gemini-3.1-flash-image-preview': 'Gemini 3.1 Flash Image Preview (Nana Banana 2 Lite)',

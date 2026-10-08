@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import CustomSelect from '../../CustomSelect';
 import { CustomCheckbox } from '../../CustomCheckbox';
-import { useOpenAiEnabled, getImageEditorModelOptions, isGptImage2Model, isOpenAiImageModel } from '../../../services/modelConfig';
+import { useOpenAiEnabled, getImageEditorModelOptions, isGptImage2Model, isOpenAiImageModel, isNanoBanana21Model, resolveImageEditorModel } from '../../../services/modelConfig';
 import { ChevronLeft, ChevronRight, Banana, Sparkles, Zap, Image as ImageIcon } from 'lucide-react';
 
 interface GenerationControlsProps {
@@ -12,6 +12,8 @@ interface GenerationControlsProps {
     quality?: string;
     outputFormat?: string;
     size?: string;
+    thinkingLevel?: string;
+    searchGrounding?: string;
     aspectRatio?: string;
     resolution?: string;
     autoCrop169: boolean;
@@ -30,7 +32,7 @@ interface GenerationControlsProps {
 }
 
 const getModelIcon = (modelValue: string) => {
-    if (modelValue === 'gemini-3.6-flash-image' || modelValue === 'gemini-3.6-image') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-amber-400" /><Sparkles className="w-3 h-3 text-amber-300 relative -top-1" /></div>;
+    if (isNanoBanana21Model(modelValue)) return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-amber-400" /><Sparkles className="w-3 h-3 text-amber-300 relative -top-1" /></div>;
     if (modelValue === 'gemini-3-pro-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Sparkles className="w-3 h-3 text-yellow-300 relative -top-1" /></div>;
     if (modelValue === 'gemini-3.1-flash-image') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Zap className="w-3 h-3 text-blue-400 relative -top-1" /></div>;
     if (modelValue === 'gemini-3.1-flash-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-gray-400" /><Zap className="w-3 h-3 text-blue-300 relative -top-1" /></div>;
@@ -39,7 +41,7 @@ const getModelIcon = (modelValue: string) => {
 };
 
 const getModelShortName = (modelValue: string, label: string) => {
-    if (modelValue === 'gemini-3.6-flash-image' || modelValue === 'gemini-3.6-image') return 'Nana Banana 2.1 (3.6)';
+    if (isNanoBanana21Model(modelValue)) return 'Nana Banana 2.1 (3.6)';
     if (modelValue === 'gemini-3-pro-image-preview') return 'Nano Banana Pro 3.0';
     if (modelValue === 'gemini-3.1-flash-image') return 'Nano Banana 2 (3.1)';
     if (modelValue === 'gemini-3.1-flash-image-preview') return 'Nano Banana 2 Lite (3.1)';
@@ -52,6 +54,8 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
     quality,
     outputFormat,
     size,
+    thinkingLevel,
+    searchGrounding,
     aspectRatio,
     resolution,
     autoCrop169,
@@ -71,10 +75,35 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
     
     const isOpenAiActive = useOpenAiEnabled();
     const modelOptions = useMemo(() => getImageEditorModelOptions(), [isOpenAiActive]);
+    const effectiveModel = resolveImageEditorModel(model);
 
-    const isGpt2 = isGptImage2Model(model);
-    const isDalle3 = model === 'dall-e-3';
-    const isDalle2 = model === 'dall-e-2';
+    const isGpt2 = isGptImage2Model(effectiveModel);
+    const isDalle3 = effectiveModel === 'dall-e-3';
+    const isDalle2 = effectiveModel === 'dall-e-2';
+    const isNanoBanana21 = isNanoBanana21Model(effectiveModel);
+    const isPro = effectiveModel === 'gemini-3-pro-image-preview';
+    const showThinking = isNanoBanana21 || isPro || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview';
+    const showSearchGrounding = isNanoBanana21 || isPro;
+
+    const thinkingOptions = [
+        { value: 'AUTO', label: 'Auto Thinking' },
+        { value: 'MINIMAL', label: 'Minimal (Fast)' },
+        { value: 'LOW', label: 'Low' },
+        { value: 'MEDIUM', label: 'Medium (Default)' },
+        { value: 'HIGH', label: 'High (Deep)' },
+    ];
+
+    const searchGroundingOptions = isNanoBanana21
+        ? [
+            { value: 'none', label: 'Search: Off' },
+            { value: 'web', label: 'Web Search' },
+            { value: 'image', label: 'Image Search' },
+            { value: 'both', label: 'Web + Image Search' },
+        ]
+        : [
+            { value: 'none', label: 'Search: Off' },
+            { value: 'web', label: 'Web Search' },
+        ];
 
     const gpt2QualityOptions = [
         { value: 'standard', label: 'Standard' },
@@ -211,6 +240,30 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
                         onChange={(value) => onUpdateState({ size: value })}
                         disabled={isGeneratingSequence}
                         options={dalle2SizeOptions}
+                    />
+                </div>
+            )}
+
+            {showThinking && (
+                <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Thinking Mode</label>
+                    <CustomSelect
+                        value={thinkingLevel || 'AUTO'}
+                        onChange={(value) => onUpdateState({ thinkingLevel: value })}
+                        disabled={isGeneratingSequence}
+                        options={thinkingOptions}
+                    />
+                </div>
+            )}
+
+            {showSearchGrounding && (
+                <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Search Grounding</label>
+                    <CustomSelect
+                        value={searchGrounding || 'none'}
+                        onChange={(value) => onUpdateState({ searchGrounding: value })}
+                        disabled={isGeneratingSequence}
+                        options={searchGroundingOptions}
                     />
                 </div>
             )}

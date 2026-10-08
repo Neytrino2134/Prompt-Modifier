@@ -4,7 +4,7 @@ title Prompt Modifier - Build Site Electron Wrapper
 
 cd /d "%~dp0"
 
-set "APP_VERSION=0.1.12-alpha.1"
+set "APP_VERSION=0.3.0"
 set "WRAPPER_DIR=%CD%\electron-site"
 set "OUTPUT_DIR=%CD%\dist-nativefier"
 set "ICON_SOURCE=%CD%\resources\icon.ico"
