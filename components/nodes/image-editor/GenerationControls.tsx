@@ -30,6 +30,7 @@ interface GenerationControlsProps {
 }
 
 const getModelIcon = (modelValue: string) => {
+    if (modelValue === 'gemini-3.6-flash-image' || modelValue === 'gemini-3.6-image') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-amber-400" /><Sparkles className="w-3 h-3 text-amber-300 relative -top-1" /></div>;
     if (modelValue === 'gemini-3-pro-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Sparkles className="w-3 h-3 text-yellow-300 relative -top-1" /></div>;
     if (modelValue === 'gemini-3.1-flash-image') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-yellow-400" /><Zap className="w-3 h-3 text-blue-400 relative -top-1" /></div>;
     if (modelValue === 'gemini-3.1-flash-image-preview') return <div className="flex -space-x-1 items-center"><Banana className="w-4 h-4 text-gray-400" /><Zap className="w-3 h-3 text-blue-300 relative -top-1" /></div>;
@@ -38,6 +39,7 @@ const getModelIcon = (modelValue: string) => {
 };
 
 const getModelShortName = (modelValue: string, label: string) => {
+    if (modelValue === 'gemini-3.6-flash-image' || modelValue === 'gemini-3.6-image') return 'Nana Banana 2.1 (3.6)';
     if (modelValue === 'gemini-3-pro-image-preview') return 'Nano Banana Pro 3.0';
     if (modelValue === 'gemini-3.1-flash-image') return 'Nano Banana 2 (3.1)';
     if (modelValue === 'gemini-3.1-flash-image-preview') return 'Nano Banana 2 Lite (3.1)';

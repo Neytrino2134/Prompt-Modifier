@@ -880,6 +880,14 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, resolution } : n));
     };
 
+    const handleThinkingLevelChange = (nodeId: string, thinkingLevel: 'minimal' | 'medium' | 'high') => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, thinkingLevel } : n));
+    };
+
+    const handleUseSearchChange = (nodeId: string, useSearch: boolean) => {
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, useSearch } : n));
+    };
+
     const handleModelChange = (nodeId: string, model: string) => {
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, model } : n));
     };
@@ -988,6 +996,8 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         handleCopyNodeValue,
         handleAspectRatioChange,
         handleResolutionChange,
+        handleThinkingLevelChange,
+        handleUseSearchChange,
         handleModelChange,
         handleQualityChange,
         handleOutputFormatChange,

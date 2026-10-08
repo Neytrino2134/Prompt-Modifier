@@ -138,6 +138,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
 
   const categoryOptions: Array<{ id: 'all' | ModelCategory; label: string; badge?: string }> = [
     { id: 'all', label: t('stats.categoryAll') || 'Все категории' },
+    { id: 'banana_2_1', label: 'Nana Banana 2.1 (3.6)', badge: 'text-yellow-400' },
     { id: 'tripo_h3_1', label: 'Tripo H3.1 (3D)', badge: 'text-indigo-400' },
     { id: 'tripo_p1', label: 'Tripo P1 (3D)', badge: 'text-fuchsia-400' },
     { id: 'gpt_image_2', label: 'GPT-Image-2', badge: 'text-teal-400' },

@@ -241,7 +241,10 @@ export const useSequenceNode = ({
                     }
 
                     const imageUrl = await raceWithAbort(
-                        generateImage(fullPrompt, parsed.aspectRatio, finalImagesToSend.length > 0 ? finalImagesToSend : undefined, parsed.model, parsed.resolution),
+                        generateImage(fullPrompt, parsed.aspectRatio, finalImagesToSend.length > 0 ? finalImagesToSend : undefined, parsed.model, parsed.resolution, {
+                            thinkingLevel: parsed.thinkingLevel,
+                            useSearch: parsed.useSearch
+                        }),
                         abortControllerRef.current!.signal
                     );
                     
@@ -431,7 +434,10 @@ export const useSequenceNode = ({
                     }
 
                     const imageUrl = await raceWithAbort(
-                        generateImage(fullPrompt, parsed.aspectRatio, finalImagesToSend.length > 0 ? finalImagesToSend : undefined, parsed.model, parsed.resolution),
+                        generateImage(fullPrompt, parsed.aspectRatio, finalImagesToSend.length > 0 ? finalImagesToSend : undefined, parsed.model, parsed.resolution, {
+                            thinkingLevel: parsed.thinkingLevel,
+                            useSearch: parsed.useSearch
+                        }),
                         abortControllerRef.current!.signal
                     );
 

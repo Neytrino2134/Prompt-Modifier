@@ -170,7 +170,7 @@ export const useEditorNode = ({
         if (!parsed.isSequentialEditingWithPrompts) {
              const genericTextsForCheck = textInputs.filter(t => !t.trim().startsWith('{') && !t.trim().startsWith('['));
              const hasPrompt = !!(parsed.prompt || genericTextsForCheck.length > 0);
-             if (allInputImages.length === 0 && parsed.model !== 'gemini-3-pro-image-preview' && !hasPrompt) {
+             if (allInputImages.length === 0 && parsed.model !== 'gemini-3-pro-image-preview' && parsed.model !== 'gemini-3.6-flash-image' && parsed.model !== 'gemini-3.6-image' && !hasPrompt) {
                  setError("No input image or prompt provided for generation/editing.");
                  return;
              }
@@ -233,7 +233,7 @@ export const useEditorNode = ({
                         } else if (!imgA && allInputImages.length > 0) {
                             imgA = allInputImages[i % allInputImages.length];
                         }
-                        if (!imgA && parsed.model !== 'gemini-3-pro-image-preview') continue;
+                        if (!imgA && parsed.model !== 'gemini-3-pro-image-preview' && parsed.model !== 'gemini-3.6-flash-image' && parsed.model !== 'gemini-3.6-image') continue;
                         if (imgA) imagesForFrame = [imgA];
                         
                         if (parsed.isSequentialCombinationMode) {
@@ -398,7 +398,7 @@ export const useEditorNode = ({
                     } else if (!imgA && parsed.checkedInputIndices && parsed.checkedInputIndices.length === 1) {
                         imgA = allInputImages[parsed.checkedInputIndices[0]];
                     }
-                    if (!imgA && effectiveModel !== 'gemini-3-pro-image-preview') continue;
+                    if (!imgA && effectiveModel !== 'gemini-3-pro-image-preview' && effectiveModel !== 'gemini-3.6-flash-image' && effectiveModel !== 'gemini-3.6-image') continue;
                     if (imgA) imagesForFrame = [imgA];
                     
                     if (parsed.isSequentialCombinationMode) {
@@ -451,7 +451,9 @@ export const useEditorNode = ({
                         generateImage(promptWithOutpaint, parsed.aspectRatio, imagesToUse, effectiveModel, parsed.resolution, {
                             quality: parsed.quality,
                             outputFormat: parsed.outputFormat,
-                            size: parsed.size
+                            size: parsed.size,
+                            thinkingLevel: parsed.thinkingLevel,
+                            useSearch: parsed.useSearch
                         }),
                         signal
                     );
@@ -560,7 +562,9 @@ export const useEditorNode = ({
                      generateImage(promptWithOutpaint, parsed.aspectRatio, processedImages, effectiveModel, parsed.resolution, {
                          quality: parsed.quality,
                          outputFormat: parsed.outputFormat,
-                         size: parsed.size
+                         size: parsed.size,
+                         thinkingLevel: parsed.thinkingLevel,
+                         useSearch: parsed.useSearch
                      }),
                      signal
                 );

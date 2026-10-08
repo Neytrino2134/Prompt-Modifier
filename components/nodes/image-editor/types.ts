@@ -13,6 +13,8 @@ export interface ImageEditorState {
     quality?: string;
     outputFormat?: string;
     size?: string;
+    thinkingLevel?: 'minimal' | 'medium' | 'high';
+    useSearch?: boolean;
     autoCrop169: boolean;
     leftPaneWidth: number;
     topPaneHeight: number;
@@ -39,12 +41,14 @@ export const DEFAULT_EDITOR_STATE: ImageEditorState = {
     outputImage: null,
     enableOutpainting: false,
     outpaintingPrompt: '{main_prompt}. Fill the background with environment - fill in the white areas to naturally expand the image area of the original scene.',
-    model: 'gemini-3-pro-image-preview', 
+    model: 'gemini-nano-banana-2.1', 
     aspectRatio: '1:1', // Default 1:1
     enableAspectRatio: false,
     quality: 'high',
     outputFormat: 'png',
     size: '1024x1024',
+    thinkingLevel: 'medium',
+    useSearch: false,
     autoCrop169: false, // Default disabled
     leftPaneWidth: 400,
     topPaneHeight: 330,

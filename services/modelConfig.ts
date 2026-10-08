@@ -65,13 +65,14 @@ export interface ImageModelOption {
 }
 
 export const GOOGLE_IMAGE_MODELS: ImageModelOption[] = [
+    { value: 'gemini-nano-banana-2.1', label: 'Gemini Nano Banana 2.1 (Fast & Quality)', provider: 'google', description: 'Next-gen multimodal image generation (Nano Banana 2.1)' },
+    { value: 'gemini-3-pro-image', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)', provider: 'google', description: 'Advanced image editing, inpainting & multi-input composition' },
+    { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)', provider: 'google', description: 'High-speed multimodal image generation' },
+    { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nano Banana 2 Lite)', provider: 'google' },
+    { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)', provider: 'google' },
     { value: 'imagen-4.0-generate-001', label: 'Imagen 4.0 (Quality)', provider: 'google' },
     { value: 'imagen-4.0-ultra-generate-preview-06-06', label: 'Imagen 4.0 Ultra (Preview)', provider: 'google' },
-    { value: 'imagen-3.0-generate-002', label: 'Imagen 3.0', provider: 'google' },
-    { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)', provider: 'google' },
-    { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)', provider: 'google' },
-    { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nano Banana 2 Lite)', provider: 'google' },
-    { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)', provider: 'google' }
+    { value: 'imagen-3.0-generate-002', label: 'Imagen 3.0', provider: 'google' }
 ];
 
 export const OPENAI_IMAGE_MODELS: ImageModelOption[] = [
@@ -81,7 +82,8 @@ export const OPENAI_IMAGE_MODELS: ImageModelOption[] = [
 ];
 
 export const IMAGE_EDITOR_GOOGLE_MODELS: ImageModelOption[] = [
-    { value: 'gemini-3-pro-image-preview', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)', provider: 'google', description: 'Advanced image editing, inpainting & multi-input composition' },
+    { value: 'gemini-nano-banana-2.1', label: 'Gemini Nano Banana 2.1 (Fast & Quality)', provider: 'google', description: 'Next-gen high-speed multimodal image editing & composition (Nano Banana 2.1)' },
+    { value: 'gemini-3-pro-image', label: 'Gemini 3.0 Pro Image (Nano Banana Pro)', provider: 'google', description: 'Advanced image editing, inpainting & multi-input composition' },
     { value: 'gemini-3.1-flash-image', label: 'Gemini 3.1 Flash Image (Nano Banana 2)', provider: 'google', description: 'High-speed multimodal image editing & transformations' },
     { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image Preview (Nano Banana 2 Lite)', provider: 'google', description: 'Lightweight preview editing model' },
     { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)', provider: 'google', description: 'Fast standard multimodal image editing' }
@@ -191,8 +193,8 @@ export const DEFAULT_CONFIG = {
     proModel: 'gemini-3.1-pro-preview',
     transcribeModel: 'gemini-3.8-flash',
     videoModel: 'gemini-omni-1.1-flash',
-    imageModel: 'imagen-4.0-generate-001',
-    imageEditorModel: 'gemini-3-pro-image-preview',
+    imageModel: 'gemini-nano-banana-2.1',
+    imageEditorModel: 'gemini-nano-banana-2.1',
 };
 
 export const DEFAULT_TRANSCRIBE_MODELS: ModelOption[] = [
@@ -616,7 +618,18 @@ export const getImageModelLabel = (modelId?: string): string => {
  */
 export const resolveImageModel = (modelId?: string): string => {
     if (modelId && modelId.trim()) {
-        return modelId.trim();
+        const trimmed = modelId.trim();
+        if (
+            trimmed === 'gemini-3.6-flash-image' || 
+            trimmed === 'gemini-3.6-image' || 
+            trimmed === 'gemini-3.6-flash' ||
+            trimmed.includes('banana-2.1') ||
+            trimmed.includes('banana 2.1') ||
+            trimmed.includes('nana banana')
+        ) {
+            return 'gemini-nano-banana-2.1';
+        }
+        return trimmed;
     }
     return getConfiguredImageModel();
 };
@@ -630,7 +643,18 @@ export const getConfiguredImageEditorModel = (): string => {
         if (saved && saved.trim()) {
             // Check if saved model is valid for editor (must not be legacy imagen or dall-e)
             if (!saved.startsWith('imagen-') && !saved.startsWith('dall-e')) {
-                return saved.trim();
+                const trimmed = saved.trim();
+                if (
+                    trimmed === 'gemini-3.6-flash-image' || 
+                    trimmed === 'gemini-3.6-image' || 
+                    trimmed === 'gemini-3.6-flash' ||
+                    trimmed.includes('banana-2.1') ||
+                    trimmed.includes('banana 2.1') ||
+                    trimmed.includes('nana banana')
+                ) {
+                    return 'gemini-nano-banana-2.1';
+                }
+                return trimmed;
             }
         }
     } catch {}
@@ -664,7 +688,18 @@ export const getImageEditorModelLabel = (modelId?: string): string => {
  */
 export const resolveImageEditorModel = (modelId?: string): string => {
     if (modelId && modelId.trim() && !modelId.startsWith('imagen-') && !modelId.startsWith('dall-e')) {
-        return modelId.trim();
+        const trimmed = modelId.trim();
+        if (
+            trimmed === 'gemini-3.6-flash-image' || 
+            trimmed === 'gemini-3.6-image' || 
+            trimmed === 'gemini-3.6-flash' ||
+            trimmed.includes('banana-2.1') ||
+            trimmed.includes('banana 2.1') ||
+            trimmed.includes('nana banana')
+        ) {
+            return 'gemini-nano-banana-2.1';
+        }
+        return trimmed;
     }
     return getConfiguredImageEditorModel();
 };

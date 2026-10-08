@@ -1,6 +1,6 @@
 // Generation Statistics Service and Analytics Engine
 
-export type ModelCategory = 'gpt_image_2' | 'pro_3_0' | 'flash_3_1' | 'lite_3_1' | 'tripo_h3_1' | 'tripo_p1' | 'other';
+export type ModelCategory = 'banana_2_1' | 'gpt_image_2' | 'pro_3_0' | 'flash_3_1' | 'lite_3_1' | 'tripo_h3_1' | 'tripo_p1' | 'other';
 export type GenerationMode = 'normal' | 'batch';
 
 export interface GenerationRecord {
@@ -136,8 +136,16 @@ const STORAGE_KEY_LOG = 'gemini_generation_stats_log_v2';
 const STORAGE_KEY_TOTAL = 'gemini_generation_stats_lifetime_total';
 export const STATS_UPDATED_EVENT = 'generation-stats-updated';
 
-// Category metadata definitions: GPT-Image-2, 3.0 Pro, 3.1 Flash, 3.1 Lite, Tripo H3.1 (3D), Tripo P1 (3D), and Other
+// Category metadata definitions: Nana Banana 2.1, GPT-Image-2, 3.0 Pro, 3.1 Flash, 3.1 Lite, Tripo H3.1 (3D), Tripo P1 (3D), and Other
 export const CATEGORY_METAS: Record<ModelCategory, CategoryMeta> = {
+  banana_2_1: {
+    category: 'banana_2_1',
+    label: 'Nana Banana 2.1 (3.6)',
+    badgeClass: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',
+    color: 'rgb(234, 179, 8)',
+    barColor: '#eab308',
+    textColor: 'text-yellow-400',
+  },
   gpt_image_2: {
     category: 'gpt_image_2',
     label: 'GPT-Image-2',
@@ -209,6 +217,19 @@ export const CATEGORY_METAS: Record<ModelCategory, CategoryMeta> = {
 export const getModelCategory = (modelRaw?: string): ModelCategory => {
   if (!modelRaw) return 'other';
   const model = modelRaw.toLowerCase().trim();
+
+  // 0. Nana / Nano Banana 2.1 Check (Gemini Nano Banana 2.1)
+  if (
+    model === 'gemini-nano-banana-2.1' ||
+    model === 'gemini-3.6-flash-image' ||
+    model === 'gemini-3.6-image' ||
+    model.includes('3.6') ||
+    model.includes('banana 2.1') ||
+    model.includes('nano banana 2.1') ||
+    model.includes('nana banana')
+  ) {
+    return 'banana_2_1';
+  }
 
   // 1. Tripo H3.1 Check (3D Flagship)
   if (
@@ -288,9 +309,13 @@ export const getStandardModelName = (modelRaw?: string): string => {
   const model = modelRaw.trim();
 
   const nameMap: Record<string, string> = {
+    'gemini-nano-banana-2.1': 'Gemini Nano Banana 2.1',
+    'gemini-3.6-flash-image': 'Gemini Nano Banana 2.1',
+    'gemini-3.6-image': 'Gemini Nano Banana 2.1',
     'gpt-image-2': 'GPT-Image-2',
     'dall-e-3': 'DALL-E 3',
     'dall-e-2': 'DALL-E 2',
+    'gemini-3-pro-image': 'Gemini 3.0 Pro Image (Nano Banana Pro)',
     'gemini-3-pro-image-preview': 'Gemini 3.0 Pro Image (Nano Banana Pro)',
     'gemini-3.1-flash-image': 'Gemini 3.1 Flash Image (Nano Banana 2)',
     'gemini-3.1-flash-image-preview': 'Gemini 3.1 Flash Image Preview (Nana Banana 2 Lite)',
@@ -677,6 +702,7 @@ export const computeStatsSummary = (
   // Compute breakdown maps
   const modelCounts = new Map<string, { count: number; displayName: string; category: ModelCategory }>();
   const categoryCounts: Record<ModelCategory, number> = {
+    banana_2_1: 0,
     gpt_image_2: 0,
     pro_3_0: 0,
     flash_3_1: 0,
@@ -757,7 +783,7 @@ export const computeStatsSummary = (
         fullDate,
         timestamp: new Date(dateKey).getTime(),
         count: 0,
-        byCategory: { gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, tripo_h3_1: 0, tripo_p1: 0, other: 0 },
+        byCategory: { banana_2_1: 0, gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, tripo_h3_1: 0, tripo_p1: 0, other: 0 },
         byModel: {},
       };
       dailyMap.set(dateKey, dayEntry);
@@ -841,7 +867,7 @@ export const computeStatsSummary = (
           fullDate,
           timestamp: targetDate.getTime(),
           count: 0,
-          byCategory: { gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, tripo_h3_1: 0, tripo_p1: 0, other: 0 },
+          byCategory: { banana_2_1: 0, gpt_image_2: 0, pro_3_0: 0, flash_3_1: 0, lite_3_1: 0, tripo_h3_1: 0, tripo_p1: 0, other: 0 },
           byModel: {},
         });
       }

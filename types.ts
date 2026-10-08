@@ -297,6 +297,8 @@ export interface Node {
   duration?: string; // Video duration: e.g. '5s', '10s'
   useBatch?: boolean; // Batch API mode toggle
   videoMode?: 'text_to_video' | 'image_to_video' | 'video_edit'; // Omni Flash video generation mode
+  thinkingLevel?: 'minimal' | 'medium' | 'high';
+  useSearch?: boolean;
 }
 
 export interface Connection {
@@ -558,6 +560,8 @@ export interface NodeContentProps {
   onUseBatchChange?: (nodeId: string, useBatch: boolean) => void;
   onVideoModeChange?: (nodeId: string, videoMode: 'text_to_video' | 'image_to_video' | 'video_edit') => void;
   onResolutionChange: (nodeId: string, resolution: '720p' | '1080p' | '1K' | '2K' | '4K') => void;
+  onThinkingLevelChange?: (nodeId: string, level: 'minimal' | 'medium' | 'high') => void;
+  onUseSearchChange?: (nodeId: string, useSearch: boolean) => void;
   onLoadImageSequenceFile: (nodeId: string) => void;
   onLoadPromptSequenceFile: (nodeId: string) => void;
   onGenerateImageSequence: (nodeId: string, startIndex?: number) => void;

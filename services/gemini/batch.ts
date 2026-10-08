@@ -12,6 +12,7 @@ import {
 } from '../openaiService';
 import { createAIClient, callWithRetry, getApiKey } from './client';
 import { BatchRequestItemInput } from './types';
+import { normalizeImageModelName } from './image';
 
 // ==========================================
 // BATCH API (Delayed Async Processing)
@@ -36,67 +37,49 @@ export const createBatchImageJob = async (
     return callWithRetry(async () => {
         const ai = createAIClient();
 
+        const normalizedModel = normalizeImageModelName(model);
+
         // Build inlined requests
         const inlinedRequests = items.map(item => {
-            const isNanoBananaProOrFlash = model === 'gemini-3-pro-image-preview' ||
-                model === 'gemini-3.1-flash-image-preview' ||
-                model === 'gemini-3.1-flash-image';
-
-            if (isNanoBananaProOrFlash) {
-                const parts: any[] = [];
-                if (item.images && item.images.length > 0) {
-                    item.images.forEach(img => {
-                        parts.push({
-                            inlineData: {
-                                data: img.base64ImageData,
-                                mimeType: img.mimeType || 'image/png'
-                            }
-                        });
-                    });
-                }
-                if (item.prompt && item.prompt.trim() !== '') {
-                    parts.push({ text: item.prompt });
-                } else {
-                    parts.push({ text: "High quality image" });
-                }
-
-                return {
-                    contents: [{ parts }],
-                    config: {
-                        imageConfig: {
-                            aspectRatio: item.aspectRatio || '1:1',
-                            imageSize: item.resolution || '1K'
+            const parts: any[] = [];
+            if (item.images && item.images.length > 0) {
+                item.images.forEach(img => {
+                    parts.push({
+                        inlineData: {
+                            data: img.base64ImageData,
+                            mimeType: img.mimeType || 'image/png'
                         }
-                    }
-                };
-            } else {
-                // Fallback for gemini-2.5-flash-image or others
-                const parts: any[] = [];
-                if (item.images && item.images.length > 0) {
-                    item.images.forEach(img => {
-                        parts.push({
-                            inlineData: {
-                                data: img.base64ImageData,
-                                mimeType: img.mimeType || 'image/png'
-                            }
-                        });
                     });
-                }
-                parts.push({ text: item.prompt || " " });
-
-                const config: any = { responseModalities: [Modality.IMAGE] };
-                if (item.aspectRatio && item.aspectRatio !== '1:1') {
-                    config.imageConfig = { aspectRatio: item.aspectRatio };
-                }
-
-                return {
-                    contents: [{ parts }],
-                    config
-                };
+                });
             }
+            if (item.prompt && item.prompt.trim() !== '') {
+                parts.push({ text: item.prompt });
+            } else {
+                parts.push({ text: "High quality image" });
+            }
+
+            const config: any = {
+                responseModalities: [Modality.IMAGE],
+            };
+
+            const imageConfig: any = {};
+            if (item.aspectRatio && item.aspectRatio !== 'Auto') {
+                imageConfig.aspectRatio = item.aspectRatio;
+            }
+            if (item.resolution && item.resolution !== 'Auto') {
+                imageConfig.imageSize = item.resolution;
+            }
+            if (Object.keys(imageConfig).length > 0) {
+                config.imageConfig = imageConfig;
+            }
+
+            return {
+                contents: [{ parts }],
+                config
+            };
         });
 
-        const targetModel = getModelForMode(model);
+        const targetModel = normalizedModel;
         const batchJob = await ai.batches.create({
             model: targetModel,
             src: inlinedRequests,

@@ -180,7 +180,9 @@ export const useImageNode = ({
                 generateImage(prompt, aspectRatio, undefined, effectiveModel, node.resolution, {
                     quality: node.quality,
                     outputFormat: node.outputFormat,
-                    size: node.size
+                    size: node.size,
+                    thinkingLevel: (node as any).thinkingLevel,
+                    useSearch: (node as any).useSearch
                 }),
                 signal
             );

@@ -107,7 +107,9 @@ export const ImageEditorLeftPane = forwardRef<SequencedPromptListRef, ImageEdito
     const contentRef = useRef<HTMLDivElement>(null);
     const { getFullSizeImage, onCheck, onSelectAll, onSelectNone, onClear, onClick, onMove, onRemove, onMoveToB, onFileClick, onDropFiles, onDropData, onSlotDrop } = inputListActions;
 
-    const maxInputImages = state.model === 'gemini-3-pro-image-preview' ? 8 : 4;
+    const isModernBanana = state.model === 'gemini-nano-banana-2.1' || state.model === 'gemini-3.6-flash-image' || state.model === 'gemini-3.6-image';
+    const isBananaPro = state.model === 'gemini-3-pro-image' || state.model === 'gemini-3-pro-image-preview';
+    const maxInputImages = isModernBanana ? 14 : isBananaPro ? 8 : 4;
     const inputPanelHeader = t('node.content.inputImage');
     const inputSubtitleA = isSequenceMode && isSequentialCombinationMode ? t('imageEditor.inputA') : t('imageEditor.input'); 
     const inputSubtitleB = `${t('imageEditor.inputB')} (Max ${maxInputImages - 1})`;

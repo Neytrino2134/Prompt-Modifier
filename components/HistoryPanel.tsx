@@ -54,32 +54,55 @@ export const HistoryPanel: React.FC = () => {
     setScrollTop(e.currentTarget.scrollTop);
   }, []);
 
+  const [filterModel, setFilterModel] = useState<string>('all');
+
+  // Available unique models in history + Nano Banana 2.1
+  const availableFilterModels = useMemo(() => {
+    const set = new Set<string>();
+    set.add('gemini-nano-banana-2.1');
+    historyItems.forEach(item => {
+      if (item.model) set.add(item.model);
+    });
+    return Array.from(set);
+  }, [historyItems]);
+
+  const filteredHistoryItems = useMemo(() => {
+    if (filterModel === 'all') return historyItems;
+    return historyItems.filter(item => {
+      if (!item.model) return false;
+      if (filterModel === 'gemini-nano-banana-2.1' || filterModel === 'gemini-3.6-flash-image') {
+        return item.model === 'gemini-nano-banana-2.1' || item.model === 'gemini-3.6-flash-image' || item.model === 'gemini-3.6-image' || item.model.includes('3.6') || item.model.includes('banana 2.1') || item.model.includes('nana banana');
+      }
+      return item.model === filterModel;
+    });
+  }, [historyItems, filterModel]);
+
   // Card & Virtual slot calculations
   const GAP = 16;
   const cardWidth = Math.max(180, containerWidth - 24); // container padding p-3 (12px * 2)
   const cardHeight = cardWidth + 32 + 70; // Header 32px + Square Image + Prompt footer ~70px
   const slotHeight = cardHeight + GAP;
-  const totalVirtualHeight = historyItems.length > 0 ? (historyItems.length * slotHeight - GAP) : 0;
+  const totalVirtualHeight = filteredHistoryItems.length > 0 ? (filteredHistoryItems.length * slotHeight - GAP) : 0;
 
   const visibleItems = useMemo(() => {
-    if (historyItems.length === 0) return [];
+    if (filteredHistoryItems.length === 0) return [];
     const buffer = 600; // Extra buffer (px) for smooth scrolling
     const visibleStart = Math.max(0, scrollTop - buffer);
     const visibleEnd = scrollTop + containerHeight + buffer;
 
     const startIndex = Math.max(0, Math.floor(visibleStart / slotHeight));
-    const endIndex = Math.min(historyItems.length - 1, Math.ceil(visibleEnd / slotHeight));
+    const endIndex = Math.min(filteredHistoryItems.length - 1, Math.ceil(visibleEnd / slotHeight));
 
     const items = [];
     for (let i = startIndex; i <= endIndex; i++) {
       items.push({
-        item: historyItems[i],
+        item: filteredHistoryItems[i],
         index: i,
         top: i * slotHeight,
       });
     }
     return items;
-  }, [historyItems, scrollTop, containerHeight, slotHeight]);
+  }, [filteredHistoryItems, scrollTop, containerHeight, slotHeight]);
 
   useEffect(() => {
     const handleOpenStats = () => {
@@ -310,18 +333,72 @@ export const HistoryPanel: React.FC = () => {
               </button>
             </div>
 
+            {/* Model Filter Bar */}
+            <div className="px-3 py-2 border-b border-gray-800 bg-gray-900/80 flex items-center gap-2">
+              <span className="text-[11px] font-medium text-gray-400 flex items-center gap-1 shrink-0">
+                <svg className="w-3.5 h-3.5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                {t('stats.model') || 'Модель:'}
+              </span>
+              <select
+                value={filterModel}
+                onChange={(e) => setFilterModel(e.target.value)}
+                className="bg-gray-800 border border-gray-700 hover:border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-accent flex-1 truncate transition-colors cursor-pointer"
+              >
+                <option value="all">
+                  {t('ui.all_models') || 'Все модели'} ({historyItems.length})
+                </option>
+                {availableFilterModels.map(m => {
+                  const count = historyItems.filter(item => {
+                    if (!item.model) return false;
+                    if (m === 'gemini-nano-banana-2.1' || m === 'gemini-3.6-flash-image') {
+                      return item.model === 'gemini-nano-banana-2.1' || item.model === 'gemini-3.6-flash-image' || item.model === 'gemini-3.6-image' || item.model.includes('3.6') || item.model.includes('banana 2.1');
+                    }
+                    return item.model === m;
+                  }).length;
+                  return (
+                    <option key={m} value={m}>
+                      {getModelDisplayName(m)} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+              {filterModel !== 'all' && (
+                <button
+                  onClick={() => setFilterModel('all')}
+                  className="px-2 py-1 text-[11px] text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded transition-colors shrink-0"
+                  title={t('common.reset') || 'Сбросить'}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
             {/* Virtualized List Container */}
             <div 
               ref={containerRef}
               onScroll={handleScroll}
               className="flex-1 overflow-y-auto p-3 bg-gray-950 relative"
             >
-              {historyItems.length === 0 ? (
+              {filteredHistoryItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                  <svg className="w-12 h-12 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1">
+                  <svg className="w-12 h-12 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <p className="text-sm">{t('ui.history_empty') || 'History is empty'}</p>
+                  <p className="text-sm">
+                    {historyItems.length === 0
+                      ? (t('ui.history_empty') || 'History is empty')
+                      : (t('ui.no_images_for_model') || 'Нет изображений для выбранной модели')}
+                  </p>
+                  {filterModel !== 'all' && (
+                    <button
+                      onClick={() => setFilterModel('all')}
+                      className="mt-3 px-3 py-1 bg-gray-800 hover:bg-gray-700 text-xs text-accent rounded-lg transition-colors"
+                    >
+                      {t('ui.show_all_models') || 'Показать все модели'}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div 
