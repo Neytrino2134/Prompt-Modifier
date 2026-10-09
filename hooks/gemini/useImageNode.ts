@@ -260,6 +260,7 @@ export const useImageNode = ({
                 tabId: currentTabId,
                 tabName: activeTabName,
                 execute: executeGen,
+                successSoundHandled: true,
                 onSuccess,
                 onError
             });

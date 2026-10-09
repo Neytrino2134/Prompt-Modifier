@@ -516,6 +516,7 @@ export const useEditorNode = ({
                         tabId: currentTabId,
                         tabName: activeTabName,
                         execute: executeFrame,
+                        successSoundHandled: true,
                         onSuccess,
                         onError
                     });
@@ -625,6 +626,7 @@ export const useEditorNode = ({
                     tabId: currentTabId,
                     tabName: activeTabName,
                     execute: executeSingle,
+                    successSoundHandled: true,
                     onSuccess,
                     onError
                 });

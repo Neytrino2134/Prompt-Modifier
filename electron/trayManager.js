@@ -2,6 +2,7 @@ import { app, Tray, Menu, shell, BrowserWindow, ipcMain, Notification } from 'el
 import path from 'node:path';
 import fs from 'node:fs';
 import { getTrayIcon } from './config.js';
+import { showDesktopNotification } from './desktopNotifications.js';
 import { getDocumentsAutosaveDir } from './sessionManager.js';
 
 let tray = null;
@@ -414,40 +415,15 @@ export function setupTrayIPC(trayContext) {
     if (!payload || typeof payload !== 'object') return;
     const { title = 'Prompt Modifier', message = '', type = 'info' } = payload;
     
-    // 1. Balloon notification on Windows system tray
-    if (tray && !tray.isDestroyed()) {
-      try {
-        const iconType = type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'info');
-        tray.displayBalloon({
-          title: String(title),
-          content: String(message),
-          iconType
-        });
-      } catch (err) {
-        // Ignored if balloon is unsupported on platform
+    showDesktopNotification({
+      Notification, tray, title, message, type, icon: getTrayIcon(),
+      onClick: () => {
+        const mainWindow = trayContext.getMainWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          trayContext.bringWindowToFront(mainWindow);
+        }
       }
-    }
-
-    // 2. Native OS desktop Notification
-    try {
-      if (Notification && Notification.isSupported && Notification.isSupported()) {
-        const notif = new Notification({
-          title: String(title),
-          body: String(message),
-          icon: getTrayIcon(),
-          silent: false
-        });
-        notif.show();
-        notif.on('click', () => {
-          const mainWindow = trayContext.getMainWindow();
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            trayContext.bringWindowToFront(mainWindow);
-          }
-        });
-      }
-    } catch (notifErr) {
-      console.warn('Native notification failed:', notifErr);
-    }
+    });
   });
 
   ipcMain.on('batch:sync-status', (event, status) => {

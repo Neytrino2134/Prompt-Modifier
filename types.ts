@@ -461,6 +461,8 @@ export interface GenerationTask {
     tabName?: string;
     abortController?: AbortController;
     execute?: (signal: AbortSignal) => Promise<string>;
+    // The completion notification owns audio for this task.
+    successSoundHandled?: boolean;
     onSuccess?: (resultUrl: string) => void | Promise<void>;
     onError?: (error: any) => void;
     isBatch?: boolean;

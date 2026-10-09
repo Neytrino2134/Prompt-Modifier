@@ -20,6 +20,7 @@ export const DEV_PORT = process.env.PORT || 3000;
 
 export function setupAppEnvironment() {
   app.name = APP_TITLE;
+  if (process.platform === 'win32') app.setAppUserModelId('com.promptmodifier.app');
 
   // Chromium & Electron anti-flicker & dark theme background configuration
   // Prevents white flash when creating, minimizing, restoring, or resizing windows

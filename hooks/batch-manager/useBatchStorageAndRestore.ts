@@ -5,7 +5,7 @@ import { generateThumbnail, cropImageTo169 } from '../../utils/imageUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { batchResultKey, readBatchArchive, writeBatchArchive, clearUnusedBatchArchives, imageHashes } from '../../services/batchResultsCache';
 import { collectCacheReferences } from '../../utils/cacheReferences';
-import { playBatchSuccessSound, playBatchErrorSound } from '../../services/soundNotificationService';
+import { playBatchErrorSound } from '../../services/soundNotificationService';
 import { notifyBatchSuccess } from '../../services/trayNotificationService';
 import { STORAGE_KEY_BATCH_JOBS, UseBatchManagerProps } from './types';
 import { batchJobMetadata } from '../../services/batchJobPayload';
@@ -490,7 +490,6 @@ export const useBatchStorageAndRestore = ({
                     thumbnail: firstCompleted?.resultThumbnail || firstCompleted?.resultUrl,
                     nodeId: job.nodeId
                 });
-                playBatchSuccessSound();
             } else {
                 playBatchErrorSound();
             }

@@ -328,6 +328,7 @@ export interface Start3DBatchOptions {
     onItemTaskCreated?: (item: ThreeDBatchItemState, jsonFilename?: string) => void;
     onItemCompleted?: (item: ThreeDBatchItemState, modelFilename?: string) => void;
     onItemFailed?: (item: ThreeDBatchItemState, error: string) => void;
+    successSoundHandled?: boolean;
     onBatchFinished?: (job: ThreeDBatchJob) => void;
     addToHistory?: (previewUrl: string, prompt: string, model: string, meta?: any) => Promise<void> | void;
     signal?: AbortSignal;
@@ -683,7 +684,7 @@ export const run3DBatchGeneration = async (options: Start3DBatchOptions): Promis
     // Finalize Batch Job
     const finalJob = getStored3DBatchJobs().find(j => j.id === batchId) || job;
     if (finalJob.completedCount > 0) {
-        playBatchSuccessSound();
+        if (!options.successSoundHandled) playBatchSuccessSound();
     } else if (finalJob.failedCount > 0) {
         playBatchErrorSound();
     }

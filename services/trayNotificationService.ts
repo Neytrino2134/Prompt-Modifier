@@ -166,7 +166,8 @@ const dispatchDesktopNotification = (title: string, message: string, type: 'info
         try {
             new Notification(title, {
                 body: message,
-                icon: icon || '/favicon.svg'
+                icon: icon || '/favicon.svg',
+                silent: true
             });
         } catch {}
     }

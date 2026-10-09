@@ -11,6 +11,8 @@ export interface EnqueueTaskOptions {
     tabId?: string;
     tabName?: string;
     execute?: (signal: AbortSignal) => Promise<string>;
+    // The completion notification owns audio for this task.
+    successSoundHandled?: boolean;
     onSuccess?: (resultUrl: string) => void | Promise<void>;
     onError?: (error: any) => void;
     isBatch?: boolean;
@@ -87,7 +89,7 @@ export const useTaskQueue = () => {
                         task.onError?.(new Error('Task cancelled'));
                     } else {
                         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'completed' as TaskStatus, resultUrl, completedAt: Date.now() } : t));
-                        playTaskSuccessSound();
+                        if (!task.successSoundHandled) playTaskSuccessSound();
                         if (task.onSuccess) {
                             await task.onSuccess(resultUrl);
                         }
@@ -137,6 +139,7 @@ export const useTaskQueue = () => {
             tabId: options.tabId,
             tabName: options.tabName,
             execute: options.execute,
+            successSoundHandled: options.successSoundHandled,
             onSuccess: options.onSuccess,
             onError: options.onError,
             isBatch: options.isBatch,
