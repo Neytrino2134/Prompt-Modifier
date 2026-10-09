@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { generateThumbnail } from '../../../utils/imageUtils';
 import { scheduleImageWork } from '../../../utils/imageWorkQueue';
+import { useImageVisibility } from '../../../hooks/useImageVisibility';
 
 const cache = new Map<string, string>();
-const pending = new Map<string, { controller: AbortController; consumers: Set<(url: string) => void> }>();
+interface Consumer { success: (url: string) => void; error?: () => void }
+const pending = new Map<string, { controller: AbortController; consumers: Set<Consumer> }>();
 const MAX_BYTES = 12 * 1024 * 1024;
 let bytes = 0;
 function cachePut(key: string, url: string) {
@@ -19,10 +21,10 @@ async function sourceKey(src: string, size: number) {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(src));
     return `${size}:${Array.from(new Uint8Array(digest), n => n.toString(16).padStart(2, '0')).join('')}`;
 }
-// Disposing the last consumer cancels queued and active decoding work.
-export function createCachedThumbnail(src: string, size: number, callback: (url: string) => void): () => void {
+export function createCachedThumbnail(src: string, size: number, callback: (url: string) => void, onError?: () => void): () => void {
     let disposed = false;
     let key: string | undefined;
+    const consumer: Consumer = { success: callback, error: onError };
     const hashing = new AbortController();
     void scheduleImageWork(() => sourceKey(src, size), hashing.signal).then(k => {
         if (disposed) return;
@@ -30,53 +32,48 @@ export function createCachedThumbnail(src: string, size: number, callback: (url:
         const cached = cache.get(k);
         if (cached) { cache.delete(k); cache.set(k, cached); callback(cached); return; }
         const existing = pending.get(k);
-        if (existing) { existing.consumers.add(callback); return; }
-        const entry = { controller: new AbortController(), consumers: new Set([callback]) };
+        if (existing) { existing.consumers.add(consumer); return; }
+        const entry = { controller: new AbortController(), consumers: new Set([consumer]) };
         pending.set(k, entry);
         void generateThumbnail(src, size, size, entry.controller.signal).then(url => {
             if (entry.controller.signal.aborted) return;
-            cachePut(k, url); entry.consumers.forEach(consumer => consumer(url));
+            cachePut(k, url); entry.consumers.forEach(c => c.success(url));
         }).catch(() => {
-            // Never use a full-resolution source as the DOM fallback.
+            if (!entry.controller.signal.aborted) entry.consumers.forEach(c => c.error?.());
         }).finally(() => { if (pending.get(k) === entry) pending.delete(k); });
-    }).catch(() => {});
+    }).catch(() => { if (!disposed) onError?.(); });
     return () => {
-        disposed = true;
-        hashing.abort();
+        disposed = true; hashing.abort();
         if (!key) return;
         const entry = pending.get(key);
-        entry?.consumers.delete(callback);
+        entry?.consumers.delete(consumer);
         if (entry && !entry.consumers.size) { pending.delete(key); entry.controller.abort(); }
     };
 }
-export interface OptimizedThumbnailProps {
+export interface OptimizedThumbnailProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
     src: string | null | undefined;
+    fallbackSrc?: string | null;
     size: number;
-    alt?: string;
-    className?: string;
-    style?: React.CSSProperties;
-    draggable?: boolean;
-    loading?: 'eager' | 'lazy';
-    referrerPolicy?: React.HTMLAttributeReferrerPolicy;
-    onDragStart?: (e: React.DragEvent<HTMLImageElement>) => void;
-    onMouseDown?: (e: React.MouseEvent<HTMLImageElement>) => void;
 }
-export const OptimizedThumbnail: React.FC<OptimizedThumbnailProps> = memo(({ src, size, alt = '', ...props }) => {
-    const ref = useRef<HTMLImageElement>(null);
-    const [visible, setVisible] = useState(false);
+export const OptimizedThumbnail: React.FC<OptimizedThumbnailProps> = memo(({ src, fallbackSrc, size, alt = '', onError, ...props }) => {
+    const { ref, visible } = useImageVisibility();
+    const [failed, setFailed] = useState<{ source: string; size: number } | null>(null);
     const [thumbnail, setThumbnail] = useState<{ source: string; size: number; url: string } | null>(null);
+    const primaryFailed = failed?.source === src && failed?.size === size;
+    const source = (!src || primaryFailed) && fallbackSrc ? fallbackSrc : src;
+    const url = thumbnail?.source === source && thumbnail?.size === size ? thumbnail.url : undefined;
     useEffect(() => {
-        const element = ref.current;
-        if (!element) return;
-        if (typeof IntersectionObserver === 'undefined') { setVisible(true); return; }
-        const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { rootMargin: '120px' });
-        observer.observe(element);
-        return () => observer.disconnect();
-    }, []);
-    useEffect(() => {
-        if (!src || !visible) { setThumbnail(null); return; }
-        return createCachedThumbnail(src, size, url => setThumbnail({ source: src, size, url }));
-    }, [src, size, visible]);
-    const url = thumbnail && thumbnail.source === src && thumbnail.size === size ? thumbnail.url : undefined;
-    return <img ref={ref} src={visible ? url : undefined} alt={alt} loading="lazy" decoding="async" {...props} />;
+        if (!source || !visible) return;
+        let active = true;
+        const dispose = createCachedThumbnail(source, size, result => {
+            if (active) setThumbnail({ source, size, url: result });
+        }, () => {
+            if (active && source === src && fallbackSrc && fallbackSrc !== src) setFailed({ source, size });
+        });
+        return () => { active = false; dispose(); };
+    }, [source, src, fallbackSrc, size, visible]);
+    return <img {...props} ref={ref} src={visible ? url : undefined} alt={alt} loading="eager" decoding="async" onError={event => {
+        if (source === src && src && fallbackSrc && fallbackSrc !== src) setFailed({ source: src, size });
+        onError?.(event);
+    }} />;
 });

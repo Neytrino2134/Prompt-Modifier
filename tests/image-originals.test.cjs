@@ -228,7 +228,7 @@ test('AI Editor sequence input preview opens original in viewer and drags origin
         '../../CustomCheckbox': {}, '../../DebouncedTextarea': {}, '../../ConfirmDialog': {},
         '../../../utils/imageUtils': load('utils/imageUtils.ts', {}),
         '../../../contexts/AppContext': { useAppContext: () => ({ isBatchMode: false }), useAppSelector: selector => selector({ isBatchMode: false }) },
-        '../../../services/modelConfig': { resolveImageEditorModel: value => value, isGptImage2Model: () => false, isOpenAiImageModel: () => false },
+        '../../../services/modelConfig': { resolveImageEditorModel: value => value, isGptImage2Model: () => false, isOpenAiImageModel: () => false, isNanoBanana21Model: () => false, getImageModelCapabilities: () => ({ supportedAspectRatios: [], supportedResolutions: [], supportedThinkingLevels: [], supportedSearchTypes: [] }) },
         './OptimizedThumbnail': { OptimizedThumbnail }
     });
     const tree = OutputPanel({ state: { isSequenceMode: true, sequenceOutputs: [], checkedSequenceOutputIndices: [0], checkedInputIndices: [0], model: 'gemini', prompt: 'test', framePrompts: {} },

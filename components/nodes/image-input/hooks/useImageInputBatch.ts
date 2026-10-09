@@ -142,7 +142,7 @@ export const useImageInputBatch = ({
                 const dataUrl = await readFileAsDataURL(file);
                 let thumbnailUrl: string | undefined;
                 try {
-                    thumbnailUrl = await generateThumbnail(dataUrl, 128, 128);
+                    thumbnailUrl = await generateThumbnail(dataUrl, 512, 512);
                 } catch {
                     thumbnailUrl = dataUrl;
                 }
@@ -178,7 +178,7 @@ export const useImageInputBatch = ({
             selectedRefIndexRef.current = 0;
             const firstItem = newItems[0];
             setFullSizeImage(nodeId, 0, firstItem.dataUrl);
-            const thumb = await generateThumbnail(firstItem.dataUrl, 256, 256);
+            const thumb = await generateThumbnail(firstItem.dataUrl, 512, 512);
 
             if (mode === 'batch') {
                 if (batchSubMode === 'crop') {
@@ -209,7 +209,7 @@ export const useImageInputBatch = ({
         if (!item) return;
 
         setFullSizeImage(nodeId, 0, item.dataUrl);
-        const thumb = await generateThumbnail(item.dataUrl, 256, 256);
+        const thumb = await generateThumbnail(item.dataUrl, 512, 512);
 
         if (mode === 'full') {
             handleValueUpdate({
@@ -219,9 +219,26 @@ export const useImageInputBatch = ({
             return;
         }
 
+        if (mode === 'single') {
+            const currentRootCrop = parsedValueRef.current.cropRect || cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
+            await updateSingleCropSlice(currentRootCrop, 'single', item.dataUrl, index, thumb);
+            return;
+        }
+
         const currentRootGrid = parsedValueRef.current.grid || grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
         const globalCols = currentRootGrid.cols || 2;
         const globalRows = currentRootGrid.rows || 1;
+
+        if (mode === 'grid') {
+            const activeGrid: ImageInputGridConfig = {
+                ...currentRootGrid,
+                cols: globalCols,
+                rows: globalRows,
+                bounds: currentRootGrid.bounds || { x: 0, y: 0, width: 1, height: 1 }
+            };
+            await updateGridSlices(activeGrid, 'grid', item.dataUrl, index, thumb);
+            return;
+        }
 
         if (batchSubMode === 'crop') {
             const currentRootCrop = parsedValueRef.current.cropRect || cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
@@ -307,7 +324,7 @@ export const useImageInputBatch = ({
             const activeItem = updated[nextIdx];
             if (activeItem) {
                 setFullSizeImage(nodeId, 0, activeItem.dataUrl);
-                generateThumbnail(activeItem.dataUrl, 256, 256).then(thumb => {
+                generateThumbnail(activeItem.dataUrl, 512, 512).then(thumb => {
                     handleValueUpdate({ image: thumb, batchFiles: updated });
                 });
             } else {
@@ -333,7 +350,7 @@ export const useImageInputBatch = ({
         const newItems: ImageBatchItem[] = await Promise.all(forcedImages.map(async (dataUrl, i) => {
             let thumbnailUrl: string | undefined;
             try {
-                thumbnailUrl = await generateThumbnail(dataUrl, 128, 128);
+                thumbnailUrl = await generateThumbnail(dataUrl, 512, 512);
             } catch {
                 thumbnailUrl = dataUrl;
             }
@@ -353,7 +370,7 @@ export const useImageInputBatch = ({
         setSelectedRefIndex(0);
         const firstItem = newItems[0];
         setFullSizeImage(nodeId, 0, firstItem.dataUrl);
-        const thumb = await generateThumbnail(firstItem.dataUrl, 256, 256);
+        const thumb = await generateThumbnail(firstItem.dataUrl, 512, 512);
 
         if (batchSubMode === 'crop') {
             const activeCrop = parsedValueRef.current.cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };

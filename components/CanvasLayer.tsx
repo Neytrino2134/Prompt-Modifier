@@ -201,7 +201,7 @@ const CanvasLayer: React.FC = () => {
     // --- Virtualization Logic ---
     const visibleEntities = useMemo(() => {
         const { scale, translate } = viewTransform;
-        const buffer = 300 / scale; // Buffer depends on zoom to keep consistent margin
+        const buffer = 1200 / Math.max(scale, 0.01); // Screen-space guard beyond image unload margin (900px).
 
         // Current visible area in World coordinates
         const viewport = {

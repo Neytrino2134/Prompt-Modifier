@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import CustomSelect from '../../CustomSelect';
 import { CustomCheckbox } from '../../CustomCheckbox';
-import { useOpenAiEnabled, getImageEditorModelOptions, isGptImage2Model, isOpenAiImageModel, isNanoBanana21Model, resolveImageEditorModel } from '../../../services/modelConfig';
+import { useOpenAiEnabled, getImageEditorModelOptions, isGptImage2Model, isOpenAiImageModel, isNanoBanana21Model, resolveImageEditorModel, getImageModelCapabilities } from '../../../services/modelConfig';
 import { ChevronLeft, ChevronRight, Banana, Sparkles, Zap, Image as ImageIcon } from 'lucide-react';
 
 interface GenerationControlsProps {
@@ -81,17 +81,18 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
     const isDalle3 = effectiveModel === 'dall-e-3';
     const isDalle2 = effectiveModel === 'dall-e-2';
     const isNanoBanana21 = isNanoBanana21Model(effectiveModel);
-    const isPro = effectiveModel === 'gemini-3-pro-image-preview';
-    const showThinking = isNanoBanana21 || isPro || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview';
-    const showSearchGrounding = isNanoBanana21 || isPro;
+    const capabilities = useMemo(() => getImageModelCapabilities(effectiveModel), [effectiveModel]);
+    const showThinking = capabilities.supportedThinkingLevels.length > 0;
+    const showSearchGrounding = capabilities.supportedSearchTypes.length > 0;
 
-    const thinkingOptions = [
+    const allThinkingOptions = [
         { value: 'AUTO', label: 'Auto Thinking' },
         { value: 'MINIMAL', label: 'Minimal (Fast)' },
         { value: 'LOW', label: 'Low' },
         { value: 'MEDIUM', label: 'Medium (Default)' },
         { value: 'HIGH', label: 'High (Deep)' },
     ];
+    const thinkingOptions = allThinkingOptions.filter(o => capabilities.supportedThinkingLevels.includes(o.value));
 
     const searchGroundingOptions = isNanoBanana21
         ? [

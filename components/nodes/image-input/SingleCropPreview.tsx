@@ -1,3 +1,4 @@
+import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
 import React, { useState } from 'react';
 import { StickyNote } from 'lucide-react';
 import { ActionButton } from '../../ActionButton';
@@ -140,8 +141,9 @@ export const SingleCropPreview: React.FC<SingleCropPreviewProps> = ({
                     className="relative flex-shrink-0 w-24 h-24 bg-gray-900 border border-cyan-500/40 hover:border-cyan-400 rounded overflow-hidden group cursor-grab active:cursor-grabbing transition-all shadow-md"
                     title="Потяните, чтобы вытащить изображение на холст или в другую ноду"
                 >
-                    <img
-                        src={croppedImage || activeImage}
+                    <OptimizedThumbnail size={512}
+                        src={fullRes || croppedImage || activeImage}
+                        fallbackSrc={croppedImage}
                         alt="Cropped preview"
                         className="w-full h-full object-contain pointer-events-none"
                     />

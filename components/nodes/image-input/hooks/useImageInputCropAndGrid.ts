@@ -110,7 +110,7 @@ export const useImageInputCropAndGrid = ({
             if (thisOpId !== operationIdRef.current) return;
 
             setFullSizeImage(nodeId, 1, highResCrop);
-            const thumb = await generateThumbnail(highResCrop, 256, 256);
+            const thumb = await generateThumbnail(highResCrop, 512, 512);
             if (thisOpId !== operationIdRef.current) return;
 
             const currentMode = explicitMode || mode;

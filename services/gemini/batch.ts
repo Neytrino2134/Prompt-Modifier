@@ -2,7 +2,7 @@ import { Modality } from "@google/genai";
 import { convertToPNG } from '../../utils/imageUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
 import { getDeviceId, formatWithDeviceTag, extractDeviceId } from '../../utils/deviceId';
-import { getModelForMode, normalizeImageModelId } from '../modelConfig';
+import { getModelForMode, normalizeImageModelId, getImageModelCapabilities } from '../modelConfig';
 import {
     createOpenAiBatchImageJob,
     getOpenAiBatchJobStatus,
@@ -43,9 +43,11 @@ export const createBatchImageJob = async (
                 normalizedModel === 'gemini-3-pro-image-preview' ||
                 normalizedModel === 'gemini-3-pro-image' ||
                 normalizedModel === 'gemini-3.1-flash-image-preview' ||
-                normalizedModel === 'gemini-3.1-flash-image';
+                normalizedModel === 'gemini-3.1-flash-image' ||
+                normalizedModel === 'gemini-3.1-flash-lite-image';
 
             if (isNanoBananaProOrFlash) {
+                const caps = getImageModelCapabilities(normalizedModel);
                 const parts: any[] = [];
                 if (item.images && item.images.length > 0) {
                     item.images.forEach(img => {
@@ -63,25 +65,39 @@ export const createBatchImageJob = async (
                     parts.push({ text: "High quality image" });
                 }
 
+                const validAspectRatio = (item.aspectRatio && caps.supportedAspectRatios.includes(item.aspectRatio))
+                    ? item.aspectRatio
+                    : '1:1';
+
+                const imageConfig: any = {
+                    aspectRatio: validAspectRatio
+                };
+
+                if (caps.supportedResolutions.length > 0) {
+                    imageConfig.imageSize = (item.resolution && caps.supportedResolutions.includes(item.resolution))
+                        ? item.resolution
+                        : '1K';
+                }
+
                 const itemConfig: any = {
-                    imageConfig: {
-                        aspectRatio: item.aspectRatio || '1:1',
-                        imageSize: item.resolution || '1K'
-                    }
+                    imageConfig
                 };
 
                 if (
+                    caps.supportedThinkingLevels.length > 0 &&
                     item.thinkingLevel &&
                     item.thinkingLevel !== 'AUTO' &&
                     item.thinkingLevel !== 'DEFAULT' &&
-                    (normalizedModel === 'gemini-nano-banana-2.1' || normalizedModel.startsWith('gemini-3'))
+                    item.thinkingLevel !== 'OFF' &&
+                    item.thinkingLevel !== 'none' &&
+                    caps.supportedThinkingLevels.includes(item.thinkingLevel)
                 ) {
                     itemConfig.thinkingConfig = {
                         thinkingLevel: item.thinkingLevel
                     };
                 }
 
-                if (item.searchGrounding && item.searchGrounding !== 'none') {
+                if (caps.supportedSearchTypes.length > 0 && item.searchGrounding && item.searchGrounding !== 'none') {
                     if (normalizedModel === 'gemini-nano-banana-2.1') {
                         const searchTypes: any = {};
                         if (item.searchGrounding === 'web' || item.searchGrounding === 'both') {

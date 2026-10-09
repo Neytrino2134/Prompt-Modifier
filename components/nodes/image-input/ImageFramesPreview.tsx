@@ -1,4 +1,4 @@
-import { VisibleImage } from '../../VisibleImage';
+import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
 import React, { useState, useRef } from 'react';
 import JSZip from 'jszip';
 import { StickyNote } from 'lucide-react';
@@ -303,8 +303,9 @@ export const ImageFramesPreview: React.FC<ImageFramesPreviewProps> = ({
                             title={`Ассет ${asset.name} (Рамка #${asset.frameIndex + 1}${asset.totalInFrame > 1 ? ` Сетка [${asset.row},${asset.col}]` : ''}) — Нажмите для выбора или потяните`}
                         >
                             {thumbUrl ? (
-                                <VisibleImage
-                                    src={thumbUrl}
+                                <OptimizedThumbnail size={512}
+                                    src={getFullSizeImage?.(nodeId, asset.globalIndex + 1) || thumbUrl}
+                                    fallbackSrc={thumbUrl}
                                     alt={asset.name}
                                     className="w-full h-full object-cover pointer-events-none"
                                 />

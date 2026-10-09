@@ -173,12 +173,12 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
 
     // Slices refresher when master image changes
     const refreshSlicesOnImageChange = useCallback(async (dataUrl: string) => {
-        const thumbnail = await generateThumbnail(dataUrl, 256, 256);
+        const thumbnail = await generateThumbnail(dataUrl, 512, 512);
         if (mode === 'single') {
             const activeCrop = cropRect || { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
             const highResCrop = await cropImageNormalized(dataUrl, activeCrop);
             setFullSizeImage(node.id, 1, highResCrop);
-            const cropThumb = await generateThumbnail(highResCrop, 256, 256);
+            const cropThumb = await generateThumbnail(highResCrop, 512, 512);
             handleValueUpdate({ image: thumbnail, croppedImage: cropThumb });
         } else if (mode === 'grid') {
             const activeGrid = grid || { cols: 2, rows: 1, bounds: { x: 0, y: 0, width: 1, height: 1 } };
@@ -369,6 +369,24 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
         handleValueUpdate({ showControls: !showControls });
     };
 
+    // Effective batch files for thumbnail strip: either full batch list or synthesized active image
+    const effectiveBatchFiles = useMemo(() => {
+        if (batchHook.batchFiles && batchHook.batchFiles.length > 0) {
+            return batchHook.batchFiles;
+        }
+        const masterSrc = getFullSizeImage(node.id, 0) || image;
+        if (masterSrc) {
+            return [{
+                id: 'single-input-master',
+                name: 'Image 1',
+                dataUrl: masterSrc,
+                thumbnailUrl: image || masterSrc,
+                size: 0
+            }];
+        }
+        return [];
+    }, [batchHook.batchFiles, image, getFullSizeImage, node.id]);
+
     return (
         <div
             ref={nodeContainerRef}
@@ -547,14 +565,30 @@ export const ImageInputNode: React.FC<NodeContentProps> = ({
                 onSelectFrame={framesHook.setSelectedFrameIndex}
             />
 
-            {/* Multi-Image Thumbnails Strip in Full (Normal) Mode */}
-            {mode === 'full' && batchHook.batchFiles.length > 0 && (
+            {/* Multi-Image Thumbnails Strip in All Modes (Normal, Crop, Grid, Frames) */}
+            {mode !== 'batch' && effectiveBatchFiles.length > 0 && (
                 <ImageBatchThumbnailsBar
-                    batchFiles={batchHook.batchFiles}
-                    selectedIndex={batchHook.selectedRefIndex}
-                    onSelectIndex={batchHook.handleSelectReferenceIndex}
-                    onRemoveFile={batchHook.handleRemoveBatchFile}
-                    onClearBatch={batchHook.handleClearBatch}
+                    batchFiles={effectiveBatchFiles}
+                    selectedIndex={batchHook.batchFiles.length > 0 ? batchHook.selectedRefIndex : 0}
+                    onSelectIndex={(idx) => {
+                        if (batchHook.batchFiles.length > 0) {
+                            batchHook.handleSelectReferenceIndex(idx);
+                        }
+                    }}
+                    onRemoveFile={(idx) => {
+                        if (batchHook.batchFiles.length > 0) {
+                            batchHook.handleRemoveBatchFile(idx);
+                        } else {
+                            importHook.handleClearImage();
+                        }
+                    }}
+                    onClearBatch={() => {
+                        if (batchHook.batchFiles.length > 0) {
+                            batchHook.handleClearBatch();
+                        } else {
+                            importHook.handleClearImage();
+                        }
+                    }}
                     onAddFiles={(files) => batchHook.loadMultipleFiles(files)}
                     onPasteClipboard={importHook.handlePasteFromClipboard}
                     onNavigatePrev={() => batchHook.handleNavigateBatch('prev')}

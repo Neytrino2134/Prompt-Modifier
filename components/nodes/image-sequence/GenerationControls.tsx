@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import CustomSelect from '../../CustomSelect';
 import { CustomCheckbox } from '../../CustomCheckbox';
+import { getImageModelCapabilities } from '../../../services/modelConfig';
 
 interface GenerationControlsProps {
     model: string;
@@ -50,21 +51,10 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
         { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Nano Banana)' }
     ];
 
-    const aspectRatios = [
-        { value: '1:1', label: '1:1' },
-        { value: '16:9', label: '16:9' },
-        { value: '9:16', label: '9:16' },
-        { value: '4:3', label: '4:3' },
-        { value: '3:4', label: '3:4' },
-    ];
-
-    const resolutions = [
-        { value: '1K', label: '1K' },
-        { value: '2K', label: '2K' },
-        { value: '4K', label: '4K' },
-    ];
-
-    const isPro = model === 'gemini-nano-banana-2.1' || model === 'gemini-3.6-flash-image' || model === 'gemini-3.6-image' || model === 'gemini-3-pro-image-preview' || model === 'gemini-3.1-flash-image' || model === 'gemini-3.1-flash-image-preview';
+    const capabilities = useMemo(() => getImageModelCapabilities(model), [model]);
+    const aspectRatios = useMemo(() => capabilities.supportedAspectRatios.map(r => ({ value: r, label: r })), [capabilities]);
+    const resolutions = useMemo(() => capabilities.supportedResolutions.map(r => ({ value: r, label: r })), [capabilities]);
+    const showResolution = resolutions.length > 0;
 
     return (
         <div className="flex-shrink-0 space-y-2 mt-2">
@@ -90,7 +80,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
                     />
                 </div>
 
-                {isPro && (
+                {showResolution && (
                     <div className="w-24 flex-shrink-0 animate-fade-in">
                         <label className="block text-xs font-medium text-gray-400 mb-1">Resolution</label>
                         <CustomSelect

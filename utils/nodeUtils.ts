@@ -427,7 +427,7 @@ export const getDuplicatedValueForNodeType = (node: Node): string => {
     return emptyValue;
 };
 
-export const getMinNodeSize = (nodeType: NodeType): { minWidth: number, minHeight: number } => {
+export const getMinNodeSize = (nodeType: NodeType, nodeOrValue?: any): { minWidth: number, minHeight: number } => {
     switch (nodeType) {
         case NodeType.BATCH_PREPARE: return { minWidth: 1420, minHeight: 820 };
         case NodeType.THREE_D_GENERATOR: return { minWidth: 1100, minHeight: 820 };
@@ -446,7 +446,26 @@ export const getMinNodeSize = (nodeType: NodeType): { minWidth: number, minHeigh
         case NodeType.CHARACTER_GENERATOR: return { minWidth: 500, minHeight: 840 };
         case NodeType.CHARACTER_CARD: return { minWidth: 520, minHeight: 960 };
         case NodeType.IMAGE_ANALYZER: return { minWidth: 460, minHeight: 680 };
-        case NodeType.IMAGE_EDITOR: return { minWidth: 1420, minHeight: 920 };
+        case NodeType.IMAGE_EDITOR: {
+            let hasThink = false;
+            let hasSearch = false;
+            try {
+                const rawValue = typeof nodeOrValue === 'string' ? nodeOrValue : nodeOrValue?.value;
+                if (rawValue) {
+                    const parsed = JSON.parse(rawValue);
+                    hasThink = !!parsed.thinkingLevel && parsed.thinkingLevel !== 'OFF' && parsed.thinkingLevel !== 'none';
+                    hasSearch = !!parsed.searchGrounding && parsed.searchGrounding !== 'none' && parsed.searchGrounding !== 'off';
+                }
+            } catch (e) {}
+
+            let minWidth = 1420;
+            if (hasThink && hasSearch) {
+                minWidth = 1600;
+            } else if (hasThink || hasSearch) {
+                minWidth = 1520;
+            }
+            return { minWidth, minHeight: 920 };
+        }
         case NodeType.IMAGE_SEQUENCE_GENERATOR: return { minWidth: 1400, minHeight: 920 };
         case NodeType.PROMPT_SEQUENCE_EDITOR: return { minWidth: 1300, minHeight: 920 };
         case NodeType.GEMINI_CHAT: return { minWidth: 400, minHeight: 640 };

@@ -1,5 +1,6 @@
-import { VisibleImage } from '../../VisibleImage';
-import React from 'react';
+import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
+import React, { useLayoutEffect, useRef, useState } from 'react';
+import { containedImageSize } from '../../../utils/containedImageSize';
 import { NodeType } from '../../../types';
 import { ActionButton } from '../../ActionButton';
 import { Tooltip } from '../../Tooltip';
@@ -98,9 +99,27 @@ export const ImageCanvasContainer: React.FC<ImageCanvasContainerProps> = ({
     onChangeFramesConfig,
     onSelectFrame,
 }) => {
+    const viewportRef = useRef<HTMLDivElement>(null);
+    const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+    useLayoutEffect(() => {
+        const element = viewportRef.current;
+        if (!element) return;
+        const measure = () => {
+            // client sizes are in canvas coordinates, unaffected by its zoom.
+            const width = Math.max(0, element.clientWidth - 8);
+            const height = Math.max(0, element.clientHeight - 8);
+            setViewportSize(previous => previous.width === width && previous.height === height ? previous : { width, height });
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
+    const fitted = containedImageSize(viewportSize.width, viewportSize.height, originalDimensions);
     return (
         <div className="flex-grow min-h-0 relative group rounded-md overflow-hidden bg-gray-800 border border-gray-700/60 flex flex-col">
             <div
+                ref={viewportRef}
                 onClick={onClickContainer}
                 onDragEnter={onDragEnter}
                 onDragOver={onDragOver}
@@ -108,20 +127,17 @@ export const ImageCanvasContainer: React.FC<ImageCanvasContainerProps> = ({
                 onDrop={onDrop}
                 className={`w-full h-full flex items-center justify-center transition-all relative ${isDragOver ? 'bg-gray-700 ring-2 ring-accent' : 'hover:bg-gray-750'}`}
             >
-                {image ? (
+                {(image || getFullSizeImage(nodeId, 0)) ? (
                     <div className="relative w-full h-full flex items-center justify-center overflow-visible p-1">
                         <div 
                             className="relative max-w-full max-h-full flex items-center justify-center"
-                            style={originalDimensions ? {
-                                aspectRatio: `${originalDimensions.width} / ${originalDimensions.height}`,
-                                width: 'auto',
-                                height: 'auto',
-                                maxWidth: '100%',
-                                maxHeight: '100%'
-                            } : { width: '100%', height: '100%' }}
+                            style={fitted || { width: '100%', height: '100%' }}
                         >
-                            <VisibleImage
+                            <OptimizedThumbnail size={512}
                                 src={getFullSizeImage(nodeId, 0) || image}
+                                fallbackSrc={image}
+                                width={originalDimensions?.width}
+                                height={originalDimensions?.height}
                                 alt="Input"
                                 className="w-full h-full object-contain pointer-events-auto block"
                                 draggable={mode === 'full'}

@@ -1,3 +1,4 @@
+import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
 import { setupImageDragData } from '../../../utils/imageUtils';
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ImageBatchItem } from './types';
@@ -231,8 +232,9 @@ export const ImageBatchThumbnailsBar: React.FC<ImageBatchThumbnailsBarProps> = (
                                 }`}
                                 title={`#${idx + 1}: ${file.name}`}
                             >
-                                <img
-                                    src={file.thumbnailUrl || file.dataUrl}
+                                <OptimizedThumbnail size={512}
+                                    src={file.dataUrl || file.thumbnailUrl}
+                                    fallbackSrc={file.thumbnailUrl}
                                     alt={file.name}
                                     loading="lazy"
                                     width={64}

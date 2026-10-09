@@ -125,6 +125,130 @@ export const isNanoBanana21Model = (modelId?: string): boolean => {
     return normalizeImageModelId(modelId) === 'gemini-nano-banana-2.1';
 };
 
+export interface ImageModelCapabilities {
+    supportedAspectRatios: string[];
+    supportedResolutions: string[];
+    supportedThinkingLevels: string[];
+    supportedSearchTypes: ('none' | 'web' | 'image' | 'both')[];
+    supportsQuality: boolean;
+    supportsSize: boolean;
+    supportsOutputFormat: boolean;
+}
+
+/**
+ * Returns the exact supported parameters for a given image generation/editing model
+ * strictly aligned with official Gemini API & OpenAI API specifications.
+ */
+export const getImageModelCapabilities = (modelId?: string): ImageModelCapabilities => {
+    const normalized = normalizeImageModelId(modelId);
+
+    // 1. Nana Banana 2.1 (gemini-nano-banana-2.1)
+    if (isNanoBanana21Model(normalized)) {
+        return {
+            supportedAspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '4:5', '5:4', '21:9', '1:4', '1:8', '4:1', '8:1'],
+            supportedResolutions: ['1K', '2K', '4K'],
+            supportedThinkingLevels: ['AUTO', 'MINIMAL', 'LOW', 'MEDIUM', 'HIGH'],
+            supportedSearchTypes: ['none', 'web', 'image', 'both'],
+            supportsQuality: false,
+            supportsSize: false,
+            supportsOutputFormat: false,
+        };
+    }
+
+    // 2. Nano Banana Pro 3.0 (gemini-3-pro-image-preview / gemini-3-pro-image)
+    if (normalized === 'gemini-3-pro-image-preview' || normalized === 'gemini-3-pro-image') {
+        return {
+            supportedAspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '4:5', '5:4', '21:9'],
+            supportedResolutions: ['1K', '2K', '4K'],
+            supportedThinkingLevels: ['AUTO', 'LOW', 'HIGH'],
+            supportedSearchTypes: ['none', 'web'],
+            supportsQuality: false,
+            supportsSize: false,
+            supportsOutputFormat: false,
+        };
+    }
+
+    // 3. Nano Banana 2 / 2 Lite (gemini-3.1-flash-image / gemini-3.1-flash-image-preview / gemini-3.1-flash-lite-image)
+    if (
+        normalized === 'gemini-3.1-flash-image' ||
+        normalized === 'gemini-3.1-flash-image-preview' ||
+        normalized === 'gemini-3.1-flash-lite-image'
+    ) {
+        return {
+            supportedAspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+            supportedResolutions: [], // Fixed 1K output; imageSize parameter not supported
+            supportedThinkingLevels: ['AUTO', 'MINIMAL', 'LOW', 'HIGH'],
+            supportedSearchTypes: [], // googleSearch not supported on flash-lite-image
+            supportsQuality: false,
+            supportsSize: false,
+            supportsOutputFormat: false,
+        };
+    }
+
+    // 4. Nano Banana 2.5 (gemini-2.5-flash-image)
+    if (normalized === 'gemini-2.5-flash-image') {
+        return {
+            supportedAspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+            supportedResolutions: [], // Fixed 1K output; imageSize not supported
+            supportedThinkingLevels: [], // Gemini 2.5 Flash Image does not support thinkingLevel
+            supportedSearchTypes: [], // Does not support googleSearch grounding
+            supportsQuality: false,
+            supportsSize: false,
+            supportsOutputFormat: false,
+        };
+    }
+
+    // 5. OpenAI GPT-Image models (gpt-image-2.5-flare, gpt-image-2.5-sunburst, gpt-image-2)
+    if (isGptImage2Model(normalized)) {
+        return {
+            supportedAspectRatios: [], // Uses size (1024x1024, 1536x1024, 1024x1536, auto) instead
+            supportedResolutions: [],
+            supportedThinkingLevels: [],
+            supportedSearchTypes: [],
+            supportsQuality: true,
+            supportsSize: true,
+            supportsOutputFormat: true,
+        };
+    }
+
+    // 6. DALL-E 3
+    if (normalized === 'dall-e-3') {
+        return {
+            supportedAspectRatios: ['1:1', '16:9', '9:16'],
+            supportedResolutions: [],
+            supportedThinkingLevels: [],
+            supportedSearchTypes: [],
+            supportsQuality: true,
+            supportsSize: false,
+            supportsOutputFormat: false,
+        };
+    }
+
+    // 7. DALL-E 2
+    if (normalized === 'dall-e-2') {
+        return {
+            supportedAspectRatios: [],
+            supportedResolutions: [],
+            supportedThinkingLevels: [],
+            supportedSearchTypes: [],
+            supportsQuality: false,
+            supportsSize: true,
+            supportsOutputFormat: false,
+        };
+    }
+
+    // Default fallback (e.g. Imagen 4 / 3)
+    return {
+        supportedAspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+        supportedResolutions: [],
+        supportedThinkingLevels: [],
+        supportedSearchTypes: [],
+        supportsQuality: false,
+        supportsSize: false,
+        supportsOutputFormat: false,
+    };
+};
+
 export const getImageModelOptions = (includeOpenAi: boolean = true): ImageModelOption[] => {
     if (includeOpenAi) {
         return [...GOOGLE_IMAGE_MODELS, ...OPENAI_IMAGE_MODELS];

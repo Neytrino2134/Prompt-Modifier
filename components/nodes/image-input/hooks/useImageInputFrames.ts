@@ -92,7 +92,7 @@ export const useImageInputFrames = ({
                 setFullSizeImage(nodeId, idx + 1, crop);
             });
 
-            const thumbPromises = highResCrops.map(crop => generateThumbnail(crop, 256, 256));
+            const thumbPromises = highResCrops.map(crop => generateThumbnail(crop, 512, 512));
             const thumbs = await Promise.all(thumbPromises);
             if (thisOpId !== operationIdRef.current) return;
 

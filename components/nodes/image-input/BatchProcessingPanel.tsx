@@ -1,3 +1,4 @@
+import { OptimizedThumbnail } from '../image-editor/OptimizedThumbnail';
 import { setupImageDragData } from '../../../utils/imageUtils';
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ImageBatchItem, ImageBatchSubMode, ImageInputCropRect, ImageInputGridConfig } from './types';
@@ -602,9 +603,10 @@ export const BatchProcessingPanel: React.FC<BatchProcessingPanelProps> = ({
                                     }`}
                                     title={`#${idx + 1}: ${file.name}${hasCustomGrid ? ' (Индивидуальная сетка настроена)' : ''}`}
                                 >
-                                    {/* Uses 128x128 compressed thumbnail for super fast rendering */}
-                                    <img
-                                        src={file.thumbnailUrl || file.dataUrl}
+                                    {/* Display derivative; original data stays available for processing. */}
+                                    <OptimizedThumbnail size={512}
+                                        src={file.dataUrl || file.thumbnailUrl}
+                                        fallbackSrc={file.thumbnailUrl}
                                         alt={file.name}
                                         loading="lazy"
                                         className="w-full h-full object-cover pointer-events-none select-none"

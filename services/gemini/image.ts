@@ -1,7 +1,7 @@
 import { Modality } from "@google/genai";
 import { convertToPNG } from '../../utils/imageUtils';
 import { addMetadataToPNG } from '../../utils/pngMetadata';
-import { getModelForMode, normalizeImageModelId } from '../modelConfig';
+import { getModelForMode, normalizeImageModelId, getImageModelCapabilities } from '../modelConfig';
 import { 
     generateOpenAiImage, 
     isOpenAiTextModel, 
@@ -55,8 +55,10 @@ export const generateImage = async (
                 normalizedModel === 'gemini-3-pro-image-preview' ||
                 normalizedModel === 'gemini-3-pro-image' ||
                 normalizedModel === 'gemini-3.1-flash-image-preview' ||
-                normalizedModel === 'gemini-3.1-flash-image'
+                normalizedModel === 'gemini-3.1-flash-image' ||
+                normalizedModel === 'gemini-3.1-flash-lite-image'
             ) {
+                const caps = getImageModelCapabilities(normalizedModel);
                 const imageParts = (images || []).map(image => ({
                     inlineData: { data: image.base64ImageData, mimeType: image.mimeType },
                 }));
@@ -67,27 +69,42 @@ export const generateImage = async (
                     parts.push({ text: 'High quality image' });
                 }
 
-                const requestConfig: any = {
-                    imageConfig: {
-                        aspectRatio: aspectRatio || '1:1',
-                        imageSize: resolution || '1K' // '512px', '1K', '2K', '4K'
-                    }
+                const validAspectRatio = (aspectRatio && caps.supportedAspectRatios.includes(aspectRatio))
+                    ? aspectRatio
+                    : '1:1';
+
+                const imageConfig: any = {
+                    aspectRatio: validAspectRatio,
                 };
 
-                // Configurable Thinking Mode (Nano Banana 2.1 / Gemini 3 series)
+                // Only include imageSize if the model actually supports configurable resolution
+                if (caps.supportedResolutions.length > 0) {
+                    imageConfig.imageSize = (resolution && caps.supportedResolutions.includes(resolution))
+                        ? resolution
+                        : '1K';
+                }
+
+                const requestConfig: any = {
+                    imageConfig
+                };
+
+                // Configurable Thinking Mode (only if model supports the requested thinkingLevel)
                 if (
+                    caps.supportedThinkingLevels.length > 0 &&
                     options?.thinkingLevel &&
                     options.thinkingLevel !== 'AUTO' &&
                     options.thinkingLevel !== 'DEFAULT' &&
-                    (normalizedModel === 'gemini-nano-banana-2.1' || normalizedModel.startsWith('gemini-3'))
+                    options.thinkingLevel !== 'OFF' &&
+                    options.thinkingLevel !== 'none' &&
+                    caps.supportedThinkingLevels.includes(options.thinkingLevel)
                 ) {
                     requestConfig.thinkingConfig = {
                         thinkingLevel: options.thinkingLevel
                     };
                 }
 
-                // Search Grounding (Web Search & Image Search for Nano Banana 2.1 / Gemini 3 Pro Image)
-                if (options?.searchGrounding && options.searchGrounding !== 'none') {
+                // Search Grounding (only if model supports googleSearch)
+                if (caps.supportedSearchTypes.length > 0 && options?.searchGrounding && options.searchGrounding !== 'none') {
                     if (normalizedModel === 'gemini-nano-banana-2.1') {
                         const searchTypes: any = {};
                         if (options.searchGrounding === 'web' || options.searchGrounding === 'both') {

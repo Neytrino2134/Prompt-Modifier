@@ -15,8 +15,13 @@ import { DebouncedTextarea } from '../../DebouncedTextarea';
 import { setupImageDragData } from '../../../utils/imageUtils';
 import ConfirmDialog from '../../ConfirmDialog';
 import { useAppSelector } from '../../../contexts/AppContext';
-import { isGptImage2Model, isOpenAiImageModel, resolveImageEditorModel, isNanoBanana21Model } from '../../../services/modelConfig';
+import { ImageModelOption, isGptImage2Model, isOpenAiImageModel, resolveImageEditorModel, isNanoBanana21Model, getImageModelCapabilities } from '../../../services/modelConfig';
 import { OptimizedThumbnail } from './OptimizedThumbnail';
+import { ThinkingToggleDropdown } from './ThinkingToggleDropdown';
+import { SearchToggleDropdown } from './SearchToggleDropdown';
+import { ModelSelectorDropdown } from './ModelSelectorDropdown';
+import { AspectRatioDropdown } from './AspectRatioDropdown';
+import { ResolutionDropdown } from './ResolutionDropdown';
 
 // Helper component for input with stylish spinners
 
@@ -108,7 +113,7 @@ interface OutputPanelProps {
     currentGeneratingDisplay: string | number;
     fullSizeOutputForCopy: string | null;
     imageForEditor: string | null;
-    modelOptions: { value: string; label: string }[];
+    modelOptions: (ImageModelOption | { value: string; label: string })[];
     isNanoBanana: boolean;
     onUpdateState: (updates: Partial<ImageEditorState>) => void;
     onRunSelected: () => void;
@@ -225,44 +230,22 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
     const effectiveModel = resolveImageEditorModel(model);
     const isNanoBanana21 = isNanoBanana21Model(effectiveModel);
-    const isFlashImage = effectiveModel === 'gemini-2.5-flash-image' || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview' || isNanoBanana21;
-    const isPro = effectiveModel === 'gemini-3-pro-image-preview';
     const isGpt2 = isGptImage2Model(effectiveModel);
     const isDalle3 = effectiveModel === 'dall-e-3';
     const isDalle2 = effectiveModel === 'dall-e-2';
-    const isOpenAi = isOpenAiImageModel(effectiveModel);
 
-    const showAspectRatio = !isGpt2 && !isDalle2 && (isFlashImage || isPro || effectiveModel?.startsWith('imagen') || isOpenAi);
-    const showResolution = isPro || isNanoBanana21 || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview';
-    const showThinking = isNanoBanana21 || isPro || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview';
-    const showSearchGrounding = isNanoBanana21 || isPro;
-    const showQuality = isGpt2 || isDalle3;
-    const showGptSize = isGpt2 || isDalle2;
-    const showOutputFormat = isGpt2;
+    const capabilities = useMemo(() => getImageModelCapabilities(effectiveModel), [effectiveModel]);
+    const availableAspectRatios = capabilities.supportedAspectRatios;
+    const availableResolutions = capabilities.supportedResolutions;
+    const availableThinkingLevels = capabilities.supportedThinkingLevels;
 
-    const availableAspectRatios = (isNanoBanana21 || isPro || effectiveModel === 'gemini-3.1-flash-image' || effectiveModel === 'gemini-3.1-flash-image-preview')
-        ? ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '4:5', '5:4', '21:9', '1:4', '1:8', '4:1', '8:1']
-        : ['1:1', '16:9', '9:16', '4:3', '3:4'];
-
-    const thinkingOptions = [
-        { value: 'AUTO', label: 'Think: Auto' },
-        { value: 'MINIMAL', label: 'Think: Minimal' },
-        { value: 'LOW', label: 'Think: Low' },
-        { value: 'MEDIUM', label: 'Think: Medium' },
-        { value: 'HIGH', label: 'Think: High' },
-    ];
-
-    const searchGroundingOptions = isNanoBanana21
-        ? [
-            { value: 'none', label: 'Search: Off' },
-            { value: 'web', label: 'Search: Web' },
-            { value: 'image', label: 'Search: Images' },
-            { value: 'both', label: 'Search: Web+Img' },
-        ]
-        : [
-            { value: 'none', label: 'Search: Off' },
-            { value: 'web', label: 'Search: Web' },
-        ];
+    const showAspectRatio = availableAspectRatios.length > 0;
+    const showResolution = availableResolutions.length > 0;
+    const showThinking = availableThinkingLevels.length > 0;
+    const showSearchGrounding = capabilities.supportedSearchTypes.length > 0;
+    const showQuality = capabilities.supportsQuality;
+    const showGptSize = capabilities.supportsSize;
+    const showOutputFormat = capabilities.supportsOutputFormat;
 
     const gpt2QualityOptions = [
         { value: 'standard', label: 'Standard' },
@@ -701,7 +684,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             
             {!isSequenceMode && (
                 <div onClick={onOutputClick} onWheel={(e) => e.stopPropagation()} className="relative w-full flex-grow bg-gray-900/50 rounded-md flex items-center justify-center overflow-hidden group cursor-pointer">
-                    {outputImage ? <VisibleImage src={outputImage} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { setupImageDragData(e, imageToDrag, `Output_${Date.now()}.png`); e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
+                    {(outputImage || fullSizeOutputForCopy) ? <OptimizedThumbnail size={512} src={outputImage} fallbackSrc={fullSizeOutputForCopy} alt="Output" className="object-contain w-full h-full" onMouseDown={(e) => e.stopPropagation()} draggable={true} onDragStart={(e) => { const imageToDrag = fullSizeOutputForCopy || outputImage; if (imageToDrag) { setupImageDragData(e, imageToDrag, `Output_${Date.now()}.png`); e.stopPropagation(); }}}/> : <span className="text-gray-400">{t('node.content.imageHere')}</span>}
                     {outputImage && !isEditing && !isBatchActive && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-4">
                             <button onClick={(e) => { e.stopPropagation(); onCopy(); }} className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto" aria-label={t('node.action.copy')} title={t('node.action.copy')}>
@@ -784,11 +767,11 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                             const isPending = output && output.status === 'pending';
                             const isGenerating = output && output.status === 'generating';
                             const isError = output && output.status === 'error';
-                            const isGenerated = output && output.status === 'done' && output.thumbnail;
                             const fullSizeUrl = getFullSizeImage(1000 + index);
+                            const isGenerated = (output && output.status === 'done' && (output.thumbnail || fullSizeUrl)) || (!output && fullSizeUrl);
                             
-                            // Visual Fallback Logic
-                            let displaySrc = isGenerated ? output.thumbnail : (slot ? slot.src : null);
+                            // Visual Fallback Logic: prioritize thumbnail, fallback to cached full-res, then slot
+                            let displaySrc = (output && output.thumbnail) || fullSizeUrl || (slot ? slot.src : null);
                             
                             // If in Sequential Editing With Prompts mode and we don't have a generated image yet
                             // AND there is no source image for this slot (because input B list is shorter than frames)
@@ -814,6 +797,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                                      {displaySrc ? (
                                         <OptimizedThumbnail 
                                             src={displaySrc}
+                                            fallbackSrc={getSourceToView()}
                                             size={128}
                                             alt={`Output ${index + 1}`} 
                                             className={`w-full h-full object-contain ${isPreview ? 'opacity-60' : ''}`}
@@ -889,10 +873,10 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
             {/* Bottom Controls Area: Integrated Model Switcher & Single Mode Buttons */}
             <div 
-                className="flex-shrink-0 flex flex-nowrap items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-700/50 min-w-0"
+                className="flex-shrink-0 flex flex-nowrap items-center justify-between gap-1.5 mt-2 pt-2 border-t border-gray-700/50 min-w-0 w-full"
             >
                 {/* Left Controls Group: Model Switcher & Parameter Selectors & Toggles */}
-                <div className="flex-shrink-0 flex items-center gap-2 min-w-0">
+                <div className="flex-shrink-0 flex items-center gap-1.5 min-w-0">
                     {/* Model Switch Dropdown */}
                     <div className="flex-shrink-0 flex items-center gap-1">
                         <button
@@ -911,21 +895,14 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
                             <ChevronLeft className="w-4 h-4 text-gray-200 hover:text-white" />
                         </button>
 
-                        <div className="w-[215px] flex-shrink-0">
-                            <CustomSelect
-                                value={effectiveModel}
-                                onChange={(value) => onUpdateState({ model: value })}
-                                disabled={isEditing}
-                                options={modelOptions.map(opt => ({ ...opt, icon: getModelIcon(opt.value) }))}
-                                id="model-selector"
-                                renderTriggerContent={(selectedOption) => (
-                                    <div className="flex items-center gap-2 font-medium text-xs truncate">
-                                        {selectedOption && getModelIcon(selectedOption.value)}
-                                        <span className="truncate">{selectedOption ? getModelShortName(selectedOption.value, selectedOption.label) : ''}</span>
-                                    </div>
-                                )}
-                            />
-                        </div>
+                        <ModelSelectorDropdown
+                            model={model}
+                            effectiveModel={effectiveModel}
+                            modelOptions={modelOptions as ImageModelOption[]}
+                            onUpdateState={onUpdateState}
+                            disabled={isEditing}
+                            t={t}
+                        />
 
                         <button
                             title="Next Model"
@@ -988,63 +965,52 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
 
                     {/* Aspect Ratio Selector */}
                     {showAspectRatio && (
-                        <div className="flex-shrink-0 w-20">
-                             <CustomSelect
-                                value={aspectRatio || '1:1'}
-                                onChange={(value) => onUpdateState({ aspectRatio: value })}
-                                disabled={isEditing}
-                                options={availableAspectRatios.map(r => ({ value: r, label: r }))}
-                                id="aspect-ratio-selector"
-                                title="Aspect Ratio"
-                            />
-                        </div>
+                        <AspectRatioDropdown
+                            aspectRatio={aspectRatio}
+                            availableAspectRatios={availableAspectRatios}
+                            onUpdateState={onUpdateState}
+                            disabled={isEditing}
+                            t={t}
+                        />
                     )}
 
-                     {/* Resolution Selector (Only for Pro / Flash Preview / Nano Banana 2.1) */}
-                     {showResolution && (
-                        <div className="flex-shrink-0 w-20">
-                             <CustomSelect
-                                value={resolution || '1K'}
-                                onChange={(value) => onUpdateState({ resolution: value })}
-                                disabled={isEditing}
-                                options={['1K', '2K', '4K'].map(r => ({ value: r, label: r }))}
-                                 id="resolution-selector"
-                                 title="Resolution"
-                            />
-                        </div>
+                    {/* Resolution Selector (Only for models supporting imageSize: Nano Banana Pro & Nana Banana 2.1) */}
+                    {showResolution && (
+                        <ResolutionDropdown
+                            resolution={resolution}
+                            availableResolutions={availableResolutions}
+                            onUpdateState={onUpdateState}
+                            disabled={isEditing}
+                            t={t}
+                        />
                     )}
 
-                    {/* Thinking Mode Selector (Nano Banana 2.1 / Gemini 3) */}
-                    {showThinking && (
-                        <div className="flex-shrink-0 min-w-[110px]">
-                            <CustomSelect
-                                value={thinkingLevel || 'AUTO'}
-                                onChange={(value) => onUpdateState({ thinkingLevel: value })}
-                                disabled={isEditing}
-                                options={thinkingOptions}
-                                id="thinking-level-selector"
-                                title="Thinking Mode (Reasoning Depth)"
-                            />
-                        </div>
-                    )}
-
-                    {/* Search Grounding Selector (Nano Banana 2.1 / Nano Banana Pro) */}
-                    {showSearchGrounding && (
-                        <div className="flex-shrink-0 min-w-[115px]">
-                            <CustomSelect
-                                value={searchGrounding || 'none'}
-                                onChange={(value) => onUpdateState({ searchGrounding: value })}
-                                disabled={isEditing}
-                                options={searchGroundingOptions}
-                                id="search-grounding-selector"
-                                title="Google Search & Image Search Grounding"
-                            />
-                        </div>
-                    )}
                 </div>
 
                 {/* Right Actions & Menus Group (Aligned to the right border) */}
-                <div className="flex-shrink-0 flex items-center gap-2 ml-auto">
+                <div className="flex-shrink-0 flex items-center gap-1.5 ml-auto">
+                    {/* Thinking Mode Switch Toggle with Dropdown */}
+                    {showThinking && (
+                        <ThinkingToggleDropdown
+                            thinkingLevel={thinkingLevel}
+                            availableThinkingLevels={availableThinkingLevels}
+                            onUpdateState={onUpdateState}
+                            disabled={isEditing}
+                            t={t}
+                        />
+                    )}
+
+                    {/* Search Grounding Switch Toggle with Dropdown */}
+                    {showSearchGrounding && (
+                        <SearchToggleDropdown
+                            searchGrounding={searchGrounding}
+                            isNanoBanana21={isNanoBanana21}
+                            onUpdateState={onUpdateState}
+                            disabled={isEditing}
+                            t={t}
+                        />
+                    )}
+
                     {/* Auto Crop Toggle */}
                     <EditorTooltip
                         title="Crop 16:9"

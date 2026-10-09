@@ -495,7 +495,7 @@ export const useNodeDrag = ({
                 const scale = node.dockState ? 1 : viewTransform.scale;
                 const dx = (point.clientX - currentResizeInfo.startPosition.x) / scale;
                 const dy = (point.clientY - currentResizeInfo.startPosition.y) / scale;
-                const min = getMinNodeSize(node.type);
+                const min = getMinNodeSize(node.type, node);
                 
                 let nw = node.width, nh = node.height, nx = node.position.x, ny = node.position.y;
                 const dir = currentResizeInfo.direction || 'se';

@@ -251,8 +251,8 @@ export const useImageInputImport = ({
         }
     };
 
-    const handleClearImage = (e: React.MouseEvent) => {
-        e.stopPropagation();
+    const handleClearImage = (e?: React.MouseEvent) => {
+        e?.stopPropagation();
         handleValueUpdate({ image: null, croppedImage: null, extractedImages: [] });
         if (addToast) addToast(t('toast.contentCleared'));
     };

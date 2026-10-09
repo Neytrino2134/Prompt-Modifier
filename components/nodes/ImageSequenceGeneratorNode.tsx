@@ -967,7 +967,9 @@ export const ImageSequenceGeneratorNode: React.FC<NodeContentProps> = ({ node, o
         const frameNumber = editingFrameRef.current;
         if (frameNumber !== null) {
             setFullSizeImage(node.id, 1000 + frameNumber, imageDataUrl);
-            generateThumbnail(imageDataUrl, 128, 128).then(thumb => handleValueUpdate({ images: { ...images, [frameNumber]: thumb } }));
+            generateThumbnail(imageDataUrl, 128, 128)
+                .then(thumb => handleValueUpdate({ images: { ...images, [frameNumber]: thumb || imageDataUrl } }))
+                .catch(() => handleValueUpdate({ images: { ...images, [frameNumber]: imageDataUrl } }));
         }
     };
 

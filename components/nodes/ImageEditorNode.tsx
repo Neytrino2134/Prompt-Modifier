@@ -17,10 +17,10 @@ import { OutputPanel } from './image-editor/OutputPanel';
 import { DEFAULT_EDITOR_STATE, ImageEditorState, ImageSlot, MIN_LEFT_PANE_WIDTH, MIN_RIGHT_PANE_WIDTH, MIN_TOP_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT, MIN_BOTTOM_PANE_HEIGHT_WITH_PREVIEW } from './image-editor/types';
 import { ImageEditorLeftPane } from './image-editor/ImageEditorLeftPane';
 import { SequencedPromptListRef } from './image-editor/SequencedPromptList';
-import { useOpenAiEnabled, getImageEditorModelOptions, resolveImageEditorModel, isNanoBanana21Model } from '../../services/modelConfig';
+import { useOpenAiEnabled, getImageEditorModelOptions, resolveImageEditorModel, isNanoBanana21Model, getImageModelCapabilities } from '../../services/modelConfig';
 
 export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChange, onEditImage, onStopEdit, isEditingImage, onPasteImage, onSetImageEditorOutputToInput, connectedImageSources, t, deselectAllNodes, connectedInputs, onCopyImageToClipboard, onDownloadImage, libraryItems, onDetachImageToNode, getUpstreamNodeValues, viewTransform, setImageViewer, getFullSizeImage, setFullSizeImage, onDownloadImageFromUrl, onRefreshUpstreamData, isStopping, onCutConnections, addToast, clearImagesForNodeFromCache }) => {
-    const { setConnections, handleNavigateToNodeFrame, nodes: allNodes, connections, onAddNode } = useAppContext();
+    const { setConnections, handleNavigateToNodeFrame, nodes: allNodes, connections, onAddNode, setNodes } = useAppContext();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fileInputBRef = useRef<HTMLInputElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -45,22 +45,64 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
     const parsedValueRef = useRef(parsedValue);
     parsedValueRef.current = parsedValue;
 
-    const { inputImages, inputImagesB, prompt, outputImage, model, aspectRatio, enableAspectRatio, leftPaneWidth, topPaneHeight, resolution, isSequenceMode, isSequentialCombinationMode, isSequentialEditingWithPrompts, framePrompts, sequenceOutputs, checkedSequenceOutputIndices, checkedInputIndices, enableOutpainting, outpaintingPrompt, autoInsertResults, autoSaveImages, autoCrop169, isSequentialPromptMode, createZip, selectedSourceFrameIndex } = parsedValue;
+    const { inputImages, inputImagesB, prompt, outputImage, model, aspectRatio, enableAspectRatio, leftPaneWidth, topPaneHeight, resolution, isSequenceMode, isSequentialCombinationMode, isSequentialEditingWithPrompts, framePrompts, sequenceOutputs, checkedSequenceOutputIndices, checkedInputIndices, enableOutpainting, outpaintingPrompt, autoInsertResults, autoSaveImages, autoCrop169, isSequentialPromptMode, createZip, selectedSourceFrameIndex, thinkingLevel, searchGrounding } = parsedValue;
 
     const isOpenAiActive = useOpenAiEnabled();
     const modelOptions = useMemo(() => getImageEditorModelOptions(), [isOpenAiActive]);
     
     const effectiveModel = resolveImageEditorModel(model);
+    const capabilities = useMemo(() => getImageModelCapabilities(effectiveModel), [effectiveModel]);
     const isNanoBanana = effectiveModel === 'gemini-3-pro-image-preview' || isNanoBanana21Model(effectiveModel);
     const isTextConnected = connectedInputs?.has('text') || connectedInputs?.has('all_data');
     
     const viewScale = viewTransform?.scale || 1;
 
+    const isThinkActive = capabilities.supportedThinkingLevels.length > 0 && !!thinkingLevel && thinkingLevel !== 'OFF' && thinkingLevel !== 'none';
+    const isSearchActive = capabilities.supportedSearchTypes.length > 0 && !!searchGrounding && searchGrounding !== 'none' && searchGrounding !== 'off';
+    const requiredMinWidth = (isThinkActive && isSearchActive) ? 1600 : (isThinkActive || isSearchActive) ? 1520 : 1420;
+
+    // Automatically expand node's right border when thinking / search are enabled so nothing sticks out
+    useEffect(() => {
+        if (node.width && node.width < requiredMinWidth && setNodes) {
+            setNodes(nds => nds.map(n => n.id === node.id ? { ...n, width: requiredMinWidth } : n));
+        }
+    }, [requiredMinWidth, node.width, node.id, setNodes]);
+
     const handleValueUpdate = useCallback((updates: Partial<ImageEditorState>) => {
-        const newValue = { ...parsedValueRef.current, ...updates };
+        const nextState = { ...parsedValueRef.current, ...updates };
+
+        // If model was updated, sanitize parameters that the new model does not support
+        if (updates.model !== undefined) {
+            const nextEffectiveModel = resolveImageEditorModel(updates.model);
+            const nextCaps = getImageModelCapabilities(nextEffectiveModel);
+
+            if (nextCaps.supportedAspectRatios.length > 0) {
+                if (nextState.aspectRatio && !nextCaps.supportedAspectRatios.includes(nextState.aspectRatio)) {
+                    nextState.aspectRatio = '1:1';
+                }
+            }
+            if (nextCaps.supportedResolutions.length > 0) {
+                if (nextState.resolution && !nextCaps.supportedResolutions.includes(nextState.resolution)) {
+                    nextState.resolution = '1K';
+                }
+            } else {
+                nextState.resolution = '1K';
+            }
+            if (nextCaps.supportedThinkingLevels.length === 0) {
+                nextState.thinkingLevel = 'OFF';
+            } else if (nextState.thinkingLevel && nextState.thinkingLevel !== 'OFF' && !nextCaps.supportedThinkingLevels.includes(nextState.thinkingLevel)) {
+                nextState.thinkingLevel = 'AUTO';
+            }
+            if (nextCaps.supportedSearchTypes.length === 0) {
+                nextState.searchGrounding = 'none';
+            } else if (nextState.searchGrounding && nextState.searchGrounding !== 'none' && !nextCaps.supportedSearchTypes.includes(nextState.searchGrounding as any)) {
+                nextState.searchGrounding = 'web';
+            }
+        }
+
         // Sync update ref immediately to prevent race conditions
-        parsedValueRef.current = newValue;
-        onValueChange(node.id, JSON.stringify(newValue));
+        parsedValueRef.current = nextState;
+        onValueChange(node.id, JSON.stringify(nextState));
     }, [onValueChange, node.id]);
 
     const handleClearOutputs = useCallback(() => {
@@ -77,16 +119,17 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
         }
     }, [clearImagesForNodeFromCache, node.id, handleValueUpdate, addToast, t]);
 
-    // Resizing Constraint Logic (Fixed min width: 1420px)
+    // Resizing Constraint Logic (Dynamic min width based on active modes: 1420px, 1520px, or 1600px)
     useEffect(() => {
-        const effectiveWidth = Math.max(node.width || 1420, 1420);
+        const effectiveWidth = Math.max(node.width || requiredMinWidth, requiredMinWidth);
         const effectiveHeight = Math.max(node.height || 920, 920);
 
         const containerChromeH = HEADER_HEIGHT + (CONTENT_PADDING * 2); // Header + Padding
         
         // 1. Horizontal Constraint (Left Pane Width)
-        // Ensure Right Pane maintains minimum width
-        const maxLeftWidth = effectiveWidth - MIN_RIGHT_PANE_WIDTH - 8; // -8 for splitter/gap safety
+        // Ensure Right Pane maintains sufficient minimum width for bottom controls
+        const minRightPaneWidth = (isThinkActive && isSearchActive) ? 960 : (isThinkActive || isSearchActive) ? 880 : 800;
+        const maxLeftWidth = effectiveWidth - minRightPaneWidth - 8; // -8 for splitter/gap safety
         
         let newLeftPaneWidth = leftPaneWidth;
         if (leftPaneWidth > maxLeftWidth) {
@@ -112,7 +155,7 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
             handleValueUpdate({ leftPaneWidth: newLeftPaneWidth, topPaneHeight: newTopPaneHeight });
         }
 
-    }, [node.width, node.height, leftPaneWidth, topPaneHeight, enableAspectRatio, handleValueUpdate]);
+    }, [node.width, node.height, leftPaneWidth, topPaneHeight, enableAspectRatio, handleValueUpdate, requiredMinWidth, isThinkActive, isSearchActive]);
 
     const cleanupInputB = useCallback(() => {
         handleValueUpdate({ 
@@ -571,13 +614,23 @@ export const ImageEditorNode: React.FC<NodeContentProps> = ({ node, onValueChang
                      const { formattedImage } = await formatImageForAspectRatio(lastImageSource, aspectRatio);
                      if (cancelled) return;
                      previewHighResRef.current = formattedImage;
-                     const thumbnail = await generateThumbnail(formattedImage, 256, 256);
-                     if (!cancelled) setPreviewImage(thumbnail);
-                 } catch { if (!cancelled) setPreviewImage(null); }
+                     try {
+                         const thumbnail = await generateThumbnail(formattedImage, 256, 256);
+                         if (!cancelled) setPreviewImage(thumbnail || formattedImage);
+                     } catch {
+                         if (!cancelled) setPreviewImage(formattedImage);
+                     }
+                 } catch { 
+                     if (!cancelled) setPreviewImage(lastImageSource); 
+                 }
             } else if (enableAspectRatio && lastImageSource) {
                  previewHighResRef.current = lastImageSource;
-                 const thumbnail = await generateThumbnail(lastImageSource, 256, 256);
-                 if (!cancelled) setPreviewImage(thumbnail);
+                 try {
+                     const thumbnail = await generateThumbnail(lastImageSource, 256, 256);
+                     if (!cancelled) setPreviewImage(thumbnail || lastImageSource);
+                 } catch {
+                     if (!cancelled) setPreviewImage(lastImageSource);
+                 }
             } else {
                 setPreviewImage(null); previewHighResRef.current = null;
             }

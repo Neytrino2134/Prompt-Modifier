@@ -82,7 +82,7 @@ const NodeViewComponent: React.FC<NodeViewProps> = (props) => {
         }
     }, [isRerouteDot, node.value]);
 
-    const minSize = useMemo(() => getMinNodeSize(node.type), [node.type]);
+    const minSize = useMemo(() => getMinNodeSize(node.type, node), [node.type, node.value]);
     const isDockedWindow = !!node.dockState && !isProxy;
     const isProxyMode = !!node.dockState && !!isProxy;
     const isDetachedGhost = Boolean(node.isDetachedWindow);

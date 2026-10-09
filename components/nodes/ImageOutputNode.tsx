@@ -9,7 +9,7 @@ import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { expandImageAspectRatio } from '../../services/imageActions';
 import { generateThumbnail, setupImageDragData } from '../../utils/imageUtils';
-import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel, resolveImageModel, isNanoBanana21Model } from '../../services/modelConfig';
+import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel, resolveImageModel, isNanoBanana21Model, getImageModelCapabilities } from '../../services/modelConfig';
 
 export const ImageOutputNode: React.FC<NodeContentProps> = ({ 
     node, 
@@ -148,7 +148,6 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
         }
     };
 
-    const aspectRatios = ["1:1", "16:9", "9:16", "4:3", "3:4"];
     const isOpenAiActive = useOpenAiEnabled();
     const modelOptions = useMemo(() => getImageModelOptions(), [isOpenAiActive]);
     
@@ -156,51 +155,24 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
     const isGpt2 = isGptImage2Model(effectiveModel);
     const isDalle3 = effectiveModel === 'dall-e-3';
     const isDalle2 = effectiveModel === 'dall-e-2';
-    const isOpenAiModel = isOpenAiImageModel(effectiveModel);
-
     const isNanoBanana21 = isNanoBanana21Model(effectiveModel);
-    const isNanoBananaPro = effectiveModel === 'gemini-3-pro-image-preview';
-    const isFlashImage31 = effectiveModel === 'gemini-3.1-flash-image-preview' || effectiveModel === 'gemini-3.1-flash-image';
-    const isFlashImagePreview = isNanoBanana21 || isFlashImage31;
-    const isFlashImage = effectiveModel === 'gemini-2.5-flash-image';
-    // An 'imagen' model is selected if the model string is not set (default) or starts with 'imagen-4.0'
-    const isImagenModel = !effectiveModel || effectiveModel.startsWith('imagen-4.0');
-    const isAspectRatioEnabled = !isGpt2 && (isImagenModel || isNanoBananaPro || isFlashImage || isFlashImagePreview || isOpenAiModel);
 
-    let availableResolutions = [
-        { value: '1K', label: '1K' },
-        { value: '2K', label: '2K' },
-        { value: '4K', label: '4K' },
-    ];
+    const capabilities = useMemo(() => getImageModelCapabilities(effectiveModel), [effectiveModel]);
+    const availableAspectRatios = capabilities.supportedAspectRatios;
+    const isAspectRatioEnabled = availableAspectRatios.length > 0;
+    const availableResolutions = capabilities.supportedResolutions.map(r => ({ value: r, label: r }));
+    const showResolution = availableResolutions.length > 0;
+    const showThinkingMode = capabilities.supportedThinkingLevels.length > 0;
+    const showSearchGrounding = capabilities.supportedSearchTypes.length > 0;
 
-    if (isFlashImage31) {
-        availableResolutions = [
-            { value: '512px', label: '512px' },
-            ...availableResolutions
-        ];
-    }
-
-    let availableAspectRatios = aspectRatios;
-    if (isNanoBanana21 || isNanoBananaPro) {
-        availableAspectRatios = [...aspectRatios, "3:2", "2:3", "4:5", "5:4", "21:9", "1:4", "1:8", "4:1", "8:1"];
-    } else if (isFlashImage31) {
-        availableAspectRatios = [...aspectRatios, "1:4", "1:8", "4:1", "8:1"];
-    } else if (isDalle3) {
-        availableAspectRatios = ["1:1", "16:9", "9:16"];
-    } else if (isDalle2) {
-        availableAspectRatios = ["1:1"];
-    }
-
-    const showThinkingMode = isNanoBanana21 || isNanoBananaPro || isFlashImage31;
-    const showSearchGrounding = isNanoBanana21 || isNanoBananaPro;
-
-    const thinkingLevelOptions = [
+    const allThinkingLevelOptions = [
         { value: 'AUTO', label: 'Auto (Default)' },
         { value: 'MINIMAL', label: 'Minimal (Fastest)' },
         { value: 'LOW', label: 'Low' },
         { value: 'MEDIUM', label: 'Medium (Balanced)' },
         { value: 'HIGH', label: 'High (Deep Reasoning)' },
     ];
+    const thinkingLevelOptions = allThinkingLevelOptions.filter(o => capabilities.supportedThinkingLevels.includes(o.value));
 
     const searchGroundingOptions = isNanoBanana21
         ? [
@@ -469,7 +441,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                 </div>
             )}
 
-            {(isNanoBananaPro || isFlashImagePreview) && (
+            {showResolution && (
                 <div className="mb-2">
                     <label className="block text-xs font-medium text-gray-400 mb-1">Resolution</label>
                     <CustomSelect

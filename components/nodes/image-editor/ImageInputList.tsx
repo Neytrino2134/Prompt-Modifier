@@ -481,6 +481,7 @@ export const ImageInputList: React.FC<ImageInputListProps> = ({
                                     {slot.src ? (
                                         <OptimizedThumbnail 
                                             src={slot.src}
+                                            fallbackSrc={slot.type === 'connected' ? slot.getOriginal?.() : (fullRes || slot.src)}
                                             size={64}
                                             alt={`Input ${index + 1}`} 
                                             className={`object-contain w-full h-full max-w-[64px] max-h-[64px] ${!isChecked ? 'opacity-50' : ''}`}

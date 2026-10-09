@@ -471,7 +471,12 @@ export const useEditorNode = ({
                     if (parsed.autoCrop169) {
                          try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
                     }
-                    const thumb = await generateThumbnail(finalImageUrl, 256, 256);
+                    let thumb = finalImageUrl;
+                    try {
+                        thumb = await generateThumbnail(finalImageUrl, 256, 256);
+                    } catch {
+                        thumb = finalImageUrl;
+                    }
                     
                     updateNodeInStorage(currentTabId, nodeId, (prev) => {
                         const nextOutputs = [...(prev.sequenceOutputs || [])];
@@ -582,7 +587,12 @@ export const useEditorNode = ({
                 if (parsed.autoCrop169) {
                      try { finalImageUrl = await cropImageTo169(imageUrl); } catch(e) {}
                 }
-                const thumb = await generateThumbnail(finalImageUrl, 256, 256);
+                let thumb = finalImageUrl;
+                try {
+                    thumb = await generateThumbnail(finalImageUrl, 256, 256);
+                } catch {
+                    thumb = finalImageUrl;
+                }
                 
                 updateNodeInStorage(currentTabId, nodeId, (prev) => ({ ...prev, outputImage: thumb }), { frame: 0, url: finalImageUrl });
 
