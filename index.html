@@ -1,17 +1,26 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" style="background-color: #0c111e; color-scheme: dark;">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./assets/favicon-gRg1cm8W.svg" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0c111e" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prompt Modifier</title>
+    <meta name="description" content="A node-based application to visually construct, refine, and generate images and 3D models using AI models and Tripo AI. Connect nodes to build prompts and generate rich assets." />
+    <meta property="og:title" content="Prompt Modifier" />
+    <meta property="og:description" content="A node-based application to visually construct, refine, and generate images and 3D models using AI models and Tripo AI. Connect nodes to build prompts and generate rich assets." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
     <style>
       /* --- Theme Variables --- */
       /* Default Theme (Cyan) */
-      :root {
+      :root, [data-theme='cyan'] {
         --color-bg-canvas: #111827; /* gray-900 */
         --color-bg-node: #1f2937;   /* gray-800 */
         --color-bg-panel: #111827;  /* gray-900 */
@@ -25,8 +34,9 @@
         --color-text-accent: #22d3ee;   /* cyan-400 */
         --color-selection: rgba(34, 211, 238, 0.3); /* Selection Color */
 
-        --color-accent-secondary: #0d9488;       /* teal-600 */
+        --color-accent-secondary: #0d9488;       /* teal-600 (Original button background color) */
         --color-accent-secondary-hover: #0f766e; /* teal-700 */
+        --color-text-accent-secondary: #2dd4bf;  /* teal-400 (Brighter text for secondary accent) */
         
         --color-connection-text: #22d3ee; /* cyan-400 */
         --color-connection-image: #1cead8; /* Bright Turquoise */
@@ -43,19 +53,20 @@
 
       /* Orange Theme */
       [data-theme='orange'] {
-        --color-bg-canvas: #111827; /* Gray-900 (Cyan Default) */
-        --color-bg-node: #1f2937;   /* Gray-800 (Cyan Default) */
-        --color-bg-panel: #111827;  /* Gray-900 (Cyan Default) */
-        --color-bg-input: #18202f;  /* Dark Blue (Cyan Default) */
+        --color-bg-canvas: #141110;
+        --color-bg-node: #1f1b19;
+        --color-bg-panel: #141110;
+        --color-bg-input: #1b1613;
         
-        --color-accent: #d25622;        /* Swapped from Red */
-        --color-accent-hover: #b91c1c;  /* Swapped from Red */
-        --color-accent-dim: rgba(251, 146, 60, 0.1);
+        --color-accent: #ea580c;        /* orange-600 */
+        --color-accent-hover: #c2410c;  /* orange-700 */
+        --color-accent-dim: rgba(251, 146, 60, 0.12);
         --color-text-accent: #fb923c;   /* orange-400 */
-        --color-selection: rgba(251, 146, 60, 0.3); /* Selection Color */
+        --color-selection: rgba(251, 146, 60, 0.3);
 
-        --color-accent-secondary: #d77505;       /* Swapped from Red */
-        --color-accent-secondary-hover: #be123c; /* Swapped from Red */
+        --color-accent-secondary: #c2410c;       /* orange-700 */
+        --color-accent-secondary-hover: #9a3412; /* orange-800 */
+        --color-text-accent-secondary: #fdba74;
         
         --color-connection-text: #fb923c; /* orange-400 */
         --color-connection-image: #fbbf24; /* amber-400 */
@@ -69,27 +80,28 @@
 
       /* Pink Theme */
       [data-theme='pink'] {
-        --color-bg-canvas: #111827; /* Gray-900 (Cyan Default) */
-        --color-bg-node: #1f2937;   /* Gray-800 (Cyan Default) */
-        --color-bg-panel: #111827;  /* Gray-900 (Cyan Default) */
-        --color-bg-input: #18202f;  /* Dark Blue (Cyan Default) */
+        --color-bg-canvas: #141014;
+        --color-bg-node: #1f181f;
+        --color-bg-panel: #141014;
+        --color-bg-input: #1b131b;
         
-        --color-accent: #c63672;        /* Custom Primary */
-        --color-accent-hover: #a32d5e;  /* Darker version of primary */
-        --color-accent-dim: rgba(198, 54, 114, 0.1);
-        --color-text-accent: #f472b6;   /* pink-400 (Matches selected border) */
-        --color-selection: rgba(198, 54, 114, 0.3); /* Selection Color */
+        --color-accent: #db2777;        /* pink-600 */
+        --color-accent-hover: #be185d;  /* pink-700 */
+        --color-accent-dim: rgba(244, 114, 182, 0.12);
+        --color-text-accent: #f472b6;   /* pink-400 */
+        --color-selection: rgba(244, 114, 182, 0.3);
 
-        --color-accent-secondary: #b7327c;       /* Custom Secondary */
-        --color-accent-secondary-hover: #922863; /* Darker version of secondary */
+        --color-accent-secondary: #be185d;       /* pink-700 */
+        --color-accent-secondary-hover: #9d174d; /* pink-800 */
+        --color-text-accent-secondary: #fbcfe8;
         
-        --color-connection-text: #f472b6; /* pink-400 (Matches selected border) */
-        --color-connection-image: #e879f9; /* fuchsia-400 */
-        --color-connection-character: #be123c; /* rose-700 */
-        --color-connection-video: #9333ea; /* purple-600 */
-        --color-connection-audio: #c026d3; /* fuchsia-600 */
+        --color-connection-text: #f472b6; /* pink-400 */
+        --color-connection-image: #f472b6; /* pink-400 */
+        --color-connection-character: #be185d; /* pink-700 */
+        --color-connection-video: #db2777; /* pink-600 */
+        --color-connection-audio: #9d174d; /* pink-800 */
         
-        --color-border-hover: #f9a8d4;    /* pink-300 (Darker than before for pinned visibility) */
+        --color-border-hover: #fbcfe8;    /* pink-200 */
         --color-border-selected: #f472b6; /* pink-400 */
       }
       
@@ -109,6 +121,7 @@
 
         --color-accent-secondary: #71717a;       /* zinc-500 */
         --color-accent-secondary-hover: #a1a1aa; /* zinc-400 */
+        --color-text-accent-secondary: #e4e4e7;
         
         --color-connection-text: #a1a1aa; /* Zinc-400 */
         --color-connection-image: #a1a1aa; /* Zinc-400 */
@@ -120,20 +133,22 @@
         --color-border-selected: #a1a1aa; /* Zinc-400 */
       }
 
-      /* Lime Theme (Acid/Cyberpunk) */
+      /* Lime Theme */
       [data-theme='lime'] {
-        --color-bg-canvas: #111827; /* Gray-900 (Cyan Default) */
-        --color-bg-node: #1f2937;   /* Gray-800 */
-        --color-bg-panel: #111827;  /* Gray-900 */
+        --color-bg-canvas: #111511;
+        --color-bg-node: #182018;
+        --color-bg-panel: #111511;
+        --color-bg-input: #141b14;
         
         --color-accent: #65a30d;        /* lime-600 */
         --color-accent-hover: #4d7c0f;  /* lime-700 */
-        --color-accent-dim: rgba(163, 230, 53, 0.1);
+        --color-accent-dim: rgba(163, 230, 53, 0.12);
         --color-text-accent: #a3e635;   /* lime-400 */
         --color-selection: rgba(163, 230, 53, 0.3);
         
-        --color-accent-secondary: #16a34a;       /* green-600 */
-        --color-accent-secondary-hover: #15803d; /* green-700 */
+        --color-accent-secondary: #4d7c0f;       /* lime-700 */
+        --color-accent-secondary-hover: #3f6212; /* lime-800 */
+        --color-text-accent-secondary: #bef264;
 
         --color-connection-text: #a3e635; /* lime-400 */
         --color-connection-image: #4ade80; /* green-400 */
@@ -145,45 +160,49 @@
         --color-border-selected: #a3e635; /* lime-400 */
       }
 
-      /* Purple Theme (Synthwave) */
+      /* Purple Theme */
       [data-theme='purple'] {
-        --color-bg-canvas: #111827;
-        --color-bg-node: #1f2937;
-        --color-bg-panel: #111827;
+        --color-bg-canvas: #111019;
+        --color-bg-node: #1b1827;
+        --color-bg-panel: #111019;
+        --color-bg-input: #171424;
         
-        --color-accent: #9333ea;        /* purple-600 */
-        --color-accent-hover: #7e22ce;  /* purple-700 */
-        --color-accent-dim: rgba(192, 132, 252, 0.1);
-        --color-text-accent: #c084fc;   /* purple-400 */
-        --color-selection: rgba(192, 132, 252, 0.3);
+        --color-accent: #7c3aed;        /* violet-600 */
+        --color-accent-hover: #6d28d9;  /* violet-700 */
+        --color-accent-dim: rgba(167, 139, 250, 0.12);
+        --color-text-accent: #a78bfa;   /* violet-400 */
+        --color-selection: rgba(167, 139, 250, 0.3);
 
-        --color-accent-secondary: #d946ef;       /* fuchsia-500 */
-        --color-accent-secondary-hover: #c026d3; /* fuchsia-600 */
+        --color-accent-secondary: #6366f1;       /* indigo-500 */
+        --color-accent-secondary-hover: #4f46e5; /* indigo-600 */
+        --color-text-accent-secondary: #c4b5fd;
 
-        --color-connection-text: #c084fc; /* purple-400 */
-        --color-connection-image: #e879f9; /* fuchsia-400 */
-        --color-connection-character: #d946ef; /* fuchsia-500 */
-        --color-connection-video: #9333ea; /* purple-600 */
-        --color-connection-audio: #a855f7; /* purple-500 */
+        --color-connection-text: #a78bfa; /* violet-400 */
+        --color-connection-image: #c4b5fd; /* violet-300 */
+        --color-connection-character: #818cf8; /* indigo-400 */
+        --color-connection-video: #7c3aed; /* violet-600 */
+        --color-connection-audio: #6366f1; /* indigo-500 */
         
-        --color-border-hover: #d8b4fe;    /* purple-300 */
-        --color-border-selected: #c084fc; /* purple-400 */
+        --color-border-hover: #c4b5fd;    /* violet-300 */
+        --color-border-selected: #a78bfa; /* violet-400 */
       }
 
-      /* Azure Theme (Cool Tech) */
+      /* Azure Theme */
       [data-theme='azure'] {
-        --color-bg-canvas: #111827;
-        --color-bg-node: #1f2937;
-        --color-bg-panel: #111827;
+        --color-bg-canvas: #0f172a;
+        --color-bg-node: #1e293b;
+        --color-bg-panel: #0f172a;
+        --color-bg-input: #172033;
         
         --color-accent: #0284c7;        /* sky-600 */
         --color-accent-hover: #0369a1;  /* sky-700 */
-        --color-accent-dim: rgba(56, 189, 248, 0.1);
+        --color-accent-dim: rgba(56, 189, 248, 0.12);
         --color-text-accent: #38bdf8;   /* sky-400 */
         --color-selection: rgba(56, 189, 248, 0.3);
 
-        --color-accent-secondary: #3b82f6;       /* blue-500 */
-        --color-accent-secondary-hover: #2563eb; /* blue-600 */
+        --color-accent-secondary: #2563eb;       /* blue-600 */
+        --color-accent-secondary-hover: #1d4ed8; /* blue-700 */
+        --color-text-accent-secondary: #60a5fa;
 
         --color-connection-text: #38bdf8; /* sky-400 */
         --color-connection-image: #60a5fa; /* blue-400 */
@@ -195,45 +214,49 @@
         --color-border-selected: #38bdf8; /* sky-400 */
       }
 
-      /* Red Theme (Alert/Bold) */
+      /* Red Theme */
       [data-theme='red'] {
-        --color-bg-canvas: #111827;
-        --color-bg-node: #1f2937;
-        --color-bg-panel: #111827;
+        --color-bg-canvas: #141012;
+        --color-bg-node: #20171a;
+        --color-bg-panel: #141012;
+        --color-bg-input: #1b1216;
         
-        --color-accent: #e33d3d;        /* Custom New Red */
-        --color-accent-hover: #c53030;  /* Darker version */
-        --color-accent-dim: rgba(248, 113, 113, 0.1);
+        --color-accent: #dc2626;        /* red-600 */
+        --color-accent-hover: #b91c1c;  /* red-700 */
+        --color-accent-dim: rgba(248, 113, 113, 0.12);
         --color-text-accent: #f87171;   /* red-400 */
         --color-selection: rgba(248, 113, 113, 0.3);
 
-        --color-accent-secondary: #f8325d;       /* Custom New Secondary */
-        --color-accent-secondary-hover: #d01842; /* Darker version */
+        --color-accent-secondary: #b91c1c;       /* red-700 */
+        --color-accent-secondary-hover: #991b1b; /* red-800 */
+        --color-text-accent-secondary: #fca5a5;
 
         --color-connection-text: #f87171; /* red-400 */
-        --color-connection-image: #fb7185; /* rose-400 */
+        --color-connection-image: #fca5a5; /* red-300 */
         --color-connection-character: #ef4444; /* red-500 */
         --color-connection-video: #dc2626; /* red-600 */
-        --color-connection-audio: #e11d48; /* rose-600 */
+        --color-connection-audio: #b91c1c; /* red-700 */
         
         --color-border-hover: #fca5a5;    /* red-300 */
         --color-border-selected: #f87171; /* red-400 */
       }
       
-      /* Emerald Theme (Nature/Fresh) */
+      /* Emerald Theme */
       [data-theme='emerald'] {
-        --color-bg-canvas: #111827;
-        --color-bg-node: #1f2937;
-        --color-bg-panel: #111827;
+        --color-bg-canvas: #0c1815;
+        --color-bg-node: #132520;
+        --color-bg-panel: #0c1815;
+        --color-bg-input: #10201c;
         
         --color-accent: #059669;        /* emerald-600 */
         --color-accent-hover: #047857;  /* emerald-700 */
-        --color-accent-dim: rgba(52, 211, 153, 0.1);
+        --color-accent-dim: rgba(52, 211, 153, 0.12);
         --color-text-accent: #34d399;   /* emerald-400 */
         --color-selection: rgba(52, 211, 153, 0.3);
 
         --color-accent-secondary: #0d9488;       /* teal-600 */
         --color-accent-secondary-hover: #0f766e; /* teal-700 */
+        --color-text-accent-secondary: #2dd4bf;
 
         --color-connection-text: #34d399; /* emerald-400 */
         --color-connection-image: #2dd4bf; /* teal-400 */
@@ -243,6 +266,313 @@
         
         --color-border-hover: #6ee7b7;    /* emerald-300 */
         --color-border-selected: #34d399; /* emerald-400 */
+      }
+
+      /* Amber Theme (Classic New) */
+      [data-theme='amber'] {
+        --color-bg-canvas: #131210;
+        --color-bg-node: #1d1a16;
+        --color-bg-panel: #131210;
+        --color-bg-input: #181512;
+        
+        --color-accent: #d97706;        /* amber-600 */
+        --color-accent-hover: #b45309;  /* amber-700 */
+        --color-accent-dim: rgba(251, 191, 36, 0.12);
+        --color-text-accent: #fbbf24;   /* amber-400 */
+        --color-selection: rgba(245, 158, 11, 0.3);
+
+        --color-accent-secondary: #b45309;       /* amber-700 */
+        --color-accent-secondary-hover: #92400e; /* amber-800 */
+        --color-text-accent-secondary: #fde68a;
+        
+        --color-connection-text: #fbbf24; /* amber-400 */
+        --color-connection-image: #fde047; /* yellow-400 */
+        --color-connection-character: #f97316; /* orange-500 */
+        --color-connection-video: #ea580c; /* orange-600 */
+        --color-connection-audio: #d97706; /* amber-600 */
+        
+        --color-border-hover: #fde68a;    /* amber-200 */
+        --color-border-selected: #fbbf24; /* amber-400 */
+      }
+
+      /* Teal Theme (Classic New) */
+      [data-theme='teal'] {
+        --color-bg-canvas: #0c1517;
+        --color-bg-node: #142125;
+        --color-bg-panel: #0c1517;
+        --color-bg-input: #101c20;
+        
+        --color-accent: #0d9488;        /* teal-600 */
+        --color-accent-hover: #0f766e;  /* teal-700 */
+        --color-accent-dim: rgba(45, 212, 191, 0.12);
+        --color-text-accent: #2dd4bf;   /* teal-400 */
+        --color-selection: rgba(20, 184, 166, 0.3);
+
+        --color-accent-secondary: #0f766e;       /* teal-700 */
+        --color-accent-secondary-hover: #115e59; /* teal-800 */
+        --color-text-accent-secondary: #5eead4;
+        
+        --color-connection-text: #2dd4bf; /* teal-400 */
+        --color-connection-image: #5eead4; /* teal-300 */
+        --color-connection-character: #06b6d4; /* cyan-500 */
+        --color-connection-video: #0891b2; /* cyan-600 */
+        --color-connection-audio: #0d9488; /* teal-600 */
+        
+        --color-border-hover: #5eead4;    /* teal-300 */
+        --color-border-selected: #2dd4bf; /* teal-400 */
+      }
+
+      /* Rose Theme (Classic New) */
+      [data-theme='rose'] {
+        --color-bg-canvas: #161114;
+        --color-bg-node: #23181f;
+        --color-bg-panel: #161114;
+        --color-bg-input: #1c1218;
+        
+        --color-accent: #e11d48;        /* rose-600 */
+        --color-accent-hover: #be123c;  /* rose-700 */
+        --color-accent-dim: rgba(251, 113, 133, 0.12);
+        --color-text-accent: #fb7185;   /* rose-400 */
+        --color-selection: rgba(244, 63, 94, 0.3);
+
+        --color-accent-secondary: #be123c;       /* rose-700 */
+        --color-accent-secondary-hover: #9f1239; /* rose-800 */
+        --color-text-accent-secondary: #fda4af;
+        
+        --color-connection-text: #fb7185; /* rose-400 */
+        --color-connection-image: #fda4af; /* rose-300 */
+        --color-connection-character: #f43f5e; /* rose-500 */
+        --color-connection-video: #e11d48; /* rose-600 */
+        --color-connection-audio: #be123c; /* rose-700 */
+        
+        --color-border-hover: #fecdd3;    /* rose-200 */
+        --color-border-selected: #fb7185; /* rose-400 */
+      }
+
+      /* Pastel Mint Theme */
+      [data-theme='pastel_mint'] {
+        --color-bg-canvas: #0e171b;
+        --color-bg-node: #16242a;
+        --color-bg-panel: #0e171b;
+        --color-bg-input: #101c20;
+        
+        --color-accent: #0f766e;        /* teal-700 - calm deep mint */
+        --color-accent-hover: #115e59;  /* teal-800 */
+        --color-accent-dim: rgba(94, 234, 212, 0.12);
+        --color-text-accent: #5eead4;   /* teal-300 / pastel mint */
+        --color-selection: rgba(94, 234, 212, 0.3);
+
+        --color-accent-secondary: #0d9488;       /* teal-600 */
+        --color-accent-secondary-hover: #0f766e; /* teal-700 */
+        --color-text-accent-secondary: #99f6e4;
+
+        --color-connection-text: #5eead4;
+        --color-connection-image: #99f6e4;
+        --color-connection-character: #f9a8d4;
+        --color-connection-video: #a5b4fc;
+        --color-connection-audio: #67e8f9;
+        
+        --color-border-hover: #99f6e4;
+        --color-border-selected: #5eead4;
+      }
+
+      /* Pastel Lavender Theme */
+      [data-theme='pastel_lavender'] {
+        --color-bg-canvas: #131219;
+        --color-bg-node: #1c1a24;
+        --color-bg-panel: #131219;
+        --color-bg-input: #171520;
+        
+        --color-accent: #5b4b70;        /* muted dusty lilac / slate purple */
+        --color-accent-hover: #493b5c;
+        --color-accent-dim: rgba(196, 181, 219, 0.12);
+        --color-text-accent: #c4b5db;   /* soft powdery lavender */
+        --color-selection: rgba(196, 181, 219, 0.25);
+
+        --color-accent-secondary: #6c5984;
+        --color-accent-secondary-hover: #5b4b70;
+        --color-text-accent-secondary: #e2d9ee;
+
+        --color-connection-text: #c4b5db;
+        --color-connection-image: #e2d9ee;
+        --color-connection-character: #d6b8c8;
+        --color-connection-video: #a99ac2;
+        --color-connection-audio: #b8adc9;
+        
+        --color-border-hover: #e2d9ee;
+        --color-border-selected: #c4b5db;
+      }
+
+      /* Pastel Peach Theme */
+      [data-theme='pastel_peach'] {
+        --color-bg-canvas: #161311;
+        --color-bg-node: #221c19;
+        --color-bg-panel: #161311;
+        --color-bg-input: #1b1613;
+        
+        --color-accent: #7d4e38;        /* muted warm clay-peach */
+        --color-accent-hover: #663f2d;
+        --color-accent-dim: rgba(235, 186, 158, 0.12);
+        --color-text-accent: #ebba9e;   /* powdery soft peach */
+        --color-selection: rgba(235, 186, 158, 0.25);
+
+        --color-accent-secondary: #915d45;
+        --color-accent-secondary-hover: #7d4e38;
+        --color-text-accent-secondary: #f5d5c3;
+
+        --color-connection-text: #ebba9e;
+        --color-connection-image: #f5d5c3;
+        --color-connection-character: #e2a5a5;
+        --color-connection-video: #d99c7b;
+        --color-connection-audio: #dfba93;
+        
+        --color-border-hover: #f5d5c3;
+        --color-border-selected: #ebba9e;
+      }
+
+      /* Pastel Rose Theme */
+      [data-theme='pastel_rose'] {
+        --color-bg-canvas: #161214;
+        --color-bg-node: #221a1f;
+        --color-bg-panel: #161214;
+        --color-bg-input: #1c1518;
+        
+        --color-accent: #704859;        /* restrained dusty rose-mauve */
+        --color-accent-hover: #5b3948;
+        --color-accent-dim: rgba(226, 175, 195, 0.12);
+        --color-text-accent: #e2afc3;   /* soft powdery ash rose */
+        --color-selection: rgba(226, 175, 195, 0.25);
+
+        --color-accent-secondary: #84566b;
+        --color-accent-secondary-hover: #704859;
+        --color-text-accent-secondary: #f2d3df;
+
+        --color-connection-text: #e2afc3;
+        --color-connection-image: #f2d3df;
+        --color-connection-character: #eab0b8;
+        --color-connection-video: #cca2b5;
+        --color-connection-audio: #d8a4b6;
+        
+        --color-border-hover: #f2d3df;
+        --color-border-selected: #e2afc3;
+      }
+
+      /* Pastel Sky Theme */
+      [data-theme='pastel_sky'] {
+        --color-bg-canvas: #101418;
+        --color-bg-node: #171f25;
+        --color-bg-panel: #101418;
+        --color-bg-input: #131920;
+        
+        --color-accent: #3d5a73;        /* calm muted slate blue */
+        --color-accent-hover: #2f465a;
+        --color-accent-dim: rgba(165, 198, 222, 0.12);
+        --color-text-accent: #a5c6de;   /* soft powdery sky / mist */
+        --color-selection: rgba(165, 198, 222, 0.25);
+
+        --color-accent-secondary: #4b6c89;
+        --color-accent-secondary-hover: #3d5a73;
+        --color-text-accent-secondary: #cde0ee;
+
+        --color-connection-text: #a5c6de;
+        --color-connection-image: #cde0ee;
+        --color-connection-character: #b5c2d6;
+        --color-connection-video: #8eaec8;
+        --color-connection-audio: #9fc0d6;
+        
+        --color-border-hover: #cde0ee;
+        --color-border-selected: #a5c6de;
+      }
+
+      /* Pastel Vanilla Theme */
+      [data-theme='pastel_vanilla'] {
+        --color-bg-canvas: #151410;
+        --color-bg-node: #211f18;
+        --color-bg-panel: #151410;
+        --color-bg-input: #191812;
+        
+        --color-accent: #6d5a37;        /* warm muted honey-oat */
+        --color-accent-hover: #57472a;
+        --color-accent-dim: rgba(232, 212, 157, 0.12);
+        --color-text-accent: #e8d49d;   /* soft warm vanilla cream */
+        --color-selection: rgba(232, 212, 157, 0.25);
+
+        --color-accent-secondary: #806b43;
+        --color-accent-secondary-hover: #6d5a37;
+        --color-text-accent-secondary: #f4e6be;
+
+        --color-connection-text: #e8d49d;
+        --color-connection-image: #f4e6be;
+        --color-connection-character: #e2c29d;
+        --color-connection-video: #d6be7f;
+        --color-connection-audio: #dfce95;
+        
+        --color-border-hover: #f4e6be;
+        --color-border-selected: #e8d49d;
+      }
+
+      /* Pastel Sage Theme */
+      [data-theme='pastel_sage'] {
+        --color-bg-canvas: #111613;
+        --color-bg-node: #19211c;
+        --color-bg-panel: #111613;
+        --color-bg-input: #141b16;
+        
+        --color-accent: #405d4b;        /* calm dusty sage / muted olive */
+        --color-accent-hover: #324a3c;
+        --color-accent-dim: rgba(168, 203, 179, 0.12);
+        --color-text-accent: #a8cbb3;   /* soft muted sage */
+        --color-selection: rgba(168, 203, 179, 0.25);
+
+        --color-accent-secondary: #4e705b;
+        --color-accent-secondary-hover: #405d4b;
+        --color-text-accent-secondary: #cee3d5;
+
+        --color-connection-text: #a8cbb3;
+        --color-connection-image: #cee3d5;
+        --color-connection-character: #c4d6a4;
+        --color-connection-video: #91b59d;
+        --color-connection-audio: #9fc4ab;
+        
+        --color-border-hover: #cee3d5;
+        --color-border-selected: #a8cbb3;
+      }
+
+      /* Pastel Sand Theme */
+      [data-theme='pastel_sand'] {
+        --color-bg-canvas: #151311;
+        --color-bg-node: #211e1a;
+        --color-bg-panel: #151311;
+        --color-bg-input: #1a1714;
+        
+        --color-accent: #78583c;
+        --color-accent-hover: #5d432b;
+        --color-accent-dim: rgba(230, 204, 178, 0.12);
+        --color-text-accent: #e6ccb2;   /* warm pastel sand */
+        --color-selection: rgba(230, 204, 178, 0.3);
+
+        --color-accent-secondary: #8c6a49;
+        --color-accent-secondary-hover: #78583c;
+        --color-text-accent-secondary: #ede0d4;
+
+        --color-connection-text: #e6ccb2;
+        --color-connection-image: #ede0d4;
+        --color-connection-character: #fca5a5;
+        --color-connection-video: #ddb892;
+        --color-connection-audio: #b08968;
+        
+        --color-border-hover: #ede0d4;
+        --color-border-selected: #e6ccb2;
+      }
+
+      /* Static Canvas Background Mode override (Classic Dark Blue/Slate) */
+      [data-canvas-bg='static'] {
+        --color-bg-canvas: #111827 !important;
+      }
+
+      /* Static Text Field Background Mode override (Classic Dark Blue) */
+      [data-input-bg='static'] {
+        --color-bg-input: #18202f !important;
       }
 
       /* Global Selection Style */
@@ -281,6 +611,7 @@
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
+        cursor: default;
       }
       
       /* Hide scrollbar buttons (arrows) */
@@ -292,6 +623,7 @@
 
       ::-webkit-scrollbar-track {
         background: transparent;
+        cursor: default;
       }
       ::-webkit-scrollbar-thumb {
         background-color: #4B5563; /* gray-600 fallback */
@@ -299,14 +631,24 @@
         border-radius: 4px;
         border: 2px solid transparent;
         background-clip: content-box;
+        cursor: default;
       }
       ::-webkit-scrollbar-thumb:hover {
         background-color: #6B7280; /* gray-500 */
+        cursor: default;
       }
       
       /* Fix for white corner in Nativefier/Electron */
       ::-webkit-scrollbar-corner {
         background: transparent;
+        cursor: default;
+      }
+
+      textarea::-webkit-scrollbar,
+      textarea::-webkit-scrollbar-track,
+      textarea::-webkit-scrollbar-thumb,
+      textarea::-webkit-scrollbar-corner {
+        cursor: default !important;
       }
 
       /* For Firefox */
@@ -354,6 +696,42 @@
         outline: none !important;
         border-color: var(--color-border-selected) !important;
         box-shadow: none !important; /* Forces a thin 1px border by removing shadows/rings */
+      }
+
+      /* Prevent white focus outline/border flash on buttons, tabs, and interactive containers */
+      *,
+      *::before,
+      *::after {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        border-color: rgba(55, 65, 81, 0.5);
+      }
+
+      *:focus,
+      *:focus-visible,
+      *:focus-within {
+        outline: none !important;
+        outline-width: 0 !important;
+        outline-style: none !important;
+        outline-color: transparent !important;
+        box-shadow: none !important;
+      }
+
+      button,
+      button:focus,
+      button:focus-visible,
+      button:active,
+      [role="button"],
+      [role="button"]:focus,
+      [role="button"]:focus-visible,
+      [role="button"]:active,
+      div:focus,
+      div:focus-visible {
+        outline: none !important;
+        outline-width: 0 !important;
+        outline-style: none !important;
+        outline-color: transparent !important;
+        -webkit-focus-ring-color: transparent !important;
       }
 
       @keyframes progress-bar-stripes {
@@ -520,17 +898,102 @@
         animation: rotate-ring 5s linear infinite;
       }
 
-      @keyframes flow-move {
-        from { stroke-dashoffset: 80; }
-        to { stroke-dashoffset: 0; }
+      @keyframes flow-move-fwd {
+        0% { stroke-dashoffset: var(--conn-period, 200px); }
+        100% { stroke-dashoffset: 0px; }
       }
-      
+
+      @keyframes flow-move-rev {
+        0% { stroke-dashoffset: 0px; }
+        100% { stroke-dashoffset: var(--conn-period, 200px); }
+      }
+
+      @keyframes conn-pulse-glow {
+        0%, 100% {
+          opacity: 0.35;
+          filter: drop-shadow(0 0 2px var(--conn-glow-color, rgba(0, 240, 255, 0.4)));
+        }
+        50% {
+          opacity: 1;
+          filter: drop-shadow(0 0 8px var(--conn-glow-color, rgba(0, 240, 255, 0.9))) drop-shadow(0 0 14px var(--conn-glow-color, rgba(0, 240, 255, 0.6)));
+        }
+      }
+
+      @keyframes conn-shimmer-sweep {
+        0% {
+          stroke-dashoffset: var(--conn-period, 200px);
+          opacity: 0.25;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          stroke-dashoffset: 0px;
+          opacity: 0.25;
+        }
+      }
+
+      @keyframes conn-beam-surge {
+        0%, 100% {
+          opacity: 0.7;
+          filter: drop-shadow(0 0 3px var(--conn-glow-color, #a855f7));
+        }
+        50% {
+          opacity: 1;
+          filter: drop-shadow(0 0 10px var(--conn-glow-color, #a855f7)) drop-shadow(0 0 18px var(--conn-glow-color, #c084fc));
+        }
+      }
+
       .connection-flow {
         stroke-dasharray: 8 72;
-        animation: flow-move 3s linear infinite;
-        opacity: 0.4;
+        animation: flow-move-fwd 3s linear infinite;
+        opacity: 0.8;
         stroke-linecap: round;
-        filter: drop-shadow(0 0 1px rgba(255,255,255,0.3));
+        filter: drop-shadow(0 0 2px rgba(255,255,255,0.4));
+      }
+
+      .conn-anim-cyber-tron-trail {
+        stroke-linecap: round;
+        animation: flow-move-fwd var(--conn-speed, 2.5s) linear infinite;
+      }
+
+      .conn-anim-cyber-tron-head {
+        stroke-linecap: round;
+        animation: flow-move-fwd var(--conn-speed, 2.5s) linear infinite;
+        filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px var(--conn-glow-color, #00f0ff));
+      }
+
+      .conn-anim-neon-flow {
+        stroke-linecap: round;
+        animation: flow-move-fwd var(--conn-speed, 2s) linear infinite;
+        filter: drop-shadow(0 0 4px var(--conn-glow-color, #ec4899)) drop-shadow(0 0 10px var(--conn-glow-color, #ec4899));
+      }
+
+      .conn-anim-pulse {
+        animation: flow-move-fwd var(--conn-speed, 3s) linear infinite, conn-pulse-glow 2s ease-in-out infinite;
+        stroke-linecap: round;
+      }
+
+      .conn-anim-shimmer {
+        stroke-linecap: round;
+        animation: conn-shimmer-sweep var(--conn-speed, 3.5s) ease-in-out infinite;
+        filter: drop-shadow(0 0 6px var(--conn-glow-color, #fef08a));
+      }
+
+      .conn-anim-particle-stream {
+        stroke-linecap: round;
+        animation: flow-move-fwd var(--conn-speed, 1.8s) linear infinite;
+        filter: drop-shadow(0 0 3px var(--conn-glow-color, #34d399));
+      }
+
+      .conn-anim-energy-beam {
+        stroke-linecap: round;
+        animation: flow-move-fwd var(--conn-speed, 1.4s) linear infinite, conn-beam-surge 1.5s ease-in-out infinite;
+      }
+
+      .conn-anim-classic {
+        stroke-linecap: butt;
+        animation: flow-move-fwd var(--conn-speed, 3s) linear infinite;
       }
 
       .no-select {
@@ -541,66 +1004,530 @@
       .scrollbar-gutter-stable {
         scrollbar-gutter: stable;
       }
-    </style>
-<script>
-    // Tailwind Configuration to use CSS Variables
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            // Semantic colors mapping to CSS variables
-            canvas: 'var(--color-bg-canvas)',
-            node: 'var(--color-bg-node)',
-            panel: 'var(--color-bg-panel)',
-            input: 'var(--color-bg-input)',
-            'node-border': 'var(--color-border)',
-            
-            accent: 'var(--color-accent)',
-            'accent-hover': 'var(--color-accent-hover)',
-            'accent-dim': 'var(--color-accent-dim)',
-            'accent-text': 'var(--color-text-accent)',
 
-            'accent-secondary': 'var(--color-accent-secondary)',
-            'accent-secondary-hover': 'var(--color-accent-secondary-hover)',
-            
-            'connection-text': 'var(--color-connection-text)',
-            'connection-image': 'var(--color-connection-image)',
-            'connection-character': 'var(--color-connection-character)',
-            'connection-video': 'var(--color-connection-video)',
-            'connection-audio': 'var(--color-connection-audio)',
-            
-            'node-hover': 'var(--color-border-hover)',
-            'node-selected': 'var(--color-border-selected)',
-            
-            'text-main': 'var(--color-text-primary)',
-            'text-muted': 'var(--color-text-secondary)',
-          }
+      /* Unified Top Panel: subtle shimmer and glare sheen */
+      @keyframes panel-ambient-shimmer {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
         }
       }
-    }
-</script>
 
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom": "https://esm.sh/react-dom@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "jszip": "https://esm.sh/jszip@^3.10.1",
-    "path": "https://esm.sh/path@^0.12.7",
-    "electron": "https://esm.sh/electron@^40.0.0",
-    "url": "https://esm.sh/url@^0.11.4"
-  }
-}
+      @keyframes panel-glare-sweep {
+        0% {
+          transform: translateX(-150%) skewX(-20deg);
+          opacity: 0;
+        }
+        6% {
+          opacity: 0.9;
+        }
+        26% {
+          transform: translateX(350%) skewX(-20deg);
+          opacity: 0;
+        }
+        100% {
+          transform: translateX(350%) skewX(-20deg);
+          opacity: 0;
+        }
+      }
+
+      /* Unified Top Panel: Base & Animations */
+      .top-panel-unified {
+        position: relative;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.20);
+        box-shadow: 0 14px 36px -2px rgba(0, 0, 0, 0.70), 0 6px 16px -2px rgba(0, 0, 0, 0.50), inset 0 -1px 0 0 rgba(255, 255, 255, 0.10);
+      }
+
+      /* Base Panel Backgrounds */
+      .top-panel-anim-shimmer,
+      .top-panel-anim-pulse,
+      .top-panel-anim-breath,
+      .top-panel-anim-wave,
+      .top-panel-anim-aurora,
+      .top-panel-anim-neon,
+      .top-panel-anim-shapes_bubbles,
+      .top-panel-anim-shapes_ocean,
+      .top-panel-anim-shapes_geometry,
+      .top-panel-anim-shapes_techno,
+      .top-panel-anim-shapes_cyber,
+      .top-panel-anim-shapes_nature,
+      .top-panel-anim-shapes_space {
+        background: rgba(13, 18, 32, 0.85);
+      }
+
+      .top-panel-anim-none {
+        background: rgba(14, 19, 32, 0.88);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+        box-shadow: 0 14px 36px -2px rgba(0, 0, 0, 0.70), 0 6px 16px -2px rgba(0, 0, 0, 0.50);
+      }
+
+      /* 1. Pulse Keyframes */
+      @keyframes anim-panel-pulse-glow {
+        0%, 100% {
+          opacity: 0.15;
+          box-shadow: inset 0 0 12px var(--pulse-dim-color, rgba(34, 211, 238, 0.1));
+        }
+        50% {
+          opacity: 0.65;
+          box-shadow: inset 0 0 28px var(--pulse-glow-color, rgba(34, 211, 238, 0.35));
+        }
+      }
+      .anim-panel-pulse-glow {
+        animation: anim-panel-pulse-glow 4s ease-in-out infinite;
+      }
+
+      /* 2. Breathing Keyframes (Sinusoidal smooth inner glow, no step, strictly inside) */
+      @keyframes anim-panel-breath-glow {
+        0%, 100% {
+          opacity: 0.20;
+          box-shadow: inset 0 0 16px var(--breath-subtle-color, rgba(56, 189, 248, 0.15));
+        }
+        50% {
+          opacity: 0.80;
+          box-shadow: inset 0 0 36px var(--breath-glow-color, rgba(56, 189, 248, 0.38));
+        }
+      }
+      .anim-panel-breath-glow {
+        animation: anim-panel-breath-glow 7s ease-in-out infinite;
+      }
+
+      /* 3. Fluid Wave Keyframes (Slow, ambient, wide breathing luminescence) */
+      @keyframes anim-panel-fluid-wave {
+        0% {
+          background-position: 0% 50%;
+          opacity: 0.75;
+        }
+        50% {
+          background-position: 100% 50%;
+          opacity: 0.95;
+        }
+        100% {
+          background-position: 200% 50%;
+          opacity: 0.75;
+        }
+      }
+      .anim-panel-fluid-wave {
+        animation: anim-panel-fluid-wave 24s ease-in-out infinite;
+      }
+
+      /* 4. Aurora Borealis Keyframes */
+      @keyframes anim-panel-aurora {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+      .anim-panel-aurora {
+        animation: anim-panel-aurora 20s ease-in-out infinite;
+      }
+
+      /* 5. Neon Flow Keyframes (Continuous smooth flowing laser seam) */
+      @keyframes anim-panel-neon-flow {
+        0% {
+          background-position: 0% 50%;
+        }
+        100% {
+          background-position: 200% 50%;
+        }
+      }
+      .anim-panel-neon-flow {
+        animation: anim-panel-neon-flow 12s linear infinite;
+      }
+
+      /* 6. Vector Shapes: Bubbles Keyframes (Continuous infinite upward flight) */
+      @keyframes bubble-rise-infinite {
+        0% {
+          transform: translateY(65px) translateX(0px);
+          opacity: 0;
+        }
+        15% {
+          opacity: 0.38;
+        }
+        80% {
+          opacity: 0.38;
+        }
+        100% {
+          transform: translateY(-135px) translateX(10px);
+          opacity: 0;
+        }
+      }
+
+      /* 7. Vector Shapes: Ocean Waves Keyframes (Smooth movement to the RIGHT) */
+      @keyframes ocean-wave-right-1 {
+        0% {
+          transform: translateX(-720px);
+        }
+        100% {
+          transform: translateX(0px);
+        }
+      }
+      @keyframes ocean-wave-right-2 {
+        0% {
+          transform: translateX(-720px);
+        }
+        100% {
+          transform: translateX(0px);
+        }
+      }
+      @keyframes ocean-wave-right-3 {
+        0% {
+          transform: translateX(-720px);
+        }
+        100% {
+          transform: translateX(0px);
+        }
+      }
+      .anim-ocean-layer-1 {
+        animation: ocean-wave-right-1 16s linear infinite;
+      }
+      .anim-ocean-layer-2 {
+        animation: ocean-wave-right-2 22s linear infinite;
+      }
+      .anim-ocean-layer-3 {
+        animation: ocean-wave-right-3 12s linear infinite;
+      }
+
+      /* 8. Vector Shapes: Isometric Geometry Keyframes (Smooth floating sway without distortion) */
+      @keyframes geom-sway-1 {
+        0%, 100% {
+          transform: translate(-50%, -50%) translateY(0px) rotate(0deg);
+        }
+        50% {
+          transform: translate(-50%, -50%) translateY(-5px) rotate(8deg);
+        }
+      }
+      @keyframes geom-sway-2 {
+        0%, 100% {
+          transform: translate(-50%, -50%) translateY(0px) rotate(0deg);
+        }
+        50% {
+          transform: translate(-50%, -50%) translateY(5px) rotate(-8deg);
+        }
+      }
+      @keyframes geom-sway-3 {
+        0%, 100% {
+          transform: translate(-50%, -50%) translateY(0px) rotate(0deg) scale(1);
+        }
+        50% {
+          transform: translate(-50%, -50%) translateY(-4px) rotate(6deg) scale(1.04);
+        }
+      }
+      .anim-geom-sway-1 {
+        animation: geom-sway-1 9s ease-in-out infinite;
+      }
+      .anim-geom-sway-2 {
+        animation: geom-sway-2 11s ease-in-out infinite -1.5s;
+      }
+      .anim-geom-sway-3 {
+        animation: geom-sway-3 8s ease-in-out infinite -0.7s;
+      }
+
+      /* 9. Vector Shapes: Techno PCB Keyframes */
+      @keyframes techno-pulse-h {
+        0% {
+          stroke-dashoffset: 540;
+        }
+        100% {
+          stroke-dashoffset: 0;
+        }
+      }
+      @keyframes node-digital-glow {
+        0%, 100% {
+          opacity: 0.45;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      .anim-techno-pulse {
+        animation: techno-pulse-h 9s linear infinite;
+      }
+      .anim-node-digital-glow {
+        animation: node-digital-glow 2.8s ease-in-out infinite;
+      }
+
+      /* 10. Vector Shapes: Cyber Grid (Top-down view, tracers with glowing tails) */
+      @keyframes cyber-tracer-h1 {
+        0% {
+          transform: translateX(-150px);
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(1400px);
+          opacity: 0;
+        }
+      }
+      @keyframes cyber-tracer-h2 {
+        0% {
+          transform: translateX(-200px);
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(1500px);
+          opacity: 0;
+        }
+      }
+      @keyframes cyber-tracer-v {
+        0% {
+          transform: translateY(-20px);
+          opacity: 0;
+        }
+        25% {
+          opacity: 0.9;
+        }
+        85% {
+          opacity: 0.9;
+        }
+        100% {
+          transform: translateY(65px);
+          opacity: 0;
+        }
+      }
+      .anim-cyber-tracer-1 {
+        animation: cyber-tracer-h1 6.5s linear infinite;
+      }
+      .anim-cyber-tracer-2 {
+        animation: cyber-tracer-h2 8.5s linear infinite 2.5s;
+      }
+      .anim-cyber-tracer-3 {
+        animation: cyber-tracer-h1 7.2s linear infinite 4.2s;
+      }
+      .anim-cyber-tracer-v1 {
+        animation: cyber-tracer-v 3.8s ease-in-out infinite 0.8s;
+      }
+      .anim-cyber-tracer-v2 {
+        animation: cyber-tracer-v 4.2s ease-in-out infinite 2.2s;
+      }
+
+      /* 11. Vector Shapes: Nature Leaf Drift & Fireflies */
+      @keyframes leaf-drift-1 {
+        0%, 100% {
+          transform: rotate(0deg) translate(0px, 0px);
+        }
+        50% {
+          transform: rotate(10deg) translate(5px, -3px);
+        }
+      }
+      @keyframes leaf-drift-2 {
+        0%, 100% {
+          transform: rotate(0deg) translate(0px, 0px);
+        }
+        50% {
+          transform: rotate(-12deg) translate(-4px, -2px);
+        }
+      }
+      @keyframes firefly-pulse-1 {
+        0%, 100% {
+          opacity: 0.2;
+          transform: scale(0.85);
+        }
+        50% {
+          opacity: 0.95;
+          transform: scale(1.2);
+        }
+      }
+      @keyframes firefly-pulse-2 {
+        0%, 100% {
+          opacity: 0.25;
+          transform: scale(0.85);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.3);
+        }
+      }
+      .anim-leaf-drift-1 {
+        animation: leaf-drift-1 10s ease-in-out infinite;
+      }
+      .anim-leaf-drift-2 {
+        animation: leaf-drift-2 12s ease-in-out infinite;
+      }
+      .anim-firefly-1 {
+        animation: firefly-pulse-1 3.5s ease-in-out infinite;
+      }
+      .anim-firefly-2 {
+        animation: firefly-pulse-2 4.2s ease-in-out infinite 1.5s;
+      }
+
+      /* 12. Vector Shapes: Space Starlight Twinkle & Soft Constellation Pulsing */
+      @keyframes star-twinkle-1 {
+        0%, 100% {
+          opacity: 0.35;
+          transform: scale(0.9);
+        }
+        50% {
+          opacity: 0.95;
+          transform: scale(1.15);
+        }
+      }
+      @keyframes star-twinkle-2 {
+        0%, 100% {
+          opacity: 0.25;
+          transform: scale(0.85);
+        }
+        50% {
+          opacity: 0.85;
+          transform: scale(1.1);
+        }
+      }
+      @keyframes star-twinkle-3 {
+        0%, 100% {
+          opacity: 0.4;
+          transform: scale(0.92);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.22);
+        }
+      }
+      @keyframes star-twinkle-4 {
+        0%, 100% {
+          opacity: 0.3;
+          transform: scale(0.88);
+        }
+        50% {
+          opacity: 0.9;
+          transform: scale(1.15);
+        }
+      }
+      @keyframes star-glow-pulse-1 {
+        0%, 100% {
+          opacity: 0.18;
+          transform: scale(0.92);
+        }
+        50% {
+          opacity: 0.65;
+          transform: scale(1.25);
+        }
+      }
+      @keyframes star-glow-pulse-2 {
+        0%, 100% {
+          opacity: 0.15;
+          transform: scale(0.9);
+        }
+        50% {
+          opacity: 0.55;
+          transform: scale(1.2);
+        }
+      }
+      .anim-star-twinkle-1,
+      .anim-star-twinkle-2,
+      .anim-star-twinkle-3,
+      .anim-star-twinkle-4,
+      .anim-star-glow-1,
+      .anim-star-glow-2 {
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      .anim-star-twinkle-1 {
+        animation: star-twinkle-1 3.6s ease-in-out infinite;
+      }
+      .anim-star-twinkle-2 {
+        animation: star-twinkle-2 4.6s ease-in-out infinite 1.2s;
+      }
+      .anim-star-twinkle-3 {
+        animation: star-twinkle-3 5.4s ease-in-out infinite 2.4s;
+      }
+      .anim-star-twinkle-4 {
+        animation: star-twinkle-4 6.2s ease-in-out infinite 0.7s;
+      }
+      .anim-star-glow-1 {
+        animation: star-glow-pulse-1 4.5s ease-in-out infinite;
+      }
+      .anim-star-glow-2 {
+        animation: star-glow-pulse-2 5.8s ease-in-out infinite 2.2s;
+      }
+
+      /* Shimmer Glare Sweep */
+      .top-panel-glare {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 35%;
+        height: 100%;
+        filter: blur(4px);
+        pointer-events: none;
+        animation: panel-glare-sweep 8.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+
+      /* Electron Frameless Window Drag Regions */
+      .app-region-drag {
+        -webkit-app-region: drag;
+      }
+      .app-region-no-drag {
+        -webkit-app-region: no-drag;
+      }
+    </style>
+<script>
+    // Tailwind Configuration to use CSS Variables safely
+    function applyTailwindConfig() {
+      if (typeof tailwind !== 'undefined') {
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                canvas: 'var(--color-bg-canvas)',
+                node: 'var(--color-bg-node)',
+                panel: 'var(--color-bg-panel)',
+                input: 'var(--color-bg-input)',
+                'node-border': 'var(--color-border)',
+                
+                accent: 'var(--color-accent)',
+                'accent-hover': 'var(--color-accent-hover)',
+                'accent-dim': 'var(--color-accent-dim)',
+                'accent-text': 'var(--color-text-accent)',
+
+                'accent-secondary': 'var(--color-accent-secondary)',
+                'accent-secondary-hover': 'var(--color-accent-secondary-hover)',
+                
+                'connection-text': 'var(--color-connection-text)',
+                'connection-image': 'var(--color-connection-image)',
+                'connection-character': 'var(--color-connection-character)',
+                'connection-video': 'var(--color-connection-video)',
+                'connection-audio': 'var(--color-connection-audio)',
+                
+                'node-hover': 'var(--color-border-hover)',
+                'node-selected': 'var(--color-border-selected)',
+                
+                'text-main': 'var(--color-text-primary)',
+                'text-muted': 'var(--color-text-secondary)',
+              }
+            }
+          }
+        };
+      }
+    }
+    applyTailwindConfig();
+    window.addEventListener('DOMContentLoaded', applyTailwindConfig);
 </script>
-  <script type="module" crossorigin src="./assets/index-BUHzTW-n.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-tn0RQdqM.css">
+  <script type="module" crossorigin src="./assets/index-BZ2SQYKj.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DiqPTYJ6.css">
 </head>
-  <body class="bg-canvas text-text-main">
+  <body class="bg-canvas text-text-main" style="background-color: #0c111e; color-scheme: dark;">
     <div id="root"></div>
   </body>
 </html>
