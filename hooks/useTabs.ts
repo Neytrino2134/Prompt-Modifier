@@ -360,11 +360,12 @@ export const getLocalizedCanvasState = (lang: LanguageCode): CanvasState => {
       },
       "value": "",
       "title": getTranslation(lang, 'node.title.image_output'),
-      "width": 520,
+      "width": 680,
       "height": 940,
       "aspectRatio": "1:1",
       "model": "gemini-2.5-flash-image",
-      "autoDownload": true
+      "autoDownload": true,
+      "autoSaveImages": true
     },
     {
       "id": "node-82-1761838643720",

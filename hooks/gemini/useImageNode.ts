@@ -143,7 +143,8 @@ export const useImageNode = ({
                             size: node.size,
                             thinkingLevel: node.thinkingLevel,
                             searchGrounding: node.searchGrounding,
-                            autoDownload: !!node.autoDownload
+                            autoDownload: !!node.autoDownload,
+                            autoSaveImages: node.autoSaveImages !== undefined ? !!node.autoSaveImages : true
                         }]
                     });
                 } else {
@@ -165,7 +166,8 @@ export const useImageNode = ({
                             size: node.size,
                             thinkingLevel: node.thinkingLevel,
                             searchGrounding: node.searchGrounding,
-                            autoDownload: !!node.autoDownload
+                            autoDownload: !!node.autoDownload,
+                            autoSaveImages: node.autoSaveImages !== undefined ? !!node.autoSaveImages : true
                         }]
                     });
                 }
@@ -225,7 +227,7 @@ export const useImageNode = ({
             } else {
                 updateNodeInStorage(currentTabId, nodeId, () => thumbnailUrl, { frame: 0, url: imageUrl });
                 
-                if (node.autoDownload) {
+                if (node.autoDownload || node.autoSaveImages) {
                     triggerDownload(imageUrl, prompt);
                 }
             }

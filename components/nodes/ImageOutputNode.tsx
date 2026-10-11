@@ -1,15 +1,28 @@
-
 import React, { useState, useMemo } from 'react';
 import type { NodeContentProps } from '../../types';
-import CustomSelect from '../CustomSelect';
 import { useAppContext } from '../../contexts/AppContext';
 import { TutorialTooltip } from '../TutorialTooltip';
-import { CustomCheckbox } from '../CustomCheckbox';
 import { ActionButton } from '../ActionButton';
 import { CopyIcon } from '../../components/icons/AppIcons';
 import { expandImageAspectRatio } from '../../services/imageActions';
 import { generateThumbnail, setupImageDragData } from '../../utils/imageUtils';
-import { useOpenAiEnabled, getImageModelOptions, isGptImage2Model, isOpenAiImageModel, resolveImageModel, isNanoBanana21Model, getImageModelCapabilities } from '../../services/modelConfig';
+import { 
+    useOpenAiEnabled, 
+    getImageModelOptions, 
+    isGptImage2Model, 
+    resolveImageModel, 
+    isNanoBanana21Model, 
+    getImageModelCapabilities 
+} from '../../services/modelConfig';
+import { ModelSelectorDropdown } from './image-editor/ModelSelectorDropdown';
+import { AspectRatioDropdown } from './image-editor/AspectRatioDropdown';
+import { ResolutionDropdown } from './image-editor/ResolutionDropdown';
+import { ThinkingToggleDropdown } from './image-editor/ThinkingToggleDropdown';
+import { SearchToggleDropdown } from './image-editor/SearchToggleDropdown';
+import { RichOptionDropdown } from './image-editor/RichOptionDropdown';
+import { EditorTooltip } from './image-editor/EditorTooltip';
+import { allThemes } from '../settings/appearance/ThemeAndAutoSaveSettings';
+import { ChevronLeft, ChevronRight, Unlink, Link as LinkIcon, Sparkles, Download, HardDrive } from 'lucide-react';
 
 export const ImageOutputNode: React.FC<NodeContentProps> = ({ 
     node, 
@@ -22,6 +35,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
     onAspectRatioChange, 
     onResolutionChange, 
     onAutoDownloadChange, 
+    onAutoSaveImagesChange,
     onGenerateImage, 
     onStopChainExecution, 
     onExecuteChain, 
@@ -46,8 +60,45 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
         setIsBatchMode,
         isFormingBatch,
         getNodeActiveBatchJob,
-        isNodeBatchActive
+        isNodeBatchActive,
+        setConnections
     } = context || {};
+
+    const currentTheme = context?.currentTheme || 'cyan';
+    const activeThemeDef = useMemo(() => {
+        return allThemes.find(th => th.id === currentTheme) || allThemes[0];
+    }, [currentTheme]);
+    const themeColor = activeThemeDef?.color || '#06b6d4';
+
+    // Secondary/additional theme color: light green (#10b981) for cyan theme, and theme secondary for other themes
+    const secondaryThemeColor = useMemo(() => {
+        if (currentTheme === 'cyan') {
+            return '#10b981'; // Светло-зеленый (emerald / light green) для темы Cyan
+        }
+        const secondaryThemeMap: Record<string, string> = {
+            cyan: '#10b981',
+            azure: '#38bdf8',
+            amber: '#fbbf24',
+            teal: '#2dd4bf',
+            rose: '#fb7185',
+            purple: '#c084fc',
+            pink: '#f472b6',
+            red: '#f87171',
+            orange: '#fb923c',
+            lime: '#a3e635',
+            emerald: '#34d399',
+            gray: '#a1a1aa',
+            pastel_mint: '#2dd4bf',
+            pastel_lavender: '#c4b5db',
+            pastel_peach: '#ebba9e',
+            pastel_rose: '#e2afc3',
+            pastel_sky: '#a5c6de',
+            pastel_vanilla: '#e8d49d',
+            pastel_sage: '#86efac',
+            pastel_sand: '#fcd34d'
+        };
+        return secondaryThemeMap[currentTheme] || activeThemeDef?.secondaryColor || '#10b981';
+    }, [currentTheme, activeThemeDef]);
 
     const isForming = isFormingBatch ? isFormingBatch(node.id) : false;
     const activeBatchJob = getNodeActiveBatchJob ? getNodeActiveBatchJob(node.id) : undefined;
@@ -93,6 +144,33 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
         }
     };
 
+    const isAutoSaveOn = node.autoSaveImages !== undefined ? !!node.autoSaveImages : true;
+
+    const handleToggleAutoSave = () => {
+        if (isGeneratingImage || isExecutingChain) return;
+        const nextVal = !isAutoSaveOn;
+        if (onAutoSaveImagesChange) {
+            onAutoSaveImagesChange(node.id, nextVal);
+        } else if (context?.handleAutoSaveImagesChange) {
+            context.handleAutoSaveImagesChange(node.id, nextVal);
+        } else if (context?.setNodes) {
+            context.setNodes((nds: any[]) => nds.map(n => n.id === node.id ? { ...n, autoSaveImages: nextVal } : n));
+        }
+        if (addToast) {
+            addToast(
+                nextVal 
+                    ? (t('node.content.autoSaveDiskActive') || 'Автосохранение на диск включено')
+                    : (t('node.content.autoSaveDiskInactive') || 'Автосохранение на диск выключено'),
+                'info'
+            );
+        }
+    };
+
+    const handleToggleAutoDownload = () => {
+        if (isGeneratingImage || isExecutingChain) return;
+        onAutoDownloadChange(node.id, !node.autoDownload);
+    };
+
     // Calculate prompt for drag/drop context
     const texts = getUpstreamNodeValues(node.id).filter(v => typeof v === 'string') as string[];
     const hasUpstreamText = texts.length > 0;
@@ -104,9 +182,21 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
         }
     };
 
+    const handleEmbedAndDisconnect = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (context?.handleCustomPromptChange) {
+            context.handleCustomPromptChange(node.id, currentPrompt);
+        }
+        if (setConnections) {
+            setConnections(prev => prev.filter(c => c.toNodeId !== node.id));
+        }
+        if (addToast) {
+            addToast(t('node.content.promptEmbedded') || 'Входящий текст встроен в поле, связь отключена', 'success');
+        }
+    };
+
     const handleGenerateClick = () => {
         onGenerateImage(node.id);
-        // Advance to 'generating' step, not completion yet
         if (isTutorialActive && advanceTutorial) {
             advanceTutorial();
         }
@@ -126,16 +216,11 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
 
         setTransformingRatio(targetRatio);
         try {
-            // Use the node's selected model or default to flash for speed/cost if not specified
-            // Note: expansion usually works best with the flash model for editing tasks
             const expansionModel = 'gemini-2.5-flash-image'; 
-
             const newImage = await expandImageAspectRatio(fullSizeSrc, targetRatio, currentPrompt, expansionModel);
             
-            // 1. Update High Res Cache
             setFullSizeImage(node.id, 0, newImage);
             
-            // 2. Update Thumbnail/Value
             const thumb = await generateThumbnail(newImage, 256, 256);
             onValueChange(node.id, thumb);
 
@@ -160,67 +245,47 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
     const capabilities = useMemo(() => getImageModelCapabilities(effectiveModel), [effectiveModel]);
     const availableAspectRatios = capabilities.supportedAspectRatios;
     const isAspectRatioEnabled = availableAspectRatios.length > 0;
-    const availableResolutions = capabilities.supportedResolutions.map(r => ({ value: r, label: r }));
-    const showResolution = availableResolutions.length > 0;
+    const showResolution = capabilities.supportedResolutions.length > 0;
     const showThinkingMode = capabilities.supportedThinkingLevels.length > 0;
     const showSearchGrounding = capabilities.supportedSearchTypes.length > 0;
 
-    const allThinkingLevelOptions = [
-        { value: 'AUTO', label: 'Auto (Default)' },
-        { value: 'MINIMAL', label: 'Minimal (Fastest)' },
-        { value: 'LOW', label: 'Low' },
-        { value: 'MEDIUM', label: 'Medium (Balanced)' },
-        { value: 'HIGH', label: 'High (Deep Reasoning)' },
-    ];
-    const thinkingLevelOptions = allThinkingLevelOptions.filter(o => capabilities.supportedThinkingLevels.includes(o.value));
+    const handlePrevModel = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const currentIndex = modelOptions.findIndex(m => m.value === effectiveModel);
+        if (currentIndex > 0) {
+            onModelChange(node.id, modelOptions[currentIndex - 1].value);
+        }
+    };
 
-    const searchGroundingOptions = isNanoBanana21
-        ? [
-            { value: 'none', label: 'Off' },
-            { value: 'web', label: 'Google Web Search' },
-            { value: 'image', label: 'Google Image Search' },
-            { value: 'both', label: 'Web + Image Search' },
-        ]
-        : [
-            { value: 'none', label: 'Off' },
-            { value: 'web', label: 'Google Web Search' },
-        ];
+    const handleNextModel = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const currentIndex = modelOptions.findIndex(m => m.value === effectiveModel);
+        if (currentIndex !== -1 && currentIndex < modelOptions.length - 1) {
+            onModelChange(node.id, modelOptions[currentIndex + 1].value);
+        }
+    };
 
-    const gpt2QualityOptions = [
-        { value: 'standard', label: 'Standard' },
-        { value: 'hd', label: 'HD' },
-        { value: 'high', label: 'High' },
-        { value: 'medium', label: 'Medium' },
-        { value: 'low', label: 'Low' },
-    ];
-
-    const dalle3QualityOptions = [
-        { value: 'standard', label: 'Standard' },
-        { value: 'hd', label: 'HD (High Definition)' },
-    ];
-
-    const gpt2SizeOptions = [
-        { value: '1024x1024', label: '1024 × 1024 (1:1 Square)' },
-        { value: '1536x1024', label: '1536 × 1024 (3:2 Landscape)' },
-        { value: '1024x1536', label: '1024 × 1536 (2:3 Portrait)' },
-        { value: 'auto', label: 'Auto' },
-    ];
-
-    const gpt2FormatOptions = [
-        { value: 'png', label: 'PNG' },
-        { value: 'jpeg', label: 'JPEG' },
-        { value: 'webp', label: 'WebP' },
-    ];
-
-    const dalle2SizeOptions = [
-        { value: '1024x1024', label: '1024 × 1024' },
-        { value: '512x512', label: '512 × 512' },
-        { value: '256x256', label: '256 × 256' },
-    ];
+    const handleUpdateState = (updates: any) => {
+        if (updates.model !== undefined) {
+            onModelChange(node.id, updates.model);
+        }
+        if (updates.aspectRatio !== undefined) {
+            onAspectRatioChange(node.id, updates.aspectRatio);
+        }
+        if (updates.resolution !== undefined) {
+            onResolutionChange(node.id, updates.resolution);
+        }
+        if (updates.thinkingLevel !== undefined) {
+            handleThinkingLevelSelect(updates.thinkingLevel);
+        }
+        if (updates.searchGrounding !== undefined) {
+            handleSearchGroundingSelect(updates.searchGrounding);
+        }
+    };
 
     const handleClick = () => {
         if (!node.value) return;
-        const fullSizeSrc = getFullSizeImage(node.id, 0) || node.value; // Frame 0 for single image nodes
+        const fullSizeSrc = getFullSizeImage(node.id, 0) || node.value;
         if (fullSizeSrc) {
             setImageViewer({
                 sources: [{ 
@@ -251,8 +316,13 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
     );
 
     return (
-        <div className="flex flex-col h-full">
-            <div onClick={handleClick} onWheel={(e) => e.stopPropagation()} className="relative w-full flex-grow bg-gray-700 rounded-md flex items-center justify-center overflow-hidden mb-2 group cursor-pointer border border-gray-600 hover:border-gray-500 transition-colors">
+        <div className="flex flex-col h-full select-none">
+            {/* Image Preview Area */}
+            <div 
+                onClick={handleClick} 
+                onWheel={(e) => e.stopPropagation()} 
+                className="relative w-full flex-grow bg-gray-900/60 rounded-md flex items-center justify-center overflow-hidden mb-2.5 group cursor-pointer border border-gray-700/80 hover:border-gray-500 transition-colors"
+            >
                 {node.value ? (
                     <img
                         src={getFullSizeImage(node.id, 0) || node.value}
@@ -261,7 +331,6 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                         draggable={true}
                         onMouseDown={(e) => e.stopPropagation()}
                         onDragStart={(e) => {
-                            // Prioritize High Resolution Image
                             const imageToDrag = getFullSizeImage(node.id, 0) || node.value;
                             if (imageToDrag) {
                                 const filename = `Output_Image_${Date.now()}.png`;
@@ -273,7 +342,8 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                 ) : (
                     <span className="text-gray-400">{t('node.content.imageHere')}</span>
                 )}
-                <div className={`absolute inset-0 bg-gray-800/70 backdrop-blur-sm flex flex-col items-center justify-center text-white z-10 transition-opacity duration-300 ${(isGeneratingImage || (isExecutingChain && !node.value) || isBatchBusy) ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                
+                <div className={`absolute inset-0 bg-gray-800/80 backdrop-blur-sm flex flex-col items-center justify-center text-white z-10 transition-opacity duration-300 ${(isGeneratingImage || (isExecutingChain && !node.value) || isBatchBusy) ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     <svg className="animate-spin h-8 w-8 text-accent-text" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -291,11 +361,12 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                         </span>
                     )}
                 </div>
+
                 {node.value && !(isGeneratingImage || (isExecutingChain && !node.value) || isBatchBusy) && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-4">
                         <button
                             onClick={handleCopyLarge}
-                            className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto"
+                            className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto cursor-pointer"
                             aria-label={t('node.action.copy')}
                             title={t('node.action.copy')}
                         >
@@ -303,7 +374,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onDownloadImage(node.id); }}
-                            className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto"
+                            className="w-20 h-20 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/60 transition-colors pointer-events-auto cursor-pointer"
                             aria-label={t('node.action.download')}
                             title={t('node.action.download')}
                         >
@@ -313,22 +384,27 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                         </button>
                     </div>
                 )}
+
                 {node.value && (
                     <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <ActionButton title={t('node.action.copy')} onClick={handleCopyLarge}>
                             <CopyIcon />
                         </ActionButton>
-                        <ActionButton title={t('node.action.download')} onClick={(e) => { e.stopPropagation(); onDownloadImage(node.id); }}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></ActionButton>
+                        <ActionButton title={t('node.action.download')} onClick={(e) => { e.stopPropagation(); onDownloadImage(node.id); }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                        </ActionButton>
                     </div>
                 )}
                 
                 {/* Expansion Controls - Bottom Right Overlay */}
                 {node.value && !(isGeneratingImage || (isExecutingChain && !node.value)) && (
                     <div className="absolute bottom-2 right-2 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                         <button
+                        <button
                             onClick={(e) => { e.stopPropagation(); handleRatioExpand('16:9'); }}
                             disabled={isGeneratingImage || isExecutingChain || !!transformingRatio}
-                            className="px-2 py-1 text-[10px] font-bold text-gray-200 bg-gray-800/80 hover:bg-gray-700 hover:text-white border border-gray-600/50 rounded backdrop-blur-sm shadow-sm flex items-center gap-1 transition-colors pointer-events-auto"
+                            className="px-2 py-1 text-[10px] font-bold text-gray-200 bg-gray-800/80 hover:bg-gray-700 hover:text-white border border-gray-600/50 rounded backdrop-blur-sm shadow-sm flex items-center gap-1 transition-colors pointer-events-auto cursor-pointer"
                             title="Expand to 16:9"
                         >
                             {transformingRatio === '16:9' ? (
@@ -343,13 +419,13 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                         <button
                             onClick={(e) => { e.stopPropagation(); handleRatioExpand('9:16'); }}
                             disabled={isGeneratingImage || isExecutingChain || !!transformingRatio}
-                            className="px-2 py-1 text-[10px] font-bold text-gray-200 bg-gray-800/80 hover:bg-gray-700 hover:text-white border border-gray-600/50 rounded backdrop-blur-sm shadow-sm flex items-center gap-1 transition-colors pointer-events-auto"
+                            className="px-2 py-1 text-[10px] font-bold text-gray-200 bg-gray-800/80 hover:bg-gray-700 hover:text-white border border-gray-600/50 rounded backdrop-blur-sm shadow-sm flex items-center gap-1 transition-colors pointer-events-auto cursor-pointer"
                             title="Expand to 9:16"
                         >
                             {transformingRatio === '9:16' ? (
                                 <LoadingSpinner />
                             ) : (
-                                 <>
+                                <>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="20" rx="1" /></svg>
                                     9:16
                                 </>
@@ -358,150 +434,289 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                     </div>
                 )}
             </div>
-            <div className="mb-2">
+
+            {/* Prompt Section with Higher Height & Chain Embed/Disconnect Icon */}
+            <div className="mb-2.5">
+                <div className="flex items-center justify-between mb-1 px-0.5">
+                    <div className="flex items-center gap-1.5">
+                        <label className="text-xs font-semibold text-gray-300">
+                            {t('node.content.prompt') || 'Prompt'}
+                        </label>
+                        {hasUpstreamText && (
+                            <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-700/50 font-medium">
+                                <LinkIcon className="w-2.5 h-2.5 text-indigo-400" />
+                                <span>Входящий текст (связь активна)</span>
+                            </span>
+                        )}
+                    </div>
+
+                    {hasUpstreamText && (
+                        <button
+                            type="button"
+                            onClick={handleEmbedAndDisconnect}
+                            title="Встроить текст в поле и отключить входящую ноду"
+                            className="flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 hover:text-white border border-indigo-500/60 text-[11px] font-medium transition-all shadow-sm cursor-pointer"
+                        >
+                            <Unlink className="w-3.5 h-3.5 text-indigo-300" />
+                            <span>Встроить и отключить</span>
+                        </button>
+                    )}
+                </div>
+
                 <textarea
-                    value={node.customPrompt || ''}
+                    value={hasUpstreamText ? currentPrompt : (node.customPrompt || '')}
                     onChange={handleCustomPromptChange}
-                    disabled={hasUpstreamText || isGeneratingImage || isExecutingChain}
-                    placeholder={hasUpstreamText ? t('node.content.promptOverridden') : t('node.content.enterPrompt')}
-                    className={`w-full text-sm bg-gray-800 border ${hasUpstreamText ? 'border-gray-600 text-gray-500' : 'border-gray-600 text-gray-200'} rounded-md p-2 resize-none focus:outline-none focus:ring-1 focus:ring-accent`}
-                    rows={2}
-                />
-            </div>
-            <div className="mb-2">
-                <label className="block text-xs font-medium text-gray-400 mb-1">{t('node.content.generationMode')}</label>
-                <CustomSelect
-                    id={`model-select-${node.id}`}
-                    value={effectiveModel}
-                    onChange={(value) => onModelChange(node.id, value)}
-                    disabled={isGeneratingImage || isExecutingChain}
-                    options={modelOptions}
+                    readOnly={hasUpstreamText}
+                    disabled={!hasUpstreamText && (isGeneratingImage || isExecutingChain)}
+                    placeholder={hasUpstreamText ? '' : (t('node.content.enterPrompt') || 'Enter prompt here...')}
+                    className={`w-full text-xs font-sans rounded-md p-2.5 min-h-[96px] max-h-[160px] resize-y focus:outline-none transition-all leading-relaxed ${
+                        hasUpstreamText 
+                            ? 'bg-gray-900/90 border border-indigo-500/60 text-indigo-100 select-text cursor-default' 
+                            : 'bg-gray-800/95 border border-gray-600 text-gray-200 focus:ring-1 focus:ring-accent focus:border-accent'
+                    }`}
+                    rows={3}
                 />
             </div>
 
-            {/* Quality selection for GPT-Image-2 and DALL-E 3 */}
-            {isGpt2 && (
-                <>
-                    <div className="mb-2">
-                        <label className="block text-xs font-medium text-gray-400 mb-1">Quality</label>
-                        <CustomSelect
-                            id={`quality-select-${node.id}`}
-                            value={node.quality || 'high'}
-                            onChange={handleQualitySelect}
-                            disabled={isGeneratingImage || isExecutingChain}
-                            options={gpt2QualityOptions}
-                        />
-                    </div>
-                    <div className="mb-2">
-                        <label className="block text-xs font-medium text-gray-400 mb-1">Resolution / Size</label>
-                        <CustomSelect
-                            id={`size-select-${node.id}`}
-                            value={node.size || '1024x1024'}
-                            onChange={handleSizeSelect}
-                            disabled={isGeneratingImage || isExecutingChain}
-                            options={gpt2SizeOptions}
-                        />
-                    </div>
-                    <div className="mb-2">
-                        <label className="block text-xs font-medium text-gray-400 mb-1">Output Format</label>
-                        <CustomSelect
-                            id={`format-select-${node.id}`}
-                            value={node.outputFormat || 'png'}
-                            onChange={handleOutputFormatSelect}
-                            disabled={isGeneratingImage || isExecutingChain}
-                            options={gpt2FormatOptions}
-                        />
-                    </div>
-                </>
-            )}
+            {/* Modern AI Image Editor Style Dropdown Menus Toolbar */}
+            <div className="flex flex-wrap items-center gap-2 mb-2.5">
+                {/* Model Selector with Previous & Next Controls */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                        title="Previous Model"
+                        type="button"
+                        onClick={handlePrevModel}
+                        disabled={isGeneratingImage || isExecutingChain || modelOptions.findIndex(m => m.value === effectiveModel) <= 0}
+                        className="h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center bg-gray-800/90 hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-gray-800 border border-gray-600 rounded-md text-gray-200 hover:text-white transition-colors cursor-pointer"
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
 
-            {isDalle3 && (
-                <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Quality</label>
-                    <CustomSelect
-                        id={`quality-select-${node.id}`}
-                        value={node.quality || 'standard'}
+                    <ModelSelectorDropdown
+                        model={node.model || 'gemini-2.5-flash-image'}
+                        effectiveModel={effectiveModel}
+                        modelOptions={modelOptions}
+                        onUpdateState={handleUpdateState}
+                        disabled={isGeneratingImage || isExecutingChain}
+                        t={t}
+                    />
+
+                    <button
+                        title="Next Model"
+                        type="button"
+                        onClick={handleNextModel}
+                        disabled={isGeneratingImage || isExecutingChain || modelOptions.findIndex(m => m.value === effectiveModel) >= modelOptions.length - 1 || modelOptions.findIndex(m => m.value === effectiveModel) === -1}
+                        className="h-[38px] w-[38px] flex-shrink-0 flex items-center justify-center bg-gray-800/90 hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-gray-800 border border-gray-600 rounded-md text-gray-200 hover:text-white transition-colors cursor-pointer"
+                    >
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Aspect Ratio Dropdown */}
+                {isAspectRatioEnabled && (
+                    <AspectRatioDropdown
+                        aspectRatio={node.aspectRatio || '1:1'}
+                        availableAspectRatios={availableAspectRatios}
+                        onUpdateState={handleUpdateState}
+                        disabled={isGeneratingImage || !isAspectRatioEnabled || isExecutingChain}
+                        t={t}
+                    />
+                )}
+
+                {/* Resolution Dropdown */}
+                {showResolution && (
+                    <ResolutionDropdown
+                        resolution={node.resolution && capabilities.supportedResolutions.includes(node.resolution) ? node.resolution : '1K'}
+                        availableResolutions={capabilities.supportedResolutions}
+                        onUpdateState={handleUpdateState}
+                        disabled={isGeneratingImage || isExecutingChain}
+                        t={t}
+                    />
+                )}
+
+                {/* Thinking Mode Toggle & Dropdown */}
+                {showThinkingMode && (
+                    <ThinkingToggleDropdown
+                        thinkingLevel={node.thinkingLevel || 'AUTO'}
+                        availableThinkingLevels={capabilities.supportedThinkingLevels}
+                        onUpdateState={handleUpdateState}
+                        disabled={isGeneratingImage || isExecutingChain}
+                        t={t}
+                    />
+                )}
+
+                {/* Google Search Grounding Toggle & Dropdown */}
+                {showSearchGrounding && (
+                    <SearchToggleDropdown
+                        searchGrounding={node.searchGrounding || 'none'}
+                        isNanoBanana21={isNanoBanana21}
+                        onUpdateState={handleUpdateState}
+                        disabled={isGeneratingImage || isExecutingChain}
+                        t={t}
+                    />
+                )}
+
+                {/* Quality selection for GPT-Image-2 and DALL-E 3 */}
+                {(isGpt2 || isDalle3) && (
+                    <RichOptionDropdown
+                        title="Quality"
+                        value={node.quality || (isGpt2 ? 'high' : 'standard')}
+                        options={isGpt2 ? [
+                            { value: 'standard', label: 'Standard', badge: 'Std', description: 'Базовое стандартное качество генерации' },
+                            { value: 'hd', label: 'HD', badge: 'HD', description: 'Высокая чёткость деталей и текстур' },
+                            { value: 'high', label: 'High', badge: 'High', description: 'Повышенная детализация' },
+                            { value: 'medium', label: 'Medium', badge: 'Med', description: 'Сбалансированное качество' },
+                            { value: 'low', label: 'Low', badge: 'Low', description: 'Облегчённое быстрое качество' }
+                        ] : [
+                            { value: 'standard', label: 'Standard', badge: 'Std', description: 'Стандартное качество генерации DALL-E 3' },
+                            { value: 'hd', label: 'HD (High Def)', badge: 'HD', description: 'Максимальная чёткость и прорисовка деталей' }
+                        ]}
                         onChange={handleQualitySelect}
                         disabled={isGeneratingImage || isExecutingChain}
-                        options={dalle3QualityOptions}
+                        minWidth="110px"
                     />
-                </div>
-            )}
+                )}
 
-            {isDalle2 && (
-                <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Resolution / Size</label>
-                    <CustomSelect
-                        id={`size-select-${node.id}`}
+                {/* Resolution / Size for GPT-Image-2 and DALL-E 2 */}
+                {(isGpt2 || isDalle2) && (
+                    <RichOptionDropdown
+                        title="Size"
                         value={node.size || '1024x1024'}
+                        options={isGpt2 ? [
+                            { value: '1024x1024', label: '1024 × 1024', badge: '1:1', description: 'Квадратный формат' },
+                            { value: '1536x1024', label: '1536 × 1024', badge: '3:2', description: 'Горизонтальный формат' },
+                            { value: '1024x1536', label: '1024 × 1536', badge: '2:3', description: 'Вертикальный формат' },
+                            { value: 'auto', label: 'Auto', badge: 'Auto', description: 'Автоматический подбор размера' }
+                        ] : [
+                            { value: '1024x1024', label: '1024 × 1024', badge: '1:1', description: 'Максимальный размер DALL-E 2' },
+                            { value: '512x512', label: '512 × 512', badge: '512px', description: 'Средний размер' },
+                            { value: '256x256', label: '256 × 256', badge: '256px', description: 'Компактный размер' }
+                        ]}
                         onChange={handleSizeSelect}
                         disabled={isGeneratingImage || isExecutingChain}
-                        options={dalle2SizeOptions}
+                        minWidth="125px"
                     />
-                </div>
-            )}
+                )}
 
-            {showResolution && (
-                <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Resolution</label>
-                    <CustomSelect
-                        value={node.resolution && availableResolutions.some(r => r.value === node.resolution) ? node.resolution : '1K'}
-                        onChange={(value) => onResolutionChange(node.id, value as any)}
+                {/* Output Format for GPT-Image-2 */}
+                {isGpt2 && (
+                    <RichOptionDropdown
+                        title="Format"
+                        value={node.outputFormat || 'png'}
+                        options={[
+                            { value: 'png', label: 'PNG', badge: 'PNG', description: 'Формат без потерь с поддержкой прозрачности' },
+                            { value: 'jpeg', label: 'JPEG', badge: 'JPG', description: 'Сжатый формат с наименьшим весом' },
+                            { value: 'webp', label: 'WebP', badge: 'WEBP', description: 'Современный высокоэффективный веб-формат' }
+                        ]}
+                        onChange={handleOutputFormatSelect}
                         disabled={isGeneratingImage || isExecutingChain}
-                        options={availableResolutions}
+                        minWidth="95px"
                     />
-                </div>
-            )}
+                )}
 
-            {showThinkingMode && (
-                <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Thinking Mode</label>
-                    <CustomSelect
-                        id={`thinking-select-${node.id}`}
-                        value={node.thinkingLevel || 'AUTO'}
-                        onChange={handleThinkingLevelSelect}
+                {/* Quick Toggle: Auto Download (Secondary Theme Color: Light Green for Cyan) */}
+                <EditorTooltip
+                    title={t('node.content.autoDownload') || "Автозагрузка"}
+                    status={{
+                        enabled: !!node.autoDownload,
+                        labelOn: t('common.enabled') || 'ВКЛЮЧЕНО',
+                        labelOff: t('common.disabled') || 'ВЫКЛЮЧЕНО'
+                    }}
+                    description={
+                        t('node.content.autoDownloadTooltip') !== 'node.content.autoDownloadTooltip' && t('node.content.autoDownloadTooltip')
+                            ? t('node.content.autoDownloadTooltip')
+                            : 'Автоматически скачивать каждое сгенерированное изображение на устройство (в папку загрузок) сразу после завершения генерации.'
+                    }
+                >
+                    <button
+                        type="button"
+                        onClick={handleToggleAutoDownload}
                         disabled={isGeneratingImage || isExecutingChain}
-                        options={thinkingLevelOptions}
-                    />
-                </div>
-            )}
+                        className={`group h-[36px] px-2.5 flex-shrink-0 flex items-center gap-1.5 rounded-md cursor-pointer transition-all border outline-none ${
+                            (isGeneratingImage || isExecutingChain) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        style={node.autoDownload ? {
+                            backgroundColor: `${secondaryThemeColor}1a`,
+                            borderColor: `${secondaryThemeColor}99`,
+                            boxShadow: `0 0 10px ${secondaryThemeColor}33`
+                        } : {
+                            backgroundColor: 'rgba(31, 41, 55, 0.6)',
+                            borderColor: 'rgba(55, 65, 81, 0.8)'
+                        }}
+                        aria-label="Auto Download"
+                    >
+                        <Download 
+                            className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${
+                                node.autoDownload ? 'text-gray-200' : 'text-gray-400 group-hover:text-gray-300'
+                            }`}
+                            strokeWidth={2}
+                        />
+                        <div 
+                            className="w-7 h-3.5 rounded-full relative transition-colors duration-200 flex-shrink-0"
+                            style={{
+                                backgroundColor: node.autoDownload ? secondaryThemeColor : '#4b5563'
+                            }}
+                        >
+                            <div 
+                                className={`absolute top-0.5 bottom-0.5 w-2.5 h-2.5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                                    node.autoDownload ? 'translate-x-[14px]' : 'translate-x-[2px]'
+                                }`}
+                            />
+                        </div>
+                    </button>
+                </EditorTooltip>
 
-            {showSearchGrounding && (
-                <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Search Grounding</label>
-                    <CustomSelect
-                        id={`grounding-select-${node.id}`}
-                        value={node.searchGrounding || 'none'}
-                        onChange={handleSearchGroundingSelect}
+                {/* Quick Toggle: Autosave to Disk (Primary Theme Color: Cyan for Cyan) */}
+                <EditorTooltip
+                    title={t('node.content.autoSaveDisk') !== 'node.content.autoSaveDisk' && t('node.content.autoSaveDisk') ? t('node.content.autoSaveDisk') : "Автосохранение на диск"}
+                    status={{
+                        enabled: isAutoSaveOn,
+                        labelOn: t('common.enabled') || 'ВКЛЮЧЕНО',
+                        labelOff: t('common.disabled') || 'ВЫКЛЮЧЕНО'
+                    }}
+                    description={
+                        t('node.content.autoSaveDiskTooltip') !== 'node.content.autoSaveDiskTooltip' && t('node.content.autoSaveDiskTooltip')
+                            ? t('node.content.autoSaveDiskTooltip')
+                            : 'Автоматически сохранять полноразмерное сгенерированное изображение на локальный диск в галерею и хранилище проекта при получении результата.'
+                    }
+                >
+                    <button
+                        type="button"
+                        onClick={handleToggleAutoSave}
                         disabled={isGeneratingImage || isExecutingChain}
-                        options={searchGroundingOptions}
-                    />
-                </div>
-            )}
-
-            {isAspectRatioEnabled && (
-                <div className="mb-2">
-                    <label htmlFor={`aspect-ratio-${node.id}`} className={`block text-xs font-medium mb-1 transition-colors ${!isAspectRatioEnabled ? 'text-gray-600' : 'text-gray-400'}`}>
-                        {t('node.content.aspectRatio')}
-                    </label>
-                    <CustomSelect
-                        id={`aspect-ratio-${node.id}`}
-                        value={node.aspectRatio || '1:1'}
-                        onChange={(value) => onAspectRatioChange(node.id, value)}
-                        disabled={isGeneratingImage || !isAspectRatioEnabled || isExecutingChain}
-                        title={!isAspectRatioEnabled ? t('node.content.aspectRatioNotSupportedFast') : t('node.content.aspectRatioHelp')}
-                        options={availableAspectRatios.map(ratio => ({ value: ratio, label: ratio }))}
-                    />
-                </div>
-            )}
-            <div className="mb-2">
-                <CustomCheckbox
-                    id={`auto-download-toggle-${node.id}`}
-                    checked={!!node.autoDownload}
-                    onChange={(checked) => onAutoDownloadChange(node.id, checked)}
-                    disabled={isGeneratingImage || isExecutingChain}
-                    label={t('node.content.autoDownload')}
-                />
+                        className={`group h-[36px] px-2.5 flex-shrink-0 flex items-center gap-1.5 rounded-md cursor-pointer transition-all border outline-none ${
+                            (isGeneratingImage || isExecutingChain) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        style={isAutoSaveOn ? {
+                            backgroundColor: `${themeColor}1a`,
+                            borderColor: `${themeColor}99`,
+                            boxShadow: `0 0 10px ${themeColor}33`
+                        } : {
+                            backgroundColor: 'rgba(31, 41, 55, 0.6)',
+                            borderColor: 'rgba(55, 65, 81, 0.8)'
+                        }}
+                        aria-label="Autosave to Disk"
+                    >
+                        <HardDrive 
+                            className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${
+                                isAutoSaveOn ? 'text-gray-200' : 'text-gray-400 group-hover:text-gray-300'
+                            }`}
+                            strokeWidth={2}
+                        />
+                        <div 
+                            className="w-7 h-3.5 rounded-full relative transition-colors duration-200 flex-shrink-0"
+                            style={{
+                                backgroundColor: isAutoSaveOn ? themeColor : '#4b5563'
+                            }}
+                        >
+                            <div 
+                                className={`absolute top-0.5 bottom-0.5 w-2.5 h-2.5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                                    isAutoSaveOn ? 'translate-x-[14px]' : 'translate-x-[2px]'
+                                }`}
+                            />
+                        </div>
+                    </button>
+                </EditorTooltip>
             </div>
 
             {/* Batch API Synchronized Mode Toggle & Status Indicator */}
@@ -511,7 +726,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                         setIsBatchMode(!isBatchMode);
                     }
                 }}
-                className={`mb-2 p-2 rounded-md border cursor-pointer select-none transition-all ${
+                className={`mb-2.5 p-2 rounded-md border cursor-pointer select-none transition-all ${
                     isBatchMode 
                         ? 'bg-gray-900 border-gray-700 text-gray-200' 
                         : 'bg-gray-800/40 border-gray-700/50 hover:border-gray-600 text-gray-300'
@@ -537,7 +752,8 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                 </div>
             </div>
             
-            <div className="flex space-x-2 h-10">
+            {/* Action Buttons Row (Generate & Chain Execution) */}
+            <div className="flex space-x-2 h-10 mt-auto">
                 <TutorialTooltip 
                     content={t('tutorial.step3')} 
                     isActive={!!isTutorialActive} 
@@ -552,7 +768,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                                     context.handleStopImage(node.id);
                                 }
                             }}
-                            className="w-full h-full px-4 font-bold text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors duration-200 flex items-center justify-center gap-1.5"
+                            className="w-full h-full px-4 font-bold text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer"
                             title={t('node.action.stop') || 'Stop'}
                         >
                             <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -565,7 +781,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                         <button
                             onClick={handleGenerateClick}
                             disabled={isExecutingChain || !!transformingRatio || isForming || !!activeBatchJob}
-                            className={`w-full h-full px-4 font-bold text-white rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                            className={`w-full h-full px-4 font-bold text-white rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
                                 isBatchMode 
                                     ? 'bg-accent-secondary hover:bg-accent-secondary-hover active:bg-accent-secondary shadow-md' 
                                     : 'bg-accent hover:bg-accent-hover'
@@ -593,7 +809,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                 {isExecutingChain ? (
                     <button
                         onClick={onStopChainExecution}
-                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center font-bold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors duration-200"
+                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center font-bold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors duration-200 cursor-pointer"
                         title="Остановить выполнение"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -604,7 +820,7 @@ export const ImageOutputNode: React.FC<NodeContentProps> = ({
                     <button
                         onClick={() => onExecuteChain(node.id)}
                         disabled={isGeneratingImage || isExecutingChain || !!transformingRatio}
-                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center font-bold text-white bg-accent-secondary rounded-md hover:bg-accent-secondary-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
+                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center font-bold text-white bg-accent-secondary rounded-md hover:bg-accent-secondary-hover disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200 cursor-pointer"
                         title={t('node.action.executeChainTitle')}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

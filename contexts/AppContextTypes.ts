@@ -332,6 +332,7 @@ export type AppContextType =
   batchJobs: BatchJobRecord[];
   setBatchJobs?: React.Dispatch<React.SetStateAction<BatchJobRecord[]>> | ((updater: (prev: BatchJobRecord[]) => BatchJobRecord[]) => void);
   handleAutoDownloadChange?: (nodeId: string, enabled: boolean) => void;
+  handleAutoSaveImagesChange?: (nodeId: string, enabled: boolean) => void;
   formingBatchNodeIds: string[];
   isFormingBatch: (nodeId: string) => boolean;
   getNodeActiveBatchJob: (nodeId: string) => BatchJobRecord | undefined;

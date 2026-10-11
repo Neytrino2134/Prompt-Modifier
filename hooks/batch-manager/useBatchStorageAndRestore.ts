@@ -189,7 +189,7 @@ export const useBatchStorageAndRestore = ({
         };
         const saveInsertedImage = (item: BatchJobItem, url: string, frame: number, prompt: string) => {
             const enabled = isEditor ? (targetState.autoSaveImages ?? true)
-                : targetNode?.type === NodeType.IMAGE_OUTPUT && !!targetNode.autoDownload;
+                : targetNode?.type === NodeType.IMAGE_OUTPUT && (targetNode.autoSaveImages !== undefined ? !!targetNode.autoSaveImages : !!targetNode.autoDownload);
             if (!shouldRestore || !enabled || item.savedToDisk) return;
             try {
                 const link = document.createElement('a');

@@ -936,7 +936,6 @@ export const ThreeDGenerationNode: React.FC<NodeContentProps> = memo(({
                         addToast(`✓ 3D Модель "${item.packName}" скачана!`, 'success');
                     }
                 },
-                successSoundHandled: true,
                 onBatchFinished: (finalJob) => {
                     setIsGenerating(false);
                     updateState({

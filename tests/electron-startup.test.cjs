@@ -88,3 +88,76 @@ test('startup waits for Electron readiness before installing downloads and creat
   assert.equal(sent[0][0], 'app:download-complete');
   assert.equal(sent[0][1].path, savePath);
 });
+
+test('tray menu includes "Выйти без сохранения" item that quits without triggering session save', () => {
+  let builtTemplate = null;
+  let savedWindow = null;
+  let closed = false;
+  let quitCalled = false;
+  let isQuitting = false;
+  let saveAndExitPending = true;
+  const sent = [];
+
+  const mainWindow = {
+    isDestroyed: () => false,
+    isVisible: () => true,
+    isMinimized: () => false,
+    isAlwaysOnTop: () => false,
+    close: () => { closed = true; },
+    webContents: { send: (...args) => sent.push(args) }
+  };
+
+  const electron = {
+    app: { getPath: () => __dirname, quit: () => { quitCalled = true; } },
+    Tray: class {
+      isDestroyed() { return false; }
+      setContextMenu() {}
+      setToolTip() {}
+      on() {}
+    },
+    Menu: {
+      buildFromTemplate(template) {
+        builtTemplate = template;
+        return template;
+      }
+    },
+    shell: {},
+    BrowserWindow: {},
+    ipcMain: { on() {}, handle() {} },
+    Notification: {}
+  };
+
+  const trayManager = load('electron/trayManager.js', {
+    electron,
+    'node:path': path,
+    'node:fs': fs,
+    './config.js': { getTrayIcon: () => 'icon.png' },
+    './desktopNotifications.js': { showDesktopNotification() {} },
+    './sessionManager.js': { getDocumentsAutosaveDir: () => __dirname },
+    './windowState.js': { saveWindowStateSync: (win) => { savedWindow = win; } }
+  });
+
+  const ctx = {
+    getMainWindow: () => mainWindow,
+    bringWindowToFront() {},
+    createWindow() {},
+    saveAndExitPending,
+    setSaveAndExitPending: (val) => { saveAndExitPending = val; },
+    setIsQuitting: (val) => { isQuitting = val; }
+  };
+
+  trayManager.createTray(ctx);
+  assert.ok(Array.isArray(builtTemplate), 'tray menu template should be built');
+
+  const exitWithoutSaveItem = builtTemplate.find(item => item.label === 'Выйти без сохранения');
+  assert.ok(exitWithoutSaveItem, 'tray menu should contain "Выйти без сохранения"');
+
+  exitWithoutSaveItem.click();
+  assert.equal(saveAndExitPending, false);
+  assert.equal(isQuitting, true);
+  assert.equal(savedWindow, mainWindow);
+  assert.equal(closed, true);
+  assert.equal(quitCalled, false);
+  assert.equal(sent.length, 0);
+});
+

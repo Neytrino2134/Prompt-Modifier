@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { getTrayIcon } from './config.js';
 import { showDesktopNotification } from './desktopNotifications.js';
 import { getDocumentsAutosaveDir } from './sessionManager.js';
+import { saveWindowStateSync } from './windowState.js';
 
 let tray = null;
 const getTraySettingsFilePath = () => path.join(app.getPath('userData'), 'tray_settings.json');
@@ -358,6 +359,19 @@ export function updateTrayContextMenu({
           mainWindow.webContents.send('app:save-and-exit');
         } else {
           setIsQuitting(true);
+          app.quit();
+        }
+      }
+    },
+    {
+      label: 'Выйти без сохранения',
+      click: () => {
+        setSaveAndExitPending(false);
+        setIsQuitting(true);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          saveWindowStateSync(mainWindow);
+          mainWindow.close();
+        } else {
           app.quit();
         }
       }

@@ -531,6 +531,7 @@ export interface NodeContentProps {
   onOutputFormatChange?: (nodeId: string, outputFormat: string) => void;
   onSizeChange?: (nodeId: string, size: string) => void;
   onAutoDownloadChange: (nodeId: string, enabled: boolean) => void;
+  onAutoSaveImagesChange?: (nodeId: string, enabled: boolean) => void;
   onCustomPromptChange?: (nodeId: string, prompt: string) => void;
   onSendMessage: (nodeId: string) => void;
   isChatting: boolean;

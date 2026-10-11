@@ -567,6 +567,7 @@ export const DetachedNodeMiniApp: React.FC<DetachedNodeMiniAppProps> = ({ nodeId
             onOutputFormatChange: () => {},
             onSizeChange: () => {},
             onAutoDownloadChange: () => {},
+            onAutoSaveImagesChange: () => {},
             onCustomPromptChange: () => {},
             onSendMessage: context?.handleSendMessage || (() => {}),
             isChatting: context?.isChatting === nodeId,

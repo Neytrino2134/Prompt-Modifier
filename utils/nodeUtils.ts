@@ -435,11 +435,11 @@ export const getMinNodeSize = (nodeType: NodeType, nodeOrValue?: any): { minWidt
         case NodeType.POSE_CREATOR: return { minWidth: 600, minHeight: 800 };
         case NodeType.VIDEO_EDITOR: return { minWidth: 920, minHeight: 640 };
         case NodeType.TEXT_INPUT: return { minWidth: 460, minHeight: 300 };
-        case NodeType.IMAGE_INPUT: return { minWidth: 600, minHeight: 940 };
+        case NodeType.IMAGE_INPUT: return { minWidth: 680, minHeight: 940 };
         case NodeType.PROMPT_PROCESSOR: return { minWidth: 540, minHeight: 480 };
         case NodeType.PROMPT_SANITIZER: return { minWidth: 460, minHeight: 280 };
         case NodeType.VIDEO_PROMPT_PROCESSOR: return { minWidth: 460, minHeight: 410 };
-        case NodeType.IMAGE_OUTPUT: return { minWidth: 520, minHeight: 700 };
+        case NodeType.IMAGE_OUTPUT: return { minWidth: 680, minHeight: 940 };
         case NodeType.VIDEO_OUTPUT: return { minWidth: 460, minHeight: 680 };
         case NodeType.PROMPT_ANALYZER: return { minWidth: 460, minHeight: 1000 };
         case NodeType.CHARACTER_ANALYZER: return { minWidth: 460, minHeight: 500 };

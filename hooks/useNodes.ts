@@ -916,6 +916,22 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         }));
     };
 
+    const handleAutoSaveImagesChange = (nodeId: string, enabled: boolean) => {
+        setNodes(nds => nds.map(n => {
+            if (n.id === nodeId) {
+                let updatedValue = n.value;
+                if (n.type === NodeType.IMAGE_EDITOR) {
+                    try {
+                        const parsed = JSON.parse(n.value || '{}');
+                        updatedValue = JSON.stringify({ ...parsed, autoSaveImages: enabled });
+                    } catch {}
+                }
+                return { ...n, autoSaveImages: enabled, value: updatedValue };
+            }
+            return n;
+        }));
+    };
+
     const handleDurationChange = (nodeId: string, duration: string) => {
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, duration } : n));
     };
@@ -994,6 +1010,7 @@ export const useNodes = (initialNodes: Node[], initialCounter: number, addToast:
         handleSizeChange,
         handleCustomPromptChange,
         handleAutoDownloadChange,
+        handleAutoSaveImagesChange,
         handleDurationChange,
         handleUseBatchChange,
         handleVideoModeChange,
