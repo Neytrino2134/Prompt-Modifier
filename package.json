@@ -21,7 +21,7 @@
     "test:performance": "node --test tests/performance-memory.test.cjs",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "electron:dev": "node scripts/generate-icons.js && concurrently -k \"npm run dev\" \"wait-on tcp:5173 && electron .\"",
+    "electron:dev": "node scripts/generate-icons.js && concurrently -k \"npm run dev\" \"wait-on tcp:3000 && electron .\"",
     "electron:build": "node scripts/generate-icons.js && vite build && electron-builder"
   },
   "dependencies": {
@@ -82,5 +82,11 @@
       "target": "dmg",
       "icon": "resources/icon.icns"
     }
+  },
+  "allowScripts": {
+    "electron@28.3.3": true,
+    "esbuild": true,
+    "protobufjs": true,
+    "@google/genai@2.22.0": true
   }
 }

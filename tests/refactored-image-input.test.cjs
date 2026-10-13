@@ -156,6 +156,63 @@ test('Image Input frame dimensions stay in pixels and edited images update maste
     assert.equal(input.writes.at(-1).frameImages[0], 'thumb:crop:edited-original');
 });
 
+test('ImageFramesOverlay shows only frame number on inactive frames and renders action toolbar only on the active frame', () => {
+    const runner = harness();
+    const load = modules(runner.react, {
+        'utils/imageUtils': {
+            setupImageDragData() {},
+            getEffectiveDividers: count => Array.from({ length: count + 1 }, (_, i) => i / count),
+            getIntervalsFromDividers: divs => divs.slice(0, -1).map((start, i) => ({ start, end: divs[i + 1] }))
+        }
+    });
+    const { ImageFramesOverlay } = load('components/nodes/image-input/ImageFramesOverlay.tsx');
+    const frames = [
+        { id: 'f1', rect: { x: 0.1, y: 0.1, width: 0.3, height: 0.3 }, cols: 2, rows: 2 },
+        { id: 'f2', rect: { x: 0.5, y: 0.5, width: 0.3, height: 0.3 }, cols: 3, rows: 3 }
+    ];
+    const tree = runner.render(() => ImageFramesOverlay({
+        framesConfig: { frames, selectedFrameIndex: 0 },
+        onChangeFramesConfig() {},
+        imageNaturalSize: { width: 1000, height: 1000 },
+        selectedFrameIndex: 0
+    }));
+
+    function collectTexts(node, out = []) {
+        if (!node) return out;
+        if (typeof node === 'string' || typeof node === 'number') {
+            out.push(String(node));
+            return out;
+        }
+        if (Array.isArray(node)) {
+            node.forEach(c => collectTexts(c, out));
+            return out;
+        }
+        if (node.props?.children) {
+            collectTexts(node.props.children, out);
+        }
+        return out;
+    }
+
+    const frameNodes = tree.props.children.flat(Infinity).filter(Boolean);
+    assert.equal(frameNodes.length, 2);
+
+    const activeTexts = collectTexts(frameNodes[0]).join('');
+    const inactiveTexts = collectTexts(frameNodes[1]).join('');
+
+    // Active frame (#1) has full badge and action toolbar
+    assert.ok(activeTexts.includes('#1'));
+    assert.ok(activeTexts.includes('2×2'));
+    assert.ok(activeTexts.includes('300×300'));
+    assert.ok(activeTexts.includes('✕'));
+
+    // Inactive frame (#2) shows only its frame number (#2) in header and no action toolbar
+    assert.ok(inactiveTexts.includes('#2'));
+    assert.ok(!inactiveTexts.includes('3×3'));
+    assert.ok(!inactiveTexts.includes('300×300'));
+    assert.ok(!inactiveTexts.includes('✕'));
+});
+
+
 test('applying an individual batch grid to all files preserves global row and column counts', () => {
     const bounds = { x: 0.2, y: 0.2, width: 0.5, height: 0.5 };
     const input = imageInput({ mode: 'batch', grid: { cols: 4, rows: 3, bounds }, batchConfig: { subMode: 'grid', individualGridSettings: true },

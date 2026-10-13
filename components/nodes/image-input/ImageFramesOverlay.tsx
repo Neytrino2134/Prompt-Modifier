@@ -608,7 +608,7 @@ export const ImageFramesOverlay: React.FC<ImageFramesOverlayProps> = ({
 
                         {/* Top Floating Controls Bar */}
                         <div
-                            className={`absolute ${isNearTop ? 'top-1.5' : '-top-7'} left-1 flex items-center gap-1 z-50 pointer-events-auto flex-nowrap`}
+                            className={`absolute ${isNearTop ? 'top-1.5' : '-top-7'} left-1 flex items-center gap-1 ${isSelected ? 'z-50' : 'z-30'} pointer-events-none flex-nowrap`}
                             style={{
                                 transform: 'translateZ(0)',
                                 backfaceVisibility: 'hidden',
@@ -623,140 +623,142 @@ export const ImageFramesOverlay: React.FC<ImageFramesOverlayProps> = ({
                                     e.stopPropagation();
                                     if (onSelectFrame) onSelectFrame(idx);
                                 }}
-                                className={`h-[22px] text-[10px] font-mono font-bold px-1.5 rounded shadow-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors ${
+                                className={`h-[22px] text-[10px] font-mono font-bold px-1.5 rounded shadow-md flex items-center gap-1.5 whitespace-nowrap cursor-pointer pointer-events-auto transition-colors ${
                                     isSelected
                                         ? 'bg-[#09101b] text-cyan-200 border border-cyan-400 ring-1 ring-cyan-400/60'
-                                        : 'bg-[#0a0f18] text-gray-300 border border-gray-700 hover:border-cyan-400'
+                                        : 'bg-[#0a0f18]/90 text-gray-300 border border-gray-700 hover:border-cyan-400'
                                 }`}
                                 title={`Рамка #${idx + 1} (Сетка ${cols}×${rows} = ${cols * rows} ассетов)`}
                             >
                                 <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-cyan-400 animate-pulse' : 'bg-indigo-400'}`} />
                                 <span className="font-semibold text-white">#{idx + 1}</span>
-                                <span className="text-cyan-300 font-bold bg-cyan-950/90 px-1 py-0.5 rounded border border-cyan-500/60 leading-none text-[9px]">
-                                    {cols}×{rows}
-                                </span>
-                                {pixelWidth && pixelHeight ? (
-                                    <span className="text-gray-300">{pixelWidth}×{pixelHeight}</span>
-                                ) : (
-                                    <span className="text-gray-400">{Math.round(widthPercent)}%×{Math.round(heightPercent)}%</span>
+                                {isSelected && (
+                                    <>
+                                        <span className="text-cyan-300 font-bold bg-cyan-950/90 px-1 py-0.5 rounded border border-cyan-500/60 leading-none text-[9px]">
+                                            {cols}×{rows}
+                                        </span>
+                                        {pixelWidth && pixelHeight ? (
+                                            <span className="text-gray-300">{pixelWidth}×{pixelHeight}</span>
+                                        ) : (
+                                            <span className="text-gray-400">{Math.round(widthPercent)}%×{Math.round(heightPercent)}%</span>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
-                            {/* Action buttons (Visible on selected frame or on frame hover) */}
-                            <div className={`flex items-center gap-1 transition-opacity duration-150 ${
-                                isSelected
-                                    ? 'opacity-100 pointer-events-auto'
-                                    : 'opacity-0 pointer-events-none group-hover/frame:opacity-100 group-hover/frame:pointer-events-auto'
-                            }`}>
-                                {/* Floating Grid Split Controls (+/- Horizontal & Vertical) */}
-                                <div
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-1"
-                                >
-                                    {/* Horizontal Split (Cols -/+) */}
-                                    <div className="h-[22px] flex items-center bg-[#0d1624] border border-cyan-800/80 rounded overflow-hidden text-[10px] font-mono shadow-sm">
-                                        <span className="px-1.5 text-cyan-400 font-bold select-none text-[9px] flex items-center justify-center" title="Разделение по горизонтали (столбцы X)">
-                                            ↔
-                                        </span>
-                                        <button
-                                            type="button"
-                                            disabled={cols <= 1}
-                                            onClick={(e) => handleUpdateFrameGrid(idx, cols - 1, rows, e)}
-                                            className="w-6 h-full bg-[#142032] hover:bg-cyan-600 active:bg-cyan-700 disabled:opacity-30 disabled:hover:bg-[#142032] text-cyan-200 hover:text-white flex items-center justify-center font-bold text-xs transition-colors cursor-pointer disabled:cursor-not-allowed leading-none select-none"
-                                            title="Уменьшить деление по горизонтали (X - 1)"
-                                        >
-                                            -
-                                        </button>
-                                        <span className={`w-4 text-center font-bold leading-none select-none ${cols > 1 ? 'text-cyan-300' : 'text-gray-400'}`}>
-                                            {cols}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            disabled={cols >= 20}
-                                            onClick={(e) => handleUpdateFrameGrid(idx, cols + 1, rows, e)}
-                                            className="w-6 h-full bg-[#142032] hover:bg-cyan-600 active:bg-cyan-700 disabled:opacity-30 disabled:hover:bg-[#142032] text-cyan-200 hover:text-white flex items-center justify-center font-bold text-xs transition-colors cursor-pointer disabled:cursor-not-allowed leading-none select-none"
-                                            title="Разделить рамку по горизонтали на сетку (X + 1)"
-                                        >
-                                            +
-                                        </button>
+                            {/* Action buttons (Visible ONLY on selected active frame) */}
+                            {isSelected && (
+                                <div className="flex items-center gap-1 pointer-events-auto">
+                                    {/* Floating Grid Split Controls (+/- Horizontal & Vertical) */}
+                                    <div
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-1"
+                                    >
+                                        {/* Horizontal Split (Cols -/+) */}
+                                        <div className="h-[22px] flex items-center bg-[#0d1624] border border-cyan-800/80 rounded overflow-hidden text-[10px] font-mono shadow-sm">
+                                            <span className="px-1.5 text-cyan-400 font-bold select-none text-[9px] flex items-center justify-center" title="Разделение по горизонтали (столбцы X)">
+                                                ↔
+                                            </span>
+                                            <button
+                                                type="button"
+                                                disabled={cols <= 1}
+                                                onClick={(e) => handleUpdateFrameGrid(idx, cols - 1, rows, e)}
+                                                className="w-6 h-full bg-[#142032] hover:bg-cyan-600 active:bg-cyan-700 disabled:opacity-30 disabled:hover:bg-[#142032] text-cyan-200 hover:text-white flex items-center justify-center font-bold text-xs transition-colors cursor-pointer disabled:cursor-not-allowed leading-none select-none"
+                                                title="Уменьшить деление по горизонтали (X - 1)"
+                                            >
+                                                -
+                                            </button>
+                                            <span className={`w-4 text-center font-bold leading-none select-none ${cols > 1 ? 'text-cyan-300' : 'text-gray-400'}`}>
+                                                {cols}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                disabled={cols >= 20}
+                                                onClick={(e) => handleUpdateFrameGrid(idx, cols + 1, rows, e)}
+                                                className="w-6 h-full bg-[#142032] hover:bg-cyan-600 active:bg-cyan-700 disabled:opacity-30 disabled:hover:bg-[#142032] text-cyan-200 hover:text-white flex items-center justify-center font-bold text-xs transition-colors cursor-pointer disabled:cursor-not-allowed leading-none select-none"
+                                                title="Разделить рамку по горизонтали на сетку (X + 1)"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+
+                                        {/* Vertical Split (Rows -/+) */}
+                                        <div className="h-[22px] flex items-center bg-[#0d1624] border border-cyan-800/80 rounded overflow-hidden text-[10px] font-mono shadow-sm">
+                                            <span className="px-1.5 text-cyan-400 font-bold select-none text-[9px] flex items-center justify-center" title="Разделение по вертикали (строки Y)">
+                                                ↕
+                                            </span>
+                                            <button
+                                                type="button"
+                                                disabled={rows <= 1}
+                                                onClick={(e) => handleUpdateFrameGrid(idx, cols, rows - 1, e)}
+                                                className="w-6 h-full bg-[#142032] hover:bg-cyan-600 active:bg-cyan-700 disabled:opacity-30 disabled:hover:bg-[#142032] text-cyan-200 hover:text-white flex items-center justify-center font-bold text-xs transition-colors cursor-pointer disabled:cursor-not-allowed leading-none select-none"
+                                                title="Уменьшить деление по вертикали (Y - 1)"
+                                            >
+                                                -
+                                            </button>
+                                            <span className={`w-4 text-center font-bold leading-none select-none ${rows > 1 ? 'text-cyan-300' : 'text-gray-400'}`}>
+                                                {rows}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                disabled={rows >= 20}
+                                                onClick={(e) => handleUpdateFrameGrid(idx, cols, rows + 1, e)}
+                                                className="w-6 h-full bg-[#142032] hover:bg-cyan-600 active:bg-cyan-700 disabled:opacity-30 disabled:hover:bg-[#142032] text-cyan-200 hover:text-white flex items-center justify-center font-bold text-xs transition-colors cursor-pointer disabled:cursor-not-allowed leading-none select-none"
+                                                title="Разделить рамку по вертикали на сетку (Y + 1)"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+
+                                        {/* Reset custom dividers button if custom lines dragged */}
+                                        {hasSubGrid && hasCustomDividers && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleResetFrameDividers(idx, e)}
+                                                className="h-[22px] px-1.5 flex items-center justify-center bg-amber-950 hover:bg-amber-700 text-amber-200 rounded border border-amber-600/70 text-[9px] font-mono whitespace-nowrap transition-colors shadow-sm leading-none"
+                                                title="Сбросить линии разделения к равномерным"
+                                            >
+                                                Сброс
+                                            </button>
+                                        )}
+
+                                        {/* Reset button or Quick preset for this frame */}
+                                        {hasSubGrid && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleUpdateFrameGrid(idx, 1, 1, e)}
+                                                className="h-[22px] px-1.5 flex items-center justify-center bg-cyan-950 hover:bg-cyan-700 active:bg-cyan-800 text-cyan-200 hover:text-white rounded border border-cyan-600/60 text-[9px] font-mono font-bold whitespace-nowrap transition-colors shadow-sm leading-none"
+                                                title="Сбросить сетку рамки к 1×1 (цельный кадр)"
+                                            >
+                                                1×1
+                                            </button>
+                                        )}
+
+                                        {/* Quick 2x2 preset button if 1x1 */}
+                                        {!hasSubGrid && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleUpdateFrameGrid(idx, 2, 2, e)}
+                                                className="h-[22px] px-1.5 flex items-center justify-center bg-[#0e1c2e] hover:bg-cyan-700 text-cyan-300 hover:text-white rounded border border-cyan-700/60 text-[9px] font-mono whitespace-nowrap transition-colors shadow-sm leading-none"
+                                                title="Быстро разделить рамку на сетку 2×2 (4 ассета)"
+                                            >
+                                                2×2
+                                            </button>
+                                        )}
                                     </div>
 
-                                    {/* Vertical Split (Rows -/+) */}
-                                    <div className="h-[22px] flex items-center bg-[#0d1624] border border-cyan-800/80 rounded overflow-hidden text-[10px] font-mono shadow-sm">
-                                        <span className="px-1.5 text-cyan-400 font-bold select-none text-[9px] flex items-center justify-center" title="Разделение по вертикали (строки Y)">
-                                            ↕
-                                        </span>
-                                        <button
-                                            type="button"
-                                            disabled={rows <= 1}
-                                            onClick={(e) => handleUpdateFrameGrid(idx, cols, rows - 1, e)}
-                                            className="w-6 h-full bg-[#142032] hover:bg-cyan-600 active:bg-cyan-700 disabled:opacity-30 disabled:hover:bg-[#142032] text-cyan-200 hover:text-white flex items-center justify-center font-bold text-xs transition-colors cursor-pointer disabled:cursor-not-allowed leading-none select-none"
-                                            title="Уменьшить деление по вертикали (Y - 1)"
-                                        >
-                                            -
-                                        </button>
-                                        <span className={`w-4 text-center font-bold leading-none select-none ${rows > 1 ? 'text-cyan-300' : 'text-gray-400'}`}>
-                                            {rows}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            disabled={rows >= 20}
-                                            onClick={(e) => handleUpdateFrameGrid(idx, cols, rows + 1, e)}
-                                            className="w-6 h-full bg-[#142032] hover:bg-cyan-600 active:bg-cyan-700 disabled:opacity-30 disabled:hover:bg-[#142032] text-cyan-200 hover:text-white flex items-center justify-center font-bold text-xs transition-colors cursor-pointer disabled:cursor-not-allowed leading-none select-none"
-                                            title="Разделить рамку по вертикали на сетку (Y + 1)"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-
-                                    {/* Reset custom dividers button if custom lines dragged */}
-                                    {hasSubGrid && hasCustomDividers && (
-                                        <button
-                                            type="button"
-                                            onClick={(e) => handleResetFrameDividers(idx, e)}
-                                            className="h-[22px] px-1.5 flex items-center justify-center bg-amber-950 hover:bg-amber-700 text-amber-200 rounded border border-amber-600/70 text-[9px] font-mono whitespace-nowrap transition-colors shadow-sm leading-none"
-                                            title="Сбросить линии разделения к равномерным"
-                                        >
-                                            Сброс
-                                        </button>
-                                    )}
-
-                                    {/* Reset button or Quick preset for this frame */}
-                                    {hasSubGrid && (
-                                        <button
-                                            type="button"
-                                            onClick={(e) => handleUpdateFrameGrid(idx, 1, 1, e)}
-                                            className="h-[22px] px-1.5 flex items-center justify-center bg-cyan-950 hover:bg-cyan-700 active:bg-cyan-800 text-cyan-200 hover:text-white rounded border border-cyan-600/60 text-[9px] font-mono font-bold whitespace-nowrap transition-colors shadow-sm leading-none"
-                                            title="Сбросить сетку рамки к 1×1 (цельный кадр)"
-                                        >
-                                            1×1
-                                        </button>
-                                    )}
-
-                                    {/* Quick 2x2 preset button if 1x1 */}
-                                    {!hasSubGrid && (
-                                        <button
-                                            type="button"
-                                            onClick={(e) => handleUpdateFrameGrid(idx, 2, 2, e)}
-                                            className="h-[22px] px-1.5 flex items-center justify-center bg-[#0e1c2e] hover:bg-cyan-700 text-cyan-300 hover:text-white rounded border border-cyan-700/60 text-[9px] font-mono whitespace-nowrap transition-colors shadow-sm leading-none"
-                                            title="Быстро разделить рамку на сетку 2×2 (4 ассета)"
-                                        >
-                                            2×2
-                                        </button>
-                                    )}
+                                    {/* Delete Frame Button */}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => handleDeleteFrame(idx, e)}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        className="h-[22px] w-[22px] bg-red-950 hover:bg-red-600 active:bg-red-700 text-red-200 hover:text-white rounded border border-red-700/80 flex items-center justify-center text-[10px] font-bold transition-colors shadow-md leading-none"
+                                        title="Удалить эту рамку"
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
-
-                                {/* Delete Frame Button */}
-                                <button
-                                    type="button"
-                                    onClick={(e) => handleDeleteFrame(idx, e)}
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    className="h-[22px] w-[22px] bg-red-950 hover:bg-red-600 active:bg-red-700 text-red-200 hover:text-white rounded border border-red-700/80 flex items-center justify-center text-[10px] font-bold transition-colors shadow-md leading-none"
-                                    title="Удалить эту рамку"
-                                >
-                                    ✕
-                                </button>
-                            </div>
+                            )}
                         </div>
 
                         {/* Resizer Handles (Only visible on selected frame or hover) */}
